@@ -39,6 +39,19 @@ public class Bullet {
         this.hasSplit = false;
     }
     
+    // Reset bullet for pooling
+    public void reset(double x, double y, double vx, double vy, BulletType type) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.type = type;
+        this.warningTime = WARNING_DURATION;
+        this.age = 0;
+        this.spiralAngle = 0;
+        this.hasSplit = false;
+    }
+    
     public void update() {
         update(null, 0, 0, 1.0);
     }
@@ -135,146 +148,82 @@ public class Bullet {
         }
         
         // Calculate rotation angle based on velocity
-        double angle = Math.atan2(vy, vx);
-        
-        // Type-specific appearance
+        // Type-specific appearance - vibrant colored orbs with better contrast
         int size = SIZE;
-        
-        // Draw rotating projectile based on type
-        Graphics2D g2d = (Graphics2D) g.create();
-        g2d.translate(x, y);
-        g2d.rotate(angle);
+        Color color;
         
         switch (type) {
             case FAST:
-                // Tracer round
                 size = SIZE - 2;
-                g2d.setColor(new Color(235, 203, 139, 120)); // Palette yellow glow
-                g2d.fillOval(-size*2, -size/2, size*3, size);
-                g2d.setColor(new Color(235, 203, 139)); // Palette yellow
-                g2d.fillRect(-size/2, -size/3, size*2, size*2/3);
-                g2d.setColor(new Color(208, 135, 112)); // Palette orange
-                int[] tracerX = {size*3/2, size*2, size*3/2};
-                int[] tracerY = {-size/3, 0, size/3};
-                g2d.fillPolygon(tracerX, tracerY, 3);
+                color = new Color(255, 220, 0); // Bright yellow
                 break;
             case LARGE:
-                // Heavy shell
                 size = SIZE + 4;
-                g2d.setColor(new Color(76, 86, 106)); // Palette dark blue-gray
-                g2d.fillRect(-size, -size/2, size*2, size);
-                g2d.setColor(new Color(191, 97, 106)); // Palette red
-                g2d.fillOval(size/2, -size/2, size, size);
-                g2d.setColor(new Color(94, 129, 172)); // Palette blue
-                g2d.setStroke(new BasicStroke(2));
-                g2d.drawRect(-size, -size/2, size*2, size);
+                color = new Color(0, 100, 255); // Bright blue
                 break;
             case HOMING:
-                // Missile
-                size = SIZE;
-                g2d.setColor(new Color(180, 142, 173)); // Palette purple
-                g2d.fillRect(-size, -size/3, size*2, size*2/3);
-                g2d.setColor(new Color(163, 190, 140)); // Palette light green
-                int[] missileX = {size, size + size/2, size};
-                int[] missileY = {-size/3, 0, size/3};
-                g2d.fillPolygon(missileX, missileY, 3);
-                // Fins
-                g2d.setColor(new Color(143, 188, 187)); // Palette teal
-                int[] finX = {-size, -size, -size/2};
-                int[] finY1 = {-size/3, -size, -size/3};
-                g2d.fillPolygon(finX, finY1, 3);
-                int[] finY2 = {size/3, size, size/3};
-                g2d.fillPolygon(finX, finY2, 3);
-                // Exhaust
-                g2d.setColor(new Color(208, 135, 112, 180)); // Palette orange
-                g2d.fillOval(-size*3/2, -size/4, size, size/2);
+                color = new Color(255, 50, 200); // Hot pink
                 break;
             case BOUNCING:
-                // Explosive round
-                size = SIZE;
-                g2d.setColor(new Color(163, 190, 140)); // Palette green
-                g2d.fillOval(-size/2, -size/2, size, size);
-                g2d.setColor(new Color(163, 190, 140)); // Palette green bright
-                g2d.fillOval(-size/3, -size/3, size*2/3, size*2/3);
-                g2d.setStroke(new BasicStroke(2));
-                g2d.drawOval(-size/2, -size/2, size, size);
+                color = new Color(50, 255, 100); // Bright green
                 break;
             case SPIRAL:
-                // Spinning projectile
-                size = SIZE;
-                g2d.rotate(spiralAngle);
-                g2d.setColor(new Color(136, 192, 208)); // Palette cyan
-                int[] bladeX = {-size/2, size/2, size/2, -size/2};
-                int[] bladeY = {-size/4, -size/8, size/8, size/4};
-                g2d.fillPolygon(bladeX, bladeY, 4);
-                g2d.setColor(new Color(143, 188, 187)); // Palette teal
-                g2d.fillOval(-size/3, -size/3, size*2/3, size*2/3);
+                color = new Color(0, 255, 255); // Bright cyan
                 break;
             case SPLITTING:
-                // Cluster bomb
                 size = SIZE + 4;
-                g2d.setColor(new Color(208, 135, 112)); // Palette orange
-                g2d.fillRect(-size/2, -size/2, size, size);
-                g2d.setColor(new Color(235, 203, 139)); // Palette yellow
-                g2d.fillOval(-size/3, -size/3, size*2/3, size*2/3);
-                if (age > 40 && age < 60) {
-                    g2d.setColor(new Color(235, 203, 139, 150)); // Palette yellow glow
-                    int pulse = (int)(Math.sin(age * 0.5) * 4);
-                    g2d.drawOval(-size/2 - pulse, -size/2 - pulse, size + pulse*2, size + pulse*2);
-                }
+                color = new Color(255, 100, 0); // Bright orange
                 break;
             case ACCELERATING:
-                // Rocket
-                size = SIZE;
-                g2d.setColor(new Color(180, 142, 173)); // Palette purple
-                g2d.fillRect(-size, -size/4, size*2, size/2);
-                g2d.setColor(new Color(191, 97, 106)); // Palette red
-                int[] rocketX = {size, size + size/2, size};
-                int[] rocketY = {-size/4, 0, size/4};
-                g2d.fillPolygon(rocketX, rocketY, 3);
-                // Flame trail
-                g2d.setColor(new Color(208, 135, 112, 180)); // Palette orange
-                g2d.fillOval(-size*2, -size/3, size, size*2/3);
+                color = new Color(200, 50, 255); // Bright purple
                 break;
             case WAVE:
-                // Energy pulse
-                size = SIZE;
-                g2d.setColor(new Color(136, 192, 208, 150)); // Palette cyan glow
-                g2d.fillOval(-size, -size, size*2, size*2);
-                g2d.setColor(new Color(143, 188, 187)); // Palette teal
-                g2d.fillOval(-size/2, -size/2, size, size);
+                color = new Color(0, 255, 200); // Bright teal
                 break;
             default:
-                // Standard cannon round
-                g2d.setColor(new Color(191, 97, 106)); // Palette red
-                g2d.fillRect(-size/2, -size/3, size, size*2/3);
-                g2d.setColor(new Color(208, 135, 112)); // Palette orange
-                g2d.fillOval(0, -size/3, size*2/3, size*2/3);
+                color = new Color(255, 50, 50); // Bright red
                 break;
         }
         
-        g2d.dispose();
+        // Draw vibrant orb with glow effect
+        // Outer glow
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(color);
+        g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
+        
+        // Main orb
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.setColor(color);
+        g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
+        
+        // Bright highlight for depth
+        g.setColor(new Color(255, 255, 255, 200));
+        g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
+        
+        // Inner core (brighter)
+        Color brightCore = new Color(
+            Math.min(255, color.getRed() + 100),
+            Math.min(255, color.getGreen() + 100),
+            Math.min(255, color.getBlue() + 100)
+        );
+        g.setColor(brightCore);
+        g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
     }
     
     public boolean isOffScreen(int width, int height) {
-        // Bouncing bullets never go off screen
-        if (type == BulletType.BOUNCING) return false;
-        return x < -20 || x > width + 20 || y < -20 || y > height + 20;
+        // Check if bullet is completely off screen with generous margin
+        int margin = 100;
+        return x < -margin || x > width + margin || y < -margin || y > height + margin;
     }
     
     public boolean collidesWith(Player player) {
-        // No collision during warning phase
-        if (warningTime > 0) return false;
-        
+        if (warningTime > 0) return false; // Can't hit during warning
         double dx = x - player.getX();
         double dy = y - player.getY();
         double distance = Math.sqrt(dx * dx + dy * dy);
-        
-        int effectiveSize = SIZE;
-        if (type == BulletType.FAST) effectiveSize = SIZE - 2;
-        if (type == BulletType.LARGE || type == BulletType.SPLITTING) effectiveSize = SIZE + 4;
-        
-        return distance < effectiveSize/2 + 2; // Using player's small hitbox (2 pixels)
+        // Larger, more fitting hitbox (70% of sprite size)
+        int actualSize = (type == BulletType.LARGE) ? SIZE + 4 : (type == BulletType.FAST) ? SIZE - 2 : SIZE;
+        return distance < (actualSize * 0.7) + (player.getSize() * 0.7);
     }
     
     public boolean shouldSplit() {

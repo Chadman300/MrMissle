@@ -1,9 +1,14 @@
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 public class Boss {
     private double x, y;
-    private double prevX, prevY; // Previous position for rotation calculation
+    private double rotation; // Current rotation angle
+    private double targetRotation; // Target rotation angle
     private int level;
     private static final int SIZE = 60;
     private int shootTimer;
@@ -13,11 +18,16 @@ public class Boss {
     private int moveTimer; // Timer to pick new target
     private static final double MOVE_SPEED = 1.5; // Smooth movement speed
     
+    private static BufferedImage planeSprite;
+    private static BufferedImage helicopterSprite;
+    private static BufferedImage planeShadow;
+    private static BufferedImage helicopterShadow;
+    
     public Boss(double x, double y, int level) {
         this.x = x;
         this.y = y;
-        this.prevX = x;
-        this.prevY = y;
+        this.rotation = Math.PI / 2; // Start facing down
+        this.targetRotation = Math.PI / 2;
         this.level = level;
         this.shootTimer = 0;
         this.shootInterval = Math.max(20, 60 - level * 5); // Faster shooting at higher levels
@@ -27,6 +37,38 @@ public class Boss {
         this.targetX = x;
         this.targetY = y;
         this.moveTimer = 0;
+        loadSprites();
+    }
+    
+    private void loadSprites() {
+        if (planeSprite == null) {
+            try {
+                planeSprite = ImageIO.read(new File("sprites/plane.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load plane sprite: " + e.getMessage());
+            }
+        }
+        if (helicopterSprite == null) {
+            try {
+                helicopterSprite = ImageIO.read(new File("sprites/helicopter.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load helicopter sprite: " + e.getMessage());
+            }
+        }
+        if (planeShadow == null) {
+            try {
+                planeShadow = ImageIO.read(new File("sprites/plane_shadow.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load plane shadow: " + e.getMessage());
+            }
+        }
+        if (helicopterShadow == null) {
+            try {
+                helicopterShadow = ImageIO.read(new File("sprites/helicopter_shadow.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load helicopter shadow: " + e.getMessage());
+            }
+        }
     }
     
     public void update(List<Bullet> bullets, Player player, int screenWidth, int screenHeight) {
@@ -52,14 +94,22 @@ public class Boss {
         double distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance > MOVE_SPEED) {
-            // Store previous position for rotation
-            prevX = x;
-            prevY = y;
+            // Calculate target rotation based on movement direction
+            targetRotation = Math.atan2(dy, dx);
+            
             // Move towards target at constant speed (scaled by delta time)
             double moveSpeedAdjusted = MOVE_SPEED * (1.0 + level * 0.1) * deltaTime;
             x += (dx / distance) * moveSpeedAdjusted;
             y += (dy / distance) * moveSpeedAdjusted;
         }
+        
+        // Smoothly interpolate rotation angle
+        double rotationDiff = targetRotation - rotation;
+        // Normalize angle difference to [-PI, PI]
+        while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+        while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+        // Smooth rotation (15% per frame, scaled by delta time)
+        rotation += rotationDiff * 0.15 * deltaTime;
         
         // Keep boss within bounds
         x = Math.max(SIZE, Math.min(screenWidth - SIZE, x));
@@ -225,81 +275,57 @@ public class Boss {
     }
     
     public void draw(Graphics2D g) {
-        // Calculate rotation angle based on movement direction
-        double angle = Math.atan2(y - prevY, x - prevX);
-        // If stationary, maintain downward facing (towards player)
-        if (x == prevX && y == prevY) {
-            angle = Math.PI / 2;
-        }
-        
-        // Save original transform
         Graphics2D g2d = (Graphics2D) g.create();
-        g2d.translate(x, y);
-        g2d.rotate(angle);
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
-        // Draw fighter plane
-        int planeLength = SIZE;
-        int wingSpan = SIZE + 20;
+        // Odd levels = fighter planes, Even levels = helicopters
+        BufferedImage sprite = (level % 2 == 1) ? planeSprite : helicopterSprite;
+        BufferedImage shadow = (level % 2 == 1) ? planeShadow : helicopterShadow;
         
-        // Main fuselage (dark gray)
-        g2d.setColor(new Color(76, 86, 106)); // Palette dark blue-gray
-        g2d.fillRect(-planeLength/2, -SIZE/6, planeLength, SIZE/3);
-        
-        // Cockpit (canopy)
-        g2d.setColor(new Color(136, 192, 208, 180)); // Palette cyan
-        int[] canopyX = {planeLength/6, planeLength/3, planeLength/3, planeLength/6};
-        int[] canopyY = {-SIZE/8, -SIZE/6, SIZE/6, SIZE/8};
-        g2d.fillPolygon(canopyX, canopyY, 4);
-        
-        // Nose cone
-        g2d.setColor(new Color(94, 129, 172)); // Palette blue
-        int[] noseX = {planeLength/2, planeLength/2 + 12, planeLength/2};
-        int[] noseY = {-SIZE/6, 0, SIZE/6};
-        g2d.fillPolygon(noseX, noseY, 3);
-        
-        // Main wings
-        g2d.setColor(new Color(59, 66, 82)); // Palette dark gray
-        int[] wingX = {-planeLength/4, planeLength/6, planeLength/4, -planeLength/4};
-        int[] wingTopY = {-SIZE/6, -SIZE/6, -wingSpan/2, -SIZE/6};
-        g2d.fillPolygon(wingX, wingTopY, 4);
-        
-        int[] wingBottomY = {SIZE/6, SIZE/6, wingSpan/2, SIZE/6};
-        g2d.fillPolygon(wingX, wingBottomY, 4);
-        
-        // Tail fins
-        g2d.setColor(new Color(76, 86, 106)); // Palette dark blue-gray
-        int[] tailFinX = {-planeLength/2, -planeLength/2 + 8, -planeLength/2};
-        int[] tailFinTopY = {-SIZE/6, -SIZE/6, -SIZE/3};
-        g2d.fillPolygon(tailFinX, tailFinTopY, 3);
-        
-        int[] tailFinBottomY = {SIZE/6, SIZE/6, SIZE/3};
-        g2d.fillPolygon(tailFinX, tailFinBottomY, 3);
-        
-        // Engine exhausts (glowing)
-        g2d.setColor(new Color(208, 135, 112, 180)); // Palette orange
-        g2d.fillOval(-planeLength/2 - 6, -SIZE/8, 8, SIZE/8);
-        g2d.fillOval(-planeLength/2 - 6, SIZE/16, 8, SIZE/8);
-        
-        // Detail lines (panel lines)
-        g2d.setColor(new Color(46, 52, 64)); // Palette darkest
-        g2d.setStroke(new BasicStroke(1));
-        g2d.drawRect(-planeLength/2, -SIZE/6, planeLength, SIZE/3);
-        g2d.drawLine(0, -SIZE/6, 0, SIZE/6);
-        g2d.drawLine(-planeLength/4, -SIZE/6, -planeLength/4, SIZE/6);
-        
-        // Weapons/missiles under wings
-        g2d.setColor(new Color(129, 161, 193)); // Palette light blue
-        g2d.fillRect(0, -wingSpan/3, 6, 3);
-        g2d.fillRect(0, wingSpan/3 - 3, 6, 3);
+        if (sprite != null) {
+            // Use smooth rotation angle
+            // Rotate and draw sprite with shadow
+            g2d.translate(x, y);
+            g2d.rotate(rotation);
+            int spriteSize = SIZE * 3;
+            
+            // Draw shadow sprite
+            if (shadow != null) {
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+                g2d.drawImage(shadow, -spriteSize/2 + 4, -spriteSize/2 + 4, spriteSize, spriteSize, null);
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            }
+            
+            // Draw sprite
+            g2d.drawImage(sprite, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize, null);
+        } else {
+            // Fallback: draw simple polygon with shadow if sprite not loaded
+            int sides = Math.min(level + 2, 20);
+            Polygon shape = new Polygon();
+            for (int i = 0; i < sides; i++) {
+                double angle = 2 * Math.PI * i / sides;
+                int px = (int)(x + SIZE * Math.cos(angle));
+                int py = (int)(y + SIZE * Math.sin(angle));
+                shape.addPoint(px, py);
+            }
+            // Draw shadow
+            g2d.setColor(new Color(0, 0, 0, 100));
+            g2d.translate(2, 2);
+            g2d.fillPolygon(shape);
+            g2d.translate(-2, -2);
+            // Draw shape
+            g2d.setColor(new Color(0, 100, 255));
+            g2d.fillPolygon(shape);
+        }
         
         g2d.dispose();
         
-        // Draw level indicator below plane
+        // Draw level indicator below boss
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 14));
-        String planeName = getPlaneName(level);
+        String vehicleName = getVehicleName(level);
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(planeName, (int)x - fm.stringWidth(planeName)/2, (int)y + SIZE/2 + 15);
+        g.drawString(vehicleName, (int)x - fm.stringWidth(vehicleName)/2, (int)y + SIZE/2 + 15);
         
         g.setFont(new Font("Arial", Font.BOLD, 16));
         String levelText = "LV " + level;
@@ -307,22 +333,40 @@ public class Boss {
         g.drawString(levelText, (int)x - fm.stringWidth(levelText)/2, (int)y + SIZE/2 + 32);
     }
     
-    private String getPlaneName(int lvl) {
-        switch (lvl % 10) {
-            case 1: return "✈ MIG-15";
-            case 2: return "✈ F-86 SABRE";
-            case 3: return "✈ MIG-21";
-            case 4: return "✈ F-4 PHANTOM";
-            case 5: return "✈ MIG-29";
-            case 6: return "✈ F-15 EAGLE";
-            case 7: return "✈ SU-27";
-            case 8: return "✈ F-22 RAPTOR";
-            case 9: return "✈ SU-57";
-            default: return "✈ F-35 LIGHTNING";
+    private String getVehicleName(int lvl) {
+        if (lvl % 2 == 1) {
+            // Odd levels: Fighter planes
+            switch ((lvl - 1) / 2 % 10) {
+                case 0: return "✈ MIG-15";
+                case 1: return "✈ MIG-21";
+                case 2: return "✈ MIG-29";
+                case 3: return "✈ SU-27";
+                case 4: return "✈ SU-57";
+                case 5: return "✈ F-86 SABRE";
+                case 6: return "✈ F-4 PHANTOM";
+                case 7: return "✈ F-15 EAGLE";
+                case 8: return "✈ F-22 RAPTOR";
+                default: return "✈ F-35 LIGHTNING";
+            }
+        } else {
+            // Even levels: Helicopters
+            switch ((lvl / 2 - 1) % 10) {
+                case 0: return "🚁 UH-1 HUEY";
+                case 1: return "🚁 AH-64 APACHE";
+                case 2: return "🚁 MI-24 HIND";
+                case 3: return "🚁 CH-47 CHINOOK";
+                case 4: return "🚁 MI-28 HAVOC";
+                case 5: return "🚁 AH-1 COBRA";
+                case 6: return "🚁 KA-52 ALLIGATOR";
+                case 7: return "🚁 UH-60 BLACK HAWK";
+                case 8: return "🚁 MI-26 HALO";
+                default: return "🚁 AH-64E GUARDIAN";
+            }
         }
     }
     
     public double getX() { return x; }
     public double getY() { return y; }
     public int getSize() { return SIZE; }
+    public double getHitboxRadius() { return SIZE * 0.6; } // 60% of sprite size for fitting hitbox
 }

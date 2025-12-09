@@ -1,5 +1,9 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 
 public class Player {
     private double x, y;
@@ -12,6 +16,9 @@ public class Player {
     private int flickerTimer; // For Lucky Dodge animation
     private static final int FLICKER_DURATION = 15; // Frames to flicker
     
+    private static BufferedImage missileSprite;
+    private static BufferedImage missileShadow;
+    
     public Player(double x, double y) {
         this(x, y, 0);
     }
@@ -23,6 +30,24 @@ public class Player {
         this.vy = 0;
         this.speedMultiplier = 1.0 + (speedUpgradeLevel * 0.15);
         this.flickerTimer = 0;
+        loadSprite();
+    }
+    
+    private void loadSprite() {
+        if (missileSprite == null) {
+            try {
+                missileSprite = ImageIO.read(new File("sprites/missile.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load missile sprite: " + e.getMessage());
+            }
+        }
+        if (missileShadow == null) {
+            try {
+                missileShadow = ImageIO.read(new File("sprites/missile_shadow.png"));
+            } catch (IOException e) {
+                System.err.println("Could not load missile shadow: " + e.getMessage());
+            }
+        }
     }
     
     public void update(boolean[] keys, int screenWidth, int screenHeight) {
@@ -108,45 +133,27 @@ public class Player {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.translate(x, y);
-        g2d.rotate(angle);
+        g2d.rotate(angle + Math.PI / 2);
         
-        // Draw guided missile body (elongated)
-        // Main body (gray metallic)
-        g2d.setColor(new Color(117, 117, 117)); // Palette gray
-        g2d.fillRect(-SIZE/2, -SIZE/4, SIZE, SIZE/2);
+        int spriteSize = SIZE * 3;
         
-        // Nose cone (pointed front)
-        int[] noseX = {SIZE/2, SIZE/2 + 8, SIZE/2};
-        int[] noseY = {-SIZE/4, 0, SIZE/4};
-        g2d.setColor(new Color(191, 97, 106)); // Palette red
-        g2d.fillPolygon(noseX, noseY, 3);
-        
-        // Fins (stabilizers)
-        g2d.setColor(new Color(76, 86, 106)); // Palette dark blue-gray
-        int[] finTopX = {-SIZE/2, -SIZE/2, -SIZE/2 + 5};
-        int[] finTopY = {-SIZE/4, -SIZE/2, -SIZE/4};
-        g2d.fillPolygon(finTopX, finTopY, 3);
-        
-        int[] finBottomX = {-SIZE/2, -SIZE/2, -SIZE/2 + 5};
-        int[] finBottomY = {SIZE/4, SIZE/2, SIZE/4};
-        g2d.fillPolygon(finBottomX, finBottomY, 3);
-        
-        // Engine exhaust (flame effect when moving)
-        double speed = Math.sqrt(vx * vx + vy * vy);
-        if (speed > 0.5) {
-            g2d.setColor(new Color(208, 135, 112, 150)); // Palette orange
-            int flameLength = (int)(speed * 2);
-            g2d.fillOval(-SIZE/2 - flameLength, -SIZE/6, flameLength, SIZE/3);
-            g2d.setColor(new Color(235, 203, 139, 100)); // Palette yellow
-            g2d.fillOval(-SIZE/2 - flameLength/2, -SIZE/8, flameLength/2, SIZE/4);
+        // Draw shadow sprite first
+        if (missileShadow != null) {
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.6f));
+            g2d.drawImage(missileShadow, -spriteSize/2 + 3, -spriteSize/2 + 3, spriteSize, spriteSize, null);
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         }
         
-        // Detail lines
-        g2d.setColor(new Color(59, 66, 82)); // Palette dark gray
-        g2d.setStroke(new BasicStroke(1));
-        g2d.drawRect(-SIZE/2, -SIZE/4, SIZE, SIZE/2);
-        g2d.drawLine(-SIZE/4, -SIZE/4, -SIZE/4, SIZE/4);
-        g2d.drawLine(0, -SIZE/4, 0, SIZE/4);
+        if (missileSprite != null) {
+            // Draw sprite
+            g2d.drawImage(missileSprite, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize, null);
+        } else {
+            // Fallback: draw simple circle with shadow if sprite not loaded
+            g2d.setColor(new Color(0, 0, 0, 100));
+            g2d.fillOval(-SIZE/2 + 2, -SIZE/2 + 2, SIZE, SIZE);
+            g2d.setColor(new Color(255, 50, 50));
+            g2d.fillOval(-SIZE/2, -SIZE/2, SIZE, SIZE);
+        }
         
         g2d.dispose();
         
@@ -165,7 +172,8 @@ public class Player {
         double dx = x - boss.getX();
         double dy = y - boss.getY();
         double distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < SIZE/2 + boss.getSize()/2;
+        // Larger hitbox for boss collision (60% of sprite size)
+        return distance < (SIZE * 0.6) + (boss.getSize() * 0.6);
     }
     
     public void triggerFlicker() {

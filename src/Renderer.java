@@ -345,9 +345,15 @@ public class Renderer {
     }
     
     public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, int level, double time) {
-        // Draw animated level-specific gradient
+        // Draw vibrant animated sky gradient
         Color[] colors = getLevelGradientColors(level);
         drawAnimatedGradient(g, width, height, time, colors);
+        
+        // Draw scrolling terrain based on level
+        drawScrollingTerrain(g, width, height, level, time);
+        
+        // Draw animated clouds
+        drawClouds(g, width, height, time);
         
         // Draw player
         player.draw(g);
@@ -360,12 +366,15 @@ public class Renderer {
             bullet.draw(g);
         }
         
-        // Draw UI
+        // Draw UI with better contrast
+        g.setColor(new Color(0, 0, 0, 150));
+        g.fillRoundRect(10, 10, 280, 90, 10, 10);
+        
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 24));
-        g.drawString("Level: " + level, 20, 30);
-        g.drawString("Score: " + gameData.getScore(), 20, 60);
-        g.drawString("Money: $" + (gameData.getTotalMoney() + gameData.getRunMoney()), 20, 90);
+        g.drawString("Level: " + level, 20, 35);
+        g.drawString("Score: " + gameData.getScore(), 20, 65);
+        g.drawString("Money: $" + (gameData.getTotalMoney() + gameData.getRunMoney()), 20, 95);
     }
     
     public void drawShop(Graphics2D g, int width, int height, double time) {
@@ -632,15 +641,257 @@ public class Renderer {
     }
     
     private Color[] getLevelGradientColors(int level) {
-        // Blue sky gradient using palette colors for military theme
+        // Vibrant sky gradients - much brighter and more colorful
         switch ((level - 1) % 7) {
-            case 0: return new Color[]{new Color(136, 192, 208), new Color(129, 161, 193), new Color(94, 129, 172)}; // Palette cyan to blue
-            case 1: return new Color[]{new Color(129, 161, 193), new Color(94, 129, 172), new Color(76, 86, 106)}; // Palette blues
-            case 2: return new Color[]{new Color(94, 129, 172), new Color(76, 86, 106), new Color(59, 66, 82)}; // Deeper palette blues
-            case 3: return new Color[]{new Color(143, 188, 187), new Color(136, 192, 208), new Color(129, 161, 193)}; // Palette teal to cyan
-            case 4: return new Color[]{new Color(136, 192, 208), new Color(129, 161, 193), new Color(76, 86, 106)}; // Mixed palette blues
-            case 5: return new Color[]{new Color(216, 222, 233), new Color(129, 161, 193), new Color(94, 129, 172)}; // Light palette grays to blue
-            default: return new Color[]{new Color(143, 188, 187), new Color(129, 161, 193), new Color(94, 129, 172)}; // Palette teal gradient
+            case 0: return new Color[]{new Color(135, 206, 250), new Color(100, 180, 255), new Color(70, 130, 220)}; // Bright sky blue
+            case 1: return new Color[]{new Color(255, 200, 100), new Color(255, 150, 80), new Color(135, 206, 250)}; // Sunset orange to blue
+            case 2: return new Color[]{new Color(255, 120, 150), new Color(180, 100, 200), new Color(100, 150, 255)}; // Pink to purple to blue
+            case 3: return new Color[]{new Color(100, 220, 255), new Color(120, 200, 255), new Color(140, 180, 255)}; // Cyan sky
+            case 4: return new Color[]{new Color(255, 180, 100), new Color(255, 140, 120), new Color(180, 140, 220)}; // Warm sunset
+            case 5: return new Color[]{new Color(200, 230, 255), new Color(150, 200, 255), new Color(120, 170, 240)}; // Clear day sky
+            default: return new Color[]{new Color(120, 200, 255), new Color(100, 180, 240), new Color(80, 150, 220)}; // Deep sky blue
+        }
+    }
+    
+    private void drawClouds(Graphics2D g, int width, int height, double time) {
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+        
+        // Draw multiple layers of clouds
+        for (int layer = 0; layer < 3; layer++) {
+            double speed = 0.3 + (layer * 0.15);
+            int yBase = 50 + (layer * 80);
+            int cloudSize = 40 + (layer * 15);
+            float alpha = 0.7f - (layer * 0.15f);
+            
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Draw 4-6 clouds per layer
+            for (int i = 0; i < 5; i++) {
+                double xOffset = ((time * speed * 10) + (i * 250)) % (width + 200);
+                int x = (int)xOffset - 100;
+                int y = yBase + (int)(Math.sin(time * 0.5 + i) * 20);
+                
+                drawCloud(g, x, y, cloudSize);
+            }
+        }
+        
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+    }
+    
+    private void drawCloud(Graphics2D g, int x, int y, int size) {
+        g.setColor(Color.WHITE);
+        
+        // Draw fluffy cloud shape with multiple circles
+        g.fillOval(x, y, size, size);
+        g.fillOval(x + size / 3, y - size / 4, (int)(size * 1.2), (int)(size * 1.2));
+        g.fillOval(x + (int)(size * 0.6), y, size, size);
+        g.fillOval(x + size, y + size / 6, (int)(size * 0.8), (int)(size * 0.8));
+        g.fillOval(x + size / 2, y + size / 4, (int)(size * 0.9), (int)(size * 0.9));
+    }
+    
+    private void drawScrollingTerrain(Graphics2D g, int width, int height, int level, double time) {
+        // Different terrain for each level - top-down view scrolling downward
+        int terrainType = (level - 1) % 7;
+        double scrollSpeed = 2.0;
+        double scrollOffset = (time * scrollSpeed) % 100;
+        
+        // Apply blur effect to terrain for motion blur
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        
+        switch (terrainType) {
+            case 0: // Forest
+                drawForest(g, width, height, scrollOffset);
+                break;
+            case 1: // Ocean
+                drawOcean(g, width, height, scrollOffset);
+                break;
+            case 2: // Desert
+                drawDesert(g, width, height, scrollOffset);
+                break;
+            case 3: // Mountains
+                drawMountains(g, width, height, scrollOffset);
+                break;
+            case 4: // Lakes/Rivers
+                drawLakes(g, width, height, scrollOffset);
+                break;
+            case 5: // City
+                drawCity(g, width, height, scrollOffset);
+                break;
+            case 6: // Tundra
+                drawTundra(g, width, height, scrollOffset);
+                break;
+        }
+        
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+    }
+    
+    private void drawForest(Graphics2D g, int width, int height, double scroll) {
+        // Draw trees from top-down view
+        for (int row = -2; row < 12; row++) {
+            for (int col = 0; col < 15; col++) {
+                int x = col * 90 + ((row % 2) * 45);
+                int y = (int)(row * 80 - scroll * 8);
+                if (y > -50 && y < height + 50) {
+                    // Motion blur streak
+                    g.setColor(new Color(34, 139, 34, 60));
+                    g.fillOval(x, y - 8, 40, 56);
+                    
+                    // Tree (top-down circular canopy)
+                    g.setColor(new Color(34, 139, 34, 180));
+                    g.fillOval(x, y, 40, 40);
+                    g.setColor(new Color(20, 100, 20, 180));
+                    g.fillOval(x + 5, y + 5, 30, 30);
+                }
+            }
+        }
+    }
+    
+    private void drawOcean(Graphics2D g, int width, int height, double scroll) {
+        // Draw waves and islands
+        for (int row = -1; row < 10; row++) {
+            int y = (int)(row * 100 - scroll * 8);
+            if (y > -60 && y < height + 60) {
+                // Motion blur for waves
+                g.setColor(new Color(30, 144, 255, 60));
+                g.setStroke(new BasicStroke(3));
+                for (int x = 0; x < width; x += 40) {
+                    g.drawArc(x, y - 5, 40, 25, 0, 180);
+                }
+                
+                // Waves
+                g.setColor(new Color(30, 144, 255, 120));
+                g.setStroke(new BasicStroke(3));
+                for (int x = 0; x < width; x += 40) {
+                    g.drawArc(x, y, 40, 20, 0, 180);
+                }
+                
+                // Occasional islands
+                if (row % 3 == 0) {
+                    int islandX = (row * 137) % (width - 100);
+                    g.setColor(new Color(139, 69, 19, 150));
+                    g.fillOval(islandX, y + 30, 80, 50);
+                    g.setColor(new Color(34, 139, 34, 150));
+                    g.fillOval(islandX + 10, y + 25, 30, 30);
+                    g.fillOval(islandX + 40, y + 20, 35, 35);
+                }
+            }
+        }
+    }
+    
+    private void drawDesert(Graphics2D g, int width, int height, double scroll) {
+        // Draw sand dunes and cacti
+        for (int row = -1; row < 8; row++) {
+            int y = (int)(row * 120 - scroll * 8);
+            if (y > -80 && y < height + 80) {
+                // Sand dunes
+                g.setColor(new Color(237, 201, 175, 150));
+                int duneX = (row * 200) % width;
+                g.fillOval(duneX - 50, y, 150, 60);
+                g.fillOval(duneX + 100, y + 20, 200, 80);
+                
+                // Cacti
+                if (row % 2 == 1) {
+                    int cactusX = (row * 173) % (width - 40);
+                    g.setColor(new Color(107, 142, 35, 180));
+                    g.fillRect(cactusX + 15, y + 30, 10, 40);
+                    g.fillRect(cactusX + 5, y + 40, 10, 15);
+                    g.fillRect(cactusX + 25, y + 45, 10, 15);
+                }
+            }
+        }
+    }
+    
+    private void drawMountains(Graphics2D g, int width, int height, double scroll) {
+        // Draw mountain peaks from above
+        for (int row = -1; row < 6; row++) {
+            int y = (int)(row * 150 - scroll * 8);
+            if (y > -100 && y < height + 100) {
+                int baseX = (row * 117) % (width - 200);
+                // Mountain mass
+                g.setColor(new Color(105, 105, 105, 150));
+                int[] xPoints = {baseX, baseX + 100, baseX + 200, baseX + 150, baseX + 50};
+                int[] yPoints = {y + 100, y, y + 100, y + 80, y + 80};
+                g.fillPolygon(xPoints, yPoints, 5);
+                
+                // Snow cap
+                g.setColor(new Color(255, 255, 255, 180));
+                int[] snowX = {baseX + 70, baseX + 100, baseX + 130};
+                int[] snowY = {y + 30, y, y + 30};
+                g.fillPolygon(snowX, snowY, 3);
+            }
+        }
+    }
+    
+    private void drawLakes(Graphics2D g, int width, int height, double scroll) {
+        // Draw lakes and rivers
+        for (int row = -1; row < 10; row++) {
+            int y = (int)(row * 90 - scroll * 8);
+            if (y > -60 && y < height + 60) {
+                // Rivers (winding)
+                g.setColor(new Color(30, 144, 255, 130));
+                int riverX = width / 3 + (int)(Math.sin(row * 0.5) * 100);
+                g.fillRoundRect(riverX, y, 80, 100, 30, 30);
+                
+                // Lakes
+                if (row % 3 == 0) {
+                    int lakeX = (row * 211) % (width - 150);
+                    g.setColor(new Color(64, 164, 223, 140));
+                    g.fillOval(lakeX, y + 20, 120, 80);
+                    
+                    // Grass around lake
+                    g.setColor(new Color(34, 139, 34, 120));
+                    g.fillOval(lakeX - 10, y + 10, 140, 100);
+                }
+            }
+        }
+    }
+    
+    private void drawCity(Graphics2D g, int width, int height, double scroll) {
+        // Draw buildings from above (top-down)
+        for (int row = -1; row < 15; row++) {
+            for (int col = 0; col < 10; col++) {
+                int x = col * 130 + ((row % 2) * 65);
+                int y = (int)(row * 60 - scroll * 8);
+                if (y > -50 && y < height + 50) {
+                    // Buildings
+                    int buildingSize = 40 + ((row + col) % 3) * 15;
+                    g.setColor(new Color(128, 128, 128, 180));
+                    g.fillRect(x, y, buildingSize, buildingSize);
+                    
+                    // Windows/details
+                    g.setColor(new Color(255, 255, 200, 150));
+                    for (int i = 0; i < 3; i++) {
+                        for (int j = 0; j < 3; j++) {
+                            g.fillRect(x + 5 + i * 12, y + 5 + j * 12, 8, 8);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private void drawTundra(Graphics2D g, int width, int height, double scroll) {
+        // Draw snowy tundra with rocks and ice
+        for (int row = -1; row < 12; row++) {
+            int y = (int)(row * 70 - scroll * 8);
+            if (y > -50 && y < height + 50) {
+                // Snow patches
+                g.setColor(new Color(255, 255, 255, 140));
+                for (int i = 0; i < 5; i++) {
+                    int x = (row * 83 + i * 230) % width;
+                    g.fillOval(x, y, 60 + i * 10, 40 + i * 5);
+                }
+                
+                // Rocks
+                if (row % 2 == 0) {
+                    int rockX = (row * 149) % (width - 50);
+                    g.setColor(new Color(105, 105, 105, 160));
+                    g.fillOval(rockX, y + 15, 35, 25);
+                    g.fillOval(rockX + 20, y + 20, 30, 20);
+                }
+            }
         }
     }
 }

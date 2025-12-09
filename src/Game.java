@@ -25,6 +25,7 @@ public class Game extends JPanel implements Runnable {
     private Player player;
     private Boss currentBoss;
     private List<Bullet> bullets;
+    private List<Bullet> bulletPool; // Pool for recycling bullets
     
     // Input
     private boolean[] keys;
@@ -47,6 +48,7 @@ public class Game extends JPanel implements Runnable {
         // Initialize systems
         keys = new boolean[256];
         bullets = new ArrayList<>();
+        bulletPool = new ArrayList<>();
         gameData = new GameData();
         shopManager = new ShopManager(gameData);
         renderer = new Renderer(gameData, shopManager);
@@ -229,7 +231,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
-        if (gameState != GameState.PLAYING) return;
+        if (gameState != GameState.PLAYING || player == null) return;
         
         // Track survival and score (scaled by delta time)
         gameData.incrementSurvivalTime();
@@ -254,9 +256,9 @@ public class Game extends JPanel implements Runnable {
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             
-            // Apply bullet slow upgrade
+            // Apply bullet slow upgrade (much less aggressive: 0.99 - 0.97)
             if (gameData.getActiveBulletSlowLevel() > 0) {
-                bullet.applySlow(0.95 - (gameData.getActiveBulletSlowLevel() * 0.02));
+                bullet.applySlow(0.99 - (gameData.getActiveBulletSlowLevel() * 0.01));
             }
             
             bullet.update(player, WIDTH, HEIGHT, deltaTime);
@@ -267,15 +269,19 @@ public class Game extends JPanel implements Runnable {
                 double baseAngle = Math.atan2(bullet.getVY(), bullet.getVX());
                 for (int j = 0; j < 4; j++) {
                     double angle = baseAngle + (Math.PI / 2 * j);
-                    bullets.add(new Bullet(bullet.getX(), bullet.getY(), 
-                                          Math.cos(angle) * 3, Math.sin(angle) * 3, 
-                                          Bullet.BulletType.FAST));
+                    // Use pooled bullet if available
+                    Bullet newBullet = getBulletFromPool();
+                    newBullet.reset(bullet.getX(), bullet.getY(), 
+                                   Math.cos(angle) * 3, Math.sin(angle) * 3, 
+                                   Bullet.BulletType.FAST);
+                    bullets.add(newBullet);
                 }
             }
             
-            // Remove off-screen bullets
+            // Remove off-screen bullets and return to pool
             if (bullet.isOffScreen(WIDTH, HEIGHT)) {
                 bullets.remove(i);
+                returnBulletToPool(bullet);
                 continue;
             }
             
@@ -289,6 +295,7 @@ public class Game extends JPanel implements Runnable {
                         // Lucky dodge! Trigger flicker animation
                         player.triggerFlicker();
                         bullets.remove(i);
+                        returnBulletToPool(bullet);
                         continue;
                     }
                 }
@@ -297,6 +304,20 @@ public class Game extends JPanel implements Runnable {
                 gameState = GameState.GAME_OVER;
                 return;
             }
+        }
+    }
+    
+    // Bullet pooling methods
+    private Bullet getBulletFromPool() {
+        if (bulletPool.isEmpty()) {
+            return new Bullet(0, 0, 0, 0);
+        }
+        return bulletPool.remove(bulletPool.size() - 1);
+    }
+    
+    private void returnBulletToPool(Bullet bullet) {
+        if (bulletPool.size() < 500) { // Cap pool size
+            bulletPool.add(bullet);
         }
     }
     
