@@ -339,7 +339,7 @@ public class Renderer {
             if (!isUnlocked) {
                 g.setColor(Color.RED);
                 g.setFont(new Font("Arial", Font.BOLD, 40));
-                g.drawString("🔒", x + 20, y + 55);
+                //g.drawString("🔒", x + 20, y + 55);
             }
         }
     }

@@ -55,7 +55,6 @@ public class GenerateSprites {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
         int centerX = width / 2;
-        int centerY = height / 2;
         
         // Missile body (pointing up)
         g.setColor(new Color(191, 97, 106)); // Red body
@@ -71,11 +70,9 @@ public class GenerateSprites {
         
         // Fins
         g.setColor(new Color(143, 188, 187)); // Teal fins
-        // Left fin
         int[] leftFinX = {centerX - 6, centerX - 16, centerX - 6};
         int[] leftFinY = {height - 16, height - 8, height - 8};
         g.fillPolygon(leftFinX, leftFinY, 3);
-        // Right fin
         int[] rightFinX = {centerX + 6, centerX + 16, centerX + 6};
         int[] rightFinY = {height - 16, height - 8, height - 8};
         g.fillPolygon(rightFinX, rightFinY, 3);
@@ -105,100 +102,87 @@ public class GenerateSprites {
         int centerX = width / 2;
         int centerY = height / 2;
         
-        // Main fuselage (sleek fighter jet body)
-        g.setColor(new Color(76, 86, 106)); // Dark base
-        int[] bodyX = {15, 25, 55, 85, 100, 105, 100, 85, 55, 25, 15};
-        int[] bodyY = {centerY, centerY - 10, centerY - 12, centerY - 10, centerY - 6, centerY, centerY + 6, centerY + 10, centerY + 12, centerY + 10, centerY};
-        g.fillPolygon(bodyX, bodyY, 11);
+        // Colors from reference images
+        Color darkBody = new Color(67, 76, 94);
+        Color mediumBody = new Color(88, 101, 125);
+        Color lightBody = new Color(108, 122, 147);
+        Color cockpitGlass = new Color(180, 142, 173);
+        Color accent = new Color(139, 147, 175);
+        Color darkAccent = new Color(46, 52, 64);
         
-        // Upper fuselage highlight
-        g.setColor(new Color(94, 129, 172)); // Blue-gray
-        int[] topBodyX = {20, 30, 60, 90, 102, 90, 60, 30};
-        int[] topBodyY = {centerY - 2, centerY - 8, centerY - 10, centerY - 8, centerY - 3, centerY - 6, centerY - 8, centerY - 6};
-        g.fillPolygon(topBodyX, topBodyY, 8);
+        // Main fuselage (elongated teardrop)
+        g.setColor(mediumBody);
+        int[] fuselageX = {centerX, centerX - 10, centerX - 12, centerX - 12, centerX - 10, centerX - 6, centerX + 6, centerX + 10, centerX + 12, centerX + 12, centerX + 10};
+        int[] fuselageY = {20, 30, 45, 75, 90, 105, 105, 90, 75, 45, 30};
+        g.fillPolygon(fuselageX, fuselageY, 11);
         
-        // Main delta wings
-        g.setColor(new Color(129, 161, 193)); // Light blue
-        // Top wing
-        int[] topWingX = {35, 50, 75, 80, 70, 45};
-        int[] topWingY = {centerY - 10, centerY - 10, centerY - 8, centerY - 38, centerY - 36, centerY - 10};
-        g.fillPolygon(topWingX, topWingY, 6);
-        // Bottom wing
-        int[] botWingX = {35, 50, 75, 80, 70, 45};
-        int[] botWingY = {centerY + 10, centerY + 10, centerY + 8, centerY + 38, centerY + 36, centerY + 10};
-        g.fillPolygon(botWingX, botWingY, 6);
+        // Cockpit area
+        g.setColor(cockpitGlass);
+        int[] cockpitX = {centerX, centerX - 6, centerX - 7, centerX - 6, centerX + 6, centerX + 7, centerX + 6};
+        int[] cockpitY = {28, 38, 52, 62, 62, 52, 38};
+        g.fillPolygon(cockpitX, cockpitY, 7);
         
-        // Wing tips (darker accent)
-        g.setColor(new Color(76, 86, 106));
-        int[] tipTopX = {70, 80, 78, 68};
-        int[] tipTopY = {centerY - 36, centerY - 38, centerY - 34, centerY - 33};
-        g.fillPolygon(tipTopX, tipTopY, 4);
-        int[] tipBotX = {70, 80, 78, 68};
-        int[] tipBotY = {centerY + 36, centerY + 38, centerY + 34, centerY + 33};
-        g.fillPolygon(tipBotX, tipBotY, 4);
+        // Cockpit highlight
+        g.setColor(new Color(200, 180, 210, 150));
+        g.fillOval(centerX - 4, 40, 8, 12);
         
-        // Air intakes
-        g.setColor(new Color(59, 66, 82));
-        g.fillOval(48, centerY - 14, 12, 8);
-        g.fillOval(48, centerY + 6, 12, 8);
-        
-        // Vertical stabilizers (twin tail)
-        g.setColor(new Color(94, 129, 172));
-        int[] tailTop1X = {18, 28, 32, 22};
-        int[] tailTop1Y = {centerY - 10, centerY - 10, centerY - 22, centerY - 20};
-        g.fillPolygon(tailTop1X, tailTop1Y, 4);
-        int[] tailTop2X = {18, 28, 32, 22};
-        int[] tailTop2Y = {centerY + 10, centerY + 10, centerY + 22, centerY + 20};
-        g.fillPolygon(tailTop2X, tailTop2Y, 4);
-        
-        // Cockpit canopy (glossy)
-        g.setColor(new Color(136, 192, 208, 200)); // Cyan glass
-        int[] canopyX = {75, 92, 98, 92, 75};
-        int[] canopyY = {centerY - 8, centerY - 8, centerY, centerY + 8, centerY + 8};
-        g.fillPolygon(canopyX, canopyY, 5);
-        
-        // Canopy frame
-        g.setColor(new Color(76, 86, 106));
-        g.setStroke(new BasicStroke(1.5f));
-        g.drawLine(85, centerY - 7, 85, centerY + 7);
-        
-        // Nose cone (pointed)
-        g.setColor(new Color(59, 66, 82));
-        int[] noseX = {100, 115, 100};
-        int[] noseY = {centerY - 6, centerY, centerY + 6};
+        // Nose cone
+        g.setColor(darkBody);
+        int[] noseX = {centerX, centerX - 5, centerX + 5};
+        int[] noseY = {20, 28, 28};
         g.fillPolygon(noseX, noseY, 3);
         
-        // Engine exhausts (twin engines)
-        g.setColor(new Color(191, 97, 106)); // Red hot
-        g.fillOval(10, centerY - 8, 10, 7);
-        g.fillOval(10, centerY + 1, 10, 7);
-        // Inner glow
-        g.setColor(new Color(235, 203, 139, 180)); // Yellow glow
-        g.fillOval(12, centerY - 7, 6, 5);
-        g.fillOval(12, centerY + 2, 6, 5);
+        // Main delta wings (swept back)
+        g.setColor(lightBody);
+        int[] leftWingX = {centerX - 12, centerX - 42, centerX - 38, centerX - 12};
+        int[] leftWingY = {50, 70, 78, 70};
+        g.fillPolygon(leftWingX, leftWingY, 4);
+        int[] rightWingX = {centerX + 12, centerX + 42, centerX + 38, centerX + 12};
+        int[] rightWingY = {50, 70, 78, 70};
+        g.fillPolygon(rightWingX, rightWingY, 4);
         
-        // Body panel lines
-        g.setColor(new Color(59, 66, 82));
+        // Wing tips
+        g.setColor(darkBody);
+        int[] leftTipX = {centerX - 38, centerX - 42, centerX - 40};
+        int[] leftTipY = {78, 70, 80};
+        g.fillPolygon(leftTipX, leftTipY, 3);
+        int[] rightTipX = {centerX + 38, centerX + 42, centerX + 40};
+        int[] rightTipY = {78, 70, 80};
+        g.fillPolygon(rightTipX, rightTipY, 3);
+        
+        // Tail stabilizers
+        g.setColor(accent);
+        int[] leftTailX = {centerX - 8, centerX - 18, centerX - 16, centerX - 8};
+        int[] leftTailY = {92, 96, 102, 98};
+        g.fillPolygon(leftTailX, leftTailY, 4);
+        int[] rightTailX = {centerX + 8, centerX + 18, centerX + 16, centerX + 8};
+        int[] rightTailY = {92, 96, 102, 98};
+        g.fillPolygon(rightTailX, rightTailY, 4);
+        
+        // Engine exhausts
+        g.setColor(darkAccent);
+        g.fillOval(centerX - 8, 100, 6, 8);
+        g.fillOval(centerX + 2, 100, 6, 8);
+        g.setColor(new Color(191, 97, 106, 200));
+        g.fillOval(centerX - 7, 102, 4, 5);
+        g.fillOval(centerX + 3, 102, 4, 5);
+        
+        // Air intakes
+        g.setColor(darkAccent);
+        g.fillOval(centerX - 10, 55, 5, 8);
+        g.fillOval(centerX + 5, 55, 5, 8);
+        
+        // Panel lines
+        g.setColor(darkBody);
         g.setStroke(new BasicStroke(1f));
-        g.drawLine(40, centerY - 10, 85, centerY - 9);
-        g.drawLine(40, centerY + 10, 85, centerY + 9);
-        g.drawLine(65, centerY - 3, 95, centerY - 2);
+        g.drawLine(centerX - 10, 35, centerX - 10, 85);
+        g.drawLine(centerX + 10, 35, centerX + 10, 85);
+        g.drawLine(centerX, 65, centerX, 90);
         
-        // Wing stripes/markings
-        g.setColor(new Color(236, 239, 244)); // White
-        g.fillRect(50, centerY - 22, 15, 3);
-        g.fillRect(50, centerY + 19, 15, 3);
-        g.setColor(new Color(191, 97, 106)); // Red stripe
-        g.fillRect(68, centerY - 22, 8, 3);
-        g.fillRect(68, centerY + 19, 8, 3);
-        
-        // Weapons hardpoints (missiles under wings)
-        g.setColor(new Color(76, 86, 106));
-        g.fillRect(55, centerY - 28, 3, 8);
-        g.fillRect(55, centerY + 20, 3, 8);
-        g.setColor(new Color(191, 97, 106));
-        g.fillRect(55, centerY - 28, 3, 6);
-        g.fillRect(55, centerY + 20, 3, 6);
+        // Wing markings
+        g.setColor(new Color(236, 239, 244));
+        g.fillRect(centerX - 25, 68, 8, 2);
+        g.fillRect(centerX + 17, 68, 8, 2);
         
         g.dispose();
         return img;
@@ -212,153 +196,123 @@ public class GenerateSprites {
         int centerX = width / 2;
         int centerY = height / 2;
         
-        // Tail boom (extended)
-        g.setColor(new Color(129, 161, 193)); // Light blue-gray
-        g.fillRoundRect(12, centerY - 4, 28, 8, 4, 4);
+        // Colors from reference images
+        Color darkBody = new Color(78, 74, 107);
+        Color mediumBody = new Color(98, 94, 134);
+        Color lightBody = new Color(118, 114, 154);
+        Color rotorColor = new Color(150, 146, 186, 180);
+        Color cockpitGlass = new Color(180, 142, 173, 200);
+        Color darkAccent = new Color(58, 54, 87);
         
-        // Tail boom stripes
-        g.setColor(new Color(236, 239, 244)); // White
-        g.fillRect(15, centerY - 3, 3, 6);
-        g.fillRect(22, centerY - 3, 3, 6);
-        g.fillRect(29, centerY - 3, 3, 6);
+        // Main rotor disc (large, spinning blades)
+        g.setColor(new Color(200, 196, 236, 100));
+        g.fillOval(centerX - 48, centerY - 48, 96, 96);
+        
+        // Main rotor blades (cross pattern)
+        g.setColor(rotorColor);
+        g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.drawLine(centerX - 45, centerY, centerX + 45, centerY);
+        g.drawLine(centerX, centerY - 45, centerX, centerY + 45);
+        
+        // Rotor blade tips
+        g.setColor(darkBody);
+        g.fillOval(centerX - 48, centerY - 3, 8, 6);
+        g.fillOval(centerX + 40, centerY - 3, 8, 6);
+        g.fillOval(centerX - 3, centerY - 48, 6, 8);
+        g.fillOval(centerX - 3, centerY + 40, 6, 8);
+        
+        // Tail boom
+        g.setColor(mediumBody);
+        g.fillRoundRect(15, centerY - 5, 35, 10, 5, 5);
+        g.setColor(lightBody);
+        g.fillRect(20, centerY - 4, 3, 8);
+        g.fillRect(28, centerY - 4, 3, 8);
+        g.fillRect(36, centerY - 4, 3, 8);
         
         // Tail rotor mount
-        g.setColor(new Color(76, 86, 106));
-        g.fillRect(8, centerY - 6, 6, 12);
+        g.setColor(darkBody);
+        g.fillRect(10, centerY - 8, 8, 16);
         
-        // Tail rotor blades
-        g.setColor(new Color(216, 222, 233, 220));
-        g.setStroke(new BasicStroke(3));
-        g.drawLine(11, centerY - 15, 11, centerY + 15);
-        g.setStroke(new BasicStroke(2));
-        g.drawLine(6, centerY, 16, centerY);
+        // Tail rotor
+        g.setColor(new Color(180, 176, 216, 180));
+        g.setStroke(new BasicStroke(3f));
+        g.drawLine(14, centerY - 12, 14, centerY + 12);
+        g.drawLine(9, centerY, 19, centerY);
+        g.setColor(darkAccent);
+        g.fillOval(12, centerY - 3, 4, 6);
         
-        // Tail rotor hub
-        g.setColor(new Color(59, 66, 82));
-        g.fillOval(9, centerY - 3, 4, 6);
-        
-        // Main body (larger, more detailed)
-        g.setColor(new Color(143, 188, 187)); // Teal body
-        int[] bodyX = {30, 35, 70, 78, 78, 70, 35, 30};
-        int[] bodyY = {centerY - 14, centerY - 16, centerY - 16, centerY - 10, centerY + 10, centerY + 16, centerY + 16, centerY + 14};
+        // Main body/fuselage
+        g.setColor(mediumBody);
+        int[] bodyX = {48, 50, 70, 85, 90, 85, 70, 50};
+        int[] bodyY = {centerY - 16, centerY - 18, centerY - 18, centerY - 12, centerY, centerY + 12, centerY + 18, centerY + 18};
         g.fillPolygon(bodyX, bodyY, 8);
         
-        // Body side panels (darker)
-        g.setColor(new Color(129, 161, 193));
-        int[] sideX = {32, 38, 68, 75, 75, 68, 38, 32};
-        int[] sideY = {centerY + 2, centerY + 4, centerY + 4, centerY + 6, centerY + 8, centerY + 10, centerY + 10, centerY + 8};
-        g.fillPolygon(sideX, sideY, 8);
+        // Body lower section
+        g.setColor(darkBody);
+        int[] lowerBodyX = {50, 68, 82, 87, 82, 68, 50};
+        int[] lowerBodyY = {centerY + 4, centerY + 4, centerY + 8, centerY + 10, centerY + 14, centerY + 16, centerY + 16};
+        g.fillPolygon(lowerBodyX, lowerBodyY, 7);
         
-        // Cockpit (large bubble)
-        g.setColor(new Color(136, 192, 208, 220)); // Cyan glass
-        int[] cockpitX = {70, 78, 95, 98, 95, 78};
-        int[] cockpitY = {centerY - 14, centerY - 16, centerY - 14, centerY, centerY + 14, centerY + 16};
+        // Cockpit bubble
+        g.setColor(cockpitGlass);
+        int[] cockpitX = {68, 72, 88, 95, 88, 72};
+        int[] cockpitY = {centerY - 16, centerY - 18, centerY - 16, centerY, centerY + 16, centerY + 18};
         g.fillPolygon(cockpitX, cockpitY, 6);
         
         // Cockpit frame details
-        g.setColor(new Color(76, 86, 106));
-        g.setStroke(new BasicStroke(2f));
-        g.drawLine(85, centerY - 14, 85, centerY + 14);
-        g.drawLine(92, centerY - 10, 92, centerY + 10);
+        g.setColor(darkBody);
         g.setStroke(new BasicStroke(1.5f));
-        g.drawLine(75, centerY - 8, 95, centerY - 8);
-        g.drawLine(75, centerY, 95, centerY);
-        g.drawLine(75, centerY + 8, 95, centerY + 8);
+        g.drawLine(80, centerY - 15, 80, centerY + 15);
+        g.drawLine(87, centerY - 12, 87, centerY + 12);
+        g.drawLine(72, centerY - 10, 90, centerY - 10);
+        g.drawLine(72, centerY, 92, centerY);
+        g.drawLine(72, centerY + 10, 90, centerY + 10);
         
-        // Nose sensor dome
-        g.setColor(new Color(59, 66, 82));
-        g.fillOval(95, centerY - 5, 10, 10);
+        // Cockpit highlight
+        g.setColor(new Color(220, 200, 230, 120));
+        g.fillOval(75, centerY - 8, 10, 16);
         
-        // Engine housing (top of body)
-        g.setColor(new Color(94, 129, 172));
-        int[] engineX = {40, 50, 68, 72, 68, 50};
-        int[] engineY = {centerY - 16, centerY - 22, centerY - 22, centerY - 18, centerY - 16, centerY - 16};
+        // Nose sensor
+        g.setColor(darkAccent);
+        g.fillOval(93, centerY - 4, 8, 8);
+        
+        // Engine housing
+        g.setColor(lightBody);
+        int[] engineX = {50, 58, 75, 78, 75, 58};
+        int[] engineY = {centerY - 18, centerY - 24, centerY - 24, centerY - 20, centerY - 18, centerY - 18};
         g.fillPolygon(engineX, engineY, 6);
         
         // Engine vents
-        g.setColor(new Color(59, 66, 82));
-        g.fillRect(45, centerY - 21, 2, 5);
-        g.fillRect(50, centerY - 21, 2, 5);
-        g.fillRect(55, centerY - 21, 2, 5);
-        g.fillRect(60, centerY - 21, 2, 5);
+        g.setColor(darkAccent);
+        g.fillRect(55, centerY - 23, 2, 5);
+        g.fillRect(60, centerY - 23, 2, 5);
+        g.fillRect(65, centerY - 23, 2, 5);
+        g.fillRect(70, centerY - 23, 2, 5);
         
-        // Exhaust port
-        g.setColor(new Color(191, 97, 106)); // Red
-        g.fillOval(38, centerY - 20, 8, 6);
-        g.setColor(new Color(235, 203, 139, 150)); // Yellow glow
-        g.fillOval(40, centerY - 19, 5, 4);
-        
-        // Landing skids (more detailed)
-        g.setColor(new Color(76, 86, 106));
-        g.setStroke(new BasicStroke(4));
-        // Main skid rails
-        g.drawLine(35, centerY + 22, 85, centerY + 22);
-        g.drawLine(35, centerY + 28, 85, centerY + 28);
-        // Vertical supports
-        g.setStroke(new BasicStroke(3));
-        g.drawLine(40, centerY + 16, 40, centerY + 22);
-        g.drawLine(55, centerY + 16, 55, centerY + 22);
-        g.drawLine(70, centerY + 16, 70, centerY + 22);
-        g.drawLine(45, centerY + 16, 45, centerY + 28);
-        g.drawLine(75, centerY + 16, 75, centerY + 28);
-        
-        // Skid cross braces
-        g.setStroke(new BasicStroke(2));
-        g.drawLine(35, centerY + 22, 40, centerY + 28);
-        g.drawLine(85, centerY + 22, 80, centerY + 28);
-        
-        // Weapons pylons
-        g.setColor(new Color(76, 86, 106));
-        g.fillRect(42, centerY + 10, 4, 8);
-        g.fillRect(72, centerY + 10, 4, 8);
-        // Rocket pods
-        g.setColor(new Color(94, 129, 172));
-        g.fillRoundRect(38, centerY + 16, 12, 6, 3, 3);
-        g.fillRoundRect(68, centerY + 16, 12, 6, 3, 3);
-        g.setColor(new Color(59, 66, 82));
-        for (int i = 0; i < 4; i++) {
-            g.fillOval(40 + i * 2, centerY + 17, 2, 4);
-            g.fillOval(70 + i * 2, centerY + 17, 2, 4);
-        }
-        
-        // Main rotor mast
-        g.setColor(new Color(59, 66, 82));
-        g.fillRect(centerX - 3, centerY - 24, 6, 8);
-        
-        // Main rotor hub (detailed)
-        g.setColor(new Color(76, 86, 106));
-        g.fillOval(centerX - 8, centerY - 28, 16, 16);
-        g.setColor(new Color(59, 66, 82));
-        g.fillOval(centerX - 6, centerY - 26, 12, 12);
-        
-        // Main rotor blades (multi-layer for depth)
-        g.setStroke(new BasicStroke(5));
-        g.setColor(new Color(216, 222, 233, 180));
-        g.drawLine(centerX - 50, centerY - 20, centerX + 50, centerY - 20);
-        g.setStroke(new BasicStroke(4));
-        g.setColor(new Color(216, 222, 233, 220));
-        g.drawLine(centerX, centerY - 70, centerX, centerY + 30);
-        g.setStroke(new BasicStroke(5));
-        g.setColor(new Color(216, 222, 233, 160));
-        g.drawLine(centerX - 35, centerY - 55, centerX + 35, centerY + 15);
-        g.drawLine(centerX - 35, centerY + 15, centerX + 35, centerY - 55);
-        
-        // Rotor blade tips (red safety stripes)
+        // Exhaust
         g.setColor(new Color(191, 97, 106));
-        g.setStroke(new BasicStroke(6));
-        g.drawLine(centerX - 50, centerY - 20, centerX - 45, centerY - 20);
-        g.drawLine(centerX + 45, centerY - 20, centerX + 50, centerY - 20);
+        g.fillOval(48, centerY - 22, 8, 6);
+        g.setColor(new Color(235, 203, 139, 180));
+        g.fillOval(50, centerY - 21, 5, 4);
         
-        // Body markings
-        g.setColor(new Color(236, 239, 244)); // White
-        g.fillRect(50, centerY + 6, 20, 4);
-        g.setColor(new Color(191, 97, 106)); // Red
-        g.fillRect(52, centerY - 10, 16, 3);
+        // Landing skids
+        g.setColor(darkBody);
+        g.setStroke(new BasicStroke(4f));
+        g.drawLine(52, centerY + 20, 85, centerY + 20);
+        g.drawLine(52, centerY + 26, 85, centerY + 26);
+        g.setStroke(new BasicStroke(3f));
+        g.drawLine(58, centerY + 16, 58, centerY + 20);
+        g.drawLine(70, centerY + 16, 70, centerY + 20);
+        g.drawLine(82, centerY + 14, 82, centerY + 20);
+        g.setStroke(new BasicStroke(2f));
+        g.drawLine(52, centerY + 23, 58, centerY + 20);
+        g.drawLine(85, centerY + 23, 82, centerY + 20);
         
-        // Door outlines
-        g.setColor(new Color(76, 86, 106));
-        g.setStroke(new BasicStroke(1.5f));
-        g.drawRoundRect(48, centerY - 8, 14, 16, 2, 2);
+        // Rotor hub (on top)
+        g.setColor(darkAccent);
+        g.fillOval(centerX - 5, centerY - 5, 10, 10);
+        g.setColor(new Color(100, 96, 136));
+        g.fillOval(centerX - 3, centerY - 3, 6, 6);
         
         g.dispose();
         return img;
@@ -370,14 +324,11 @@ public class GenerateSprites {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
         int centerX = width / 2;
-        
-        // Simplified missile shadow shape
         g.setColor(new Color(0, 0, 0, 80));
         int[] bodyX = {centerX, centerX - 5, centerX - 5, centerX + 5, centerX + 5};
         int[] bodyY = {10, 18, height - 14, height - 14, 18};
         g.fillPolygon(bodyX, bodyY, 5);
         
-        // Fin shadows
         int[] leftFinX = {centerX - 5, centerX - 14, centerX - 5};
         int[] leftFinY = {height - 18, height - 10, height - 10};
         g.fillPolygon(leftFinX, leftFinY, 3);
@@ -394,24 +345,20 @@ public class GenerateSprites {
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
+        int centerX = width / 2;
         int centerY = height / 2;
-        
-        // Simplified plane shadow
         g.setColor(new Color(0, 0, 0, 80));
         
-        // Fuselage shadow
-        int[] bodyX = {18, 28, 58, 88, 102, 106, 102, 88, 58, 28, 18};
-        int[] bodyY = {centerY, centerY - 9, centerY - 11, centerY - 9, centerY - 5, centerY, centerY + 5, centerY + 9, centerY + 11, centerY + 9, centerY};
+        int[] bodyX = {centerX, centerX - 9, centerX - 11, centerX - 11, centerX - 9, centerX - 5, centerX + 5, centerX + 9, centerX + 11, centerX + 11, centerX + 9};
+        int[] bodyY = {22, 32, 47, 77, 92, 107, 107, 92, 77, 47, 32};
         g.fillPolygon(bodyX, bodyY, 11);
         
-        // Wing shadows
-        int[] topWingX = {38, 53, 78, 82, 73, 48};
-        int[] topWingY = {centerY - 9, centerY - 9, centerY - 7, centerY - 36, centerY - 34, centerY - 9};
-        g.fillPolygon(topWingX, topWingY, 6);
-        
-        int[] botWingX = {38, 53, 78, 82, 73, 48};
-        int[] botWingY = {centerY + 9, centerY + 9, centerY + 7, centerY + 36, centerY + 34, centerY + 9};
-        g.fillPolygon(botWingX, botWingY, 6);
+        int[] leftWingX = {centerX - 11, centerX - 40, centerX - 36, centerX - 11};
+        int[] leftWingY = {52, 72, 80, 72};
+        g.fillPolygon(leftWingX, leftWingY, 4);
+        int[] rightWingX = {centerX + 11, centerX + 40, centerX + 36, centerX + 11};
+        int[] rightWingY = {52, 72, 80, 72};
+        g.fillPolygon(rightWingX, rightWingY, 4);
         
         g.dispose();
         return img;
@@ -426,21 +373,16 @@ public class GenerateSprites {
         int centerY = height / 2;
         
         g.setColor(new Color(0, 0, 0, 80));
+        g.fillRoundRect(17, centerY - 4, 33, 8, 4, 4);
         
-        // Tail boom shadow
-        g.fillRoundRect(14, centerY - 3, 26, 6, 3, 3);
-        
-        // Body shadow
-        int[] bodyX = {32, 37, 72, 80, 80, 72, 37, 32};
-        int[] bodyY = {centerY - 12, centerY - 14, centerY - 14, centerY - 8, centerY + 8, centerY + 14, centerY + 14, centerY + 12};
+        int[] bodyX = {50, 52, 72, 87, 92, 87, 72, 52};
+        int[] bodyY = {centerY - 14, centerY - 16, centerY - 16, centerY - 10, centerY + 2, centerY + 14, centerY + 20, centerY + 20};
         g.fillPolygon(bodyX, bodyY, 8);
         
-        // Cockpit shadow
-        int[] cockpitX = {72, 80, 97, 100, 97, 80};
-        int[] cockpitY = {centerY - 12, centerY - 14, centerY - 12, centerY, centerY + 12, centerY + 14};
+        int[] cockpitX = {70, 74, 90, 97, 90, 74};
+        int[] cockpitY = {centerY - 14, centerY - 16, centerY - 14, centerY + 2, centerY + 18, centerY + 20};
         g.fillPolygon(cockpitX, cockpitY, 6);
         
-        // Rotor shadow (simplified disc)
         g.setColor(new Color(0, 0, 0, 40));
         g.fillOval(centerX - 50, centerY - 50, 100, 100);
         
