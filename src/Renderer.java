@@ -10,7 +10,7 @@ public class Renderer {
         this.shopManager = shopManager;
     }
     
-    public void drawMenu(Graphics2D g, int width, int height, double time) {
+    public void drawMenu(Graphics2D g, int width, int height, double time, int escapeTimer) {
         // Draw animated gradient background with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -52,7 +52,9 @@ public class Renderer {
             "Press SPACE to Select Level",
             "Press I for Info",
             "Press S for Stats & Loadout",
-            "Press O for Settings"
+            "Press P for Shop",
+            "Press O for Settings",
+            escapeTimer > 0 ? "Press ESC again to Quit" : "Press ESC to Quit"
         };
         
         int y = 250;
@@ -192,7 +194,8 @@ public class Renderer {
         String[][] upgrades = {
             {"Speed Boost", "Owned: " + gameData.getSpeedUpgradeLevel(), "Active: " + gameData.getActiveSpeedLevel()},
             {"Bullet Slow", "Owned: " + gameData.getBulletSlowUpgradeLevel(), "Active: " + gameData.getActiveBulletSlowLevel()},
-            {"Lucky Dodge", "Owned: " + gameData.getLuckyDodgeUpgradeLevel(), "Active: " + gameData.getActiveLuckyDodgeLevel()}
+            {"Lucky Dodge", "Owned: " + gameData.getLuckyDodgeUpgradeLevel(), "Active: " + gameData.getActiveLuckyDodgeLevel()},
+            {"Attack Window+", "Owned: " + gameData.getAttackWindowUpgradeLevel(), "Active: " + gameData.getActiveAttackWindowLevel()}
         };
         
         int y = 340;
@@ -205,6 +208,7 @@ public class Renderer {
                 case 0: owned = gameData.getSpeedUpgradeLevel(); active = gameData.getActiveSpeedLevel(); break;
                 case 1: owned = gameData.getBulletSlowUpgradeLevel(); active = gameData.getActiveBulletSlowLevel(); break;
                 case 2: owned = gameData.getLuckyDodgeUpgradeLevel(); active = gameData.getActiveLuckyDodgeLevel(); break;
+                case 3: owned = gameData.getAttackWindowUpgradeLevel(); active = gameData.getActiveAttackWindowLevel(); break;
             }
             
             // Draw selection box
@@ -344,22 +348,69 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, int level, double time) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation) {
         // Draw vibrant animated sky gradient
         Color[] colors = getLevelGradientColors(level);
         drawAnimatedGradient(g, width, height, time, colors);
         
-        // Draw scrolling terrain based on level
-        drawScrollingTerrain(g, width, height, level, time);
+        // Draw beam attacks (behind everything else)
+        for (BeamAttack beam : beamAttacks) {
+            beam.draw(g, width, height);
+        }
         
-        // Draw animated clouds
-        drawClouds(g, width, height, time);
+        // Draw particles (behind sprites)
+        for (Particle particle : particles) {
+            particle.draw(g);
+        }
         
-        // Draw player
-        player.draw(g);
+        // Draw player (only if not in death animation)
+        if (player != null) {
+            player.draw(g);
+        }
         
-        // Draw boss
-        boss.draw(g);
+        // Draw boss with special handling during death animation
+        if (bossDeathAnimation) {
+            // Save original transform
+            Graphics2D g2d = (Graphics2D) g.create();
+            
+            // Apply death animation transformations
+            g2d.translate(boss.getX(), boss.getY());
+            g2d.rotate(bossDeathRotation);
+            g2d.scale(bossDeathScale, bossDeathScale);
+            g2d.translate(-boss.getX(), -boss.getY());
+            
+            // Draw boss with transformations
+            boss.draw(g2d);
+            
+            // Add red/orange tint for fire effect
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+            g2d.setColor(new Color(255, 100, 0));
+            double size = boss.getSize() * bossDeathScale;
+            g2d.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
+            
+            g2d.dispose();
+        } else {
+            // Normal boss drawing
+            boss.draw(g);
+            if (bossVulnerable) {
+                // Pulsing ring around boss
+                double pulseSize = 70 + Math.sin(time * 10) * 10;
+                g.setColor(new Color(235, 203, 139, 150));
+                g.setStroke(new BasicStroke(4f));
+                g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
+                
+                // "ATTACK NOW!" text
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+                String attackText = "ATTACK NOW!";
+                FontMetrics fm = g.getFontMetrics();
+                int textX = (int)boss.getX() - fm.stringWidth(attackText) / 2;
+                int textY = (int)boss.getY() - 50;
+                g.setColor(new Color(0, 0, 0, 180));
+                g.fillRoundRect(textX - 5, textY - 20, fm.stringWidth(attackText) + 10, 28, 5, 5);
+                g.setColor(new Color(235, 203, 139));
+                g.drawString(attackText, textX, textY);
+            }
+        }
         
         // Draw bullets
         for (Bullet bullet : bullets) {
@@ -375,6 +426,21 @@ public class Renderer {
         g.drawString("Level: " + level, 20, 35);
         g.drawString("Score: " + gameData.getScore(), 20, 65);
         g.drawString("Money: $" + (gameData.getTotalMoney() + gameData.getRunMoney()), 20, 95);
+        
+        // Draw combo counter
+        if (showCombo && dodgeCombo > 1) {
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRoundRect(width - 210, 10, 200, 60, 10, 10);
+            
+            g.setColor(new Color(163, 190, 140));
+            g.setFont(new Font("Arial", Font.BOLD, 32));
+            String comboText = "COMBO x" + dodgeCombo;
+            g.drawString(comboText, width - 200, 50);
+            
+            g.setFont(new Font("Arial", Font.PLAIN, 16));
+            g.setColor(Color.WHITE);
+            g.drawString("Lucky Dodges!", width - 200, 68);
+        }
     }
     
     public void drawShop(Graphics2D g, int width, int height, double time) {
@@ -482,7 +548,8 @@ public class Renderer {
     }
     
     public void drawWin(Graphics2D g, int width, int height, double time) {
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(163, 190, 140), new Color(143, 188, 187), new Color(136, 192, 208)});
+        // Darker, more subdued gradient for victory screen
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 40, 30), new Color(40, 50, 45), new Color(50, 60, 55)});
         
         g.setColor(new Color(163, 190, 140)); // Palette green
         g.setFont(new Font("Arial", Font.BOLD, 72));
@@ -586,10 +653,10 @@ public class Renderer {
     
     // Optimized Balatro-style animated gradient system
     private void drawAnimatedGradient(Graphics2D g, int width, int height, double time, Color[] colors) {
-        // Determine offsets based on animation setting
-        int offset1 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.5) * 60) : 0;
-        int offset2 = Game.enableGradientAnimation ? (int)(Math.cos(time * 0.4) * 40) : 0;
-        int offset3 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.6) * 50) : 0;
+        // Determine offsets based on animation setting - made much more dramatic
+        int offset1 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.5) * 150) : 0;
+        int offset2 = Game.enableGradientAnimation ? (int)(Math.cos(time * 0.4) * 120) : 0;
+        int offset3 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.6) * 130) : 0;
         
         // Base layer (always drawn)
         GradientPaint base = new GradientPaint(
@@ -601,9 +668,9 @@ public class Renderer {
         
         // Draw additional layers based on quality setting
         if (Game.gradientQuality >= 1) {
-            // Second layer (Medium and High quality)
+            // Second layer (Medium and High quality) - increased opacity
             Color accentColor = new Color(
-                colors[2].getRed(), colors[2].getGreen(), colors[2].getBlue(), 100
+                colors[2].getRed(), colors[2].getGreen(), colors[2].getBlue(), 160
             );
             GradientPaint accent = new GradientPaint(
                 width / 2, offset2, accentColor,
@@ -614,9 +681,9 @@ public class Renderer {
         }
         
         if (Game.gradientQuality >= 2) {
-            // Third layer (High quality only)
+            // Third layer (High quality only) - increased opacity
             Color midColor = new Color(
-                colors[1].getRed(), colors[1].getGreen(), colors[1].getBlue(), 80
+                colors[1].getRed(), colors[1].getGreen(), colors[1].getBlue(), 120
             );
             GradientPaint mid = new GradientPaint(
                 offset3, 0, new Color(colors[1].getRed(), colors[1].getGreen(), colors[1].getBlue(), 0),

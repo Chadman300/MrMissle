@@ -2,6 +2,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
@@ -10,13 +11,16 @@ public class Boss {
     private double rotation; // Current rotation angle
     private double targetRotation; // Target rotation angle
     private int level;
-    private static final int SIZE = 60;
+    private static final int SIZE = 100;
     private int shootTimer;
     private int shootInterval;
     private int patternType;
     private double targetX, targetY; // Target position for smooth movement
     private int moveTimer; // Timer to pick new target
     private static final double MOVE_SPEED = 1.5; // Smooth movement speed
+    private int beamAttackTimer; // Timer for beam attacks
+    private int beamAttackInterval; // How often to spawn beam attacks
+    private List<BeamAttack> beamAttacks; // Active beam attacks
     
     private static BufferedImage planeSprite;
     private static BufferedImage helicopterSprite;
@@ -37,6 +41,9 @@ public class Boss {
         this.targetX = x;
         this.targetY = y;
         this.moveTimer = 0;
+        this.beamAttacks = new ArrayList<>();
+        this.beamAttackTimer = 120 + (int)(Math.random() * 60); // First beam after 2-3 seconds
+        this.beamAttackInterval = Math.max(180, 300 - level * 10); // More frequent at higher levels
         loadSprites();
     }
     
@@ -120,6 +127,24 @@ public class Boss {
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
             shoot(bullets, player);
+        }
+        
+        // Beam attacks (at higher levels)
+        if (level >= 2) {
+            beamAttackTimer += deltaTime;
+            if (beamAttackTimer >= beamAttackInterval) {
+                beamAttackTimer = 0;
+                spawnBeamAttack(screenWidth, screenHeight);
+            }
+        }
+        
+        // Update beam attacks
+        for (int i = beamAttacks.size() - 1; i >= 0; i--) {
+            BeamAttack beam = beamAttacks.get(i);
+            beam.update(deltaTime);
+            if (beam.isDone()) {
+                beamAttacks.remove(i);
+            }
         }
     }
     
@@ -274,6 +299,33 @@ public class Boss {
         }
     }
     
+    private void spawnBeamAttack(int screenWidth, int screenHeight) {
+        // Randomly choose between vertical and horizontal beams
+        boolean isVertical = Math.random() < 0.5;
+        
+        if (isVertical) {
+            // Spawn 1-3 vertical beams depending on level
+            int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
+            for (int i = 0; i < numBeams; i++) {
+                double position = screenWidth * (0.2 + Math.random() * 0.6);
+                double width = 40 + level * 5; // Wider beams at higher levels
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+            }
+        } else {
+            // Spawn 1-3 horizontal beams depending on level
+            int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
+            for (int i = 0; i < numBeams; i++) {
+                double position = screenHeight * (0.3 + Math.random() * 0.5);
+                double width = 40 + level * 5; // Wider beams at higher levels
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+            }
+        }
+    }
+    
+    public List<BeamAttack> getBeamAttacks() {
+        return beamAttacks;
+    }
+    
     public void draw(Graphics2D g) {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -286,7 +338,7 @@ public class Boss {
             // Use smooth rotation angle
             // Rotate and draw sprite with shadow
             g2d.translate(x, y);
-            g2d.rotate(rotation);
+            g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             int spriteSize = SIZE * 3;
             
             // Draw shadow sprite

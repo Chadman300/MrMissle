@@ -18,11 +18,13 @@ public class GameData {
     private int speedUpgradeLevel;
     private int bulletSlowUpgradeLevel;
     private int luckyDodgeUpgradeLevel;
+    private int attackWindowUpgradeLevel;
     
     // Active upgrades (allocated from purchased upgrades)
     private int activeSpeedLevel;
     private int activeBulletSlowLevel;
     private int activeLuckyDodgeLevel;
+    private int activeAttackWindowLevel;
     
     public GameData() {
         score = 0;
@@ -35,9 +37,11 @@ public class GameData {
         speedUpgradeLevel = 0;
         bulletSlowUpgradeLevel = 0;
         luckyDodgeUpgradeLevel = 0;
+        attackWindowUpgradeLevel = 0;
         activeSpeedLevel = 0;
         activeBulletSlowLevel = 0;
         activeLuckyDodgeLevel = 0;
+        activeAttackWindowLevel = 0;
     }
     
     // Getters and setters
@@ -82,6 +86,10 @@ public class GameData {
     public void setLuckyDodgeUpgradeLevel(int level) { this.luckyDodgeUpgradeLevel = level; }
     public void incrementLuckyDodgeUpgrade() { this.luckyDodgeUpgradeLevel++; }
     
+    public int getAttackWindowUpgradeLevel() { return attackWindowUpgradeLevel; }
+    public void setAttackWindowUpgradeLevel(int level) { this.attackWindowUpgradeLevel = level; }
+    public void incrementAttackWindowUpgrade() { this.attackWindowUpgradeLevel++; }
+    
     public int getActiveSpeedLevel() { return activeSpeedLevel; }
     public void setActiveSpeedLevel(int level) { this.activeSpeedLevel = Math.max(0, Math.min(speedUpgradeLevel, level)); }
     
@@ -90,6 +98,9 @@ public class GameData {
     
     public int getActiveLuckyDodgeLevel() { return activeLuckyDodgeLevel; }
     public void setActiveLuckyDodgeLevel(int level) { this.activeLuckyDodgeLevel = Math.max(0, Math.min(luckyDodgeUpgradeLevel, level)); }
+    
+    public int getActiveAttackWindowLevel() { return activeAttackWindowLevel; }
+    public void setActiveAttackWindowLevel(int level) { this.activeAttackWindowLevel = Math.max(0, Math.min(attackWindowUpgradeLevel, level)); }
     
     public void adjustUpgrade(int upgradeIndex, int delta) {
         switch (upgradeIndex) {
@@ -101,6 +112,9 @@ public class GameData {
                 break;
             case 2: // Lucky Dodge
                 activeLuckyDodgeLevel = Math.max(0, Math.min(luckyDodgeUpgradeLevel, activeLuckyDodgeLevel + delta));
+                break;
+            case 3: // Attack Window
+                activeAttackWindowLevel = Math.max(0, Math.min(attackWindowUpgradeLevel, activeAttackWindowLevel + delta));
                 break;
         }
     }
