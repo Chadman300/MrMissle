@@ -1,10 +1,18 @@
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 
 public class Bullet {
     private double x, y;
     private double vx, vy;
-    private static final int SIZE = 8;
+    private static final int SIZE = 5;
     private BulletType type;
+    
+    // Bullet sprites
+    private static BufferedImage[] bulletSprites = new BufferedImage[8];
+    private static boolean spritesLoaded = false;
     private int warningTime;
     private static final int WARNING_DURATION = 45; // Frames before bullet activates
     private double age; // Frames since activation
@@ -37,6 +45,26 @@ public class Bullet {
         this.age = 0;
         this.spiralAngle = 0;
         this.hasSplit = false;
+        loadSprites();
+    }
+    
+    private static void loadSprites() {
+        if (spritesLoaded) return;
+        try {
+            // Load all bullet sprites
+            bulletSprites[0] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj 1 Purple.png")); // NORMAL
+            bulletSprites[1] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj 2 Purple.png")); // FAST
+            bulletSprites[2] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 1.png")); // LARGE
+            bulletSprites[3] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 2.png")); // HOMING
+            bulletSprites[4] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 3.png")); // BOUNCING
+            bulletSprites[5] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Orange 1.png")); // SPIRAL
+            bulletSprites[6] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Orange 2.png")); // SPLITTING
+            bulletSprites[7] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Red 1.png")); // ACCELERATING/WAVE
+            spritesLoaded = true;
+        } catch (IOException e) {
+            System.err.println("Could not load bullet sprites: " + e.getMessage());
+            spritesLoaded = false;
+        }
     }
     
     // Reset bullet for pooling
@@ -147,67 +175,123 @@ public class Bullet {
             return;
         }
         
-        // Calculate rotation angle based on velocity
-        // Type-specific appearance - vibrant colored orbs with better contrast
-        int size = SIZE;
-        Color color;
+        // Get sprite index and size based on type
+        int spriteIndex = 0;
+        int spriteSize = SIZE * 3;
         
         switch (type) {
+            case NORMAL:
+                spriteIndex = 0;
+                spriteSize = SIZE * 3;
+                break;
             case FAST:
-                size = SIZE - 2;
-                color = new Color(255, 220, 0); // Bright yellow
+                spriteIndex = 1;
+                spriteSize = SIZE * 2;
                 break;
             case LARGE:
-                size = SIZE + 4;
-                color = new Color(0, 100, 255); // Bright blue
+                spriteIndex = 2;
+                spriteSize = SIZE * 4;
                 break;
             case HOMING:
-                color = new Color(255, 50, 200); // Hot pink
+                spriteIndex = 3;
+                spriteSize = SIZE * 3;
                 break;
             case BOUNCING:
-                color = new Color(50, 255, 100); // Bright green
+                spriteIndex = 4;
+                spriteSize = SIZE * 3;
                 break;
             case SPIRAL:
-                color = new Color(0, 255, 255); // Bright cyan
+                spriteIndex = 5;
+                spriteSize = SIZE * 3;
                 break;
             case SPLITTING:
-                size = SIZE + 4;
-                color = new Color(255, 100, 0); // Bright orange
+                spriteIndex = 6;
+                spriteSize = SIZE * 4;
                 break;
             case ACCELERATING:
-                color = new Color(200, 50, 255); // Bright purple
-                break;
             case WAVE:
-                color = new Color(0, 255, 200); // Bright teal
-                break;
-            default:
-                color = new Color(255, 50, 50); // Bright red
+                spriteIndex = 7;
+                spriteSize = SIZE * 3;
                 break;
         }
         
-        // Draw vibrant orb with glow effect
-        // Outer glow
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.setColor(color);
-        g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
-        
-        // Main orb
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-        g.setColor(color);
-        g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
-        
-        // Bright highlight for depth
-        g.setColor(new Color(255, 255, 255, 200));
-        g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
-        
-        // Inner core (brighter)
-        Color brightCore = new Color(
-            Math.min(255, color.getRed() + 100),
-            Math.min(255, color.getGreen() + 100),
-            Math.min(255, color.getBlue() + 100)
-        );
-        g.setColor(brightCore);
-        g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
+        // Draw sprite if loaded, otherwise fallback to orb
+        if (spritesLoaded && bulletSprites[spriteIndex] != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            // Calculate rotation angle based on velocity
+            double angle = Math.atan2(vy, vx);
+            
+            g2d.translate(x, y);
+            g2d.rotate(angle + Math.PI / 2); // Rotate sprite to face direction of travel
+            
+            // Draw sprite centered
+            g2d.drawImage(bulletSprites[spriteIndex], 
+                -spriteSize/2, -spriteSize/2, 
+                spriteSize, spriteSize, null);
+            
+            g2d.dispose();
+        } else {
+            // Fallback: draw colored orb
+            int size = SIZE;
+            Color color;
+            
+            switch (type) {
+                case FAST:
+                    size = SIZE - 2;
+                    color = new Color(255, 220, 0); // Bright yellow
+                    break;
+                case LARGE:
+                    size = SIZE + 4;
+                    color = new Color(0, 100, 255); // Bright blue
+                    break;
+                case HOMING:
+                    color = new Color(255, 50, 200); // Hot pink
+                    break;
+                case BOUNCING:
+                    color = new Color(50, 255, 100); // Bright green
+                    break;
+                case SPIRAL:
+                    color = new Color(0, 255, 255); // Bright cyan
+                    break;
+                case SPLITTING:
+                    size = SIZE + 4;
+                    color = new Color(255, 100, 0); // Bright orange
+                    break;
+                case ACCELERATING:
+                    color = new Color(200, 50, 255); // Bright purple
+                    break;
+                case WAVE:
+                    color = new Color(0, 255, 200); // Bright teal
+                    break;
+                default:
+                    color = new Color(255, 50, 50); // Bright red
+                    break;
+            }
+            
+            // Draw vibrant orb with glow effect
+            // Outer glow
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+            g.setColor(color);
+            g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
+            
+            // Main orb
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setColor(color);
+            g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
+            
+            // Bright highlight for depth
+            g.setColor(new Color(255, 255, 255, 200));
+            g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
+            
+            // Inner core (brighter)
+            Color brightCore = new Color(
+                Math.min(255, color.getRed() + 100),
+                Math.min(255, color.getGreen() + 100),
+                Math.min(255, color.getBlue() + 100)
+            );
+            g.setColor(brightCore);
+            g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
+        }
     }
     
     public boolean isOffScreen(int width, int height) {

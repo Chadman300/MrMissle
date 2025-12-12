@@ -32,10 +32,19 @@ public class Boss {
     private int beamAttackInterval; // How often to spawn beam attacks
     private List<BeamAttack> beamAttacks; // Active beam attacks
     
-    private static BufferedImage planeSprite;
-    private static BufferedImage helicopterSprite;
-    private static BufferedImage planeShadow;
-    private static BufferedImage helicopterShadow;
+    // Multiple sprite variants for planes and helicopters
+    private static BufferedImage[] miniBossPlaneSprites = new BufferedImage[8];
+    private static BufferedImage[] megaBossPlaneSprites = new BufferedImage[8];
+    private static BufferedImage[] helicopterSprites = new BufferedImage[8];
+    private static BufferedImage[] miniBossPlaneShadows = new BufferedImage[8];
+    private static BufferedImage[] megaBossPlaneShadows = new BufferedImage[8];
+    private static BufferedImage[] helicopterShadows = new BufferedImage[8];
+    private static BufferedImage[] helicopterBlades = new BufferedImage[3]; // Rotor blade sprites
+    private static boolean spritesLoaded = false;
+    
+    // Animation for helicopter blades
+    private double bladeRotation = 0;
+    private static final double BLADE_ROTATION_SPEED = 0.5; // Radians per frame
     
     public Boss(double x, double y, int level) {
         this.x = x;
@@ -49,7 +58,8 @@ public class Boss {
         this.angularVelocity = 0;
         this.level = level;
         
-        // Every 3rd level is a mega boss
+        // Pattern: mini, mini, mega, mini, mini, mega...
+        // Every 3rd level is a mega boss (3, 6, 9, 12...)
         this.isMegaBoss = (level % 3 == 0);
         
         // Size: mega bosses are 150% size, mini bosses are 70% size
@@ -74,34 +84,89 @@ public class Boss {
         loadSprites();
     }
     
+    private BufferedImage rotateImage180(BufferedImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        BufferedImage rotated = new BufferedImage(w, h, img.getType());
+        Graphics2D g2d = rotated.createGraphics();
+        g2d.rotate(Math.PI, w / 2.0, h / 2.0);
+        g2d.drawImage(img, 0, 0, null);
+        g2d.dispose();
+        return rotated;
+    }
+    
     private void loadSprites() {
-        if (planeSprite == null) {
-            try {
-                planeSprite = ImageIO.read(new File("sprites/plane.png"));
-            } catch (IOException e) {
-                System.err.println("Could not load plane sprite: " + e.getMessage());
-            }
-        }
-        if (helicopterSprite == null) {
-            try {
-                helicopterSprite = ImageIO.read(new File("sprites/helicopter.png"));
-            } catch (IOException e) {
-                System.err.println("Could not load helicopter sprite: " + e.getMessage());
-            }
-        }
-        if (planeShadow == null) {
-            try {
-                planeShadow = ImageIO.read(new File("sprites/plane_shadow.png"));
-            } catch (IOException e) {
-                System.err.println("Could not load plane shadow: " + e.getMessage());
-            }
-        }
-        if (helicopterShadow == null) {
-            try {
-                helicopterShadow = ImageIO.read(new File("sprites/helicopter_shadow.png"));
-            } catch (IOException e) {
-                System.err.println("Could not load helicopter shadow: " + e.getMessage());
-            }
+        if (spritesLoaded) return;
+        try {
+            // Load mini boss plane variants (Regular Planes)
+            miniBossPlaneSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png")));
+            miniBossPlaneSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png")));
+            miniBossPlaneSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png")));
+            miniBossPlaneSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10.png")));
+            miniBossPlaneSprites[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png")));
+            miniBossPlaneSprites[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png")));
+            miniBossPlaneSprites[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png")));
+            miniBossPlaneSprites[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png")));
+            
+            // Load mini boss plane shadows
+            miniBossPlaneShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png")));
+            miniBossPlaneShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png")));
+            miniBossPlaneShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png")));
+            miniBossPlaneShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10 Shadow.png")));
+            miniBossPlaneShadows[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png")));
+            miniBossPlaneShadows[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png")));
+            miniBossPlaneShadows[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png")));
+            miniBossPlaneShadows[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png")));
+            
+            // Load mega boss plane variants (Boss Planes)
+            megaBossPlaneSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png")));
+            megaBossPlaneSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2.png")));
+            megaBossPlaneSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3.png")));
+            megaBossPlaneSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4.png")));
+            megaBossPlaneSprites[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5.png")));
+            megaBossPlaneSprites[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png")));
+            megaBossPlaneSprites[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png")));
+            megaBossPlaneSprites[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png")));
+            
+            // Load mega boss plane shadows
+            megaBossPlaneShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png")));
+            megaBossPlaneShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png")));
+            megaBossPlaneShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png")));
+            megaBossPlaneShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4 Shadow.png")));
+            megaBossPlaneShadows[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png")));
+            megaBossPlaneShadows[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png")));
+            megaBossPlaneShadows[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png")));
+            megaBossPlaneShadows[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png")));
+            
+            // Load helicopter variants
+            helicopterSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png")));
+            helicopterSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png")));
+            helicopterSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png")));
+            helicopterSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png")));
+            helicopterSprites[4] = helicopterSprites[0]; // Reuse
+            helicopterSprites[5] = helicopterSprites[1]; // Reuse
+            helicopterSprites[6] = helicopterSprites[2]; // Reuse
+            helicopterSprites[7] = helicopterSprites[3]; // Reuse
+            
+            // Load helicopter shadows
+            helicopterShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png")));
+            helicopterShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png")));
+            helicopterShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png")));
+            helicopterShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png")));
+            helicopterShadows[4] = helicopterShadows[0]; // Reuse
+            helicopterShadows[5] = helicopterShadows[1]; // Reuse
+            helicopterShadows[6] = helicopterShadows[0]; // Reuse
+            helicopterShadows[7] = helicopterShadows[1]; // Reuse
+            
+            // Load helicopter blade sprites
+            helicopterBlades[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png")));
+            helicopterBlades[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Wings.png")));
+            helicopterBlades[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png")));
+            
+            spritesLoaded = true;
+        } catch (IOException e) {
+            System.err.println("Could not load boss sprites: " + e.getMessage());
+            // Don't set spritesLoaded to false - allow fallback rendering
         }
     }
     
@@ -177,6 +242,14 @@ public class Boss {
         
         // Apply angular velocity to rotation
         rotation += angularVelocity * deltaTime;
+        
+        // Animate helicopter blades if this is a helicopter
+        if (level % 2 == 0) {
+            bladeRotation += BLADE_ROTATION_SPEED * deltaTime;
+            if (bladeRotation > Math.PI * 2) {
+                bladeRotation -= Math.PI * 2;
+            }
+        }
         
         // Keep boss within bounds (and bounce off walls)
         if (x < size || x > screenWidth - size) {
@@ -398,8 +471,25 @@ public class Boss {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
         // Odd levels = fighter planes, Even levels = helicopters
-        BufferedImage sprite = (level % 2 == 1) ? planeSprite : helicopterSprite;
-        BufferedImage shadow = (level % 2 == 1) ? planeShadow : helicopterShadow;
+        // Select sprite variant based on level (cycles through 8 variants)
+        int spriteIndex = ((level - 1) / 2) % 8;
+        BufferedImage sprite;
+        BufferedImage shadow;
+        
+        if (level % 2 == 0) {
+            // Even levels: Helicopters (always mega bosses)
+            sprite = helicopterSprites[spriteIndex];
+            shadow = helicopterShadows[spriteIndex];
+        } else {
+            // Odd levels: Planes (can be mini or mega)
+            if (isMegaBoss) {
+                sprite = megaBossPlaneSprites[spriteIndex];
+                shadow = megaBossPlaneShadows[spriteIndex];
+            } else {
+                sprite = miniBossPlaneSprites[spriteIndex];
+                shadow = miniBossPlaneShadows[spriteIndex];
+            }
+        }
         
         if (sprite != null) {
             // Use smooth rotation angle
@@ -408,15 +498,38 @@ public class Boss {
             g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             int spriteSize = size * 2;
             
+            // For helicopters, increase vertical height to reduce compression
+            int spriteWidth = spriteSize;
+            int spriteHeight = spriteSize;
+            boolean isHelicopter = (level % 2 == 0);
+            if (isHelicopter) {
+                spriteHeight = (int)(spriteSize * 1.4); // 40% taller to reduce compression
+            }
+            
             // Draw shadow sprite
             if (shadow != null) {
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
-                g2d.drawImage(shadow, -spriteSize/2 + 4, -spriteSize/2 + 4, spriteSize, spriteSize, null);
+                g2d.drawImage(shadow, -spriteWidth/2 + 4, -spriteHeight/2 + 4, spriteWidth, spriteHeight, null);
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
             }
             
             // Draw sprite
-            g2d.drawImage(sprite, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize, null);
+            g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
+            
+            // Draw spinning helicopter blades if this is a helicopter
+            if (isHelicopter && helicopterBlades[0] != null) {
+                // Choose blade sprite based on helicopter variant
+                int bladeIndex = Math.min(spriteIndex / 3, 2); // 0-2, 3-5, 6-7 map to blade 0, 1, 2
+                BufferedImage bladeSprite = helicopterBlades[bladeIndex];
+                
+                if (bladeSprite != null) {
+                    Graphics2D bladeG2d = (Graphics2D) g2d.create();
+                    bladeG2d.rotate(bladeRotation); // Apply blade rotation
+                    int bladeSize = (int)(spriteWidth * 1.2); // Blades slightly larger than body
+                    bladeG2d.drawImage(bladeSprite, -bladeSize/2, -bladeSize/2, bladeSize, bladeSize, null);
+                    bladeG2d.dispose();
+                }
+            }
         } else {
             // Fallback: draw simple polygon with shadow if sprite not loaded
             int sides = Math.min(level + 2, 20);

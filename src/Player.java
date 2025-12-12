@@ -37,7 +37,8 @@ public class Player {
         if (missileSprite == null) {
             try {
                 BufferedImage original = ImageIO.read(new File("sprites/missile.png"));
-                missileSprite = rotateImage180(original);
+                //missileSprite = rotateImage180(original);
+                missileSprite = original;
             } catch (IOException e) {
                 System.err.println("Could not load missile sprite: " + e.getMessage());
             }
@@ -45,7 +46,8 @@ public class Player {
         if (missileShadow == null) {
             try {
                 BufferedImage original = ImageIO.read(new File("sprites/missile_shadow.png"));
-                missileShadow = rotateImage180(original);
+                //missileShadow = rotateImage180(original);
+                missileShadow = original;
             } catch (IOException e) {
                 System.err.println("Could not load missile shadow: " + e.getMessage());
             }
