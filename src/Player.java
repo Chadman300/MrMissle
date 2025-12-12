@@ -16,6 +16,11 @@ public class Player {
     private int flickerTimer; // For Lucky Dodge animation
     private static final int FLICKER_DURATION = 15; // Frames to flicker
     
+    // Sun angle for directional shadows (top-left, about 135 degrees)
+    private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
+    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
+    
     private static BufferedImage missileSprite;
     private static BufferedImage missileShadow;
     
@@ -36,7 +41,7 @@ public class Player {
     private void loadSprite() {
         if (missileSprite == null) {
             try {
-                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Red.png"));
+                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Black.png"));
                 //missileSprite = rotateImage180(original);
                 missileSprite = original;
             } catch (IOException e) {
@@ -45,7 +50,7 @@ public class Player {
         }
         if (missileShadow == null) {
             try {
-                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Red Shadow.png"));
+                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Black Shadow.png"));
                 //missileShadow = rotateImage180(original);
                 missileShadow = original;
             } catch (IOException e) {
@@ -148,16 +153,37 @@ public class Player {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.translate(x, y);
-        g2d.rotate(angle + Math.PI / 2); // Back to original rotation since sprite is now pre-rotated
         
-        int spriteSize = (int)(SIZE * 1.3);
+        int spriteSize = SIZE;
         
-        // Draw shadow sprite first
-        if (missileShadow != null) {
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.6f));
-            g2d.drawImage(missileShadow, -spriteSize/2 + 2, -spriteSize/2 + 2, spriteSize, spriteSize * 2, null);
+        // Draw shadow sprite first with directional offset that moves with rotation
+        if (Game.enableShadows && missileShadow != null) {
+            // Calculate shadow offset relative to object rotation
+            double objectRotation = angle + Math.PI / 2;
+            double relativeAngle = SUN_ANGLE - objectRotation;
+            double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
+            double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
+            
+            // Shadow is slightly larger
+            int shadowWidth = (int)(spriteSize * SHADOW_SCALE);
+            int shadowHeight = (int)(spriteSize * 2 * SHADOW_SCALE);
+            
+            // Rotate to match object
+            g2d.rotate(objectRotation);
+            
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
+            g2d.drawImage(missileShadow, 
+                (int)(-shadowWidth/2 + shadowOffsetX), 
+                (int)(-shadowHeight/2 + shadowOffsetY), 
+                shadowWidth, shadowHeight, null);
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Reset rotation for sprite
+            g2d.rotate(-objectRotation);
         }
+        
+        // Rotate for sprite drawing
+        g2d.rotate(angle + Math.PI / 2); // Back to original rotation since sprite is now pre-rotated
         
         if (missileSprite != null) {
             // Draw sprite

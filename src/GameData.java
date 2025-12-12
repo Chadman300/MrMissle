@@ -118,4 +118,27 @@ public class GameData {
                 break;
         }
     }
+    
+    // Cheat/Debug methods
+    public void unlockAllLevels() {
+        maxUnlockedLevel = 20;
+        for (int i = 0; i < defeatedBosses.length; i++) {
+            defeatedBosses[i] = true;
+        }
+    }
+    
+    public void giveCheatMoney(int amount) {
+        totalMoney += amount;
+    }
+    
+    public void maxAllUpgrades() {
+        speedUpgradeLevel = 10;
+        bulletSlowUpgradeLevel = 10;
+        luckyDodgeUpgradeLevel = 10;
+        attackWindowUpgradeLevel = 10;
+        activeSpeedLevel = 10;
+        activeBulletSlowLevel = 10;
+        activeLuckyDodgeLevel = 10;
+        activeAttackWindowLevel = 10;
+    }
 }

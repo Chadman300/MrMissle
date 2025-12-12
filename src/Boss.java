@@ -20,8 +20,14 @@ public class Boss {
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
-    private static final double ANGULAR_ACCELERATION = 0.08; // How fast to turn
-    private static final double ANGULAR_FRICTION = 0.85; // Rotation damping
+    private static final double ANGULAR_ACCELERATION = 0.03; // How fast to turn
+    private static final double ANGULAR_FRICTION = 0.7; // Rotation damping
+    
+    // Sun angle for directional shadows (top-left, about 135 degrees)
+    private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
+    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
+    
     private int shootTimer;
     private int shootInterval;
     private int patternType;
@@ -182,13 +188,22 @@ public class Boss {
         // Smooth movement to target position
         moveTimer += deltaTime;
         
-        // Pick a new random target every 60-120 frames (1-2 seconds)
-        if (moveTimer >= 60 + Math.random() * 60) {
+        // Pick a new target every 120-180 frames (2-3 seconds) for longer paths
+        if (moveTimer >= 120 + Math.random() * 60) {
             moveTimer = 0;
             
-            // Pick random position in the top half of screen with some margin
-            targetX = size + Math.random() * (screenWidth - size * 2);
-            targetY = size + Math.random() * (screenHeight / 2.5 - size * 2);
+            // Create circular flight paths - pick points around center of screen
+            double centerX = screenWidth / 2.0;
+            double centerY = screenHeight / 4.0;
+            double radius = Math.min(screenWidth, screenHeight) / 3.0;
+            double angle = Math.random() * Math.PI * 2;
+            
+            targetX = centerX + Math.cos(angle) * radius;
+            targetY = centerY + Math.sin(angle) * radius;
+            
+            // Clamp to screen bounds
+            targetX = Math.max(size, Math.min(screenWidth - size, targetX));
+            targetY = Math.max(size, Math.min(screenHeight / 2.5 - size, targetY));
         }
         
         // Calculate direction to target
@@ -247,8 +262,8 @@ public class Boss {
         // Apply angular velocity to rotation
         rotation += angularVelocity * deltaTime;
         
-        // Generate wing tip trails for planes (not helicopters)
-        if (particles != null && level % 2 != 0) { // Only for planes (odd levels)
+        // Generate wing tip trails for all boss types (planes and helicopters)
+        if (particles != null) {
             // Calculate wing tip positions (perpendicular to rotation)
             double wingSpan = size * 0.8; // Wing tips are at 80% of boss size
             double perpAngle = rotation + Math.PI / 2; // Perpendicular to facing direction
@@ -261,6 +276,10 @@ public class Boss {
             double rightWingX = x - Math.cos(perpAngle) * wingSpan;
             double rightWingY = y - Math.sin(perpAngle) * wingSpan;
             
+            // Larger trails for mega bosses
+            int trailSize = isMegaBoss ? 8 : 4;
+            int trailSizeVariation = isMegaBoss ? 6 : 3;
+            
             // Spawn trail particles at wing tips (every few frames)
             if (Math.random() < 0.3 * deltaTime) {
                 // Left wing trail
@@ -271,7 +290,7 @@ public class Boss {
                     -vy * 0.3 + (Math.random() - 0.5) * 0.5,
                     new Color(200, 220, 255, 180), // Light blue/white
                     20 + (int)(Math.random() * 15),
-                    4 + (int)(Math.random() * 3),
+                    trailSize + (int)(Math.random() * trailSizeVariation),
                     Particle.ParticleType.TRAIL
                 ));
                 
@@ -283,7 +302,7 @@ public class Boss {
                     -vy * 0.3 + (Math.random() - 0.5) * 0.5,
                     new Color(200, 220, 255, 180), // Light blue/white
                     20 + (int)(Math.random() * 15),
-                    4 + (int)(Math.random() * 3),
+                    trailSize + (int)(Math.random() * trailSizeVariation),
                     Particle.ParticleType.TRAIL
                 ));
             }
@@ -541,7 +560,7 @@ public class Boss {
             // Use smooth rotation angle
             // Rotate and draw sprite with shadow
             g2d.translate(x, y);
-            g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
+            
             int spriteSize = size * 2;
             
             // For helicopters, increase vertical height to reduce compression
@@ -552,12 +571,34 @@ public class Boss {
                 spriteHeight = (int)(spriteSize * 1.4); // 40% taller to reduce compression
             }
             
-            // Draw shadow sprite
-            if (shadow != null) {
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
-                g2d.drawImage(shadow, -spriteWidth/2 + 4, -spriteHeight/2 + 4, spriteWidth, spriteHeight, null);
+            // Draw shadow sprite with directional offset in world space (before rotation)
+            if (Game.enableShadows && shadow != null) {
+                // Calculate shadow offset in world space based on sun angle and object rotation
+                // Shadow appears to move as object rotates relative to fixed sun direction
+                double relativeAngle = SUN_ANGLE - (rotation - Math.PI / 2);
+                double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
+                double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
+                
+                // Shadow is larger and more transparent
+                int shadowWidth = (int)(spriteWidth * SHADOW_SCALE);
+                int shadowHeight = (int)(spriteHeight * SHADOW_SCALE);
+                
+                // Rotate to match object orientation
+                g2d.rotate(rotation - Math.PI / 2);
+                
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+                g2d.drawImage(shadow, 
+                    (int)(-shadowWidth/2 + shadowOffsetX), 
+                    (int)(-shadowHeight/2 + shadowOffsetY), 
+                    shadowWidth, shadowHeight, null);
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                
+                // Reset rotation for sprite
+                g2d.rotate(-(rotation - Math.PI / 2));
             }
+            
+            // Now rotate for the sprite itself
+            g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
             // Draw sprite
             g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);

@@ -7,8 +7,13 @@ import javax.imageio.ImageIO;
 public class Bullet {
     private double x, y;
     private double vx, vy;
-    private static final int SIZE = 5;
+    private static final int SIZE = 4;
     private BulletType type;
+    
+    // Sun angle for directional shadows
+    private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
+    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     // Bullet sprites
     private static BufferedImage[] bulletSprites = new BufferedImage[8];
@@ -222,6 +227,31 @@ public class Bullet {
             double angle = Math.atan2(vy, vx);
             
             g2d.translate(x, y);
+            
+            // Draw shadow with rotation-based offset
+            if (Game.enableShadows) {
+                double objectRotation = angle + Math.PI / 2;
+                double relativeAngle = SUN_ANGLE - objectRotation;
+                double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
+                double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
+                
+                int shadowSize = (int)(spriteSize * SHADOW_SCALE);
+                
+                // Rotate for shadow
+                g2d.rotate(objectRotation);
+                
+                // Draw shadow (darker, semi-transparent version)
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+                g2d.setColor(new Color(0, 0, 0));
+                g2d.fillOval(
+                    (int)(-shadowSize/2 + shadowOffsetX),
+                    (int)(-shadowSize/2 + shadowOffsetY),
+                    shadowSize, shadowSize);
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                
+                // Reset rotation for sprite drawing
+                g2d.rotate(-objectRotation);
+            }
             g2d.rotate(angle + Math.PI / 2); // Rotate sprite to face direction of travel
             
             // Draw sprite centered

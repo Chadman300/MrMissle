@@ -1,5 +1,9 @@
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 public class Renderer {
     private GameData gameData;
@@ -11,9 +15,24 @@ public class Renderer {
     private UIButton[] statsButtons;
     private UIButton[] settingsButtons;
     
+    // Parallax background layers (16 sets x 6 layers each)
+    private static BufferedImage[][] backgroundLayers = new BufferedImage[16][6];
+    private static boolean backgroundsLoaded = false;
+    private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
+    
+    // Background overlay
+    private static BufferedImage overlayImage = null;
+    private static boolean overlayLoaded = false;
+    
     public Renderer(GameData gameData, ShopManager shopManager) {
         this.gameData = gameData;
         this.shopManager = shopManager;
+        
+        // Load background layers
+        loadBackgroundLayers();
+        
+        // Load overlay image
+        loadOverlay();
         
         // Initialize menu buttons (positions will be updated in drawMenu)
         menuButtons = new UIButton[5];
@@ -37,11 +56,221 @@ public class Renderer {
             statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
         }
         
-        // Initialize settings buttons (4 options)
-        settingsButtons = new UIButton[4];
-        for (int i = 0; i < 4; i++) {
+        // Initialize settings buttons (6 options)
+        settingsButtons = new UIButton[6];
+        for (int i = 0; i < 6; i++) {
             settingsButtons[i] = new UIButton("", 0, 0, 700, 80, new Color(76, 86, 106), new Color(235, 203, 139));
         }
+    }
+    
+    private void loadBackgroundLayers() {
+        if (backgroundsLoaded) return;
+        try {
+            int totalLoaded = 0;
+            for (int set = 0; set < 16; set++) {
+                for (int layer = 0; layer < 6; layer++) {
+                    // Try multiple possible paths to handle different working directories
+                    String[] possiblePaths = {
+                        String.format("sprites/Backgrounds/background %d/%d.png", set + 1, layer + 1),
+                        String.format("../sprites/Backgrounds/background %d/%d.png", set + 1, layer + 1),
+                        String.format("sprites\\Backgrounds\\background %d\\%d.png", set + 1, layer + 1),
+                        String.format("..\\sprites\\Backgrounds\\background %d\\%d.png", set + 1, layer + 1)
+                    };
+                    
+                    BufferedImage image = null;
+                    for (String path : possiblePaths) {
+                        File file = new File(path);
+                        if (file.exists()) {
+                            try {
+                                image = ImageIO.read(file);
+                                if (image != null) {
+                                    totalLoaded++;
+                                    break;
+                                }
+                            } catch (IOException e) {
+                                // Skip this file and try next path
+                            }
+                        }
+                    }
+                    
+                    // Store the image (can be null if layer doesn't exist for this set)
+                    backgroundLayers[set][layer] = image;
+                }
+            }
+            
+            if (totalLoaded > 0) {
+                backgroundsLoaded = true;
+                System.out.println("Parallax backgrounds loaded successfully! (" + totalLoaded + " layers)");
+            } else {
+                System.err.println("No background layers could be loaded!");
+                backgroundsLoaded = false;
+            }
+        } catch (Exception e) {
+            System.err.println("Error loading background layers: " + e.getMessage());
+            e.printStackTrace();
+            backgroundsLoaded = false;
+        }
+    }
+    
+    private void loadOverlay() {
+        if (overlayLoaded) return;
+        try {
+            String[] possiblePaths = {
+                "sprites/Backgrounds/Overlay.png",
+                "../sprites/Backgrounds/Overlay.png",
+                "sprites\\Backgrounds\\Overlay.png",
+                "..\\sprites\\Backgrounds\\Overlay.png"
+            };
+            
+            for (String path : possiblePaths) {
+                File file = new File(path);
+                if (file.exists()) {
+                    overlayImage = ImageIO.read(file);
+                    overlayLoaded = true;
+                    System.out.println("Overlay image loaded from: " + path);
+                    return;
+                }
+            }
+            System.out.println("Overlay image not found - will run without overlay");
+        } catch (Exception e) {
+            System.err.println("Error loading overlay: " + e.getMessage());
+            overlayLoaded = false;
+        }
+    }
+    
+    private void drawParallaxBackground(Graphics2D g, int width, int height, int level, double time) {
+        if (!backgroundsLoaded) return;
+        
+        // Select background set based on level (cycle through 16 sets)
+        int bgSet = (level - 1) % 16;
+        
+        // Parallax speeds for each layer (furthest to closest)
+        double[] speeds = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
+        
+        // Update scroll offsets for each layer
+        for (int i = 0; i < 6; i++) {
+            // Get layer image
+            BufferedImage layer = backgroundLayers[bgSet][i];
+            if (layer == null) continue; // Skip if this layer doesn't exist for this background set
+            
+            layerScrollOffsets[i] += speeds[i] * 0.5;
+            
+            // Calculate how many times to tile the image
+            int imgWidth = layer.getWidth();
+            int imgHeight = layer.getHeight();
+            
+            // Scale to fit screen height
+            double scale = (double)height / imgHeight;
+            int scaledWidth = (int)(imgWidth * scale);
+            int scaledHeight = height;
+            
+            // Wrap scroll offset
+            double offset = layerScrollOffsets[i] % scaledWidth;
+            
+            // Draw tiled layers with wrapping
+            int x = (int)(-offset);
+            while (x < width) {
+                g.drawImage(layer, x, 0, scaledWidth, scaledHeight, null);
+                x += scaledWidth;
+            }
+        }
+    }
+    
+    private void drawStaticBackground(Graphics2D g, int width, int height, int level) {
+        // Select background set based on level (cycle through 16 sets)
+        int bgSet = (level - 1) % 16;
+        
+        // Draw only the first layer (closest/most detailed layer)
+        BufferedImage layer = backgroundLayers[bgSet][5]; // Layer 5 is the closest layer
+        if (layer == null) {
+            // Try other layers if layer 5 doesn't exist
+            for (int i = 5; i >= 0; i--) {
+                if (backgroundLayers[bgSet][i] != null) {
+                    layer = backgroundLayers[bgSet][i];
+                    break;
+                }
+            }
+        }
+        
+        if (layer != null) {
+            // Scale to fit screen
+            int imgWidth = layer.getWidth();
+            int imgHeight = layer.getHeight();
+            double scale = Math.max((double)width / imgWidth, (double)height / imgHeight);
+            int scaledWidth = (int)(imgWidth * scale);
+            int scaledHeight = (int)(imgHeight * scale);
+            
+            // Center the image
+            int x = (width - scaledWidth) / 2;
+            int y = (height - scaledHeight) / 2;
+            
+            g.drawImage(layer, x, y, scaledWidth, scaledHeight, null);
+        }
+    }
+    
+    public void drawLoading(Graphics2D g, int width, int height, double time, int progress) {
+        // Draw dark animated gradient background
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 30, 40), new Color(40, 40, 50), new Color(50, 50, 60)});
+        
+        // Draw title
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 72));
+        String title = "ONE HIT MAN";
+        FontMetrics fm = g.getFontMetrics();
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = height / 2 - 100;
+        
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 150));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 50, new Color(143, 188, 187),
+            titleX, titleY + 20, new Color(136, 192, 208)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Loading text
+        g.setColor(new Color(216, 222, 233));
+        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        String loadingText = "Loading...";
+        fm = g.getFontMetrics();
+        g.drawString(loadingText, (width - fm.stringWidth(loadingText)) / 2, height / 2 + 20);
+        
+        // Progress bar
+        int barWidth = 400;
+        int barHeight = 30;
+        int barX = (width - barWidth) / 2;
+        int barY = height / 2 + 60;
+        
+        // Background
+        g.setColor(new Color(60, 60, 70));
+        g.fillRoundRect(barX, barY, barWidth, barHeight, 15, 15);
+        
+        // Progress fill
+        int fillWidth = (int)(barWidth * (progress / 100.0));
+        if (fillWidth > 0) {
+            GradientPaint barGradient = new GradientPaint(
+                barX, barY, new Color(143, 188, 187),
+                barX + fillWidth, barY + barHeight, new Color(136, 192, 208)
+            );
+            g.setPaint(barGradient);
+            g.fillRoundRect(barX, barY, fillWidth, barHeight, 15, 15);
+        }
+        
+        // Border
+        g.setColor(new Color(200, 200, 200));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(barX, barY, barWidth, barHeight, 15, 15);
+        
+        // Percentage text
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        String percentText = progress + "%";
+        fm = g.getFontMetrics();
+        g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
     }
     
     public void drawMenu(Graphics2D g, int width, int height, double time, int escapeTimer, int selectedMenuItem) {
@@ -501,10 +730,28 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation) {
-        // Draw vibrant animated sky gradient
-        Color[] colors = getLevelGradientColors(level);
-        drawAnimatedGradient(g, width, height, time, colors);
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps) {
+        // Draw background based on mode setting
+        if (Game.backgroundMode == 0) {
+            // Gradient mode
+            Color[] colors = getLevelGradientColors(level);
+            drawAnimatedGradient(g, width, height, time, colors);
+        } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
+            // Parallax mode
+            drawParallaxBackground(g, width, height, level, time);
+        } else if (Game.backgroundMode == 2 && backgroundsLoaded) {
+            // Static image mode (first layer only)
+            drawStaticBackground(g, width, height, level);
+        } else {
+            // Fallback to gradient if images not loaded
+            Color[] colors = getLevelGradientColors(level);
+            drawAnimatedGradient(g, width, height, time, colors);
+        }
+        
+        // Draw overlay on top of background
+        if (overlayLoaded && overlayImage != null) {
+            g.drawImage(overlayImage, 0, 0, width, height, null);
+        }
         
         // Draw beam attacks (behind everything else)
         for (BeamAttack beam : beamAttacks) {
@@ -562,7 +809,7 @@ public class Renderer {
                     circleColor = new Color(red, green, 0, 150);
                 }
                 
-                double pulseSize = 70 + Math.sin(time * 10) * 10;
+                double pulseSize = 120 + Math.sin(time * 10) * 15;
                 g.setColor(circleColor);
                 g.setStroke(new BasicStroke(4f));
                 g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
@@ -655,13 +902,22 @@ public class Renderer {
         
         // Draw UI with better contrast
         g.setColor(new Color(0, 0, 0, 150));
-        g.fillRoundRect(10, 10, 280, 90, 10, 10);
+        g.fillRoundRect(10, 10, 280, 140, 10, 10);
         
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 24));
         g.drawString("Level: " + level, 20, 35);
         g.drawString("Score: " + gameData.getScore(), 20, 65);
         g.drawString("Money: $" + (gameData.getTotalMoney() + gameData.getRunMoney()), 20, 95);
+        
+        // Display timer and FPS
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        int minutes = (int)(gameTime / 60);
+        int seconds = (int)(gameTime % 60);
+        int milliseconds = (int)((gameTime % 1) * 100);
+        String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
+        g.drawString(timeStr, 20, 120);
+        g.drawString("FPS: " + fps, 20, 145);
         
         // Draw combo counter
         if (showCombo && dodgeCombo > 1) {
@@ -766,7 +1022,7 @@ public class Renderer {
         g.drawString(retry, (width - fm.stringWidth(retry)) / 2, height / 2 + 120);
     }
     
-    public void drawWin(Graphics2D g, int width, int height, double time) {
+    public void drawWin(Graphics2D g, int width, int height, double time, double bossKillTime) {
         // Darker, more subdued gradient for victory screen
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 40, 30), new Color(40, 50, 45), new Color(50, 60, 55)});
         
@@ -774,22 +1030,32 @@ public class Renderer {
         g.setFont(new Font("Arial", Font.BOLD, 72));
         String win = "VICTORY!";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(win, (width - fm.stringWidth(win)) / 2, height / 2 - 50);
+        g.drawString(win, (width - fm.stringWidth(win)) / 2, height / 2 - 80);
         
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.PLAIN, 32));
         String score = "Score: " + gameData.getScore();
         fm = g.getFontMetrics();
-        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 + 20);
+        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 10);
         
         String money = "Money Earned: $" + gameData.getRunMoney();
         fm = g.getFontMetrics();
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 60);
+        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 30);
         
+        // Display boss kill time
+        int minutes = (int)(bossKillTime / 60);
+        int seconds = (int)(bossKillTime % 60);
+        int milliseconds = (int)((bossKillTime % 1) * 100);
+        String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
+        fm = g.getFontMetrics();
+        g.setColor(new Color(255, 215, 0)); // Gold color for time
+        g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 + 70);
+        
+        g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.PLAIN, 24));
         String inst = "Press SPACE to Visit Shop";
         fm = g.getFontMetrics();
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 120);
+        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 130);
     }
     
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time) {
@@ -809,19 +1075,23 @@ public class Renderer {
         g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 120);
         
         // Settings items
-        String[] settingNames = {"Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects"};
+        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows"};
         String[] settingValues = {
+            Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
             Game.enableGradientAnimation ? "ON" : "OFF",
             Game.gradientQuality == 0 ? "Low" : Game.gradientQuality == 1 ? "Medium" : "High",
             Game.enableGrainEffect ? "ON" : "OFF",
-            Game.enableParticles ? "ON" : "OFF"
+            Game.enableParticles ? "ON" : "OFF",
+            Game.enableShadows ? "ON" : "OFF"
         };
         
         String[] descriptions = {
+            "Choose between gradient, parallax images, or static image background",
             "Animate gradient backgrounds (may affect performance)",
             "Number of gradient layers (higher = better but slower)",
             "Add grain texture overlay (performance impact)",
-            "Enable particle effects (trails, explosions, etc.)"
+            "Enable particle effects (trails, explosions, etc.)",
+            "Enable shadows for all objects (planes, bullets)"
         };
         
         int y = 200;
@@ -851,6 +1121,80 @@ public class Renderer {
         String inst = "Press ESC to return to menu";
         fm = g.getFontMetrics();
         g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height - 50);
+    }
+    
+    public void drawDebug(Graphics2D g, int width, int height, double time) {
+        // Draw animated gradient with dark palette colors
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(40, 40, 50), new Color(50, 50, 60), new Color(60, 60, 70)});
+        
+        g.setColor(new Color(255, 100, 100)); // Red for debug/cheat menu
+        g.setFont(new Font("Arial", Font.BOLD, 56));
+        String title = "DEBUG MENU";
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        
+        g.setColor(new Color(255, 200, 200));
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        String subtitle = "Developer/Cheat Menu - Press Number Keys";
+        fm = g.getFontMetrics();
+        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 120);
+        
+        // Cheat options
+        int startY = 200;
+        int spacing = 80;
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        
+        String[] options = {
+            "[1] Unlock All Levels (1-20)",
+            "[2] Give $10,000",
+            "[3] Max All Upgrades",
+            "[4] Give $1,000",
+            "[5] Give $100"
+        };
+        
+        Color[] colors = {
+            new Color(255, 215, 0),  // Gold
+            new Color(0, 255, 127),  // Spring green
+            new Color(138, 43, 226), // Blue violet
+            new Color(255, 165, 0),  // Orange
+            new Color(135, 206, 250) // Light sky blue
+        };
+        
+        for (int i = 0; i < options.length; i++) {
+            g.setColor(colors[i]);
+            fm = g.getFontMetrics();
+            int x = (width - fm.stringWidth(options[i])) / 2;
+            int y = startY + i * spacing;
+            
+            // Draw shadow
+            g.setColor(new Color(0, 0, 0, 100));
+            g.drawString(options[i], x + 3, y + 3);
+            
+            // Draw text
+            g.setColor(colors[i]);
+            g.drawString(options[i], x, y);
+        }
+        
+        // Current stats display
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        int statsY = height - 150;
+        String stats = String.format("Money: $%d | Max Level: %d | Upgrades: %d/%d/%d/%d",
+            gameData.getTotalMoney(),
+            gameData.getMaxUnlockedLevel(),
+            gameData.getSpeedUpgradeLevel(),
+            gameData.getBulletSlowUpgradeLevel(),
+            gameData.getLuckyDodgeUpgradeLevel(),
+            gameData.getAttackWindowUpgradeLevel());
+        fm = g.getFontMetrics();
+        g.drawString(stats, (width - fm.stringWidth(stats)) / 2, statsY);
+        
+        // Instructions
+        g.setColor(new Color(200, 200, 200));
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        String esc = "Press ESC to return to menu";
+        fm = g.getFontMetrics();
+        g.drawString(esc, (width - fm.stringWidth(esc)) / 2, height - 40);
     }
     
     // Optimized Balatro-style animated gradient system

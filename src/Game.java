@@ -78,11 +78,25 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
     public static boolean enableParticles = true;
+    public static boolean enableShadows = true;
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
+    public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
     
     // Quit confirmation
     private int escapeTimer; // Timer for double-tap escape confirmation
     private static final int ESCAPE_TIMEOUT = 120; // 2 seconds to press escape again
+    
+    // Timer and FPS tracking
+    private long gameStartTime; // Time when current game started (in milliseconds)
+    private double gameTimeSeconds; // Current game time in seconds
+    private int currentFPS;
+    private long lastFPSTime;
+    private int frameCount;
+    private double bossKillTime; // Time when boss was killed
+    
+    // Loading progress
+    private volatile int loadingProgress = 0;
+    private volatile boolean loadingComplete = false;
     
     public Game() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -100,10 +114,9 @@ public class Game extends JPanel implements Runnable {
         bulletGrid = new HashMap<>();
         gameData = new GameData();
         shopManager = new ShopManager(gameData);
-        renderer = new Renderer(gameData, shopManager);
         
-        // Initial state
-        gameState = GameState.MENU;
+        // Initial state - start with loading screen
+        gameState = GameState.LOADING;
         selectedStatItem = 0;
         selectedMenuItem = 0;
         selectedSettingsItem = 0;
@@ -134,6 +147,9 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         });
+        
+        // Start loading assets in background thread
+        startAssetLoading();
     }
     
     private void handleKeyPress(KeyEvent e) {
@@ -174,6 +190,8 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_I) { gameState = GameState.INFO; screenShakeIntensity = 5; }
                 else if (key == KeyEvent.VK_P) { gameState = GameState.SHOP; screenShakeIntensity = 5; }
                 else if (key == KeyEvent.VK_O) { gameState = GameState.SETTINGS; screenShakeIntensity = 5; }
+                // Debug menu shortcut
+                else if (key == KeyEvent.VK_F3) { gameState = GameState.DEBUG; screenShakeIntensity = 5; }
                 break;
                 
             case STATS:
@@ -186,7 +204,7 @@ public class Game extends JPanel implements Runnable {
                 
             case SETTINGS:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { selectedSettingsItem = Math.min(3, selectedSettingsItem + 1); screenShakeIntensity = 1; }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { selectedSettingsItem = Math.min(5, selectedSettingsItem + 1); screenShakeIntensity = 1; }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
                     toggleSetting(selectedSettingsItem);
                     screenShakeIntensity = 3;
@@ -269,6 +287,38 @@ public class Game extends JPanel implements Runnable {
                     gameState = GameState.SHOP;
                 }
                 break;
+                
+            case DEBUG:
+                if (key == KeyEvent.VK_1) {
+                    // Unlock all levels
+                    gameData.unlockAllLevels();
+                    screenShakeIntensity = 5;
+                }
+                else if (key == KeyEvent.VK_2) {
+                    // Give 10000 money
+                    gameData.giveCheatMoney(10000);
+                    screenShakeIntensity = 5;
+                }
+                else if (key == KeyEvent.VK_3) {
+                    // Max all upgrades
+                    gameData.maxAllUpgrades();
+                    screenShakeIntensity = 5;
+                }
+                else if (key == KeyEvent.VK_4) {
+                    // Give 1000 money
+                    gameData.giveCheatMoney(1000);
+                    screenShakeIntensity = 3;
+                }
+                else if (key == KeyEvent.VK_5) {
+                    // Give 100 money
+                    gameData.giveCheatMoney(100);
+                    screenShakeIntensity = 2;
+                }
+                else if (key == KeyEvent.VK_ESCAPE) {
+                    gameState = GameState.MENU;
+                    screenShakeIntensity = 3;
+                }
+                break;
         }
     }
     
@@ -328,6 +378,14 @@ public class Game extends JPanel implements Runnable {
         bossDeathScale = 1.0;
         bossDeathRotation = 0;
         escapeTimer = 0;
+        
+        // Initialize timer and FPS tracking
+        gameStartTime = System.currentTimeMillis();
+        gameTimeSeconds = 0;
+        currentFPS = 0;
+        frameCount = 0;
+        lastFPSTime = System.currentTimeMillis();
+        bossKillTime = 0;
     }
     
     public void start() {
@@ -358,6 +416,20 @@ public class Game extends JPanel implements Runnable {
                 if (escapeTimer > 0) {
                     escapeTimer -= deltaTime;
                     if (escapeTimer < 0) escapeTimer = 0;
+                }
+                
+                // Update game timer (only during gameplay)
+                if (gameState == GameState.PLAYING && player != null) {
+                    gameTimeSeconds = (System.currentTimeMillis() - gameStartTime) / 1000.0;
+                }
+                
+                // Calculate FPS
+                frameCount++;
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - lastFPSTime >= 1000) {
+                    currentFPS = frameCount;
+                    frameCount = 0;
+                    lastFPSTime = currentTime;
                 }
                 
                 repaint();
@@ -416,41 +488,41 @@ public class Game extends JPanel implements Runnable {
             if (Game.enableParticles) {
                 trailSpawnTimer++;
                 if (trailSpawnTimer >= 2) { // Every 2 frames
-                trailSpawnTimer = 0;
-                // Create rocket/fire trail particles
-                // Calculate angle based on velocity (or default upward if stationary)
-                double vx = player.getVX();
-                double vy = player.getVY();
-                double angle = (vx == 0 && vy == 0) ? -Math.PI / 2 : Math.atan2(vy, vx);
-                
-                // Spawn particles at the back of the rocket (opposite to movement direction)
-                double backDistance = 20; // Distance behind rocket center
-                double trailX = player.getX() - Math.cos(angle) * backDistance;
-                double trailY = player.getY() - Math.sin(angle) * backDistance;
-                
-                for (int i = 0; i < 2; i++) {
-                    // Add spread perpendicular to movement direction
-                    double perpAngle = angle + Math.PI / 2;
-                    double spread = (Math.random() - 0.5) * 6;
-                    double finalX = trailX + Math.cos(perpAngle) * spread;
-                    double finalY = trailY + Math.sin(perpAngle) * spread;
+                    trailSpawnTimer = 0;
+                    // Create rocket/fire trail particles
+                    // Calculate angle based on velocity (or default upward if stationary)
+                    double vx = player.getVX();
+                    double vy = player.getVY();
+                    double angle = (vx == 0 && vy == 0) ? -Math.PI / 2 : Math.atan2(vy, vx);
                     
-                    // Particle velocity opposite to rocket direction
-                    double particleVX = -Math.cos(angle) * (0.5 + Math.random() * 1.0);
-                    double particleVY = -Math.sin(angle) * (0.5 + Math.random() * 1.0);
+                    // Spawn particles at the back of the rocket (opposite to movement direction)
+                    double backDistance = 20; // Distance behind rocket center
+                    double trailX = player.getX() - Math.cos(angle) * backDistance;
+                    double trailY = player.getY() - Math.sin(angle) * backDistance;
                     
-                    particles.add(new Particle(
-                        finalX,
-                        finalY,
-                        particleVX,
-                        particleVY,
-                        new Color(255, 150 + (int)(Math.random() * 50), 0), // Orange/red
-                        15 + (int)(Math.random() * 10),
-                        6 + (int)(Math.random() * 6),
-                        Particle.ParticleType.SPARK
-                    ));
+                    for (int i = 0; i < 2; i++) {
+                        // Add spread perpendicular to movement direction
+                        double perpAngle = angle + Math.PI / 2;
+                        double spread = (Math.random() - 0.5) * 6;
+                        double finalX = trailX + Math.cos(perpAngle) * spread;
+                        double finalY = trailY + Math.sin(perpAngle) * spread;
+                        
+                        // Particle velocity opposite to rocket direction
+                        double particleVX = -Math.cos(angle) * (0.5 + Math.random() * 1.0);
+                        double particleVY = -Math.sin(angle) * (0.5 + Math.random() * 1.0);
+                        
+                        particles.add(new Particle(
+                            finalX,
+                            finalY,
+                            particleVX,
+                            particleVY,
+                            new Color(255, 150 + (int)(Math.random() * 50), 0), // Orange/red
+                            15 + (int)(Math.random() * 10),
+                            6 + (int)(Math.random() * 6),
+                            Particle.ParticleType.SPARK
+                        ));
+                    }
                 }
-            }
             }
         }
         
@@ -615,8 +687,6 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         }
-            }
-        }
         
         // Update boss with delta time (but not during death animation)
         if (currentBoss != null && !bossDeathAnimation) {
@@ -706,14 +776,14 @@ public class Game extends JPanel implements Runnable {
                             // Create dodge particles
                             if (enableParticles) {
                                 for (int j = 0; j < 8; j++) {
-                                double angle = Math.PI * 2 * j / 8;
-                                particles.add(new Particle(
-                                    player.getX(), player.getY(),
-                                    Math.cos(angle) * 2, Math.sin(angle) * 2,
-                                    new Color(163, 190, 140), 20, 5,
-                                    Particle.ParticleType.DODGE
-                                ));
-                            }
+                                    double angle = Math.PI * 2 * j / 8;
+                                    particles.add(new Particle(
+                                        player.getX(), player.getY(),
+                                        Math.cos(angle) * 2, Math.sin(angle) * 2,
+                                        new Color(163, 190, 140), 20, 5,
+                                        Particle.ParticleType.DODGE
+                                    ));
+                                }
                             }
                             
                             continue;
@@ -724,15 +794,15 @@ public class Game extends JPanel implements Runnable {
                     // Create death particles
                     if (enableParticles) {
                         for (int j = 0; j < 20; j++) {
-                        double angle = Math.random() * Math.PI * 2;
-                        double speed = 1 + Math.random() * 3;
-                        particles.add(new Particle(
-                            player.getX(), player.getY(),
-                            Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            new Color(191, 97, 106), 30, 6,
-                            Particle.ParticleType.SPARK
-                        ));
-                    }
+                            double angle = Math.random() * Math.PI * 2;
+                            double speed = 1 + Math.random() * 3;
+                            particles.add(new Particle(
+                                player.getX(), player.getY(),
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                new Color(191, 97, 106), 30, 6,
+                                Particle.ParticleType.SPARK
+                            ));
+                        }
                     }
                     screenShakeIntensity = 10;
                     gameState = GameState.GAME_OVER;
@@ -816,17 +886,24 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS);
                 g2d.translate(-screenShakeX, -screenShakeY);
+                break;
+            case LOADING:
+                // Draw loading screen directly (renderer not yet created)
+                drawSimpleLoading(g2d, WIDTH, HEIGHT, loadingProgress);
                 break;
             case GAME_OVER:
                 renderer.drawGameOver(g2d, WIDTH, HEIGHT, gradientTime);
                 break;
             case WIN:
-                renderer.drawWin(g2d, WIDTH, HEIGHT, gradientTime);
+                renderer.drawWin(g2d, WIDTH, HEIGHT, gradientTime, bossKillTime);
                 break;
             case SHOP:
                 renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime);
+                break;
+            case DEBUG:
+                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime);
                 break;
         }
     }
@@ -848,18 +925,107 @@ public class Game extends JPanel implements Runnable {
     
     private void toggleSetting(int settingIndex) {
         switch (settingIndex) {
-            case 0: // Gradient Animation
+            case 0: // Background Mode
+                backgroundMode = (backgroundMode + 1) % 3;
+                break;
+            case 1: // Gradient Animation
                 enableGradientAnimation = !enableGradientAnimation;
                 break;
-            case 1: // Gradient Quality
+            case 2: // Gradient Quality
                 gradientQuality = (gradientQuality + 1) % 3; // Cycle through 0, 1, 2
                 break;
-            case 2: // Grain Effect
+            case 3: // Grain Effect
                 enableGrainEffect = !enableGrainEffect;
                 break;
-            case 3: // Particle Effects
+            case 4: // Particle Effects
                 enableParticles = !enableParticles;
                 break;
+            case 5: // Shadows
+                enableShadows = !enableShadows;
+                break;
         }
+    }
+    
+    private void startAssetLoading() {
+        Thread loadingThread = new Thread(() -> {
+            try {
+                loadingProgress = 10;
+                repaint();
+                
+                // Create renderer (this loads backgrounds and overlay)
+                renderer = new Renderer(gameData, shopManager);
+                loadingProgress = 80;
+                repaint();
+                
+                // Small delay to ensure everything is ready
+                Thread.sleep(200);
+                loadingProgress = 100;
+                repaint();
+                
+                // Wait a moment then switch to menu
+                Thread.sleep(300);
+                loadingComplete = true;
+                gameState = GameState.MENU;
+                repaint();
+                
+            } catch (Exception e) {
+                e.printStackTrace();
+                // On error, still go to menu
+                loadingComplete = true;
+                gameState = GameState.MENU;
+                repaint();
+            }
+        });
+        loadingThread.start();
+    }
+    
+    private void drawSimpleLoading(Graphics2D g, int width, int height, int progress) {
+        // Simple loading screen without renderer
+        g.setColor(new Color(30, 30, 40));
+        g.fillRect(0, 0, width, height);
+        
+        // Title
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 72));
+        String title = "ONE HIT MAN";
+        FontMetrics fm = g.getFontMetrics();
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = height / 2 - 100;
+        g.drawString(title, titleX, titleY);
+        
+        // Loading text
+        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        String loadingText = "Loading...";
+        fm = g.getFontMetrics();
+        g.drawString(loadingText, (width - fm.stringWidth(loadingText)) / 2, height / 2 + 20);
+        
+        // Progress bar
+        int barWidth = 400;
+        int barHeight = 30;
+        int barX = (width - barWidth) / 2;
+        int barY = height / 2 + 60;
+        
+        // Background
+        g.setColor(new Color(60, 60, 70));
+        g.fillRoundRect(barX, barY, barWidth, barHeight, 15, 15);
+        
+        // Progress fill
+        int fillWidth = (int)(barWidth * (progress / 100.0));
+        if (fillWidth > 0) {
+            g.setColor(new Color(136, 192, 208));
+            g.fillRoundRect(barX, barY, fillWidth, barHeight, 15, 15);
+        }
+        
+        // Border
+        g.setColor(new Color(200, 200, 200));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(barX, barY, barWidth, barHeight, 15, 15);
+        
+        // Percentage
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        String percentText = progress + "%";
+        fm = g.getFontMetrics();
+        g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
     }
 }
