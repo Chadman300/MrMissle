@@ -20,12 +20,12 @@ public class Boss {
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
-    private static final double ANGULAR_ACCELERATION = 0.03; // How fast to turn
-    private static final double ANGULAR_FRICTION = 0.7; // Rotation damping
+    private static final double ANGULAR_ACCELERATION = 0.015; // How fast to turn (reduced from 0.03 for smoother rotation)
+    private static final double ANGULAR_FRICTION = 0.85; // Rotation damping (increased from 0.7 for smoother rotation)
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     private int shootTimer;
@@ -68,13 +68,12 @@ public class Boss {
         // Every 3rd level is a mega boss (3, 6, 9, 12...)
         this.isMegaBoss = (level % 3 == 0);
         
-        // Size: mega bosses are 150% size, mini bosses are 70% size
-        this.size = isMegaBoss ? (int)(BASE_SIZE * 1.5) : (int)(BASE_SIZE * 0.7);
+        // Size: mega bosses are 150% size, mini bosses are 95% size
+        this.size = isMegaBoss ? (int)(BASE_SIZE * 1.5) : (int)(BASE_SIZE * 0.95);
         
-        // Attack patterns unlock with each mega boss
-        // Mega boss 3 unlocks 3 patterns, mega boss 6 unlocks 6, etc.
-        int megaBossCount = (level + 2) / 3; // How many mega bosses have appeared (including this one)
-        this.maxPatterns = Math.min(megaBossCount * 3, 12); // Cap at 12 patterns
+        // Attack patterns unlock faster - 2 per level
+        // Level 1: 2 patterns, Level 2: 4 patterns, etc.
+        this.maxPatterns = Math.min(2 + (level * 2), 15); // Cap at 15 patterns (includes explosives)
         
         this.shootTimer = 0;
         this.shootInterval = Math.max(20, 60 - level * 5); // Faster shooting at higher levels
@@ -105,74 +104,83 @@ public class Boss {
         if (spritesLoaded) return;
         try {
             // Load mini boss plane variants (Regular Planes)
-            miniBossPlaneSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png")));
-            miniBossPlaneSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png")));
-            miniBossPlaneSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png")));
-            miniBossPlaneSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10.png")));
-            miniBossPlaneSprites[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png")));
-            miniBossPlaneSprites[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png")));
-            miniBossPlaneSprites[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png")));
-            miniBossPlaneSprites[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png", miniBossPlaneSprites, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png", miniBossPlaneSprites, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png", miniBossPlaneSprites, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10.png", miniBossPlaneSprites, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png", miniBossPlaneSprites, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png", miniBossPlaneSprites, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png", miniBossPlaneSprites, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png", miniBossPlaneSprites, 7);
             
             // Load mini boss plane shadows
-            miniBossPlaneShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png")));
-            miniBossPlaneShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png")));
-            miniBossPlaneShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png")));
-            miniBossPlaneShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10 Shadow.png")));
-            miniBossPlaneShadows[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png")));
-            miniBossPlaneShadows[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png")));
-            miniBossPlaneShadows[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png")));
-            miniBossPlaneShadows[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png", miniBossPlaneShadows, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png", miniBossPlaneShadows, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png", miniBossPlaneShadows, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10 Shadow.png", miniBossPlaneShadows, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png", miniBossPlaneShadows, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png", miniBossPlaneShadows, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png", miniBossPlaneShadows, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png", miniBossPlaneShadows, 7);
             
             // Load mega boss plane variants (Boss Planes)
-            megaBossPlaneSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png")));
-            megaBossPlaneSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2.png")));
-            megaBossPlaneSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3.png")));
-            megaBossPlaneSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4.png")));
-            megaBossPlaneSprites[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5.png")));
-            megaBossPlaneSprites[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png")));
-            megaBossPlaneSprites[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png")));
-            megaBossPlaneSprites[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png", megaBossPlaneSprites, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2.png", megaBossPlaneSprites, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3.png", megaBossPlaneSprites, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4.png", megaBossPlaneSprites, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5.png", megaBossPlaneSprites, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png", megaBossPlaneSprites, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png", megaBossPlaneSprites, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 7);
             
             // Load mega boss plane shadows
-            megaBossPlaneShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png")));
-            megaBossPlaneShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png")));
-            megaBossPlaneShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png")));
-            megaBossPlaneShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4 Shadow.png")));
-            megaBossPlaneShadows[4] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png")));
-            megaBossPlaneShadows[5] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png")));
-            megaBossPlaneShadows[6] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png")));
-            megaBossPlaneShadows[7] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png", megaBossPlaneShadows, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png", megaBossPlaneShadows, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png", megaBossPlaneShadows, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4 Shadow.png", megaBossPlaneShadows, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png", megaBossPlaneShadows, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png", megaBossPlaneShadows, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png", megaBossPlaneShadows, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 7);
             
             // Load helicopter variants
-            helicopterSprites[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png")));
-            helicopterSprites[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png")));
-            helicopterSprites[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png")));
-            helicopterSprites[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", helicopterSprites, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png", helicopterSprites, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png", helicopterSprites, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", helicopterSprites, 3);
             helicopterSprites[4] = helicopterSprites[0]; // Reuse
             helicopterSprites[5] = helicopterSprites[1]; // Reuse
             helicopterSprites[6] = helicopterSprites[2]; // Reuse
             helicopterSprites[7] = helicopterSprites[3]; // Reuse
             
             // Load helicopter shadows
-            helicopterShadows[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png")));
-            helicopterShadows[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png")));
-            helicopterShadows[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png")));
-            helicopterShadows[3] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", helicopterShadows, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", helicopterShadows, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", helicopterShadows, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", helicopterShadows, 3);
             helicopterShadows[4] = helicopterShadows[0]; // Reuse
             helicopterShadows[5] = helicopterShadows[1]; // Reuse
             helicopterShadows[6] = helicopterShadows[0]; // Reuse
             helicopterShadows[7] = helicopterShadows[1]; // Reuse
             
             // Load helicopter blade sprites
-            helicopterBlades[0] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png")));
-            helicopterBlades[1] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Wings.png")));
-            helicopterBlades[2] = rotateImage180(ImageIO.read(new File("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png")));
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png", helicopterBlades, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Wings.png", helicopterBlades, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png", helicopterBlades, 2);
             
             spritesLoaded = true;
         } catch (IOException e) {
-            System.err.println("Could not load boss sprites: " + e.getMessage());
+            System.err.println("Failed to load boss sprites: " + e.getMessage());
             // Don't set spritesLoaded to false - allow fallback rendering
+        }
+    }
+    
+    private void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
+        try {
+            array[index] = rotateImage180(ImageIO.read(new File(path)));
+        } catch (IOException e) {
+            System.err.println("Could not load boss sprite: " + path);
+            throw e;
         }
     }
     
@@ -192,18 +200,35 @@ public class Boss {
         if (moveTimer >= 120 + Math.random() * 60) {
             moveTimer = 0;
             
-            // Create circular flight paths - pick points around center of screen
+            // Calculate vector away from player
+            double playerX = player.getX();
+            double playerY = player.getY();
+            double awayFromPlayerX = x - playerX;
+            double awayFromPlayerY = y - playerY;
+            double distFromPlayer = Math.sqrt(awayFromPlayerX * awayFromPlayerX + awayFromPlayerY * awayFromPlayerY);
+            
+            // If too close to player, move away; otherwise pick points that maintain distance
+            if (distFromPlayer > 1) {
+                awayFromPlayerX /= distFromPlayer;
+                awayFromPlayerY /= distFromPlayer;
+            }
+            
+            // Pick a target that's away from the player
             double centerX = screenWidth / 2.0;
-            double centerY = screenHeight / 4.0;
-            double radius = Math.min(screenWidth, screenHeight) / 3.0;
+            double centerY = screenHeight / 3.0; // Lowered from /4.0 to /3.0
+            double radius = Math.min(screenWidth, screenHeight) / 2.0; // Increased from /3.0 to /2.0 for larger circles
             double angle = Math.random() * Math.PI * 2;
             
-            targetX = centerX + Math.cos(angle) * radius;
-            targetY = centerY + Math.sin(angle) * radius;
+            // Bias the angle to point away from player
+            double angleToPlayer = Math.atan2(playerY - y, playerX - x);
+            double avoidAngle = angleToPlayer + Math.PI + (Math.random() - 0.5) * Math.PI / 2; // Opposite direction ± 45°
+            
+            targetX = centerX + Math.cos(avoidAngle) * radius;
+            targetY = centerY + Math.sin(avoidAngle) * radius;
             
             // Clamp to screen bounds
             targetX = Math.max(size, Math.min(screenWidth - size, targetX));
-            targetY = Math.max(size, Math.min(screenHeight / 2.5 - size, targetY));
+            targetY = Math.max(size, Math.min(screenHeight / 1.8 - size, targetY)); // Lowered from /2.5 to /1.8
         }
         
         // Calculate direction to target
@@ -264,8 +289,25 @@ public class Boss {
         
         // Generate wing tip trails for all boss types (planes and helicopters)
         if (particles != null) {
+            // Get current sprite dimensions for accurate wing positioning
+            BufferedImage currentSprite = getCurrentSprite();
+            double wingSpan = size * 0.8; // Default fallback
+            
+            if (currentSprite != null) {
+                // Calculate actual sprite width after scaling
+                int nativeWidth = currentSprite.getWidth();
+                int nativeHeight = currentSprite.getHeight();
+                double targetSize = size * 2;
+                double scaleX = targetSize / nativeWidth;
+                double scaleY = targetSize / nativeHeight;
+                double scale = Math.min(scaleX, scaleY);
+                int actualSpriteWidth = (int)(nativeWidth * scale);
+                
+                // Wing span is half the actual sprite width
+                wingSpan = actualSpriteWidth * 0.5;
+            }
+            
             // Calculate wing tip positions (perpendicular to rotation)
-            double wingSpan = size * 0.8; // Wing tips are at 80% of boss size
             double perpAngle = rotation + Math.PI / 2; // Perpendicular to facing direction
             
             // Left wing tip
@@ -356,21 +398,21 @@ public class Boss {
         // Cycle through unlocked patterns only
         patternType = (patternType + 1) % maxPatterns;
         
-        switch (patternType % 12) {
+        switch (patternType % 15) {
             case 0: // Spiral pattern
                 shootSpiral(bullets);
                 break;
             case 1: // Circle pattern
-                shootCircle(bullets, 8 + level * 2);
+                shootCircle(bullets, 5 + level);
                 break;
             case 2: // Aimed at player
-                shootAtPlayer(bullets, player, 3);
+                shootAtPlayer(bullets, player, 2);
                 break;
             case 3: // Wave pattern
                 shootWave(bullets);
                 break;
             case 4: // Random spray
-                shootRandom(bullets, 5 + level);
+                shootRandom(bullets, 3 + level / 2);
                 break;
             case 5: // Fast bullets
                 shootFast(bullets, player);
@@ -393,114 +435,196 @@ public class Boss {
             case 11: // Wave bullets
                 shootWaveBullets(bullets);
                 break;
+            case 12: // Bombs
+                shootBombs(bullets);
+                break;
+            case 13: // Grenades at player
+                shootGrenades(bullets, player);
+                break;
+            case 14: // Mini nukes
+                shootNukes(bullets);
+                break;
         }
     }
     
     private void shootSpiral(List<Bullet> bullets) {
-        int numBullets = 6 + level;
+        int numBullets = 4 + level / 2;
         double angleOffset = shootTimer * 0.1;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         for (int i = 0; i < numBullets; i++) {
             double angle = (Math.PI * 2 * i / numBullets) + angleOffset;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 3, Math.sin(angle) * 3));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier));
         }
     }
     
     private void shootCircle(List<Bullet> bullets, int numBullets) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 2.5, Math.sin(angle) * 2.5));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier));
         }
     }
     
     private void shootAtPlayer(List<Bullet> bullets, Player player, int spread) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         for (int i = -spread; i <= spread; i++) {
             double angle = angleToPlayer + (i * 0.2);
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 4, Math.sin(angle) * 4));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 4 * speedMultiplier, Math.sin(angle) * 4 * speedMultiplier));
         }
     }
     
     private void shootWave(List<Bullet> bullets) {
-        int numBullets = 10 + level * 2;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        int numBullets = 6 + level;
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
-            double speed = 2 + Math.sin(i * 0.5) * 1.5;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed));
+            double speed = (2 + Math.sin(i * 0.5) * 1.5) * speedMultiplier;
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed));
         }
     }
     
     private void shootRandom(List<Bullet> bullets, int numBullets) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.random() * Math.PI * 2;
-            double speed = 2 + Math.random() * 2;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed));
+            double speed = (2 + Math.random() * 2) * speedMultiplier;
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed));
         }
     }
     
     private void shootFast(List<Bullet> bullets, Player player) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = 0; i < 5 + level; i++) {
+        for (int i = 0; i < 3 + level / 2; i++) {
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.5;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 6, Math.sin(angle) * 6, Bullet.BulletType.FAST));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 6 * speedMultiplier, Math.sin(angle) * 6 * speedMultiplier, Bullet.BulletType.FAST));
         }
     }
     
     private void shootLarge(List<Bullet> bullets) {
-        int numBullets = 4 + level;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        int numBullets = 3 + level / 2;
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 1.5, Math.sin(angle) * 1.5, Bullet.BulletType.LARGE));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.LARGE));
         }
     }
     
     private void shootMixed(List<Bullet> bullets, Player player) {
         // Combination attack with different bullet types
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Homing bullets
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 1; i++) {
             double angle = angleToPlayer + (i - 0.5) * 0.3;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 2.5, Math.sin(angle) * 2.5, Bullet.BulletType.HOMING));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
         }
         
         // Circle of bouncing bullets
         if (level >= 3) {
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < 4; i++) {
                 double angle = Math.PI * 2 * i / 6;
-                bullets.add(new Bullet(x, y, Math.cos(angle) * 3, Math.sin(angle) * 3, Bullet.BulletType.BOUNCING));
+                double spawnX = x + Math.cos(angle) * size;
+                double spawnY = y + Math.sin(angle) * size;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
             }
         }
     }
     
     private void shootSpiralBullets(List<Bullet> bullets) {
-        int numBullets = 5 + level;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        int numBullets = 3 + level / 2;
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 2, Math.sin(angle) * 2, Bullet.BulletType.SPIRAL));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2 * speedMultiplier, Math.sin(angle) * 2 * speedMultiplier, Bullet.BulletType.SPIRAL));
         }
     }
     
     private void shootSplittingBullets(List<Bullet> bullets) {
-        int numBullets = 3 + level / 2;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        int numBullets = 2 + level / 2;
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 2.5, Math.sin(angle) * 2.5, Bullet.BulletType.SPLITTING));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.SPLITTING));
         }
     }
     
     private void shootAcceleratingBullets(List<Bullet> bullets, Player player) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = -2; i <= 2; i++) {
+        for (int i = -1; i <= 1; i++) {
             double angle = angleToPlayer + i * 0.3;
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 1.5, Math.sin(angle) * 1.5, Bullet.BulletType.ACCELERATING));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.ACCELERATING));
         }
     }
     
     private void shootWaveBullets(List<Bullet> bullets) {
-        int numBullets = 8 + level;
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        int numBullets = 5 + level / 2;
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
-            bullets.add(new Bullet(x, y, Math.cos(angle) * 2.5, Math.sin(angle) * 2.5, Bullet.BulletType.WAVE));
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.WAVE));
+        }
+    }
+    
+    private void shootBombs(List<Bullet> bullets) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        int numBullets = 2 + level / 3;
+        for (int i = 0; i < numBullets; i++) {
+            double angle = Math.PI * 2 * i / numBullets;
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.0 * speedMultiplier, Math.sin(angle) * 2.0 * speedMultiplier, Bullet.BulletType.BOMB));
+        }
+    }
+    
+    private void shootGrenades(List<Bullet> bullets, Player player) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        int numBullets = 2 + level / 4;
+        for (int i = 0; i < numBullets; i++) {
+            double angle = angleToPlayer + (i - numBullets/2.0) * 0.3;
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.GRENADE));
+        }
+    }
+    
+    private void shootNukes(List<Bullet> bullets) {
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        // Only 1-2 nukes since they're very powerful
+        int numBullets = 1 + (level >= 5 ? 1 : 0);
+        for (int i = 0; i < numBullets; i++) {
+            double angle = Math.PI * 2 * i / numBullets;
+            double spawnX = x + Math.cos(angle) * size;
+            double spawnY = y + Math.sin(angle) * size;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.NUKE));
         }
     }
     
@@ -529,6 +653,22 @@ public class Boss {
     
     public List<BeamAttack> getBeamAttacks() {
         return beamAttacks;
+    }
+    
+    private BufferedImage getCurrentSprite() {
+        // Get the currently displayed sprite based on level
+        int spriteIndex = ((level - 1) / 2) % 8;
+        
+        if (level % 2 == 0) {
+            // Helicopter
+            return helicopterSprites[spriteIndex];
+        } else if (isMegaBoss) {
+            // Mega boss plane
+            return megaBossPlaneSprites[spriteIndex];
+        } else {
+            // Mini boss plane
+            return miniBossPlaneSprites[spriteIndex];
+        }
     }
     
     public void draw(Graphics2D g) {
@@ -561,15 +701,19 @@ public class Boss {
             // Rotate and draw sprite with shadow
             g2d.translate(x, y);
             
-            int spriteSize = size * 2;
+            // Get native sprite dimensions
+            int nativeWidth = sprite.getWidth();
+            int nativeHeight = sprite.getHeight();
             
-            // For helicopters, increase vertical height to reduce compression
-            int spriteWidth = spriteSize;
-            int spriteHeight = spriteSize;
-            boolean isHelicopter = (level % 2 == 0);
-            if (isHelicopter) {
-                spriteHeight = (int)(spriteSize * 1.4); // 40% taller to reduce compression
-            }
+            // Calculate scale factor to fit within size * 2
+            double targetSize = size * 2;
+            double scaleX = targetSize / nativeWidth;
+            double scaleY = targetSize / nativeHeight;
+            double scale = Math.min(scaleX, scaleY); // Use smaller scale to prevent stretching
+            
+            // Apply scale proportionally
+            int spriteWidth = (int)(nativeWidth * scale);
+            int spriteHeight = (int)(nativeHeight * scale);
             
             // Draw shadow sprite with directional offset in world space (before rotation)
             if (Game.enableShadows && shadow != null) {
@@ -600,6 +744,7 @@ public class Boss {
             // Now rotate for the sprite itself
             g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
+            boolean isHelicopter = (level % 2 == 0);
             // Draw sprite
             g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
             
@@ -642,27 +787,6 @@ public class Boss {
         }
         
         g2d.dispose();
-        
-        // Draw level indicator below boss
-        g.setColor(isMegaBoss ? new Color(255, 215, 0) : Color.WHITE); // Gold for mega, white for mini
-        g.setFont(new Font("Arial", Font.BOLD, isMegaBoss ? 18 : 14));
-        String vehicleName = getVehicleName(level);
-        FontMetrics fm = g.getFontMetrics();
-        g.drawString(vehicleName, (int)x - fm.stringWidth(vehicleName)/2, (int)y + size/2 + 15);
-        
-        // Show MEGA BOSS indicator
-        if (isMegaBoss) {
-            g.setColor(new Color(255, 50, 50));
-            g.setFont(new Font("Arial", Font.BOLD, 14));
-            String megaText = "!! MEGA BOSS !!";
-            fm = g.getFontMetrics();
-            g.drawString(megaText, (int)x - fm.stringWidth(megaText)/2, (int)y + size/2 + 32);
-        }
-        
-        g.setFont(new Font("Arial", Font.BOLD, 16));
-        String levelText = "LV " + level;
-        fm = g.getFontMetrics();
-        g.drawString(levelText, (int)x - fm.stringWidth(levelText)/2, (int)y + size/2 + (isMegaBoss ? 50 : 32));
     }
     
     private String getVehicleName(int lvl) {

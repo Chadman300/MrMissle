@@ -18,7 +18,7 @@ public class Player {
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     private static BufferedImage missileSprite;
@@ -40,21 +40,23 @@ public class Player {
     
     private void loadSprite() {
         if (missileSprite == null) {
+            String path = "sprites\\Missle Man Assets\\Missles\\Missle Black.png";
             try {
-                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Black.png"));
+                BufferedImage original = ImageIO.read(new File(path));
                 //missileSprite = rotateImage180(original);
                 missileSprite = original;
             } catch (IOException e) {
-                System.err.println("Could not load missile sprite: " + e.getMessage());
+                System.err.println("Could not load missile sprite: " + path);
             }
         }
         if (missileShadow == null) {
+            String path = "sprites\\Missle Man Assets\\Missles\\Missle Black Shadow.png";
             try {
-                BufferedImage original = ImageIO.read(new File("sprites\\Missle Man Assets\\Missles\\Missle Black Shadow.png"));
+                BufferedImage original = ImageIO.read(new File(path));
                 //missileShadow = rotateImage180(original);
                 missileShadow = original;
             } catch (IOException e) {
-                System.err.println("Could not load missile shadow: " + e.getMessage());
+                System.err.println("Could not load missile shadow: " + path);
             }
         }
     }
@@ -154,7 +156,23 @@ public class Player {
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.translate(x, y);
         
-        int spriteSize = SIZE;
+        // Calculate sprite dimensions proportionally based on native size
+        int spriteWidth, spriteHeight;
+        if (missileSprite != null) {
+            // Get native dimensions
+            int nativeWidth = missileSprite.getWidth();
+            int nativeHeight = missileSprite.getHeight();
+            
+            // Scale proportionally to fit within SIZE * 2 height
+            double targetHeight = SIZE * 2;
+            double scale = targetHeight / nativeHeight;
+            spriteWidth = (int)(nativeWidth * scale);
+            spriteHeight = (int)(nativeHeight * scale);
+        } else {
+            // Fallback dimensions
+            spriteWidth = SIZE;
+            spriteHeight = SIZE * 2;
+        }
         
         // Draw shadow sprite first with directional offset that moves with rotation
         if (Game.enableShadows && missileShadow != null) {
@@ -164,9 +182,9 @@ public class Player {
             double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
             double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
             
-            // Shadow is slightly larger
-            int shadowWidth = (int)(spriteSize * SHADOW_SCALE);
-            int shadowHeight = (int)(spriteSize * 2 * SHADOW_SCALE);
+            // Shadow same size as sprite
+            int shadowWidth = (int)(spriteWidth * SHADOW_SCALE);
+            int shadowHeight = (int)(spriteHeight * SHADOW_SCALE);
             
             // Rotate to match object
             g2d.rotate(objectRotation);
@@ -186,8 +204,8 @@ public class Player {
         g2d.rotate(angle + Math.PI / 2); // Back to original rotation since sprite is now pre-rotated
         
         if (missileSprite != null) {
-            // Draw sprite
-            g2d.drawImage(missileSprite, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize * 2, null);
+            // Draw sprite with proportional dimensions
+            g2d.drawImage(missileSprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
         } else {
             // Fallback: draw simple circle with shadow if sprite not loaded
             g2d.setColor(new Color(0, 0, 0, 100));

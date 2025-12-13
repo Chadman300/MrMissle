@@ -9,6 +9,14 @@ public class Particle {
     private double size;
     private ParticleType type;
     
+    // Cached AlphaComposite instances for performance
+    private static final AlphaComposite[] ALPHA_CACHE = new AlphaComposite[101];
+    static {
+        for (int i = 0; i <= 100; i++) {
+            ALPHA_CACHE[i] = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, i / 100f);
+        }
+    }
+    
     public enum ParticleType {
         SPARK,      // Quick burst
         TRAIL,      // Smooth trail
@@ -17,6 +25,19 @@ public class Particle {
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.lifetime = lifetime;
+        this.maxLifetime = lifetime;
+        this.size = size;
+        this.type = type;
+    }
+    
+    // Reset particle for pooling
+    public void reset(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -46,8 +67,9 @@ public class Particle {
     
     public void draw(Graphics2D g) {
         float alpha = Math.max(0, Math.min(1, (float)lifetime / maxLifetime));
+        int alphaIndex = (int)(alpha * 100);
         
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g.setComposite(ALPHA_CACHE[alphaIndex]);
         
         switch (type) {
             case SPARK:
@@ -76,7 +98,7 @@ public class Particle {
                 break;
         }
         
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.setComposite(ALPHA_CACHE[100]);
     }
     
     public boolean isAlive() {

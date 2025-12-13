@@ -38,7 +38,29 @@ public class Game extends JPanel implements Runnable {
     private List<Bullet> bullets;
     private List<Bullet> bulletPool; // Pool for recycling bullets
     private List<Particle> particles;
+    private List<Particle> particlePool; // Pool for recycling particles
     private List<BeamAttack> beamAttacks;
+    
+    // Particle limits for performance
+    private static final int MAX_PARTICLES = 500;
+    
+    // Cached colors for performance
+    private static final Color IMPACT_WHITE = new Color(255, 255, 255);
+    private static final Color IMPACT_YELLOW = new Color(255, 255, 150);
+    private static final Color IMPACT_RING = new Color(255, 255, 200);
+    private static final Color FIRE_ORANGE = new Color(255, 100, 0);
+    private static final Color FIRE_YELLOW = new Color(255, 200, 0);
+    private static final Color FIRE_RED = new Color(255, 50, 0);
+    private static final Color SMOKE_GRAY = new Color(80, 80, 80, 150);
+    private static final Color BOSS_FIRE = new Color(255, 150, 0);
+    private static final Color BOSS_FIRE_BRIGHT = new Color(255, 200, 50);
+    private static final Color VULNERABILITY_GOLD = new Color(235, 203, 139);
+    private static final Color WARNING_RED = new Color(191, 97, 106);
+    private static final Color PLAYER_DEATH_RED = new Color(191, 97, 106);
+    private static final Color DODGE_GREEN = new Color(163, 190, 140);
+    
+    // Cached math constants
+    private static final double TWO_PI = Math.PI * 2;
     
     // Spatial grid for bullet collision optimization
     private static final int GRID_CELL_SIZE = 50;
@@ -66,7 +88,9 @@ public class Game extends JPanel implements Runnable {
     // Boss mechanics
     private boolean bossVulnerable;
     private int vulnerabilityTimer;
+    private int invulnerabilityTimer; // Prevents boss from going vulnerable at level start
     private static final int VULNERABILITY_DURATION = 1200; // 20 second window
+    private static final int INVULNERABILITY_DURATION = 150; // 2.5 seconds at start (changed from 300/5 seconds)
     private boolean bossDeathAnimation;
     private int deathAnimationTimer;
     private static final int DEATH_ANIMATION_DURATION = 180; // 3 seconds
@@ -79,6 +103,10 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableGrainEffect = false;
     public static boolean enableParticles = true;
     public static boolean enableShadows = true;
+    public static boolean enableBloom = true;
+    public static boolean enableMotionBlur = false;
+    public static boolean enableChromaticAberration = false;
+    public static boolean enableVignette = true;
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
     
@@ -110,6 +138,7 @@ public class Game extends JPanel implements Runnable {
         bullets = new ArrayList<>();
         bulletPool = new ArrayList<>();
         particles = new ArrayList<>();
+        particlePool = new ArrayList<>();
         beamAttacks = new ArrayList<>();
         bulletGrid = new HashMap<>();
         gameData = new GameData();
@@ -204,7 +233,7 @@ public class Game extends JPanel implements Runnable {
                 
             case SETTINGS:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { selectedSettingsItem = Math.min(5, selectedSettingsItem + 1); screenShakeIntensity = 1; }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { selectedSettingsItem = Math.min(9, selectedSettingsItem + 1); screenShakeIntensity = 1; }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
                     toggleSetting(selectedSettingsItem);
                     screenShakeIntensity = 3;
@@ -372,6 +401,7 @@ public class Game extends JPanel implements Runnable {
         comboTimer = 0;
         bossVulnerable = false;
         vulnerabilityTimer = 0;
+        invulnerabilityTimer = INVULNERABILITY_DURATION; // 5 seconds of immunity
         screenShakeIntensity = 0;
         bossDeathAnimation = false;
         deathAnimationTimer = 0;
@@ -511,33 +541,34 @@ public class Game extends JPanel implements Runnable {
                         double particleVX = -Math.cos(angle) * (0.5 + Math.random() * 1.0);
                         double particleVY = -Math.sin(angle) * (0.5 + Math.random() * 1.0);
                         
-                        particles.add(new Particle(
-                            finalX,
-                            finalY,
-                            particleVX,
-                            particleVY,
-                            new Color(255, 150 + (int)(Math.random() * 50), 0), // Orange/red
+                        addParticle(
+                            finalX, finalY,
+                            particleVX, particleVY,
+                            new Color(255, 150 + (int)(Math.random() * 50), 0),
                             15 + (int)(Math.random() * 10),
                             6 + (int)(Math.random() * 6),
                             Particle.ParticleType.SPARK
-                        ));
+                        );
                     }
                 }
             }
         }
         
-        // Update particles
-        for (int i = particles.size() - 1; i >= 0; i--) {
-            Particle p = particles.get(i);
+        // Update particles using iterator for efficient removal
+        for (java.util.Iterator<Particle> it = particles.iterator(); it.hasNext();) {
+            Particle p = it.next();
             p.update(deltaTime);
             if (!p.isAlive()) {
-                particles.remove(i);
+                it.remove();
+                returnParticleToPool(p);
             }
         }
         
         // Check if player hit boss (only vulnerable during special window)
         if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation) {
             if (bossVulnerable) {
+                // TODO: Play sound effect - boss_hit.wav
+                
                 // Successful hit! Start death animation
                 int winBonus = 1000 + (gameData.getCurrentLevel() * 500) + (dodgeCombo * 100);
                 gameData.addScore(winBonus);
@@ -552,6 +583,35 @@ public class Game extends JPanel implements Runnable {
                 deathAnimationTimer = DEATH_ANIMATION_DURATION;
                 bossDeathScale = 1.0;
                 bossDeathRotation = 0;
+                bossKillTime = gameTimeSeconds; // Record time when boss was killed
+                
+                // Create impact particles at collision point (between player and boss)
+                if (enableParticles) {
+                    double impactX = (player.getX() + currentBoss.getX()) / 2;
+                    double impactY = (player.getY() + currentBoss.getY()) / 2;
+                    
+                    // Bright white/yellow impact flash
+                    for (int i = 0; i < 30; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 2 + Math.random() * 6;
+                        Color impactColor = Math.random() < 0.5 ? IMPACT_WHITE : IMPACT_YELLOW;
+                        addParticle(
+                            impactX, impactY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            impactColor, 20, 8,
+                            Particle.ParticleType.SPARK
+                        );
+                    }
+                    
+                    // Impact shockwave rings
+                    for (int i = 0; i < 3; i++) {
+                        addParticle(
+                            impactX, impactY, 0, 0,
+                            new Color(255, 255, 200, 200 - i * 60), 25 + i * 8, 30 + i * 20,
+                            Particle.ParticleType.EXPLOSION
+                        );
+                    }
+                }
                 
                 // Make player disappear (missile hit)
                 player = null;
@@ -560,33 +620,34 @@ public class Game extends JPanel implements Runnable {
                 screenShakeIntensity = 25;
                 
                 // Create massive fiery explosion particles
-                for (int i = 0; i < 100; i++) {
-                    double angle = Math.random() * Math.PI * 2;
+                int explosionParticleCount = bullets.size() > 200 ? 50 : 100; // Reduce at high bullet density
+                for (int i = 0; i < explosionParticleCount; i++) {
+                    double angle = Math.random() * TWO_PI;
                     double speed = 3 + Math.random() * 8;
                     Color fireColor;
                     double rand = Math.random();
                     if (rand < 0.4) {
-                        fireColor = new Color(255, 100, 0); // Orange
+                        fireColor = FIRE_ORANGE;
                     } else if (rand < 0.7) {
-                        fireColor = new Color(255, 200, 0); // Yellow
+                        fireColor = FIRE_YELLOW;
                     } else {
-                        fireColor = new Color(255, 50, 0); // Red
+                        fireColor = FIRE_RED;
                     }
-                    particles.add(new Particle(
+                    addParticle(
                         currentBoss.getX(), currentBoss.getY(),
                         Math.cos(angle) * speed, Math.sin(angle) * speed,
                         fireColor, 50 + (int)(Math.random() * 30), 6,
                         Particle.ParticleType.SPARK
-                    ));
+                    );
                 }
                 
                 // Multiple explosion rings
                 for (int i = 0; i < 5; i++) {
-                    particles.add(new Particle(
+                    addParticle(
                         currentBoss.getX(), currentBoss.getY(), 0, 0,
                         new Color(255, 150 - i * 20, 0), 40 + i * 15, 40 + i * 25,
                         Particle.ParticleType.EXPLOSION
-                    ));
+                    );
                 }
                 
                 return;
@@ -616,16 +677,15 @@ public class Game extends JPanel implements Runnable {
                 double offsetX = (Math.random() - 0.5) * 80 * bossDeathScale;
                 double offsetY = (Math.random() - 0.5) * 80 * bossDeathScale;
                 for (int i = 0; i < 15; i++) {
-                    double angle = Math.random() * Math.PI * 2;
+                    double angle = Math.random() * TWO_PI;
                     double speed = 1 + Math.random() * 4;
-                    Color fireColor = Math.random() < 0.5 ? 
-                        new Color(255, 150, 0) : new Color(255, 200, 50);
-                    particles.add(new Particle(
+                    Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
+                    addParticle(
                         currentBoss.getX() + offsetX, currentBoss.getY() + offsetY,
                         Math.cos(angle) * speed, Math.sin(angle) * speed,
                         fireColor, 30, 4,
                         Particle.ParticleType.SPARK
-                    ));
+                    );
                 }
             }
             
@@ -667,24 +727,52 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Boss becomes vulnerable periodically
-        if (!bossVulnerable && currentBoss != null && Math.random() < 0.01 * deltaTime) {
+        // Boss becomes vulnerable periodically (less frequent at early levels)
+        if (invulnerabilityTimer > 0) {
+            invulnerabilityTimer -= deltaTime; // Countdown immunity timer
+        }
+        
+        double vulnerabilityChance = 0.01 * deltaTime;
+        if (gameData.getCurrentLevel() <= 3) {
+            vulnerabilityChance *= 0.5; // Half as likely at levels 1-3
+        }
+        if (!bossVulnerable && currentBoss != null && invulnerabilityTimer <= 0 && Math.random() < vulnerabilityChance) {
+            // TODO: Play sound effect - vulnerability_window_open.wav
+            
             bossVulnerable = true;
             // Base duration + 60 frames (1 second) per upgrade level
             vulnerabilityTimer = VULNERABILITY_DURATION + (gameData.getActiveAttackWindowLevel() * 60);
             // Visual indicator - sparkles around boss
             if (enableParticles) {
-                for (int i = 0; i < 10; i++) {
-                    double angle = Math.random() * Math.PI * 2;
-                    double radius = 40 + Math.random() * 20;
-                    particles.add(new Particle(
+                // Larger burst of sparkles when vulnerability opens
+                for (int i = 0; i < 25; i++) {
+                    double angle = Math.random() * TWO_PI;
+                    double radius = 40 + Math.random() * 30;
+                    double speed = 0.5 + Math.random() * 1.5;
+                    addParticle(
                         currentBoss.getX() + Math.cos(angle) * radius,
                         currentBoss.getY() + Math.sin(angle) * radius,
-                        0, -1,
-                        new Color(235, 203, 139), 30, 3,
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        VULNERABILITY_GOLD, 40, 4,
                         Particle.ParticleType.SPARK
-                    ));
+                    );
                 }
+            }
+        }
+        
+        // Warning sparkles 1 second before vulnerability window closes
+        if (bossVulnerable && vulnerabilityTimer > 0 && vulnerabilityTimer < 60 && currentBoss != null) {
+            // Intermittent warning sparkles
+            if (enableParticles && Math.random() < 0.3 * deltaTime) {
+                double angle = Math.random() * TWO_PI;
+                double radius = 50 + Math.random() * 20;
+                addParticle(
+                    currentBoss.getX() + Math.cos(angle) * radius,
+                    currentBoss.getY() + Math.sin(angle) * radius,
+                    0, -2,
+                    WARNING_RED, 20, 3,
+                    Particle.ParticleType.SPARK
+                );
             }
         }
         
@@ -698,16 +786,18 @@ public class Game extends JPanel implements Runnable {
         for (BeamAttack beam : beamAttacks) {
             if (player != null && beam.collidesWith(player)) {
                 // Hit by beam - game over
+                // TODO: Play sound effect - player_death.wav
+                
                 // Create death particles
                 for (int j = 0; j < 20; j++) {
-                    double angle = Math.random() * Math.PI * 2;
+                    double angle = Math.random() * TWO_PI;
                     double speed = 1 + Math.random() * 3;
-                    particles.add(new Particle(
+                    addParticle(
                         player.getX(), player.getY(),
                         Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        new Color(191, 97, 106), 30, 6,
+                        PLAYER_DEATH_RED, 30, 6,
                         Particle.ParticleType.SPARK
-                    ));
+                    );
                 }
                 screenShakeIntensity = 10;
                 gameState = GameState.GAME_OVER;
@@ -725,6 +815,38 @@ public class Game extends JPanel implements Runnable {
             }
             
             bullet.update(player, WIDTH, HEIGHT, deltaTime);
+            
+            // Spawn trail particles for fast-moving bullets
+            if (enableParticles && bullet.shouldSpawnTrail() && Math.random() < 0.10 * deltaTime) {
+                addParticle(
+                    bullet.getX(), bullet.getY(),
+                    -bullet.getVX() * 0.2, -bullet.getVY() * 0.2,
+                    bullet.getTrailColor(), 15, 3,
+                    Particle.ParticleType.TRAIL
+                );
+            }
+            
+            // Check if explosive bullets should explode
+            if (bullet.shouldExplode()) {
+                // TODO: Play sound effect - explosion.wav (volume/pitch based on bullet type)
+                
+                // Create explosion particles with shockwave
+                if (enableParticles) {
+                    // Scale down particle count if too many bullets
+                    List<Particle> explosionParticles = bullet.createExplosionParticles();
+                    int particlesToAdd = bullets.size() > 200 ? explosionParticles.size() / 2 : explosionParticles.size();
+                    for (int j = 0; j < particlesToAdd && particles.size() < MAX_PARTICLES; j++) {
+                        particles.add(explosionParticles.get(j));
+                    }
+                }
+                
+                // Create fragments from explosion
+                List<Bullet> fragments = bullet.createFragments();
+                bullets.addAll(fragments);
+                bullets.remove(i);
+                returnBulletToPool(bullet);
+                continue;
+            }
             
             // Check if splitting bullet should split
             if (bullet.shouldSplit()) {
@@ -761,6 +883,8 @@ public class Game extends JPanel implements Runnable {
                     if (luckyDodgeLevel > 0) {
                         double dodgeChance = luckyDodgeLevel * 0.05; // 5% per level
                         if (Math.random() < dodgeChance) {
+                            // TODO: Play sound effect - lucky_dodge.wav (pitch up with combo)
+                            
                             // Lucky dodge! Trigger flicker animation
                             player.triggerFlicker();
                             bullets.remove(bullet);
@@ -776,13 +900,13 @@ public class Game extends JPanel implements Runnable {
                             // Create dodge particles
                             if (enableParticles) {
                                 for (int j = 0; j < 8; j++) {
-                                    double angle = Math.PI * 2 * j / 8;
-                                    particles.add(new Particle(
+                                    double angle = TWO_PI * j / 8;
+                                    addParticle(
                                         player.getX(), player.getY(),
                                         Math.cos(angle) * 2, Math.sin(angle) * 2,
-                                        new Color(163, 190, 140), 20, 5,
+                                        DODGE_GREEN, 20, 5,
                                         Particle.ParticleType.DODGE
-                                    ));
+                                    );
                                 }
                             }
                             
@@ -791,17 +915,19 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // No dodge - game over
+                    // TODO: Play sound effect - player_death.wav
+                    
                     // Create death particles
                     if (enableParticles) {
                         for (int j = 0; j < 20; j++) {
-                            double angle = Math.random() * Math.PI * 2;
+                            double angle = Math.random() * TWO_PI;
                             double speed = 1 + Math.random() * 3;
-                            particles.add(new Particle(
+                            addParticle(
                                 player.getX(), player.getY(),
                                 Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(191, 97, 106), 30, 6,
+                                PLAYER_DEATH_RED, 30, 6,
                                 Particle.ParticleType.SPARK
-                            ));
+                            );
                         }
                     }
                     screenShakeIntensity = 10;
@@ -824,6 +950,28 @@ public class Game extends JPanel implements Runnable {
         if (bulletPool.size() < 500) { // Cap pool size
             bulletPool.add(bullet);
         }
+    }
+    
+    // Particle pooling methods
+    private Particle getParticleFromPool() {
+        if (particlePool.isEmpty()) {
+            return new Particle(0, 0, 0, 0, Color.WHITE, 1, 1, Particle.ParticleType.SPARK);
+        }
+        return particlePool.remove(particlePool.size() - 1);
+    }
+    
+    private void returnParticleToPool(Particle particle) {
+        if (particlePool.size() < 300) { // Cap pool size
+            particlePool.add(particle);
+        }
+    }
+    
+    // Add particle with pooling and limit check
+    private void addParticle(double x, double y, double vx, double vy, Color color, int lifetime, double size, Particle.ParticleType type) {
+        if (particles.size() >= MAX_PARTICLES) return; // Limit particles
+        Particle p = getParticleFromPool();
+        p.reset(x, y, vx, vy, color, lifetime, size, type);
+        particles.add(p);
     }
     
     // Spatial grid methods for optimized collision detection
@@ -942,6 +1090,18 @@ public class Game extends JPanel implements Runnable {
                 break;
             case 5: // Shadows
                 enableShadows = !enableShadows;
+                break;
+            case 6: // Bloom
+                enableBloom = !enableBloom;
+                break;
+            case 7: // Motion Blur
+                enableMotionBlur = !enableMotionBlur;
+                break;
+            case 8: // Chromatic Aberration
+                enableChromaticAberration = !enableChromaticAberration;
+                break;
+            case 9: // Vignette
+                enableVignette = !enableVignette;
                 break;
         }
     }

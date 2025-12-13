@@ -7,22 +7,41 @@ import javax.imageio.ImageIO;
 public class Bullet {
     private double x, y;
     private double vx, vy;
-    private static final int SIZE = 4;
+    private static final int SIZE = 6;
     private BulletType type;
     
     // Sun angle for directional shadows
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 0; // Shadow directly under sprite
+    private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     // Bullet sprites
-    private static BufferedImage[] bulletSprites = new BufferedImage[8];
+    private static BufferedImage[] bulletSprites = new BufferedImage[17];
+    private static BufferedImage[] bulletShadows = new BufferedImage[17];
     private static boolean spritesLoaded = false;
+    
+    // Cached colors for performance
+    private static final Color FIRE_ORANGE = new Color(255, 100, 0);
+    private static final Color FIRE_YELLOW = new Color(255, 200, 0);
+    private static final Color FIRE_RED = new Color(255, 50, 0);
+    private static final Color TRAIL_YELLOW = new Color(255, 220, 0, 180);
+    private static final Color TRAIL_PURPLE = new Color(200, 50, 255, 180);
+    
+    // Cached math constants
+    private static final double TWO_PI = Math.PI * 2;
+    private static final double HALF_PI = Math.PI / 2;
     private int warningTime;
     private static final int WARNING_DURATION = 45; // Frames before bullet activates
     private double age; // Frames since activation
     private double spiralAngle; // For spiral bullets
     private boolean hasSplit; // For splitting bullets
+    private double explosionTimer; // Time until explosion for bombs
+    private static final double EXPLOSION_TIME = 120; // Frames until explosion
+    private static final double FLICKER_START = 30; // Start flickering 30 frames before explosion
+    private int spriteVariant; // Which variant (0-2) for bombs/grenades
+    private int bounceCount; // Number of times bounced
+    private static final int MAX_BOUNCES = 1; // Max bounces for bouncing bullets
+    private static final double HOMING_LIFETIME = 480; // 8 seconds lifetime for homing bullets
     
     public enum BulletType {
         NORMAL,      // Standard bullet
@@ -33,7 +52,11 @@ public class Bullet {
         SPIRAL,      // Spirals as it moves
         SPLITTING,   // Splits into smaller bullets
         ACCELERATING,// Speeds up over time
-        WAVE         // Moves in a wave pattern
+        WAVE,        // Moves in a wave pattern
+        BOMB,        // Slows down then explodes into fragments
+        GRENADE,     // Arcs then explodes into fragments
+        NUKE,        // Large explosive that slows then detonates
+        FRAGMENT     // Small fragment from explosion
     }
     
     public Bullet(double x, double y, double vx, double vy) {
@@ -50,6 +73,9 @@ public class Bullet {
         this.age = 0;
         this.spiralAngle = 0;
         this.hasSplit = false;
+        this.explosionTimer = EXPLOSION_TIME;
+        this.spriteVariant = (int)(Math.random() * 3); // Random variant 0-2
+        this.bounceCount = 0;
         loadSprites();
     }
     
@@ -57,18 +83,62 @@ public class Bullet {
         if (spritesLoaded) return;
         try {
             // Load all bullet sprites
-            bulletSprites[0] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj 1 Purple.png")); // NORMAL
-            bulletSprites[1] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj 2 Purple.png")); // FAST
-            bulletSprites[2] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 1.png")); // LARGE
-            bulletSprites[3] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 2.png")); // HOMING
-            bulletSprites[4] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Blue 3.png")); // BOUNCING
-            bulletSprites[5] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Orange 1.png")); // SPIRAL
-            bulletSprites[6] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Orange 2.png")); // SPLITTING
-            bulletSprites[7] = ImageIO.read(new File("sprites/Missle Man Assets/Projectiles/Proj Red 1.png")); // ACCELERATING/WAVE
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 1 Purple.png", 1);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 2 Purple.png", 4);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 1.png", 2);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 2.png", 3);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 3.png", 5);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 1.png", 0);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 2.png", 6);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Red 1.png", 7);
+            
+            // Load explosive projectiles (bombs, grenades, nuke)
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 1.png", 
+                                        "sprites/Missle Man Assets/Projectiles/Bomb 1 Shadow.png", 8);
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 2.png",
+                                        "sprites/Missle Man Assets/Projectiles/Bomb 2 Shadow.png", 9);
+            
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 1.png",
+                                        "sprites/Missle Man Assets/Projectiles/Grenade 1 Shadow.png", 10);
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 2.png",
+                                        "sprites/Missle Man Assets/Projectiles/Grenade 2 Shadow.png", 11);
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 3.png",
+                                        "sprites/Missle Man Assets/Projectiles/Grenade 3 Shadow.png", 12);
+            
+            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Mini Nuke.png",
+                                        "sprites/Missle Man Assets/Projectiles/Mini Nuke Shadow.png", 13);
+            
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 1.png", 14);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 2.png", 15);
+            
             spritesLoaded = true;
         } catch (IOException e) {
-            System.err.println("Could not load bullet sprites: " + e.getMessage());
+            System.err.println("Failed to load bullet sprites: " + e.getMessage());
             spritesLoaded = false;
+        }
+    }
+    
+    private static void loadSpriteWithPath(String path, int index) throws IOException {
+        try {
+            bulletSprites[index] = ImageIO.read(new File(path));
+        } catch (IOException e) {
+            System.err.println("Could not load bullet sprite: " + path);
+            throw e;
+        }
+    }
+    
+    private static void loadSpriteWithPathAndShadow(String spritePath, String shadowPath, int index) throws IOException {
+        try {
+            bulletSprites[index] = ImageIO.read(new File(spritePath));
+        } catch (IOException e) {
+            System.err.println("Could not load bullet sprite: " + spritePath);
+            throw e;
+        }
+        try {
+            bulletShadows[index] = ImageIO.read(new File(shadowPath));
+        } catch (IOException e) {
+            System.err.println("Could not load bullet shadow: " + shadowPath);
+            throw e;
         }
     }
     
@@ -83,6 +153,9 @@ public class Bullet {
         this.age = 0;
         this.spiralAngle = 0;
         this.hasSplit = false;
+        this.explosionTimer = EXPLOSION_TIME;
+        this.spriteVariant = (int)(Math.random() * 3);
+        this.bounceCount = 0;
     }
     
     public void update() {
@@ -123,9 +196,17 @@ public class Bullet {
                 }
                 break;
             case BOUNCING:
-                // Bounce off walls
-                if (x < 10 || x > screenWidth - 10) vx *= -1;
-                if (y < 10 || y > screenHeight - 10) vy *= -1;
+                // Bounce off walls (only once)
+                if (bounceCount < MAX_BOUNCES) {
+                    if (x < 10 || x > screenWidth - 10) {
+                        vx *= -1;
+                        bounceCount++;
+                    }
+                    if (y < 10 || y > screenHeight - 10) {
+                        vy *= -1;
+                        bounceCount++;
+                    }
+                }
                 break;
             case SPIRAL:
                 // Rotate velocity vector to create spiral motion
@@ -143,10 +224,24 @@ public class Bullet {
                 break;
             case WAVE:
                 // Move in sine wave pattern
-                double perpAngle = Math.atan2(vy, vx) + Math.PI / 2;
+                double perpAngle = Math.atan2(vy, vx) + HALF_PI;
                 double waveOffset = Math.sin(age * 0.2) * 2 * deltaTime;
                 x += Math.cos(perpAngle) * waveOffset;
                 y += Math.sin(perpAngle) * waveOffset;
+                break;
+            case BOMB:
+            case GRENADE:
+            case NUKE:
+                // Slow down over time
+                double slowFactor = 0.97; // 3% slowdown per frame
+                vx *= Math.pow(slowFactor, deltaTime);
+                vy *= Math.pow(slowFactor, deltaTime);
+                
+                // Count down to explosion
+                explosionTimer -= deltaTime;
+                break;
+            case FRAGMENT:
+                // Fragments just fly straight
                 break;
             default:
                 break;
@@ -160,6 +255,100 @@ public class Bullet {
     public void applySlow(double factor) {
         vx *= factor;
         vy *= factor;
+    }
+    
+    public boolean shouldSpawnTrail() {
+        // Fast and accelerating bullets spawn trails when active
+        return warningTime <= 0 && (type == BulletType.FAST || type == BulletType.ACCELERATING);
+    }
+    
+    public Color getTrailColor() {
+        // Return appropriate trail color based on bullet type
+        if (type == BulletType.FAST) {
+            return TRAIL_YELLOW;
+        } else if (type == BulletType.ACCELERATING) {
+            return TRAIL_PURPLE;
+        }
+        return Color.WHITE;
+    }
+    
+    public boolean shouldExplode() {
+        return (type == BulletType.BOMB || type == BulletType.GRENADE || type == BulletType.NUKE) 
+               && explosionTimer <= 0;
+    }
+    
+    public java.util.List<Particle> createExplosionParticles() {
+        java.util.List<Particle> explosionParticles = new java.util.ArrayList<>();
+        
+        // Number of particles and rings based on type
+        int particleCount = 15;
+        int rings = 2;
+        if (type == BulletType.NUKE) {
+            particleCount = 40;
+            rings = 4;
+        } else if (type == BulletType.GRENADE) {
+            particleCount = 25;
+            rings = 3;
+        }
+        
+        // Fire particles
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * TWO_PI;
+            double speed = 1 + Math.random() * 4;
+            Color fireColor;
+            double rand = Math.random();
+            if (rand < 0.4) {
+                fireColor = FIRE_ORANGE;
+            } else if (rand < 0.7) {
+                fireColor = FIRE_YELLOW;
+            } else {
+                fireColor = FIRE_RED;
+            }
+            explosionParticles.add(new Particle(
+                x, y,
+                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                fireColor, 30, 5,
+                Particle.ParticleType.SPARK
+            ));
+        }
+        
+        // Shockwave rings
+        for (int i = 0; i < rings; i++) {
+            int baseSize = (type == BulletType.NUKE) ? 60 : (type == BulletType.GRENADE) ? 40 : 30;
+            explosionParticles.add(new Particle(
+                x, y, 0, 0,
+                new Color(255, 150 - i * 30, 0, 200 - i * 50), 
+                35 + i * 10, 
+                baseSize + i * 20,
+                Particle.ParticleType.EXPLOSION
+            ));
+        }
+        
+        return explosionParticles;
+    }
+    
+    public java.util.List<Bullet> createFragments() {
+        java.util.List<Bullet> fragments = new java.util.ArrayList<>();
+        
+        // Number of fragments based on type
+        int fragmentCount = 8;
+        if (type == BulletType.NUKE) fragmentCount = 16;
+        if (type == BulletType.GRENADE) fragmentCount = 12;
+        
+        // Create fragments in all directions
+        for (int i = 0; i < fragmentCount; i++) {
+            double angle = (TWO_PI * i) / fragmentCount;
+            double speed = 2.0 + Math.random() * 1.5;
+            int fragmentSprite = (i % 2 == 0) ? 14 : 15; // Alternate between Fragment Proj 1 & 2
+            Bullet fragment = new Bullet(x, y, 
+                Math.cos(angle) * speed, 
+                Math.sin(angle) * speed, 
+                BulletType.FRAGMENT);
+            fragment.spriteVariant = fragmentSprite - 14; // 0 or 1
+            fragments.add(fragment);
+        }
+        
+        return fragments;
     }
     
     public void draw(Graphics2D g) {
@@ -218,6 +407,32 @@ public class Bullet {
                 spriteIndex = 7;
                 spriteSize = SIZE * 3;
                 break;
+            case BOMB:
+                spriteIndex = 8 + (spriteVariant % 2); // Bomb 1 or Bomb 2
+                spriteSize = SIZE * 5;
+                break;
+            case GRENADE:
+                spriteIndex = 10 + (spriteVariant % 3); // Grenade 1, 2, or 3
+                spriteSize = SIZE * 4;
+                break;
+            case NUKE:
+                spriteIndex = 13; // Mini Nuke
+                spriteSize = SIZE * 6;
+                break;
+            case FRAGMENT:
+                spriteIndex = 14 + spriteVariant; // Fragment Proj 1 or 2
+                spriteSize = SIZE * 2;
+                break;
+        }
+        
+        // Flickering effect for explosives about to detonate
+        boolean shouldFlicker = (type == BulletType.BOMB || type == BulletType.GRENADE || type == BulletType.NUKE)
+                                && explosionTimer > 0 && explosionTimer < FLICKER_START;
+        float flickerAlpha = 1.0f;
+        if (shouldFlicker) {
+            // Fast flicker effect
+            int flickerFrame = (int)(explosionTimer / 2);
+            flickerAlpha = (flickerFrame % 2 == 0) ? 1.0f : 0.3f;
         }
         
         // Draw sprite if loaded, otherwise fallback to orb
@@ -230,7 +445,7 @@ public class Bullet {
             
             // Draw shadow with rotation-based offset
             if (Game.enableShadows) {
-                double objectRotation = angle + Math.PI / 2;
+                double objectRotation = angle + HALF_PI;
                 double relativeAngle = SUN_ANGLE - objectRotation;
                 double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
                 double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
@@ -240,24 +455,53 @@ public class Bullet {
                 // Rotate for shadow
                 g2d.rotate(objectRotation);
                 
-                // Draw shadow (darker, semi-transparent version)
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
-                g2d.setColor(new Color(0, 0, 0));
-                g2d.fillOval(
-                    (int)(-shadowSize/2 + shadowOffsetX),
-                    (int)(-shadowSize/2 + shadowOffsetY),
-                    shadowSize, shadowSize);
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                // Check if we have a dedicated shadow sprite for this bullet
+                BufferedImage shadowSprite = bulletShadows[spriteIndex];
+                if (shadowSprite != null) {
+                    // Draw sprite shadow with proper dimensions
+                    int nativeShadowWidth = shadowSprite.getWidth();
+                    int nativeShadowHeight = shadowSprite.getHeight();
+                    double shadowScale = (double)spriteSize / Math.max(nativeShadowWidth, nativeShadowHeight);
+                    int drawShadowWidth = (int)(nativeShadowWidth * shadowScale);
+                    int drawShadowHeight = (int)(nativeShadowHeight * shadowScale);
+                    
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f * flickerAlpha));
+                    g2d.drawImage(shadowSprite,
+                        (int)(-drawShadowWidth/2 + shadowOffsetX),
+                        (int)(-drawShadowHeight/2 + shadowOffsetY),
+                        drawShadowWidth, drawShadowHeight, null);
+                } else {
+                    // Fallback: draw oval shadow (taller than wide, rotated 90 degrees)
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f * flickerAlpha));
+                    g2d.setColor(new Color(0, 0, 0));
+                    int shadowWidth = (int)(shadowSize * 0.7); // 30% narrower
+                    int shadowHeight = (int)(shadowSize * 1.3); // 30% taller
+                    g2d.fillOval(
+                        (int)(-shadowWidth/2 + shadowOffsetX),
+                        (int)(-shadowHeight/2 + shadowOffsetY),
+                        shadowWidth, shadowHeight);
+                }
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
                 
                 // Reset rotation for sprite drawing
                 g2d.rotate(-objectRotation);
+            } else {
+                // Apply flickering alpha even if shadows are disabled
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
             }
-            g2d.rotate(angle + Math.PI / 2); // Rotate sprite to face direction of travel
+            g2d.rotate(angle + HALF_PI); // Rotate sprite to face direction of travel
             
-            // Draw sprite centered
+            // Get native sprite dimensions and scale proportionally
+            int nativeWidth = bulletSprites[spriteIndex].getWidth();
+            int nativeHeight = bulletSprites[spriteIndex].getHeight();
+            double scale = (double)spriteSize / Math.max(nativeWidth, nativeHeight);
+            int drawWidth = (int)(nativeWidth * scale);
+            int drawHeight = (int)(nativeHeight * scale);
+            
+            // Draw sprite centered with proportional dimensions
             g2d.drawImage(bulletSprites[spriteIndex], 
-                -spriteSize/2, -spriteSize/2, 
-                spriteSize, spriteSize, null);
+                -drawWidth/2, -drawHeight/2, 
+                drawWidth, drawHeight, null);
             
             g2d.dispose();
         } else {
@@ -327,6 +571,10 @@ public class Bullet {
     public boolean isOffScreen(int width, int height) {
         // Check if bullet is completely off screen with generous margin
         int margin = 100;
+        // Homing bullets expire after lifetime
+        if (type == BulletType.HOMING && age > HOMING_LIFETIME) {
+            return true;
+        }
         return x < -margin || x > width + margin || y < -margin || y > height + margin;
     }
     

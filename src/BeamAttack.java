@@ -13,8 +13,8 @@ public class BeamAttack {
     private int beamTimer;    // How long beam stays active
     private boolean isActive; // Whether beam is dealing damage
     
-    private static final int WARNING_DURATION = 90; // 1.5 seconds warning
-    private static final int BEAM_DURATION = 30;    // 0.5 seconds active beam
+    private static final int WARNING_DURATION = 150; // 2.5 seconds warning (increased from 90)
+    private static final int BEAM_DURATION = 30;     // 0.5 seconds active beam
     
     public BeamAttack(double position, double width, BeamType type) {
         this.position = position;

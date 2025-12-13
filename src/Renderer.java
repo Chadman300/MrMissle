@@ -56,9 +56,9 @@ public class Renderer {
             statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
         }
         
-        // Initialize settings buttons (6 options)
-        settingsButtons = new UIButton[6];
-        for (int i = 0; i < 6; i++) {
+        // Initialize settings buttons (10 options)
+        settingsButtons = new UIButton[10];
+        for (int i = 0; i < 10; i++) {
             settingsButtons[i] = new UIButton("", 0, 0, 700, 80, new Color(76, 86, 106), new Color(235, 203, 139));
         }
     }
@@ -78,19 +78,25 @@ public class Renderer {
                     };
                     
                     BufferedImage image = null;
+                    String successfulPath = null;
                     for (String path : possiblePaths) {
                         File file = new File(path);
                         if (file.exists()) {
                             try {
                                 image = ImageIO.read(file);
                                 if (image != null) {
+                                    successfulPath = path;
                                     totalLoaded++;
                                     break;
                                 }
                             } catch (IOException e) {
-                                // Skip this file and try next path
+                                System.err.println("Could not load background sprite: " + path);
                             }
                         }
+                    }
+                    
+                    if (image == null) {
+                        System.err.println("Failed to load background layer " + (layer + 1) + " for set " + (set + 1) + ". Tried paths: " + String.join(", ", possiblePaths));
                     }
                     
                     // Store the image (can be null if layer doesn't exist for this set)
@@ -753,6 +759,11 @@ public class Renderer {
             g.drawImage(overlayImage, 0, 0, width, height, null);
         }
         
+        // Apply chromatic aberration effect before drawing game objects
+        if (Game.enableChromaticAberration) {
+            applyChromaticAberration(g, width, height);
+        }
+        
         // Draw beam attacks (behind everything else)
         for (BeamAttack beam : beamAttacks) {
             beam.draw(g, width, height);
@@ -819,6 +830,16 @@ public class Renderer {
         // Draw bullets
         for (Bullet bullet : bullets) {
             bullet.draw(g);
+        }
+        
+        // Apply bloom/glow effect on bright objects
+        if (Game.enableBloom) {
+            applyBloom(g, player, boss, bullets, particles, bossVulnerable);
+        }
+        
+        // Apply motion blur on fast-moving objects
+        if (Game.enableMotionBlur && player != null) {
+            applyMotionBlur(g, player);
         }
         
         // Draw boss health bar at bottom
@@ -927,11 +948,13 @@ public class Renderer {
             g.setColor(new Color(163, 190, 140));
             g.setFont(new Font("Arial", Font.BOLD, 32));
             String comboText = "COMBO x" + dodgeCombo;
-            g.drawString(comboText, width - 200, 50);
-            
-            g.setFont(new Font("Arial", Font.PLAIN, 16));
-            g.setColor(Color.WHITE);
-            g.drawString("Lucky Dodges!", width - 200, 68);
+            FontMetrics comboFm = g.getFontMetrics();
+            g.drawString(comboText, width - 205 + (190 - comboFm.stringWidth(comboText)) / 2, 50);
+        }
+        
+        // Apply vignette effect at the end (darkens edges)
+        if (Game.enableVignette) {
+            applyVignette(g, width, height);
         }
     }
     
@@ -1075,14 +1098,18 @@ public class Renderer {
         g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 120);
         
         // Settings items
-        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows"};
+        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette"};
         String[] settingValues = {
             Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
             Game.enableGradientAnimation ? "ON" : "OFF",
             Game.gradientQuality == 0 ? "Low" : Game.gradientQuality == 1 ? "Medium" : "High",
             Game.enableGrainEffect ? "ON" : "OFF",
             Game.enableParticles ? "ON" : "OFF",
-            Game.enableShadows ? "ON" : "OFF"
+            Game.enableShadows ? "ON" : "OFF",
+            Game.enableBloom ? "ON" : "OFF",
+            Game.enableMotionBlur ? "ON" : "OFF",
+            Game.enableChromaticAberration ? "ON" : "OFF",
+            Game.enableVignette ? "ON" : "OFF"
         };
         
         String[] descriptions = {
@@ -1091,7 +1118,11 @@ public class Renderer {
             "Number of gradient layers (higher = better but slower)",
             "Add grain texture overlay (performance impact)",
             "Enable particle effects (trails, explosions, etc.)",
-            "Enable shadows for all objects (planes, bullets)"
+            "Enable shadows for all objects (planes, bullets)",
+            "Glow effect on bright objects (performance impact)",
+            "Blur effect on fast moving objects (performance impact)",
+            "Color fringing on screen edges (cinematic effect)",
+            "Darken screen edges (focuses attention on center)"
         };
         
         int y = 200;
@@ -1506,5 +1537,131 @@ public class Renderer {
                 }
             }
         }
+    }
+    
+    // Visual effects methods
+    
+    private void applyBloom(Graphics2D g, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, boolean bossVulnerable) {
+        // Bloom effect: draw glowing halos around bright objects
+        Composite originalComposite = g.getComposite();
+        
+        // Glow around vulnerable boss
+        if (bossVulnerable && boss != null) {
+            for (int i = 3; i > 0; i--) {
+                float alpha = 0.15f / i;
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setColor(new Color(255, 255, 0));
+                double glowSize = boss.getSize() + (i * 25);
+                g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+            }
+        }
+        
+        // Glow around player
+        if (player != null) {
+            for (int i = 2; i > 0; i--) {
+                float alpha = 0.1f / i;
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setColor(new Color(150, 200, 255));
+                double glowSize = 50 + (i * 15);
+                g.fillOval((int)(player.getX() - glowSize/2), (int)(player.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+            }
+        }
+        
+        // Glow around bright particles (using only X/Y position)
+        // Create snapshot to avoid ConcurrentModificationException
+        java.util.List<Particle> particleSnapshot = new java.util.ArrayList<>(particles);
+        for (Particle p : particleSnapshot) {
+            if (p != null && p.isAlive()) {
+                // Apply glow to all particles with simple distance-based intensity
+                for (int i = 2; i > 0; i--) {
+                    float alpha = 0.05f / i;
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    g.setColor(new Color(255, 200, 100)); // Orange glow for particles
+                    double glowSize = 15 + (i * 8);
+                    g.fillOval((int)(p.getX() - glowSize/2), (int)(p.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                }
+            }
+        }
+        
+        g.setComposite(originalComposite);
+    }
+    
+    private void applyMotionBlur(Graphics2D g, Player player) {
+        // Motion blur: draw faded trail behind fast-moving player
+        double vx = player.getVX();
+        double vy = player.getVY();
+        double speed = Math.sqrt(vx * vx + vy * vy);
+        
+        if (speed > 3) { // Only apply if moving fast
+            Composite originalComposite = g.getComposite();
+            int trailLength = (int)Math.min(speed * 2, 15);
+            
+            for (int i = 1; i <= trailLength; i++) {
+                float alpha = 0.3f * (1 - i / (float)trailLength);
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                
+                double trailX = player.getX() - (vx * i * 0.8);
+                double trailY = player.getY() - (vy * i * 0.8);
+                
+                g.setColor(new Color(150, 200, 255));
+                g.fillOval((int)(trailX - 15), (int)(trailY - 15), 30, 30);
+            }
+            
+            g.setComposite(originalComposite);
+        }
+    }
+    
+    private void applyChromaticAberration(Graphics2D g, int width, int height) {
+        // Chromatic aberration: subtle color fringing at screen edges
+        Composite originalComposite = g.getComposite();
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.03f));
+        
+        // Red fringe on left edge
+        g.setColor(new Color(255, 0, 0));
+        g.fillRect(0, 0, 15, height);
+        
+        // Cyan fringe on right edge
+        g.setColor(new Color(0, 255, 255));
+        g.fillRect(width - 15, 0, 15, height);
+        
+        // Blue fringe on top
+        g.setColor(new Color(0, 0, 255));
+        g.fillRect(0, 0, width, 15);
+        
+        // Yellow fringe on bottom
+        g.setColor(new Color(255, 255, 0));
+        g.fillRect(0, height - 15, width, 15);
+        
+        g.setComposite(originalComposite);
+    }
+    
+    private void applyVignette(Graphics2D g, int width, int height) {
+        // Vignette effect: darken edges to focus attention on center
+        Composite originalComposite = g.getComposite();
+        
+        // Create radial gradient from center
+        int centerX = width / 2;
+        int centerY = height / 2;
+        int radius = (int)Math.sqrt(centerX * centerX + centerY * centerY);
+        
+        // Draw multiple layers for smooth gradient
+        for (int i = 0; i < 4; i++) {
+            float alpha = 0.12f * (i + 1);
+            int innerRadius = radius - (radius / 4) * (4 - i);
+            int outerRadius = radius;
+            
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Draw darkened edges
+            RadialGradientPaint gradient = new RadialGradientPaint(
+                centerX, centerY, outerRadius,
+                new float[]{0.0f, 0.6f, 1.0f},
+                new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 255)}
+            );
+            g.setPaint(gradient);
+            g.fillRect(0, 0, width, height);
+        }
+        
+        g.setComposite(originalComposite);
     }
 }
