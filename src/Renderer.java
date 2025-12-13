@@ -17,8 +17,8 @@ public class Renderer {
     private UIButton[] statsButtons;
     private UIButton[] settingsButtons;
     
-    // Parallax background layers (16 sets x 6 layers each)
-    private static BufferedImage[][] backgroundLayers = new BufferedImage[16][6];
+    // Parallax background layers (14 sets x 6 layers each)
+    private static BufferedImage[][] backgroundLayers = new BufferedImage[14][6];
     private static boolean backgroundsLoaded = false;
     private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
     
@@ -69,14 +69,14 @@ public class Renderer {
         if (backgroundsLoaded) return;
         try {
             int totalLoaded = 0;
-            for (int set = 0; set < 16; set++) {
+            for (int set = 0; set < 14; set++) {
                 for (int layer = 0; layer < 6; layer++) {
                     // Try multiple possible paths to handle different working directories
                     String[] possiblePaths = {
-                        String.format("sprites/Backgrounds/background %d/%d.png", set + 1, layer + 1),
-                        String.format("../sprites/Backgrounds/background %d/%d.png", set + 1, layer + 1),
-                        String.format("sprites\\Backgrounds\\background %d\\%d.png", set + 1, layer + 1),
-                        String.format("..\\sprites\\Backgrounds\\background %d\\%d.png", set + 1, layer + 1)
+                        String.format("sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1),
+                        String.format("../sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1),
+                        String.format("sprites\\Backgrounds\\background (%d)\\%d.png", set + 1, layer + 1),
+                        String.format("..\\sprites\\Backgrounds\\background (%d)\\%d.png", set + 1, layer + 1)
                     };
                     
                     BufferedImage image = null;
@@ -218,27 +218,33 @@ public class Renderer {
     
     public void drawLoading(Graphics2D g, int width, int height, double time, int progress) {
         // Draw dark animated gradient background
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 30, 40), new Color(40, 40, 50), new Color(50, 50, 60)});
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        // Draw title
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 72));
+        // Holographic title
         String title = "ONE HIT MAN";
+        g.setFont(new Font("Arial", Font.BOLD, 84));
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
         int titleY = height / 2 - 100;
         
-        // Shadow
-        g.setColor(new Color(0, 0, 0, 150));
+        // Shadow layer
+        g.setColor(new Color(0, 0, 0, 100));
         g.drawString(title, titleX + 4, titleY + 4);
         
-        // Gradient text
+        // Gradient text (teal to purple)
         GradientPaint titleGrad = new GradientPaint(
             titleX, titleY - 50, new Color(143, 188, 187),
-            titleX, titleY + 20, new Color(136, 192, 208)
+            titleX, titleY + 20, new Color(180, 142, 173)
         );
         g.setPaint(titleGrad);
         g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
         // Loading text
         g.setColor(new Color(216, 222, 233));
@@ -340,14 +346,34 @@ public class Renderer {
     }
     
     public void drawInfo(Graphics2D g, int width, int height, double time) {
-        // Draw animated gradient with palette colors
+        // Draw animated gradient
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 48));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 60));
         String title = "GAME INFO";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 60);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 80;
+        
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 30, new Color(136, 192, 208),
+            titleX, titleY + 20, new Color(143, 188, 187)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
         // Game Rules section
         g.setColor(new Color(143, 188, 187)); // Palette teal
@@ -428,21 +454,45 @@ public class Renderer {
     }
     
     public void drawStats(Graphics2D g, int width, int height, double time) {
-        // Draw animated Balatro-style gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 15, 45), new Color(45, 30, 60), new Color(60, 45, 75)});
+        // Draw animated gradient
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 48));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 60));
         String title = "STATS & LOADOUT";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 100;
         
-        // Show total money
-        g.setColor(new Color(163, 190, 140)); // Palette green
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 30, new Color(143, 188, 187),
+            titleX, titleY + 20, new Color(136, 192, 208)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        
+        // Show total money with glow
+        g.setColor(new Color(163, 190, 140));
+        g.setFont(new Font("Arial", Font.BOLD, 36));
         String money = "Total Money: $" + gameData.getTotalMoney();
         fm = g.getFontMetrics();
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, 140);
+        int moneyX = (width - fm.stringWidth(money)) / 2;
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+        g.fillRect(moneyX - 20, 135, fm.stringWidth(money) + 40, 45);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.drawString(money, moneyX, 165);
         
         // Show max level reached
         g.setColor(Color.YELLOW);
@@ -638,26 +688,41 @@ public class Renderer {
     }
     
     public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset) {
-        // Draw animated Balatro-style gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(20, 25, 50), new Color(35, 40, 65), new Color(50, 35, 70)});
+        // Draw animated gradient
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        // Draw title with glow effect
-        g.setColor(new Color(255, 255, 255, 100));
-        g.setFont(new Font("Arial", Font.BOLD, 52));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 60));
         String title = "SELECT LEVEL";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2 + 2, 82);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 100;
         
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 30, new Color(180, 142, 173),
+            titleX, titleY + 20, new Color(235, 203, 139)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 48));
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
-        // Draw instructions with icons
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        // Draw instructions
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
         String instruction = "↑↓ Scroll | ←→ Select | SPACE Start | ESC Back";
         fm = g.getFontMetrics();
-        g.setColor(new Color(200, 200, 200));
-        g.drawString(instruction, (width - fm.stringWidth(instruction)) / 2, 125);
+        g.setColor(new Color(216, 222, 233));
+        g.drawString(instruction, (width - fm.stringWidth(instruction)) / 2, 145);
         
         // Create clipping region for scrollable area
         Shape oldClip = g.getClip();
@@ -793,7 +858,7 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -928,6 +993,18 @@ public class Renderer {
         } else {
             // Normal boss drawing
             boss.draw(g);
+            
+            // Boss damage flash effect
+            if (bossFlashTimer > 0) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                float flashAlpha = (float)bossFlashTimer / 8.0f * 0.6f; // Fade out over 8 frames
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+                g2d.setColor(Color.WHITE);
+                double size = boss.getSize() * 1.2;
+                g2d.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
+                g2d.dispose();
+            }
+            
             if (bossVulnerable) {
                 // Pulsing ring around boss
                 // Calculate color based on time remaining (green -> yellow -> red)
@@ -1148,6 +1225,32 @@ public class Renderer {
             g.drawString(keyHint, itemUIX + 10, itemUIY + 68);
         }
         
+        // Draw "Press SPACE to skip" text during intro animation
+        if (introPanActive) {
+            g.setFont(new Font("Arial", Font.BOLD, 18));
+            g.setColor(new Color(255, 255, 255, 180));
+            String skipText = "Press SPACE to skip";
+            FontMetrics fm = g.getFontMetrics();
+            int textX = (width - fm.stringWidth(skipText)) / 2;
+            int textY = height - 30;
+            
+            // Draw shadow for better visibility
+            g.setColor(new Color(0, 0, 0, 150));
+            g.drawString(skipText, textX + 2, textY + 2);
+            g.setColor(new Color(255, 255, 255, 180));
+            g.drawString(skipText, textX, textY);
+        }
+        
+        // Screen flash effect on player death
+        if (screenFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)screenFlashTimer / 15.0f * 0.7f; // Fade out over 15 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(Color.WHITE);
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
         // Apply vignette effect at the end (darkens edges)
         if (Game.enableVignette) {
             applyVignette(g, width, height);
@@ -1156,27 +1259,52 @@ public class Renderer {
     
     public void drawShop(Graphics2D g, int width, int height, double time) {
         // Draw animated Balatro-style gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(45, 15, 55), new Color(60, 30, 70), new Color(75, 45, 85)});
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 48));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 64));
         String title = "UPGRADE SHOP";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 100;
         
-        // Show money
-        g.setColor(new Color(163, 190, 140)); // Palette green
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 30, new Color(180, 142, 173),
+            titleX, titleY + 20, new Color(235, 203, 139)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        
+        // Show money with glowing effect
+        g.setColor(new Color(163, 190, 140)); // Green
+        g.setFont(new Font("Arial", Font.BOLD, 36));
         String money = "Money: $" + gameData.getTotalMoney();
         fm = g.getFontMetrics();
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, 140);
+        int moneyX = (width - fm.stringWidth(money)) / 2;
+        // Glow effect
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.fillRect(moneyX - 20, 140, fm.stringWidth(money) + 40, 50);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.drawString(money, moneyX, 170);
         
         // Show earnings
-        g.setColor(new Color(235, 203, 139)); // Palette yellow
+        g.setColor(new Color(235, 203, 139)); // Yellow
         g.setFont(new Font("Arial", Font.PLAIN, 24));
         String earnings = "Earned this run: $" + gameData.getRunMoney();
         fm = g.getFontMetrics();
-        g.drawString(earnings, (width - fm.stringWidth(earnings)) / 2, 180);
+        g.drawString(earnings, (width - fm.stringWidth(earnings)) / 2, 210);
         
         // Shop items using buttons
         String[] items = shopManager.getShopItems();
@@ -1185,11 +1313,11 @@ public class Renderer {
         
         for (int i = 0; i < items.length; i++) {
             int cost = shopManager.getItemCost(i);
-            boolean canAfford = gameData.getTotalMoney() >= cost || i == 3 || i == 5;
+            boolean canAfford = gameData.getTotalMoney() >= cost || i == 5;
             
             // Build button text with cost
             String buttonText = items[i];
-            if (i != 3 && i != 5) {
+            if (i != 5) {
                 buttonText += "  -  $" + cost;
             }
             
@@ -1216,17 +1344,38 @@ public class Renderer {
     }
     
     public void drawGameOver(Graphics2D g, int width, int height, double time) {
-        // Draw animated Balatro-style gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(50, 15, 15), new Color(65, 25, 25), new Color(45, 20, 30)});
+        // Draw animated gradient
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(67, 76, 94)});
         
-        g.setColor(Color.RED);
-        g.setFont(new Font("Arial", Font.BOLD, 72));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 84));
         String gameOver = "GAME OVER";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(gameOver, (width - fm.stringWidth(gameOver)) / 2, height / 2 - 50);
+        int titleX = (width - fm.stringWidth(gameOver)) / 2;
+        int titleY = height / 2 - 100;
         
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 150));
+        g.drawString(gameOver, titleX + 5, titleY + 5);
+        
+        // Gradient text (red theme)
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 40, new Color(191, 97, 106),
+            titleX, titleY + 30, new Color(220, 120, 130)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(gameOver, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.PLAIN, 32));
+        g.drawString(gameOver, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        
+        // Stats with consistent styling
+        g.setColor(new Color(216, 222, 233));
+        g.setFont(new Font("Arial", Font.BOLD, 36));
         String score = "Score: " + gameData.getScore();
         fm = g.getFontMetrics();
         g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 + 20);
@@ -1242,17 +1391,38 @@ public class Renderer {
     }
     
     public void drawWin(Graphics2D g, int width, int height, double time, double bossKillTime) {
-        // Darker, more subdued gradient for victory screen
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(30, 40, 30), new Color(40, 50, 45), new Color(50, 60, 55)});
+        // Draw animated gradient
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(new Color(163, 190, 140)); // Palette green
-        g.setFont(new Font("Arial", Font.BOLD, 72));
+        // Holographic title
+        g.setFont(new Font("Arial", Font.BOLD, 84));
         String win = "VICTORY!";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(win, (width - fm.stringWidth(win)) / 2, height / 2 - 80);
+        int titleX = (width - fm.stringWidth(win)) / 2;
+        int titleY = height / 2 - 120;
         
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(win, titleX + 5, titleY + 5);
+        
+        // Gradient text (green theme)
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 40, new Color(163, 190, 140),
+            titleX, titleY + 30, new Color(180, 200, 160)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(win, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.PLAIN, 32));
+        g.drawString(win, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        
+        // Stats with consistent styling
+        g.setColor(new Color(216, 222, 233));
+        g.setFont(new Font("Arial", Font.BOLD, 36));
         String score = "Score: " + gameData.getScore();
         fm = g.getFontMetrics();
         g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 10);
@@ -1281,11 +1451,31 @@ public class Renderer {
         // Draw animated gradient with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 48));
+        // Holographic title
         String title = "SETTINGS";
+        g.setFont(new Font("Arial", Font.BOLD, 60));
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 80;
+        
+        // Shadow layer
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text (purple to blue)
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 40, new Color(180, 142, 173),
+            titleX, titleY + 30, new Color(136, 192, 208)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(216, 222, 233));
@@ -1365,13 +1555,33 @@ public class Renderer {
     
     public void drawDebug(Graphics2D g, int width, int height, double time) {
         // Draw animated gradient with dark palette colors
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(40, 40, 50), new Color(50, 50, 60), new Color(60, 60, 70)});
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
-        g.setColor(new Color(255, 100, 100)); // Red for debug/cheat menu
-        g.setFont(new Font("Arial", Font.BOLD, 56));
+        // Holographic title
         String title = "DEBUG MENU";
+        g.setFont(new Font("Arial", Font.BOLD, 72));
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(title, (width - fm.stringWidth(title)) / 2, 80);
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 80;
+        
+        // Shadow layer
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 4, titleY + 4);
+        
+        // Gradient text (red theme for debug/cheat)
+        GradientPaint titleGrad = new GradientPaint(
+            titleX, titleY - 40, new Color(191, 97, 106),
+            titleX, titleY + 30, new Color(208, 135, 112)
+        );
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Holographic shine
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setColor(Color.WHITE);
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
         g.setColor(new Color(255, 200, 200));
         g.setFont(new Font("Arial", Font.PLAIN, 18));

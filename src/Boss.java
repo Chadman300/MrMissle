@@ -25,7 +25,7 @@ public class Boss {
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
+    private static final double SHADOW_DISTANCE = 12; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     private int shootTimer;
@@ -76,7 +76,7 @@ public class Boss {
         this.maxPatterns = Math.min(2 + (level * 2), 15); // Cap at 15 patterns (includes explosives)
         
         this.shootTimer = 0;
-        this.shootInterval = Math.max(50, 80 + level * 3); // Slower shooting, gets slightly slower at higher levels
+        this.shootInterval = Math.max(50, 80 + level * 3); // Back to original timing
         // Start with random pattern from available pool
         this.patternType = (int)(Math.random() * maxPatterns);
         // Start with current position as target
@@ -190,6 +190,17 @@ public class Boss {
     
     public void update(List<Bullet> bullets, Player player, int screenWidth, int screenHeight, double deltaTime) {
         update(bullets, player, screenWidth, screenHeight, deltaTime, null);
+    }
+    
+    // Update only visual animations (helicopter blades, etc.) - safe to call during intro
+    public void updateAnimations(double deltaTime) {
+        // Animate helicopter blades if this is a helicopter
+        if (level % 2 == 0) {
+            bladeRotation += BLADE_ROTATION_SPEED * deltaTime;
+            if (bladeRotation > Math.PI * 2) {
+                bladeRotation -= Math.PI * 2;
+            }
+        }
     }
     
     public void update(List<Bullet> bullets, Player player, int screenWidth, int screenHeight, double deltaTime, List<Particle> particles) {
@@ -350,13 +361,8 @@ public class Boss {
             }
         }
         
-        // Animate helicopter blades if this is a helicopter
-        if (level % 2 == 0) {
-            bladeRotation += BLADE_ROTATION_SPEED * deltaTime;
-            if (bladeRotation > Math.PI * 2) {
-                bladeRotation -= Math.PI * 2;
-            }
-        }
+        // Update animations (blade rotation, etc.)
+        updateAnimations(deltaTime);
         
         // Keep boss within bounds (and bounce off walls)
         if (x < size || x > screenWidth - size) {
@@ -395,6 +401,29 @@ public class Boss {
     }
     
     private void shoot(List<Bullet> bullets, Player player) {
+        // Mega bosses have special attack patterns
+        if (isMegaBoss && Math.random() < 0.25) {
+            // 25% chance to use mega boss special attacks
+            int specialPattern = (int)(Math.random() * 5);
+            switch (specialPattern) {
+                case 0:
+                    shootMegaBarrage(bullets, player);
+                    return;
+                case 1:
+                    shootMegaSpiral(bullets);
+                    return;
+                case 2:
+                    shootMegaCross(bullets, player);
+                    return;
+                case 3:
+                    shootMegaStar(bullets);
+                    return;
+                case 4:
+                    shootMegaHex(bullets, player);
+                    return;
+            }
+        }
+        
         // Cycle through unlocked patterns only
         patternType = (patternType + 1) % maxPatterns;
         
@@ -403,16 +432,16 @@ public class Boss {
                 shootSpiral(bullets);
                 break;
             case 1: // Circle pattern
-                shootCircle(bullets, 10 + level); // Increased from 5 + level
+                shootCircle(bullets, 15 + level * 2); // Increased from 10 + level
                 break;
             case 2: // Aimed at player
-                shootAtPlayer(bullets, player, 4); // Increased from 2
+                shootAtPlayer(bullets, player, 6); // Increased from 4
                 break;
             case 3: // Wave pattern
                 shootWave(bullets);
                 break;
             case 4: // Random spray
-                shootRandom(bullets, 6 + level); // Increased from 3 + level / 2
+                shootRandom(bullets, 10 + level * 2); // Increased from 6 + level
                 break;
             case 5: // Fast bullets
                 shootFast(bullets, player);
@@ -448,7 +477,7 @@ public class Boss {
     }
     
     private void shootSpiral(List<Bullet> bullets) {
-        int numBullets = 8 + level; // Increased from 4 + level / 2
+        int numBullets = 12 + level * 2; // Increased from 8 + level
         double angleOffset = shootTimer * 0.1;
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         for (int i = 0; i < numBullets; i++) {
@@ -482,7 +511,7 @@ public class Boss {
     
     private void shootWave(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 12 + level; // Increased from 6 + level
+        int numBullets = 16 + level * 2; // Increased from 12 + level
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double speed = (2 + Math.sin(i * 0.5) * 1.5) * speedMultiplier;
@@ -506,7 +535,7 @@ public class Boss {
     private void shootFast(List<Bullet> bullets, Player player) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = 0; i < 3 + level / 2; i++) {
+        for (int i = 0; i < 5 + level; i++) { // Increased from 3 + level / 2
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.5;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -516,7 +545,7 @@ public class Boss {
     
     private void shootLarge(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 3 + level / 2;
+        int numBullets = 5 + level; // Increased from 3 + level / 2
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -531,8 +560,8 @@ public class Boss {
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Homing bullets
-        for (int i = 0; i < 1; i++) {
-            double angle = angleToPlayer + (i - 0.5) * 0.3;
+        for (int i = 0; i < 3; i++) { // Increased from 1
+            double angle = angleToPlayer + (i - 1) * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
@@ -540,8 +569,8 @@ public class Boss {
         
         // Circle of bouncing bullets
         if (level >= 3) {
-            for (int i = 0; i < 4; i++) {
-                double angle = Math.PI * 2 * i / 6;
+            for (int i = 0; i < 8; i++) { // Increased from 4
+                double angle = Math.PI * 2 * i / 8; // Updated divisor
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
                 bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
@@ -551,7 +580,7 @@ public class Boss {
     
     private void shootSpiralBullets(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 3 + level / 2;
+        int numBullets = 5 + level; // Increased from 3 + level / 2
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -562,7 +591,7 @@ public class Boss {
     
     private void shootSplittingBullets(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 2 + level / 2;
+        int numBullets = 4 + level; // Increased from 2 + level / 2
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -574,7 +603,7 @@ public class Boss {
     private void shootAcceleratingBullets(List<Bullet> bullets, Player player) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = -1; i <= 1; i++) {
+        for (int i = -2; i <= 2; i++) { // Increased from -1 to 1 (now 5 bullets instead of 3)
             double angle = angleToPlayer + i * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -584,7 +613,7 @@ public class Boss {
     
     private void shootWaveBullets(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 5 + level / 2;
+        int numBullets = 8 + level; // Increased from 5 + level / 2
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -595,7 +624,7 @@ public class Boss {
     
     private void shootBombs(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
-        int numBullets = 2 + level / 3;
+        int numBullets = 3 + level / 2; // Increased from 2 + level / 3
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -607,7 +636,7 @@ public class Boss {
     private void shootGrenades(List<Bullet> bullets, Player player) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        int numBullets = 1 + (level >= 5 ? 1 : 0); // Only 1-2 grenades max
+        int numBullets = 2 + (level >= 5 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
         for (int i = 0; i < numBullets; i++) {
             double angle = angleToPlayer + (i - numBullets/2.0) * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -618,8 +647,8 @@ public class Boss {
     
     private void shootNukes(List<Bullet> bullets) {
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
-        // Only 1-2 nukes since they're very powerful
-        int numBullets = 1 + (level >= 5 ? 1 : 0);
+        // 1-3 nukes since they're very powerful
+        int numBullets = 1 + (level >= 4 ? 1 : 0) + (level >= 7 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -628,7 +657,181 @@ public class Boss {
         }
     }
     
+    // ========== MEGA BOSS SPECIAL ATTACKS ==========
+    
+    private void shootMegaBarrage(List<Bullet> bullets, Player player) {
+        // Massive dense bullet storm aimed at player
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        
+        // Dense cone of bullets
+        int numBullets = 15 + level * 2;
+        for (int i = 0; i < numBullets; i++) {
+            double spread = Math.PI / 3; // 60 degree cone
+            double angle = angleToPlayer + (i / (double)numBullets - 0.5) * spread;
+            double speed = (2.5 + Math.random() * 2) * speedMultiplier;
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            
+            // Mix of bullet types for chaos
+            Bullet.BulletType type;
+            double rand = Math.random();
+            if (rand < 0.3) {
+                type = Bullet.BulletType.FAST;
+            } else if (rand < 0.5) {
+                type = Bullet.BulletType.HOMING;
+            } else if (rand < 0.7) {
+                type = Bullet.BulletType.ACCELERATING;
+            } else {
+                type = Bullet.BulletType.NORMAL;
+            }
+            
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+        }
+    }
+    
+    private void shootMegaSpiral(List<Bullet> bullets) {
+        // Layered spiral with multiple speeds and types
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double angleOffset = shootTimer * 0.15;
+        
+        // Three layers of spirals at different speeds
+        int[] layers = {8, 12, 16};
+        double[] speeds = {2.0, 3.0, 4.0};
+        Bullet.BulletType[] types = {Bullet.BulletType.NORMAL, Bullet.BulletType.SPIRAL, Bullet.BulletType.WAVE};
+        
+        for (int layer = 0; layer < 3; layer++) {
+            int numBullets = layers[layer] + level;
+            double layerOffset = angleOffset * (1 + layer * 0.3);
+            
+            for (int i = 0; i < numBullets; i++) {
+                double angle = (Math.PI * 2 * i / numBullets) + layerOffset;
+                double speed = speeds[layer] * speedMultiplier;
+                double spawnX = x + Math.cos(angle) * size * 1.5;
+                double spawnY = y + Math.sin(angle) * size * 1.5;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, types[layer]));
+            }
+        }
+    }
+    
+    private void shootMegaCross(List<Bullet> bullets, Player player) {
+        // Cross pattern with rotating arms + homing center
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        
+        // Four arms of the cross
+        for (int arm = 0; arm < 4; arm++) {
+            double armAngle = (Math.PI / 2 * arm) + shootTimer * 0.1;
+            int bulletsPerArm = 5 + level / 2;
+            
+            for (int i = 0; i < bulletsPerArm; i++) {
+                double angle = armAngle;
+                double distance = (i + 1) * 0.3;
+                double speed = (2.5 + distance) * speedMultiplier;
+                double spawnX = x + Math.cos(angle) * size * 1.5;
+                double spawnY = y + Math.sin(angle) * size * 1.5;
+                
+                Bullet.BulletType type = (i % 3 == 0) ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+            }
+        }
+        
+        // Center cluster of homing bullets
+        for (int i = 0; i < 3 + level / 3; i++) {
+            double angle = angleToPlayer + (Math.random() - 0.5) * 0.8;
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
+        }
+    }
+    
+    private void shootMegaStar(List<Bullet> bullets) {
+        // Star burst with splitting bullets
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        int numPoints = 6 + level / 3; // 6-9 points
+        
+        for (int point = 0; point < numPoints; point++) {
+            double pointAngle = (Math.PI * 2 * point / numPoints);
+            
+            // Each point shoots multiple bullets outward
+            for (int i = 0; i < 3; i++) {
+                double spread = 0.4;
+                double angle = pointAngle + (i - 2) * (spread / 5);
+                double speed = (2.0 + i * 0.5) * speedMultiplier;
+                double spawnX = x + Math.cos(angle) * size * 1.5;
+                double spawnY = y + Math.sin(angle) * size * 1.5;
+                
+                // Outer bullets split, inner bullets are large
+                Bullet.BulletType type = (i <= 1 || i >= 3) ? Bullet.BulletType.SPLITTING : Bullet.BulletType.LARGE;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+            }
+        }
+        
+        // Center ring of bombs
+        for (int i = 0; i < 3 + level / 4; i++) {
+            double angle = Math.PI * 2 * i / (4 + level / 3);
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.BOMB));
+        }
+    }
+    
+    private void shootMegaHex(List<Bullet> bullets, Player player) {
+        // Hexagonal formation with wave bullets + grenades
+        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        
+        // Six sides of hexagon
+        for (int side = 0; side < 6; side++) {
+            double sideAngle = (Math.PI / 3 * side) + shootTimer * 0.08;
+            int bulletsPerSide = 4 + level / 2;
+            
+            for (int i = 0; i < bulletsPerSide; i++) {
+                double angle = sideAngle + (i - bulletsPerSide / 2.0) * 0.1;
+                double speed = (2.5 + Math.sin(i * 0.5)) * speedMultiplier;
+                double spawnX = x + Math.cos(angle) * size * 1.5;
+                double spawnY = y + Math.sin(angle) * size * 1.5;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, Bullet.BulletType.WAVE));
+            }
+        }
+        
+        // Grenades aimed at player
+        for (int i = 0; i < 2 + level / 3; i++) {
+            double angle = angleToPlayer + (i - 1) * 0.4;
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.GRENADE));
+        }
+        
+        // Ring of accelerating bullets
+        for (int i = 0; i < 6 + level / 2; i++) {
+            double angle = Math.PI * 2 * i / (10 + level);
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.8 * speedMultiplier, Math.sin(angle) * 1.8 * speedMultiplier, Bullet.BulletType.ACCELERATING));
+        }
+    }
+    
+    // ========== END MEGA BOSS SPECIAL ATTACKS ==========
+    
     private void spawnBeamAttack(int screenWidth, int screenHeight) {
+        // Mega bosses have more intense beam patterns
+        if (isMegaBoss && Math.random() < 0.5) {
+            // 50% chance for mega boss special beam patterns
+            int specialBeam = (int)(Math.random() * 3);
+            switch (specialBeam) {
+                case 0: // Cross pattern beams
+                    spawnCrossBeams(screenWidth, screenHeight);
+                    return;
+                case 1: // Grid pattern beams
+                    spawnGridBeams(screenWidth, screenHeight);
+                    return;
+                case 2: // Rotating beam
+                    spawnRotatingBeams(screenWidth, screenHeight);
+                    return;
+            }
+        }
+        
         // Randomly choose between vertical and horizontal beams
         boolean isVertical = Math.random() < 0.5;
         
@@ -648,6 +851,48 @@ public class Boss {
                 double width = 40 + level * 5; // Wider beams at higher levels
                 beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
             }
+        }
+    }
+    
+    private void spawnCrossBeams(int screenWidth, int screenHeight) {
+        // One vertical and one horizontal beam forming a cross
+        double width = 50 + level * 6;
+        double verticalX = screenWidth * (0.3 + Math.random() * 0.4);
+        double horizontalY = screenHeight * (0.35 + Math.random() * 0.3);
+        
+        beamAttacks.add(new BeamAttack(verticalX, width, BeamAttack.BeamType.VERTICAL));
+        beamAttacks.add(new BeamAttack(horizontalY, width, BeamAttack.BeamType.HORIZONTAL));
+    }
+    
+    private void spawnGridBeams(int screenWidth, int screenHeight) {
+        // Multiple vertical and horizontal beams forming a grid
+        double width = 35 + level * 4;
+        int numVertical = 2 + level / 5;
+        int numHorizontal = 2 + level / 5;
+        
+        // Vertical beams
+        for (int i = 0; i < numVertical; i++) {
+            double position = screenWidth * ((i + 1.0) / (numVertical + 1.0));
+            beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+        }
+        
+        // Horizontal beams
+        for (int i = 0; i < numHorizontal; i++) {
+            double position = screenHeight * ((i + 2.0) / (numHorizontal + 3.0)); // Start lower on screen
+            beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+        }
+    }
+    
+    private void spawnRotatingBeams(int screenWidth, int screenHeight) {
+        // Diagonal beams that create rotating pattern
+        double width = 55 + level * 7;
+        
+        // Create 2-3 diagonal-style beams by combining offset vertical/horizontal
+        int numPairs = 2 + (level >= 10 ? 1 : 0);
+        for (int i = 0; i < numPairs; i++) {
+            double offsetFactor = (i + 1.0) / (numPairs + 1.0);
+            beamAttacks.add(new BeamAttack(screenWidth * offsetFactor, width, BeamAttack.BeamType.VERTICAL));
+            beamAttacks.add(new BeamAttack(screenHeight * (0.3 + offsetFactor * 0.4), width, BeamAttack.BeamType.HORIZONTAL));
         }
     }
     

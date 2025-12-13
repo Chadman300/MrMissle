@@ -18,7 +18,7 @@ public class Player {
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
+    private static final double SHADOW_DISTANCE = 12; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
     private static BufferedImage missileSprite;

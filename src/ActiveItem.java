@@ -1,15 +1,15 @@
 public class ActiveItem {
     public enum ItemType {
         // Ordered by power level (weakest to strongest)
-        LUCKY_CHARM,    // +50% money and score earned (passive)
-        SHIELD,         // Tank one hit
-        SHOCKWAVE,      // Push bullets away in radius
-        BOMB,           // Clear all bullets on screen
-        MAGNET,         // Pull dodged bullets for bonus score
-        DASH,           // Dash with I-frames
-        TIME_SLOW,      // Slow bullets temporarily
-        LASER_BEAM,     // Fire powerful beam
-        INVINCIBILITY   // Brief invulnerability
+        LUCKY_CHARM,    // +50% money and score earned (passive) - Level 3
+        SHIELD,         // Tank one hit - Level 6
+        MAGNET,         // Pull dodged bullets for bonus score - Level 9
+        SHOCKWAVE,      // Push bullets away in radius - Level 12
+        DASH,           // Dash with I-frames - Level 15
+        BOMB,           // Clear all bullets on screen - Level 18
+        TIME_SLOW,      // Slow bullets temporarily - Level 21
+        LASER_BEAM,     // Fire powerful beam - Level 24
+        INVINCIBILITY   // Brief invulnerability - Level 27
     }
     
     private ItemType type;
@@ -41,29 +41,29 @@ public class ActiveItem {
                 cooldownFrames = 450; // 7.5 seconds (was 15)
                 activeDuration = 600; // Active for 10 seconds
                 break;
-            case SHOCKWAVE:
-                name = "Shockwave";
-                description = "Push bullets away (5s cooldown)";
-                cooldownFrames = 300; // 5 seconds (was 10)
-                activeDuration = 0; // Instant
-                break;
-            case BOMB:
-                name = "Bomb";
-                description = "Clear all bullets (6s cooldown)";
-                cooldownFrames = 360; // 6 seconds (was 12)
-                activeDuration = 0; // Instant
-                break;
             case MAGNET:
                 name = "Magnet";
                 description = "Pull dodged bullets (4s cooldown)";
                 cooldownFrames = 240; // 4 seconds (was 8)
                 activeDuration = 180; // 3 seconds
                 break;
+            case SHOCKWAVE:
+                name = "Shockwave";
+                description = "Push bullets away (5s cooldown)";
+                cooldownFrames = 300; // 5 seconds (was 10)
+                activeDuration = 0; // Instant
+                break;
             case DASH:
                 name = "Dash";
                 description = "Dash with I-frames (2s cooldown)";
                 cooldownFrames = 120; // 2 seconds (was 3.5)
                 activeDuration = 20; // 0.33 seconds of dash
+                break;
+            case BOMB:
+                name = "Bomb";
+                description = "Clear all bullets (6s cooldown)";
+                cooldownFrames = 360; // 6 seconds (was 12)
+                activeDuration = 0; // Instant
                 break;
             case TIME_SLOW:
                 name = "Time Slow";

@@ -106,6 +106,7 @@ public class Game extends JPanel implements Runnable {
     private int vulnerabilityTimer;
     private int invulnerabilityTimer; // Prevents boss from going vulnerable at level start
     private int bossHitCount; // Number of times boss has been hit (max 3)
+    private int bossFlashTimer; // Flash effect when boss takes damage
     private static final int BOSS_MAX_HITS = 3;
     private static final int VULNERABILITY_DURATION = 1200; // 20 second window
     private static final int INVULNERABILITY_DURATION = 150; // 2.5 seconds at start (changed from 300/5 seconds)
@@ -113,7 +114,16 @@ public class Game extends JPanel implements Runnable {
     private int deathAnimationTimer;
     private static final int DEATH_ANIMATION_DURATION = 180; // 3 seconds
     private double bossDeathScale;
+    private boolean waitingForRespawn; // Waiting after non-fatal boss hit
+    private int respawnDelayTimer; // Timer before respawning player
+    private static final int RESPAWN_DELAY = 90; // 1.5 seconds delay
     private double bossDeathRotation;
+    
+    // Polish effects
+    private static final double GRAZE_DISTANCE = 25; // Distance for graze detection
+    private int grazeScore = 0; // Accumulate graze score
+    private int hitPauseTimer = 0; // Brief pause on impact
+    private int screenFlashTimer = 0; // Screen flash on player hit
     
     // Active item effects
     private boolean playerInvincible; // For INVINCIBILITY item and DASH i-frames
@@ -336,8 +346,14 @@ public class Game extends JPanel implements Runnable {
                 } else if (key == KeyEvent.VK_ESCAPE) {
                     // Return to main menu
                     transitionToState(GameState.MENU);
-                } else if (key == KeyEvent.VK_SPACE && !eKeyPressed) {
-                    // Activate equipped item (only once per key press)
+                } else if (key == KeyEvent.VK_SPACE && introPanActive) {
+                    // Skip intro animation
+                    introPanActive = false;
+                    cameraX = 0;
+                    cameraY = 0;
+                    screenShakeIntensity = 8;
+                } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive) {
+                    // Activate equipped item (only once per key press, and not during intro)
                     eKeyPressed = true;
                     ActiveItem item = gameData.getEquippedItem();
                     if (item != null && item.canActivate()) {
@@ -526,6 +542,8 @@ public class Game extends JPanel implements Runnable {
         invulnerabilityTimer = INVULNERABILITY_DURATION; // 5 seconds of immunity
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
+        waitingForRespawn = false;
+        respawnDelayTimer = 0;
         
         // Start intro sequence with boss entrance
         introPanActive = true;
@@ -730,6 +748,13 @@ public class Game extends JPanel implements Runnable {
                     if (currentBoss != null) {
                         // Directly set boss Y position during entrance
                         currentBoss.setPosition(currentBoss.getX(), bossEntranceY);
+                        // Keep animations running (helicopter blades)
+                        currentBoss.updateAnimations(deltaTime);
+                        
+                        // Add screen shake during descent
+                        if (progress > 0.2) {
+                            screenShakeIntensity = Math.max(screenShakeIntensity, 8 + easeProgress * 4);
+                        }
                         
                         // Add jet trail particles during descent
                         if (progress > 0.1 && Math.random() < 0.4) {
@@ -765,6 +790,11 @@ public class Game extends JPanel implements Runnable {
                             bossEntranceY = 100;
                         }
                         currentBoss.setPosition(currentBoss.getX(), bossEntranceY);
+                        // Keep animations running
+                        currentBoss.updateAnimations(deltaTime);
+                        
+                        // Screen shake decreases as boss settles
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 6 * (1 - easeProgress));
                     }
                     
                     // Camera pans back to center
@@ -789,6 +819,7 @@ public class Game extends JPanel implements Runnable {
                     // Entrance complete - add final burst of particles
                     if (introPanTimer - deltaTime < INTRO_PAN_DURATION) {
                         // Just finished - add dramatic particle burst
+                        screenShakeIntensity = 15; // Massive shake at the end
                         if (currentBoss != null) {
                             for (int i = 0; i < 20; i++) {
                                 double angle = Math.random() * Math.PI * 2;
@@ -979,36 +1010,6 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 
-                // Respawn player at bottom with shield
-                player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
-                shieldActive = true;
-                playerInvincible = true;
-                respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
-                
-                // Add respawn flash effect
-                if (enableParticles) {
-                    // Bright spawn flash at new player position
-                    for (int i = 0; i < 60; i++) {
-                        double angle = Math.random() * TWO_PI;
-                        double speed = 3 + Math.random() * 7;
-                        Color spawnColor = new Color(100, 200, 255, 220);
-                        addParticle(
-                            WIDTH / 2, HEIGHT - 200,
-                            Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            spawnColor, 35, 12,
-                            Particle.ParticleType.SPARK
-                        );
-                    }
-                    // Shield activation rings
-                    for (int i = 0; i < 4; i++) {
-                        addParticle(
-                            WIDTH / 2, HEIGHT - 200, 0, 0,
-                            new Color(136, 192, 208, 220 - i * 45), 40 + i * 12, 35 + i * 20,
-                            Particle.ParticleType.EXPLOSION
-                        );
-                    }
-                }
-                
                 // Reset vulnerability
                 bossVulnerable = false;
                 invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
@@ -1075,7 +1076,50 @@ public class Game extends JPanel implements Runnable {
                         Particle.ParticleType.EXPLOSION
                     );
                 }
-                } // End of if (bossHitCount >= BOSS_MAX_HITS)
+                } else {
+                    // Non-fatal hit - delay respawn and show explosion
+                    double hitX = (player.getX() + currentBoss.getX()) / 2;
+                    double hitY = (player.getY() + currentBoss.getY()) / 2;
+                    player = null; // Remove player temporarily
+                    waitingForRespawn = true;
+                    respawnDelayTimer = RESPAWN_DELAY;
+                    
+                    // Huge screen shake for explosion
+                    screenShakeIntensity = 20;
+                    
+                    // Create explosion at hit location
+                    if (enableParticles) {
+                        // Large explosion particles
+                        for (int i = 0; i < 50; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 2 + Math.random() * 6;
+                            Color expColor = Math.random() < 0.5 ? FIRE_ORANGE : FIRE_YELLOW;
+                            addParticle(
+                                hitX, hitY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                expColor, 40, 10,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                        
+                        // Explosion rings
+                        for (int i = 0; i < 4; i++) {
+                            addParticle(
+                                hitX, hitY, 0, 0,
+                                new Color(255, 150 - i * 30, 50, 220 - i * 50), 
+                                30 + i * 10, 
+                                30 + i * 15,
+                                Particle.ParticleType.EXPLOSION
+                            );
+                        }
+                    }
+                    
+                    // Reset vulnerability
+                    bossVulnerable = false;
+                    invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
+                    
+                    screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
+                }
                 
                 return;
             } else {
@@ -1154,16 +1198,19 @@ public class Game extends JPanel implements Runnable {
                 if (currentLevel % 3 == 0 && !gameData.getDefeatedBosses()[currentLevel - 1]) {
                     // Unlock item before transitioning
                     gameData.unlockNextItem();
-                    if (gameData.getUnlockedItems().size() == 1) {
+                    // Get the newly unlocked item for display
+                    java.util.List<ActiveItem.ItemType> unlockedItems = gameData.getUnlockedItems();
+                    if (!unlockedItems.isEmpty()) {
+                        ActiveItem newItem = new ActiveItem(unlockedItems.get(unlockedItems.size() - 1));
+                        unlockedItemName = newItem.getName();
+                    }
+                    // Equip first item if this is the first unlock
+                    if (unlockedItems.size() == 1) {
                         gameData.equipItem(0);
                     }
                     // Trigger animation
                     itemUnlockAnimation = true;
                     itemUnlockTimer = ITEM_UNLOCK_DURATION;
-                    ActiveItem newItem = gameData.getEquippedItem();
-                    if (newItem != null) {
-                        unlockedItemName = newItem.getName();
-                    }
                 }
                 
                 gameState = GameState.WIN;
@@ -1221,10 +1268,83 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Update boss with delta time (but not during death animation or intro)
-        if (currentBoss != null && !bossDeathAnimation && !introPanActive) {
+        // Update boss with delta time (but not during death animation, intro, or respawn delay)
+        if (currentBoss != null && !bossDeathAnimation && !introPanActive && player != null) {
             currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
+            
+            // Add continuous flame and smoke particles from damaged boss
+            if (bossHitCount > 0 && enableParticles) {
+                // More frequent particles with each hit
+                double spawnChance = 0.2 * bossHitCount; // 20% per hit level
+                
+                if (Math.random() < spawnChance) {
+                    // Flame particles
+                    double angle = Math.PI / 2 + (Math.random() - 0.5) * 0.8; // Downward
+                    double speed = 0.5 + Math.random() * 1.5;
+                    Color flameColor = Math.random() < 0.6 ? FIRE_ORANGE : FIRE_RED;
+                    addParticle(
+                        currentBoss.getX() + (Math.random() - 0.5) * 40,
+                        currentBoss.getY() + (Math.random() - 0.5) * 30,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        flameColor, 35 + (int)(Math.random() * 20), 6 + Math.random() * 4,
+                        Particle.ParticleType.TRAIL
+                    );
+                }
+                
+                if (Math.random() < spawnChance * 0.7) {
+                    // Smoke particles (darker, slower)
+                    double angle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+                    double speed = 0.3 + Math.random() * 1.0;
+                    addParticle(
+                        currentBoss.getX() + (Math.random() - 0.5) * 35,
+                        currentBoss.getY() + (Math.random() - 0.5) * 25,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        new Color(60, 60, 60, 180), 50 + (int)(Math.random() * 30), 8 + Math.random() * 5,
+                        Particle.ParticleType.TRAIL
+                    );
+                }
+            }
+        }
+        
+        // Handle respawn delay after non-fatal boss hit
+        if (waitingForRespawn) {
+            respawnDelayTimer -= deltaTime;
+            
+            if (respawnDelayTimer <= 0) {
+                // Respawn player at bottom with shield
+                player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
+                shieldActive = true;
+                playerInvincible = true;
+                respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
+                waitingForRespawn = false;
+                
+                // Add respawn flash effect
+                if (enableParticles) {
+                    // Bright spawn flash at new player position
+                    for (int i = 0; i < 60; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 3 + Math.random() * 7;
+                        Color spawnColor = new Color(100, 200, 255, 220);
+                        addParticle(
+                            WIDTH / 2, HEIGHT - 200,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            spawnColor, 35, 12,
+                            Particle.ParticleType.SPARK
+                        );
+                    }
+                    // Shield activation rings
+                    for (int i = 0; i < 4; i++) {
+                        addParticle(
+                            WIDTH / 2, HEIGHT - 200, 0, 0,
+                            new Color(136, 192, 208, 220 - i * 45), 40 + i * 12, 35 + i * 20,
+                            Particle.ParticleType.EXPLOSION
+                        );
+                    }
+                }
+            }
         }
         
         // Check beam attack collisions (only if player exists)
@@ -1456,6 +1576,49 @@ public class Game extends JPanel implements Runnable {
         particles.add(p);
     }
     
+    // Check for close calls with bullets (graze detection)
+    private void checkBulletGrazes(Player player) {
+        List<Bullet> nearbyBullets = getNearbyBullets(player.getX(), player.getY());
+        double playerRadius = player.getSize() / 2.0;
+        
+        for (Bullet bullet : nearbyBullets) {
+            if (bullet.hasGrazed()) continue; // Only count each graze once
+            
+            double dx = bullet.getX() - player.getX();
+            double dy = bullet.getY() - player.getY();
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            double bulletRadius = bullet.getSize() / 2.0;
+            double hitDistance = playerRadius + bulletRadius;
+            
+            // Check if bullet is in graze zone (close but not hitting)
+            if (distance > hitDistance && distance < hitDistance + GRAZE_DISTANCE) {
+                bullet.setGrazed(true);
+                
+                // Award graze bonus
+                int grazeBonus = 10;
+                grazeScore += grazeBonus;
+                gameData.addScore(grazeBonus);
+                
+                // Spawn graze particles
+                if (enableParticles && Math.random() < 0.3) {
+                    for (int i = 0; i < 3; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 0.5 + Math.random() * 1.5;
+                        addParticle(
+                            player.getX() + Math.cos(angle) * playerRadius,
+                            player.getY() + Math.sin(angle) * playerRadius,
+                            Math.cos(angle) * speed,
+                            Math.sin(angle) * speed,
+                            new Color(100, 200, 255, 200),
+                            20, 3,
+                            Particle.ParticleType.SPARK
+                        );
+                    }
+                }
+            }
+        }
+    }
+    
     // Spatial grid methods for optimized collision detection
     private int getGridKey(double x, double y) {
         int gridX = (int)(x / GRID_CELL_SIZE);
@@ -1534,7 +1697,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:

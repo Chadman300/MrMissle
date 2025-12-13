@@ -13,7 +13,7 @@ public class Bullet {
     // Sun angle for directional shadows
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
     private static final double SHADOW_DISTANCE = 5; // Shadow distance from sprite
-    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
+    private static final double SHADOW_SCALE = 0.7; // Shadow is 70% scale of sprite
     
     // Bullet sprites
     private static BufferedImage[] bulletSprites = new BufferedImage[17];
@@ -40,6 +40,7 @@ public class Bullet {
     private static final double FLICKER_START = 30; // Start flickering 30 frames before explosion
     private int spriteVariant; // Which variant (0-2) for bombs/grenades
     private int bounceCount; // Number of times bounced
+    private boolean hasGrazed; // Track if bullet has been grazed by player
     private static final int MAX_BOUNCES = 1; // Max bounces for bouncing bullets
     private static final double HOMING_LIFETIME = 480; // 8 seconds lifetime for homing bullets
     
@@ -76,6 +77,7 @@ public class Bullet {
         this.explosionTimer = EXPLOSION_TIME;
         this.spriteVariant = (int)(Math.random() * 3); // Random variant 0-2
         this.bounceCount = 0;
+        this.hasGrazed = false;
         loadSprites();
     }
     
@@ -600,6 +602,9 @@ public class Bullet {
     public double getY() { return y; }
     public double getVX() { return vx; }
     public double getVY() { return vy; }
+    
+    public boolean hasGrazed() { return hasGrazed; }
+    public void setGrazed(boolean grazed) { this.hasGrazed = grazed; }
     
     public boolean isActive() {
         return warningTime <= 0;
