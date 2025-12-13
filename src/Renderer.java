@@ -858,7 +858,7 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -1239,6 +1239,117 @@ public class Renderer {
             g.drawString(skipText, textX + 2, textY + 2);
             g.setColor(new Color(255, 255, 255, 180));
             g.drawString(skipText, textX, textY);
+        }
+        
+        // Draw combo display
+        if (comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
+            int comboX = width - 250;
+            int comboY = 100;
+            
+            // Combo background
+            g.setColor(new Color(0, 0, 0, 180));
+            g.fillRoundRect(comboX, comboY, 200, 80, 15, 15);
+            
+            // Combo number
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(235, 203, 139));
+            String comboText = comboSystem.getCombo() + "x";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(comboText, comboX + (200 - fm.stringWidth(comboText)) / 2, comboY + 45);
+            
+            // Multiplier
+            g.setFont(new Font("Arial", Font.PLAIN, 14));
+            g.setColor(new Color(216, 222, 233));
+            String multText = String.format("%.1fx Score", comboSystem.getMultiplier());
+            fm = g.getFontMetrics();
+            g.drawString(multText, comboX + (200 - fm.stringWidth(multText)) / 2, comboY + 65);
+            
+            // Timeout bar
+            float timeoutProgress = comboSystem.getTimeoutProgress();
+            g.setColor(new Color(60, 60, 60));
+            g.fillRect(comboX + 10, comboY + 72, 180, 3);
+            g.setColor(new Color(163, 190, 140));
+            g.fillRect(comboX + 10, comboY + 72, (int)(180 * timeoutProgress), 3);
+        }
+        
+        // Draw damage numbers
+        if (damageNumbers != null) {
+            for (DamageNumber dmg : damageNumbers) {
+                dmg.draw(g);
+            }
+        }
+        
+        // Draw boss intro cinematic
+        if (bossIntroActive) {
+            // Dark overlay
+            g.setColor(new Color(0, 0, 0, 180));
+            g.fillRect(0, 0, width, height);
+            
+            // Boss name/level with fade in
+            float introAlpha = Math.max(0.0f, Math.min(1.0f, bossIntroTimer / 30f));
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, introAlpha));
+            g2d.setFont(new Font("Arial", Font.BOLD, 72));
+            g2d.setColor(Color.WHITE);
+            FontMetrics fm = g2d.getFontMetrics();
+            g2d.drawString(bossIntroText, (width - fm.stringWidth(bossIntroText)) / 2, height / 2);
+            g2d.dispose();
+        }
+        
+        // Draw pause menu
+        if (isPaused) {
+            // Dark overlay
+            g.setColor(new Color(0, 0, 0, 200));
+            g.fillRect(0, 0, width, height);
+            
+            // Pause title
+            g.setFont(new Font("Arial", Font.BOLD, 84));
+            g.setColor(Color.WHITE);
+            String pauseText = "PAUSED";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(pauseText, (width - fm.stringWidth(pauseText)) / 2, height / 3);
+            
+            // Menu options
+            String[] options = {"Resume", "Restart", "Main Menu"};
+            g.setFont(new Font("Arial", Font.BOLD, 36));
+            for (int i = 0; i < options.length; i++) {
+                Color color = (i == selectedPauseItem) ? new Color(235, 203, 139) : new Color(216, 222, 233);
+                g.setColor(color);
+                fm = g.getFontMetrics();
+                g.drawString(options[i], (width - fm.stringWidth(options[i])) / 2, height / 2 + i * 60);
+            }
+        }
+        
+        // Draw achievement notification
+        if (pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
+            Achievement ach = pendingAchievements.get(0);
+            float alpha = Math.max(0.0f, Math.min(1.0f, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30f : 1.0f));
+            
+            int notifX = width - 420;
+            int notifY = 200;
+            
+            Graphics2D g2d = (Graphics2D) g.create();
+            
+            // Background
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2d.setColor(new Color(46, 52, 64, 230));
+            g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
+            
+            // Title
+            g2d.setFont(new Font("Arial", Font.BOLD, 20));
+            g2d.setColor(new Color(235, 203, 139));
+            g2d.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
+            
+            // Achievement name
+            g2d.setFont(new Font("Arial", Font.BOLD, 24));
+            g2d.setColor(new Color(216, 222, 233));
+            g2d.drawString(ach.getName(), notifX + 20, notifY + 60);
+            
+            // Description
+            g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+            g2d.drawString(ach.getDescription(), notifX + 20, notifY + 85);
+            
+            g2d.dispose();
         }
         
         // Screen flash effect on player death

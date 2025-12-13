@@ -52,6 +52,14 @@ public class Boss {
     private double bladeRotation = 0;
     private static final double BLADE_ROTATION_SPEED = 0.2; // Radians per frame (reduced from 0.5)
     
+    // Boss phases
+    private int maxHealth;
+    private int currentHealth;
+    private int currentPhase; // 0-3 for phases (based on health: 100%, 75%, 50%, 25%)
+    private boolean phaseTransitioning;
+    private int phaseTransitionTimer;
+    private static final int PHASE_TRANSITION_DURATION = 90; // 1.5 seconds
+    
     public Boss(double x, double y, int level) {
         this.x = x;
         this.y = y;
@@ -86,6 +94,14 @@ public class Boss {
         this.beamAttacks = new ArrayList<>();
         this.beamAttackTimer = 120 + (int)(Math.random() * 60); // First beam after 2-3 seconds
         this.beamAttackInterval = Math.max(180, 300 - level * 10); // More frequent at higher levels
+        
+        // Initialize health and phases
+        this.maxHealth = isMegaBoss ? 4 : 3; // Mega bosses have 4 phases, regular have 3
+        this.currentHealth = maxHealth;
+        this.currentPhase = 0;
+        this.phaseTransitioning = false;
+        this.phaseTransitionTimer = 0;
+        
         loadSprites();
     }
     
@@ -364,6 +380,16 @@ public class Boss {
         // Update animations (blade rotation, etc.)
         updateAnimations(deltaTime);
         
+        // Update phase transition
+        if (phaseTransitioning) {
+            phaseTransitionTimer += deltaTime;
+            if (phaseTransitionTimer >= PHASE_TRANSITION_DURATION) {
+                phaseTransitioning = false;
+                phaseTransitionTimer = 0;
+            }
+            return; // Don't shoot or move during phase transition
+        }
+        
         // Keep boss within bounds (and bounce off walls)
         if (x < size || x > screenWidth - size) {
             x = Math.max(size, Math.min(screenWidth - size, x));
@@ -374,8 +400,9 @@ public class Boss {
             vy *= -0.5; // Bounce with energy loss
         }
         
-        // Shooting pattern (scaled by delta time)
-        shootTimer += deltaTime;
+        // Shooting pattern (scaled by delta time) - faster in later phases
+        double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
+        shootTimer += deltaTime * phaseSpeedMultiplier;
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
             shoot(bullets, player);
@@ -1065,6 +1092,51 @@ public class Boss {
                 default: return "[HELI] AH-64E GUARDIAN";
             }
         }
+    }
+    
+    // Health and phase management
+    public void takeDamage() {
+        if (currentHealth > 0) {
+            currentHealth--;
+            
+            // Calculate new phase based on health percentage
+            int newPhase = maxHealth - currentHealth;
+            if (newPhase > currentPhase && currentHealth > 0) {
+                // Enter phase transition
+                currentPhase = newPhase;
+                phaseTransitioning = true;
+                phaseTransitionTimer = 0;
+            }
+        }
+    }
+    
+    public int getCurrentHealth() {
+        return currentHealth;
+    }
+    
+    public int getMaxHealth() {
+        return maxHealth;
+    }
+    
+    public float getHealthPercent() {
+        return (float)currentHealth / maxHealth;
+    }
+    
+    public int getCurrentPhase() {
+        return currentPhase;
+    }
+    
+    public boolean isPhaseTransitioning() {
+        return phaseTransitioning;
+    }
+    
+    public float getPhaseTransitionProgress() {
+        if (!phaseTransitioning) return 0f;
+        return (float)phaseTransitionTimer / PHASE_TRANSITION_DURATION;
+    }
+    
+    public boolean isDead() {
+        return currentHealth <= 0;
     }
     
     public double getX() { return x; }

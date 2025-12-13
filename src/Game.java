@@ -32,6 +32,9 @@ public class Game extends JPanel implements Runnable {
     private GameData gameData;
     private ShopManager shopManager;
     private Renderer renderer;
+    private AchievementManager achievementManager;
+    private PassiveUpgradeManager passiveUpgradeManager;
+    private ComboSystem comboSystem;
     
     // Game objects
     private Player player;
@@ -100,6 +103,29 @@ public class Game extends JPanel implements Runnable {
     private int dodgeCombo;
     private int comboTimer;
     private static final int COMBO_TIMEOUT = 180; // 3 seconds
+    
+    // Boss intro cinematics
+    private boolean bossIntroActive;
+    private int bossIntroTimer;
+    private static final int BOSS_INTRO_DURATION = 120; // 2 seconds
+    private String bossIntroText;
+    
+    // Pause menu
+    private boolean isPaused;
+    private int selectedPauseItem;
+    
+    // Achievement notification
+    private List<Achievement> pendingAchievements;
+    private int achievementNotificationTimer;
+    private static final int ACHIEVEMENT_NOTIFICATION_DURATION = 180; // 3 seconds
+    
+    // Boss damage numbers
+    private List<DamageNumber> damageNumbers;
+    
+    // Perfect boss tracking (no damage taken)
+    private boolean tookDamageThisBoss;
+    private int consecutivePerfectBosses;
+    private int totalGrazesThisRun;
     
     // Boss mechanics
     private boolean bossVulnerable;
@@ -190,6 +216,11 @@ public class Game extends JPanel implements Runnable {
         bulletGrid = new HashMap<>();
         gameData = new GameData();
         shopManager = new ShopManager(gameData);
+        achievementManager = new AchievementManager();
+        passiveUpgradeManager = new PassiveUpgradeManager();
+        comboSystem = new ComboSystem();
+        pendingAchievements = new ArrayList<>();
+        damageNumbers = new ArrayList<>();
         
         // Initial state - start with loading screen
         gameState = GameState.LOADING;
@@ -213,6 +244,14 @@ public class Game extends JPanel implements Runnable {
         comboTimer = 0;
         bossVulnerable = false;
         vulnerabilityTimer = 0;
+        isPaused = false;
+        selectedPauseItem = 0;
+        bossIntroActive = false;
+        bossIntroTimer = 0;
+        achievementNotificationTimer = 0;
+        tookDamageThisBoss = false;
+        consecutivePerfectBosses = 0;
+        totalGrazesThisRun = 0;
         
         // Setup input
         addKeyListener(new KeyAdapter() {
@@ -339,31 +378,53 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case PLAYING:
-                // Player movement handled in Player.update()
-                if (key == KeyEvent.VK_R) {
-                    // Restart current level
-                    startGame();
-                } else if (key == KeyEvent.VK_ESCAPE) {
-                    // Return to main menu
-                    transitionToState(GameState.MENU);
-                } else if (key == KeyEvent.VK_SPACE && introPanActive) {
-                    // Skip intro animation
-                    introPanActive = false;
-                    cameraX = 0;
-                    cameraY = 0;
-                    screenShakeIntensity = 8;
-                } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive) {
-                    // Activate equipped item (only once per key press, and not during intro)
-                    eKeyPressed = true;
-                    ActiveItem item = gameData.getEquippedItem();
-                    if (item != null && item.canActivate()) {
-                        item.activate();
+                if (isPaused) {
+                    // Pause menu navigation
+                    if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                        selectedPauseItem = Math.max(0, selectedPauseItem - 1);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                        selectedPauseItem = Math.min(2, selectedPauseItem + 1);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                         screenShakeIntensity = 3;
+                        switch (selectedPauseItem) {
+                            case 0: isPaused = false; break; // Resume
+                            case 1: startGame(); isPaused = false; break; // Restart
+                            case 2: transitionToState(GameState.MENU); isPaused = false; break; // Menu
+                        }
+                    } else if (key == KeyEvent.VK_ESCAPE) {
+                        isPaused = false;
+                        screenShakeIntensity = 2;
                     }
-                } else if (key == KeyEvent.VK_T && currentBoss != null && player != null) {
-                    // Debug: Teleport player to boss (instant death)
-                    player.setPosition(currentBoss.getX(), currentBoss.getY());
-                    screenShakeIntensity = 10;
+                } else {
+                    // Regular gameplay controls
+                    if (key == KeyEvent.VK_P || key == KeyEvent.VK_ESCAPE) {
+                        isPaused = true;
+                        selectedPauseItem = 0;
+                        screenShakeIntensity = 3;
+                    } else if (key == KeyEvent.VK_R) {
+                        // Restart current level
+                        startGame();
+                    } else if (key == KeyEvent.VK_SPACE && introPanActive) {
+                        // Skip intro animation
+                        introPanActive = false;
+                        cameraX = 0;
+                        cameraY = 0;
+                        screenShakeIntensity = 8;
+                    } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive) {
+                        // Activate equipped item (only once per key press, and not during intro)
+                        eKeyPressed = true;
+                        ActiveItem item = gameData.getEquippedItem();
+                        if (item != null && item.canActivate()) {
+                            item.activate();
+                            screenShakeIntensity = 3;
+                        }
+                    } else if (key == KeyEvent.VK_T && currentBoss != null && player != null) {
+                        // Debug: Teleport player to boss (instant death)
+                        player.setPosition(currentBoss.getX(), currentBoss.getY());
+                        screenShakeIntensity = 10;
+                    }
                 }
                 break;
                 
@@ -533,6 +594,7 @@ public class Game extends JPanel implements Runnable {
         player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
         bullets.clear();
         particles.clear();
+        damageNumbers.clear();
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel()); // Normal position, will move during intro
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
@@ -544,6 +606,19 @@ public class Game extends JPanel implements Runnable {
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
         waitingForRespawn = false;
         respawnDelayTimer = 0;
+        isPaused = false;
+        selectedPauseItem = 0;
+        tookDamageThisBoss = false;
+        totalGrazesThisRun = 0;
+        comboSystem.resetCombo();
+        
+        // Start boss intro cinematic
+        bossIntroActive = true;
+        bossIntroTimer = 0;
+        bossIntroText = "LEVEL " + gameData.getCurrentLevel() + " - " + currentBoss.getVehicleName();
+        if (currentBoss.isMegaBoss()) {
+            bossIntroText += " [MEGA BOSS]";
+        }
         
         // Start intro sequence with boss entrance
         introPanActive = true;
@@ -868,6 +943,42 @@ public class Game extends JPanel implements Runnable {
                 cameraY = Math.max(-CAMERA_MAX_OFFSET, Math.min(CAMERA_MAX_OFFSET, cameraY));
             }
             
+            // Update boss intro cinematic
+            if (bossIntroActive) {
+                bossIntroTimer += deltaTime;
+                if (bossIntroTimer >= BOSS_INTRO_DURATION) {
+                    bossIntroActive = false;
+                }
+            }
+            
+            // If paused, skip all gameplay updates
+            if (isPaused) {
+                return;
+            }
+            
+            // Update combo system
+            comboSystem.update(deltaTime, passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.COMBO_DURATION));
+            
+            // Update damage numbers
+            for (int i = damageNumbers.size() - 1; i >= 0; i--) {
+                damageNumbers.get(i).update(deltaTime);
+                if (damageNumbers.get(i).isDone()) {
+                    damageNumbers.remove(i);
+                }
+            }
+            
+            // Update achievement notifications
+            if (achievementNotificationTimer > 0) {
+                achievementNotificationTimer -= deltaTime;
+            }
+            if (achievementNotificationTimer <= 0 && !pendingAchievements.isEmpty()) {
+                // Remove displayed achievement
+                pendingAchievements.remove(0);
+                if (!pendingAchievements.isEmpty()) {
+                    achievementNotificationTimer = ACHIEVEMENT_NOTIFICATION_DURATION;
+                }
+            }
+            
             // Spawn fire trail behind player
             if (Game.enableParticles) {
                 trailSpawnTimer++;
@@ -923,7 +1034,16 @@ public class Game extends JPanel implements Runnable {
             if (bossVulnerable) {
                 // TODO: Play sound effect - boss_hit.wav
                 
-                // Increment hit counter
+                // Deal damage to boss using new health system
+                currentBoss.takeDamage();
+                int remainingHealth = currentBoss.getCurrentHealth();
+                
+                // Show damage number
+                damageNumbers.add(new DamageNumber("HIT! HP: " + remainingHealth, 
+                    currentBoss.getX(), currentBoss.getY() - 60, 
+                    new Color(255, 100, 100), 36));
+                
+                // Increment hit counter (for old visual effects)
                 bossHitCount++;
                 
                 // Progressive damage effects - more smoke and fire with each hit
@@ -1015,12 +1135,39 @@ public class Game extends JPanel implements Runnable {
                 invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
                 
                 screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
+                bossFlashTimer = 8; // Boss flash effect
                 
-                // Check if boss is defeated (2 hits for mini, 3 for mega)
-                int maxHits = currentBoss.isMegaBoss() ? 3 : 2;
-                if (bossHitCount >= maxHits) {
-                    // Award points and money
-                    int winBonus = 1000 + (gameData.getCurrentLevel() * 500) + (dodgeCombo * 100);
+                // Check if boss is defeated using new health system
+                if (currentBoss.isDead()) {
+                    // Track perfect boss kill for achievements
+                    if (!tookDamageThisBoss) {
+                        consecutivePerfectBosses++;
+                        achievementManager.incrementProgress(Achievement.AchievementType.PERFECT_BOSS, 1);
+                        achievementManager.incrementProgress(Achievement.AchievementType.NO_DAMAGE, 1);
+                    } else {
+                        consecutivePerfectBosses = 0;
+                    }
+                    
+                    // Update achievements
+                    achievementManager.incrementProgress(Achievement.AchievementType.BOSS_KILLS, 1);
+                    achievementManager.updateProgress(Achievement.AchievementType.REACH_LEVEL, gameData.getCurrentLevel());
+                    achievementManager.updateProgress(Achievement.AchievementType.GRAZE_COUNT, totalGrazesThisRun);
+                    achievementManager.updateProgress(Achievement.AchievementType.HIGH_COMBO, comboSystem.getMaxCombo());
+                    
+                    // Check for newly unlocked achievements
+                    List<Achievement> newlyUnlocked = achievementManager.getRecentlyUnlocked();
+                    if (!newlyUnlocked.isEmpty()) {
+                        pendingAchievements.addAll(newlyUnlocked);
+                        achievementNotificationTimer = ACHIEVEMENT_NOTIFICATION_DURATION;
+                        achievementManager.clearRecentlyUnlocked();
+                    }
+                    
+                    // Award points and money with passive multipliers
+                    int winBonus = 1000 + (gameData.getCurrentLevel() * 500);
+                    // Apply combo multiplier
+                    winBonus = (int)(winBonus * comboSystem.getMultiplier());
+                    // Apply score multiplier passive
+                    winBonus = (int)(winBonus * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.SCORE_MULTIPLIER));
                     gameData.addScore(winBonus);
                     
                     int moneyReward = currentBoss.getMoneyReward();
@@ -1030,8 +1177,14 @@ public class Game extends JPanel implements Runnable {
                         moneyReward = (int)(moneyReward * 1.5); // 50% bonus
                     }
                     
+                    // Apply money gain passive multiplier
+                    moneyReward = (int)(moneyReward * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_GAIN));
+                    
                     gameData.addRunMoney(moneyReward);
                     gameData.addTotalMoney(moneyReward);
+                    
+                    // Update money achievement
+                    achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
                     
                     // Start boss death animation
                     bossDeathAnimation = true;
@@ -1125,6 +1278,7 @@ public class Game extends JPanel implements Runnable {
             } else {
                 // Hit boss when not vulnerable - player dies
                 screenShakeIntensity = 10;
+                tookDamageThisBoss = true;
                 gameState = GameState.GAME_OVER;
                 return;
             }
@@ -1533,8 +1687,29 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     screenShakeIntensity = 10;
+                    tookDamageThisBoss = true;
                     gameState = GameState.GAME_OVER;
                     return;
+                }
+                
+                // Check for graze (near miss)
+                double grazeRadius = GRAZE_DISTANCE * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.GRAZE_RADIUS);
+                double dist = Math.sqrt(Math.pow(bullet.getX() - player.getX(), 2) + Math.pow(bullet.getY() - player.getY(), 2));
+                if (!bullet.hasGrazed() && dist < grazeRadius && dist > player.getSize() / 2.0) {
+                    bullet.setGrazed(true);
+                    totalGrazesThisRun++;
+                    comboSystem.addCombo();
+                    
+                    // Add score with combo multiplier
+                    int grazeScore = (int)(10 * comboSystem.getMultiplier());
+                    gameData.addScore(grazeScore);
+                    
+                    // Create graze particle effect
+                    if (enableParticles) {
+                        addParticle(bullet.getX(), bullet.getY(), 0, -1,
+                            new Color(100, 200, 255), 15, 3,
+                            Particle.ParticleType.SPARK);
+                    }
                 }
             }
         }
@@ -1587,7 +1762,7 @@ public class Game extends JPanel implements Runnable {
             double dx = bullet.getX() - player.getX();
             double dy = bullet.getY() - player.getY();
             double distance = Math.sqrt(dx * dx + dy * dy);
-            double bulletRadius = bullet.getSize() / 2.0;
+            double bulletRadius = 4.0; // Default bullet radius
             double hitDistance = playerRadius + bulletRadius;
             
             // Check if bullet is in graze zone (close but not hitting)
@@ -1677,6 +1852,12 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void drawState(Graphics2D g2d, GameState state) {
+        // If renderer not loaded yet, show loading screen
+        if (renderer == null && state != GameState.LOADING) {
+            drawSimpleLoading(g2d, WIDTH, HEIGHT, loadingProgress);
+            return;
+        }
+        
         switch (state) {
             case MENU:
                 renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem);
@@ -1697,7 +1878,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:
