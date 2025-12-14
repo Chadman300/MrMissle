@@ -1,4 +1,4 @@
-# ONE HIT MAN 🎮
+# MR. MISSLE 🎮
 
 A 2D top-down bullet hell game created for a game jam!
 

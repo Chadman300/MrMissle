@@ -52,6 +52,9 @@ public class Boss {
     private double bladeRotation = 0;
     private static final double BLADE_ROTATION_SPEED = 0.2; // Radians per frame (reduced from 0.5)
     
+    // Sound manager for effects
+    private SoundManager soundManager;
+    
     // Boss phases
     private int maxHealth;
     private int currentHealth;
@@ -71,8 +74,13 @@ public class Boss {
     private boolean justChangedPhase = false; // For visual effects
     
     public Boss(double x, double y, int level) {
+        this(x, y, level, null);
+    }
+    
+    public Boss(double x, double y, int level, SoundManager soundManager) {
         this.x = x;
         this.y = y;
+        this.soundManager = soundManager;
         this.vx = 0;
         this.vy = 0;
         this.ax = 0;
@@ -472,6 +480,8 @@ public class Boss {
     }
     
     private void shoot(List<Bullet> bullets, Player player) {
+        int bulletCountBefore = bullets.size();
+        
         // Mega bosses have special attack patterns
         if (isMegaBoss && Math.random() < 0.25) {
             // 25% chance to use mega boss special attacks
@@ -544,6 +554,11 @@ public class Boss {
             case 14: // Mini nukes
                 shootNukes(bullets);
                 break;
+        }
+        
+        // Play boss shoot sound if bullets were actually spawned
+        if (soundManager != null && bullets.size() > bulletCountBefore) {
+            soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
         }
     }
     

@@ -12,6 +12,8 @@ public class BeamAttack {
     private int warningTimer; // Countdown until beam appears
     private int beamTimer;    // How long beam stays active
     private boolean isActive; // Whether beam is dealing damage
+    private boolean warningPlayed; // Whether warning sound was played
+    private boolean firePlayed; // Whether fire sound was played
     
     private static final int WARNING_DURATION = 150; // 2.5 seconds warning (increased from 90)
     private static final int BEAM_DURATION = 30;     // 0.5 seconds active beam
@@ -23,6 +25,8 @@ public class BeamAttack {
         this.warningTimer = WARNING_DURATION;
         this.beamTimer = BEAM_DURATION;
         this.isActive = false;
+        this.warningPlayed = false;
+        this.firePlayed = false;
     }
     
     public void update(double deltaTime) {
@@ -46,6 +50,22 @@ public class BeamAttack {
     
     public boolean isActive() {
         return isActive;
+    }
+    
+    public boolean shouldPlayWarning() {
+        if (!warningPlayed && warningTimer > 0) {
+            warningPlayed = true;
+            return true;
+        }
+        return false;
+    }
+    
+    public boolean shouldPlayFire() {
+        if (!firePlayed && isActive && warningTimer <= 0) {
+            firePlayed = true;
+            return true;
+        }
+        return false;
     }
     
     public boolean collidesWith(Player player) {

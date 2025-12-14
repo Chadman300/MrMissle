@@ -265,7 +265,7 @@ public class Renderer {
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
         // Holographic title
-        String title = "ONE HIT MAN";
+        String title = "MR. MISSLE";
         g.setFont(FONT_TITLE_LARGE);
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
@@ -337,7 +337,7 @@ public class Renderer {
         
         g.setColor(Color.WHITE);
         g.setFont(FONT_TITLE);
-        String title = "ONE HIT MAN";
+        String title = "MR. MISSLE";
         FontMetrics fm = g.getFontMetrics();
         
         // Balatro-style title with holographic shine effect

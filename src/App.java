@@ -3,7 +3,7 @@ import javax.swing.*;
 public class App {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("One Hit Man");
+            JFrame frame = new JFrame("Mr. Missle");
             Game game = new Game();
             frame.add(game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

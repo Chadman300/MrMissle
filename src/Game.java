@@ -606,24 +606,42 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHOP:
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { shopManager.selectPrevious(); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { shopManager.selectNext(); screenShakeIntensity = 1; }
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
+                    shopManager.selectPrevious(); 
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1; 
+                }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
+                    shopManager.selectNext(); 
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1; 
+                }
                 else if (key == KeyEvent.VK_SPACE) {
                     int selected = shopManager.getSelectedShopItem();
                     if (selected == 0) {
                         // Continue to next level
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
                         startGame();
                         screenShakeIntensity = 5;
                     } else {
                         boolean purchased = shopManager.purchaseItem(selected);
+                        if (purchased) {
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                        } else {
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
+                        }
                         screenShakeIntensity = purchased ? 4 : 2;
                     }
                 }
-                else if (key == KeyEvent.VK_ESCAPE) { startGame(); screenShakeIntensity = 3; }
+                else if (key == KeyEvent.VK_ESCAPE) { 
+                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    startGame(); 
+                    screenShakeIntensity = 3; 
+                }
                 break;
                 
             case GAME_OVER:
-                if (key == KeyEvent.VK_R) {
+                if (key == KeyEvent.VK_SPACE) {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addRunMoney(survivalReward);
                     gameData.addTotalMoney(survivalReward);
@@ -631,7 +649,7 @@ public class Game extends JPanel implements Runnable {
                     gameData.setRunMoney(0);
                     gameData.setSurvivalTime(0);
                     startGame();
-                } else if (key == KeyEvent.VK_SPACE) {
+                } else if (key == KeyEvent.VK_ESCAPE) {
                     transitionToState(GameState.MENU);
                 }
                 break;
@@ -949,12 +967,21 @@ public class Game extends JPanel implements Runnable {
         particles.clear();
         damageNumbers.clear();
         beamAttacks.clear();
-        currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel()); // Normal position, will move during intro
+        currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
         comboTimer = 0;
         bossVulnerable = false;
         vulnerabilityTimer = 0;
+        
+        // Start ambient background sound
+        soundManager.startAmbientSound();
+        
+        // Start boss fight music
+        int[] themes = {1, 5, 6, 7, 8};
+        int theme = themes[(int)(Math.random() * themes.length)];
+        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+        
         invulnerabilityTimer = INVULNERABILITY_DURATION; // 5 seconds of immunity
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
@@ -1222,6 +1249,10 @@ public class Game extends JPanel implements Runnable {
         
         // Update screen shake
         if (screenShakeIntensity > 0) {
+            // Play shake sound for strong impacts (intensity >= 5)
+            if (screenShakeIntensity >= 5 && screenShakeIntensity < 5.5) {
+                soundManager.playSound(SoundManager.Sound.SCREEN_SHAKE, 0.3f);
+            }
             screenShakeX = (Math.random() - 0.5) * screenShakeIntensity;
             screenShakeY = (Math.random() - 0.5) * screenShakeIntensity;
             screenShakeIntensity *= 0.9;
@@ -1737,6 +1768,8 @@ public class Game extends JPanel implements Runnable {
                 return;
             } else {
                 // Hit boss when not vulnerable - player dies
+                soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+                soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
                 screenShakeIntensity = 10;
                 tookDamageThisBoss = true;
                 gameState = GameState.GAME_OVER;
@@ -2004,6 +2037,14 @@ public class Game extends JPanel implements Runnable {
         
         // Check beam attack collisions (only if player exists)
         for (BeamAttack beam : beamAttacks) {
+            // Play beam lifecycle sounds
+            if (beam.shouldPlayWarning()) {
+                soundManager.playSound(SoundManager.Sound.BEAM_WARNING, 0.5f);
+            }
+            if (beam.shouldPlayFire()) {
+                soundManager.playSound(SoundManager.Sound.EXPL_MEDIUM_1, 0.6f);
+            }
+            
             if (player != null && beam.collidesWith(player)) {
                 // Hit by beam - game over
                 // TODO: Play sound effect - player_death.wav
@@ -2019,6 +2060,8 @@ public class Game extends JPanel implements Runnable {
                         Particle.ParticleType.SPARK
                     );
                 }
+                soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+                soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
                 screenShakeIntensity = 10;
                 gameState = GameState.GAME_OVER;
                 return;
@@ -2054,13 +2097,18 @@ public class Game extends JPanel implements Runnable {
             
             // Check if explosive bullets should explode
             if (bullet.shouldExplode()) {
-                // Random 8-bit explosion sound for variety
-                SoundManager.Sound[] explosionSounds = {
-                    SoundManager.Sound.EXPL_SHORT_1, SoundManager.Sound.EXPL_SHORT_2, 
-                    SoundManager.Sound.EXPL_SHORT_3, SoundManager.Sound.EXPL_SHORT_4, 
-                    SoundManager.Sound.EXPL_SHORT_5
-                };
-                soundManager.playSound(explosionSounds[(int)(Math.random() * explosionSounds.length)], 0.5f);
+                // Play appropriate explosion sound based on bullet type
+                Bullet.BulletType bulletType = bullet.getType();
+                if (bulletType == Bullet.BulletType.BOMB || bulletType == Bullet.BulletType.GRENADE || bulletType == Bullet.BulletType.NUKE) {
+                    soundManager.playSound(SoundManager.Sound.GRENADE_EXPLODE, 0.6f);
+                } else {
+                    SoundManager.Sound[] explosionSounds = {
+                        SoundManager.Sound.EXPL_SHORT_1, SoundManager.Sound.EXPL_SHORT_2, 
+                        SoundManager.Sound.EXPL_SHORT_3, SoundManager.Sound.EXPL_SHORT_4, 
+                        SoundManager.Sound.EXPL_SHORT_5
+                    };
+                    soundManager.playSound(explosionSounds[(int)(Math.random() * explosionSounds.length)], 0.4f);
+                }
                 
                 // Create explosion particles with shockwave
                 if (enableParticles) {
@@ -2200,6 +2248,8 @@ public class Game extends JPanel implements Runnable {
                             );
                         }
                     }
+                    soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+                    soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
                     screenShakeIntensity = 10;
                     tookDamageThisBoss = true;
                     gameState = GameState.GAME_OVER;
@@ -2259,11 +2309,7 @@ public class Game extends JPanel implements Runnable {
                         comboPulseScale = 1.4;
                         
                     } else {
-                        // Normal graze - use blop sounds for subtle feedback
-                        SoundManager.Sound[] blopSounds = {
-                            SoundManager.Sound.BLOP_1, SoundManager.Sound.BLOP_2, SoundManager.Sound.BLOP_3
-                        };
-                        soundManager.playSound(blopSounds[(int)(Math.random() * blopSounds.length)], 0.4f);
+                        // Normal graze - no sound to prevent spam
                         grazeValue = 1;
                         moneyBonus = (int)(2 * riskContractMultiplier);
                         comboPulseScale = 1.2;
@@ -2543,6 +2589,16 @@ public class Game extends JPanel implements Runnable {
     // Helper method to transition to a new state
     private void transitionToState(GameState newState) {
         if (gameState != newState) {
+            // Handle music transitions
+            if (newState == GameState.MENU) {
+                soundManager.playMusic("SFX/Music Tracks/Main menu theme.mp3");
+            } else if (newState == GameState.PLAYING) {
+                // Pick random boss fight theme (1, 5, 6, 7, 8)
+                int[] themes = {1, 5, 6, 7, 8};
+                int theme = themes[(int)(Math.random() * themes.length)];
+                soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+            }
+            
             previousState = gameState;
             gameState = newState;
             stateTransitionProgress = 0.0f;
@@ -2683,7 +2739,7 @@ public class Game extends JPanel implements Runnable {
         // Title
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 72));
-        String title = "ONE HIT MAN";
+        String title = "MR. MISSLE";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
         int titleY = height / 2 - 100;
@@ -2940,6 +2996,10 @@ public class Game extends JPanel implements Runnable {
         // Full dark overlay with fade
         int overlayAlpha = (int)(200 * Math.min(progress * 2, 1.0f) * dismissMultiplier);
         g.setColor(new Color(0, 0, 0, Math.min(overlayAlpha, 200)));
+        
+        // Reset translation to avoid screen shake affecting overlay
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setTransform(new java.awt.geom.AffineTransform());
         g.fillRect(0, 0, width, height);
         
         // Calculate position (slide up from bottom, slide down when dismissing)
@@ -3099,6 +3159,10 @@ public class Game extends JPanel implements Runnable {
         // Full dark overlay with fade
         int overlayAlpha = (int)(220 * Math.min(progress * 2, 1.0f) * dismissMultiplier);
         g.setColor(new Color(0, 0, 0, Math.min(overlayAlpha, 220)));
+        
+        // Reset translation to avoid screen shake affecting overlay
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setTransform(new java.awt.geom.AffineTransform());
         g.fillRect(0, 0, width, height);
         
         // Calculate position (slide up from bottom, slide down when dismissing)
