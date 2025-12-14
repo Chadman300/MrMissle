@@ -15,8 +15,8 @@ public class BeamAttack {
     private boolean warningPlayed; // Whether warning sound was played
     private boolean firePlayed; // Whether fire sound was played
     
-    private static final int WARNING_DURATION = 150; // 2.5 seconds warning (increased from 90)
-    private static final int BEAM_DURATION = 30;     // 0.5 seconds active beam
+    private static final int WARNING_DURATION = 210; // 3.5 seconds warning (increased from 150)
+    private static final int BEAM_DURATION = 45;     // 0.75 seconds active beam (increased from 30)
     
     public BeamAttack(double position, double width, BeamType type) {
         this.position = position;

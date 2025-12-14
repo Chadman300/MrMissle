@@ -277,6 +277,11 @@ public class SoundManager {
                     volume *= sfxVolume;
                 }
                 
+                // Reduce volume for specific loud sounds
+                if (sound == Sound.PAUSE || sound == Sound.UNPAUSE) {
+                    volume *= 0.4f; // Pause sounds are too loud, reduce to 40%
+                }
+                
                 setVolume(clip, volume);
                 clip.start();
             }

@@ -3,7 +3,6 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import javax.imageio.ImageIO;
 
@@ -893,174 +892,306 @@ public class Renderer {
     }
     
     public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset) {
-        // Draw animated gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+        int selectedLevel = gameData.getSelectedLevelView();
         
-        // Holographic title
-        g.setFont(new Font("Arial", Font.BOLD, 60));
-        String title = "SELECT LEVEL";
+        // Draw animated gradient background
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(20, 25, 40), new Color(30, 35, 50), new Color(40, 45, 60)});
+        
+        // Title
+        g.setFont(new Font("Arial", Font.BOLD, 42));
+        String title = "JOURNEY MAP";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
-        int titleY = 100;
+        int titleY = 50;
         
-        // Shadow
+        // Title shadow and gradient
         g.setColor(new Color(0, 0, 0, 100));
-        g.drawString(title, titleX + 4, titleY + 4);
-        
-        // Gradient text
-        GradientPaint titleGrad = new GradientPaint(
-            titleX, titleY - 30, new Color(180, 142, 173),
-            titleX, titleY + 20, new Color(235, 203, 139)
-        );
+        g.drawString(title, titleX + 3, titleY + 3);
+        GradientPaint titleGrad = new GradientPaint(titleX, titleY - 30, new Color(180, 142, 173), titleX, titleY + 20, new Color(235, 203, 139));
         g.setPaint(titleGrad);
         g.drawString(title, titleX, titleY);
         
-        // Holographic shine
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.setColor(Color.WHITE);
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        // Progress indicator (dots at top)
+        int dotY = 80;
+        int dotSpacing = 20;
+        int totalDots = 20;
+        int dotsStartX = (width - (totalDots - 1) * dotSpacing) / 2;
         
-        // Draw instructions
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
-        String instruction = "↑↓ Scroll | ←→ Select | SPACE Start | ESC Back";
-        fm = g.getFontMetrics();
-        g.setColor(new Color(216, 222, 233));
-        g.drawString(instruction, (width - fm.stringWidth(instruction)) / 2, 145);
-        
-        // Create clipping region for scrollable area
-        Shape oldClip = g.getClip();
-        g.setClip(0, 160, width, height - 220);
-        
-        // Draw level grid - 3 columns per row
-        int startY = 200 - (int)scrollOffset;
-        int levelsPerRow = 3;
-        int boxSize = 100;
-        int spacing = 50;
-        
-        for (int i = 1; i <= 20; i++) {
-            int row = (i - 1) / levelsPerRow;
-            int col = (i - 1) % levelsPerRow;
-            int x = width / 2 - (levelsPerRow * (boxSize + spacing)) / 2 + col * (boxSize + spacing);
-            int y = startY + row * (boxSize + spacing);
+        for (int i = 1; i <= totalDots; i++) {
+            int dotX = dotsStartX + (i - 1) * dotSpacing;
+            int dotSize = (i == selectedLevel) ? 10 : 6;
             
-            // Skip if outside visible area
-            if (y < 140 || y > height - 60) continue;
-            
-            boolean isUnlocked = i <= maxUnlockedLevel;
-            boolean isSelected = i == currentLevel;
-            boolean isMegaBoss = (i % 3 == 0); // Every 3rd level
-            
-            // Draw card shadow
-            g.setColor(new Color(0, 0, 0, 100));
-            g.fillRoundRect(x + 4, y + 4, boxSize, boxSize, 15, 15);
-            
-            // Draw box with card-style appearance
-            if (isSelected) {
-                // Animated glow effect
-                float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 3));
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, glowPulse));
-                g.setColor(new Color(255, 255, 150));
-                g.setStroke(new BasicStroke(10));
-                g.drawRoundRect(x - 8, y - 8, boxSize + 16, boxSize + 16, 20, 20);
-                
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-                g.setColor(new Color(255, 255, 200));
-                g.setStroke(new BasicStroke(4));
-                g.drawRoundRect(x - 4, y - 4, boxSize + 8, boxSize + 8, 18, 18);
+            if (i < currentLevel) {
+                g.setColor(new Color(100, 180, 100)); // Completed
+            } else if (i == currentLevel) {
+                g.setColor(new Color(100, 200, 255)); // Current
+            } else {
+                g.setColor(new Color(60, 60, 70)); // Locked
             }
             
-            // Fill color based on type
-            if (isUnlocked) {
-                if (isMegaBoss) {
-                    // Gradient for mega bosses
-                    GradientPaint gradient = new GradientPaint(
-                        x, y, new Color(150, 50, 150),
-                        x, y + boxSize, new Color(200, 100, 200)
-                    );
-                    g.setPaint(gradient);
+            if (i == selectedLevel) {
+                // Highlight selected dot
+                g.setColor(Color.WHITE);
+            }
+            
+            g.fillOval(dotX - dotSize / 2, dotY - dotSize / 2, dotSize, dotSize);
+        }
+        
+        // Center Y for the level carousel
+        int centerY = height / 2 - 40;
+        int centerX = width / 2;
+        
+        // Draw the horizontal path line behind the nodes
+        g.setColor(new Color(50, 55, 65));
+        g.setStroke(new BasicStroke(6, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.drawLine(0, centerY, width, centerY);
+        
+        // Draw arrow indicators on the sides
+        if (selectedLevel > 1) {
+            // Left arrow
+            g.setFont(new Font("Arial", Font.BOLD, 50));
+            float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
+            g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
+            g.drawString("◄", 15, centerY + 18);
+        }
+        if (selectedLevel < 20) {
+            // Right arrow
+            g.setFont(new Font("Arial", Font.BOLD, 50));
+            float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
+            g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
+            g.drawString("►", width - 55, centerY + 18);
+        }
+        
+        // Smooth carousel: use scrollOffset to position all levels
+        // Each level is spaced apart, and we scroll based on the animated offset
+        int levelSpacing = width / 2; // Half screen width between levels
+        int centerNodeRadius = 80; // Larger center node
+        int sideNodeRadius = 50;   // Smaller side nodes
+        
+        // Draw levels based on scroll position (show 5 levels for smooth transitions)
+        for (int i = -2; i <= 2; i++) {
+            int level = selectedLevel + i;
+            if (level < 1 || level > 20) continue;
+            
+            // Calculate x position based on scroll offset for smooth animation
+            double scrollDelta = scrollOffset - selectedLevel;
+            int baseX = centerX + i * levelSpacing;
+            int x = (int)(baseX - scrollDelta * levelSpacing);
+            
+            // Skip if off screen
+            if (x < -100 || x > width + 100) continue;
+            
+            // Calculate size and alpha based on distance from center
+            double distFromCenter = Math.abs(x - centerX) / (double)levelSpacing;
+            double scale = Math.max(0.4, 1.0 - distFromCenter * 0.5);
+            float alpha = (float)Math.max(0.3, 1.0 - distFromCenter * 0.6);
+            
+            int nodeRadius = (int)(centerNodeRadius * scale);
+            
+            boolean isCompleted = level < currentLevel;
+            boolean isCurrent = level == currentLevel;
+            boolean isLocked = level > maxUnlockedLevel;
+            boolean isMegaBoss = (level % 3 == 0);
+            boolean isSelected = level == selectedLevel;
+            
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Selection glow for center
+            if (isSelected && distFromCenter < 0.3) {
+                float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 4));
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, glowPulse * alpha));
+                Color glowColor = isCurrent ? new Color(100, 255, 100) : 
+                                  isCompleted ? new Color(100, 180, 255) : new Color(255, 150, 100);
+                g.setColor(glowColor);
+                g.fillOval(x - nodeRadius - 25, centerY - nodeRadius - 25, (nodeRadius + 25) * 2, (nodeRadius + 25) * 2);
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            }
+            
+            // Node shadow
+            g.setColor(new Color(0, 0, 0, (int)(80 * alpha)));
+            g.fillOval(x - nodeRadius + 5, centerY - nodeRadius + 5, nodeRadius * 2, nodeRadius * 2);
+            
+            // Node fill color
+            if (isMegaBoss) {
+                if (isCompleted) {
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(100, 50, 120), 
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(140, 80, 160));
+                    g.setPaint(grad);
+                } else if (isCurrent) {
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(150, 80, 180), 
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(200, 120, 220));
+                    g.setPaint(grad);
                 } else {
-                    // Gradient for mini bosses
-                    GradientPaint gradient = new GradientPaint(
-                        x, y, new Color(40, 120, 60),
-                        x, y + boxSize, new Color(60, 160, 80)
-                    );
-                    g.setPaint(gradient);
+                    g.setColor(new Color(50, 40, 60));
                 }
             } else {
-                g.setColor(new Color(60, 60, 60));
+                if (isCompleted) {
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(50, 100, 60), 
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(70, 130, 80));
+                    g.setPaint(grad);
+                } else if (isCurrent) {
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(60, 150, 80), 
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(80, 200, 100));
+                    g.setPaint(grad);
+                } else {
+                    g.setColor(new Color(45, 45, 50));
+                }
             }
-            g.fillRoundRect(x, y, boxSize, boxSize, 15, 15);
+            g.fillOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
             
-            // Border
-            g.setColor(isSelected ? new Color(255, 255, 255) : new Color(150, 150, 150));
-            g.setStroke(new BasicStroke(isSelected ? 3 : 2));
-            g.drawRoundRect(x, y, boxSize, boxSize, 15, 15);
+            // Node border
+            if (isSelected && distFromCenter < 0.3) {
+                g.setColor(Color.WHITE);
+                g.setStroke(new BasicStroke(5));
+            } else if (isCurrent) {
+                g.setColor(new Color(150, 255, 150));
+                g.setStroke(new BasicStroke(3));
+            } else if (isCompleted) {
+                g.setColor(new Color(100, 160, 100));
+                g.setStroke(new BasicStroke(2));
+            } else {
+                g.setColor(new Color(70, 70, 80));
+                g.setStroke(new BasicStroke(2));
+            }
+            g.drawOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
             
-            // Draw level number with shadow
-            g.setFont(new Font("Arial", Font.BOLD, 36));
-            String levelNum = String.valueOf(i);
-            FontMetrics fm2 = g.getFontMetrics();
-            int textX = x + (boxSize - fm2.stringWidth(levelNum)) / 2;
-            int textY = y + boxSize / 2 + 12;
+            // Level number - scale font with node size
+            int fontSize = (int)(48 * scale);
+            g.setFont(new Font("Arial", Font.BOLD, fontSize));
+            String levelNum = String.valueOf(level);
+            fm = g.getFontMetrics();
+            int textX = x - fm.stringWidth(levelNum) / 2;
+            int textY = centerY + fm.getAscent() / 2 - 2;
             
-            // Shadow
-            g.setColor(new Color(0, 0, 0, 150));
-            g.drawString(levelNum, textX + 2, textY + 2);
+            g.setColor(new Color(0, 0, 0, 100));
+            g.drawString(levelNum, textX + 1, textY + 1);
             
-            // Main text
-            g.setColor(isUnlocked ? Color.WHITE : new Color(100, 100, 100));
+            if (isLocked) {
+                g.setColor(new Color(80, 80, 85));
+            } else {
+                g.setColor(Color.WHITE);
+            }
             g.drawString(levelNum, textX, textY);
             
-            // Mega boss indicator
-            if (isUnlocked && isMegaBoss) {
-                g.setFont(new Font("Arial", Font.BOLD, 12));
+            // Mega boss star above node
+            if (isMegaBoss && !isLocked) {
+                int starSize = (int)(24 * scale);
+                g.setFont(new Font("Arial", Font.BOLD, starSize));
                 g.setColor(new Color(255, 215, 0));
-                String megaText = "MEGA";
-                fm2 = g.getFontMetrics();
-                g.drawString(megaText, x + (boxSize - fm2.stringWidth(megaText)) / 2, y + boxSize - 8);
+                String crown = "★";
+                fm = g.getFontMetrics();
+                g.drawString(crown, x - fm.stringWidth(crown) / 2, centerY - nodeRadius - 10);
             }
             
-            // Draw lock icon for locked levels
-            if (!isUnlocked) {
-                g.setFont(new Font("Arial", Font.BOLD, 16));
-                g.setColor(new Color(200, 50, 50));
-                String lockText = "[LOCKED]";
-                fm2 = g.getFontMetrics();
-                g.drawString(lockText, x + (boxSize - fm2.stringWidth(lockText)) / 2, y + 30);
+            // Checkmark for completed
+            if (isCompleted) {
+                int checkSize = (int)(22 * scale);
+                g.setFont(new Font("Arial", Font.BOLD, checkSize));
+                g.setColor(new Color(100, 255, 100));
+                String check = "✓";
+                fm = g.getFontMetrics();
+                g.drawString(check, x + nodeRadius - checkSize / 2, centerY - nodeRadius + checkSize);
             }
+            
+            // Lock icon for locked
+            if (isLocked) {
+                int lockSize = (int)(18 * scale);
+                g.setFont(new Font("Arial", Font.PLAIN, lockSize));
+                g.setColor(new Color(100, 100, 110));
+                String lock = "🔒";
+                fm = g.getFontMetrics();
+                g.drawString(lock, x - fm.stringWidth(lock) / 2, centerY + nodeRadius + lockSize + 5);
+            }
+            
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         }
         
-        // Restore clip
-        g.setClip(oldClip);
+        // Draw info panel for selected level at bottom
+        drawLevelInfoPanel(g, width, height, selectedLevel, currentLevel, time);
+    }
+    
+    private void drawLevelInfoPanel(Graphics2D g, int width, int height, int selectedLevel, int currentLevel, double time) {
+        int panelHeight = 140;
+        int panelY = height - panelHeight - 30;
+        int panelWidth = 500;
+        int panelX = (width - panelWidth) / 2;
         
-        // Draw fade overlay at top and bottom
-        GradientPaint topFade = new GradientPaint(0, 160, new Color(20, 25, 50, 200), 0, 220, new Color(20, 25, 50, 0));
-        g.setPaint(topFade);
-        g.fillRect(0, 160, width, 60);
+        // Panel background with rounded corners
+        g.setColor(new Color(25, 30, 40, 240));
+        g.fillRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
         
-        GradientPaint bottomFade = new GradientPaint(0, height - 120, new Color(20, 25, 50, 0), 0, height - 60, new Color(20, 25, 50, 200));
-        g.setPaint(bottomFade);
-        g.fillRect(0, height - 120, width, 60);
+        // Border glow based on status
+        boolean isCompleted = selectedLevel < currentLevel;
+        boolean isCurrent = selectedLevel == currentLevel;
+        boolean isMegaBoss = selectedLevel % 3 == 0;
         
-        // Draw scroll indicators
-        if (scrollOffset > 0) {
-            // Up arrow
-            g.setColor(new Color(255, 255, 255, 150));
-            g.setFont(new Font("Arial", Font.BOLD, 30));
-            g.drawString("▲", width / 2 - 10, 180);
+        Color borderColor = isCompleted ? new Color(80, 160, 80) :
+                           isCurrent ? new Color(100, 200, 255) :
+                           new Color(70, 70, 80);
+        g.setColor(borderColor);
+        g.setStroke(new BasicStroke(3));
+        g.drawRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
+        
+        // Boss name - centered
+        String bossName = GameData.getBossName(selectedLevel);
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        FontMetrics fm = g.getFontMetrics();
+        int nameX = panelX + (panelWidth - fm.stringWidth(bossName)) / 2;
+        
+        if (isMegaBoss) {
+            GradientPaint nameGrad = new GradientPaint(nameX, panelY + 40, new Color(200, 150, 255), 
+                                                        nameX + fm.stringWidth(bossName), panelY + 40, new Color(255, 200, 100));
+            g.setPaint(nameGrad);
+        } else {
+            g.setColor(new Color(230, 235, 245));
+        }
+        g.drawString(bossName, nameX, panelY + 45);
+        
+        // Level type label - centered
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setColor(isMegaBoss ? new Color(255, 200, 100) : new Color(140, 150, 170));
+        String typeLabel = isMegaBoss ? "★ MEGA BOSS - Level " + selectedLevel : "Level " + selectedLevel;
+        fm = g.getFontMetrics();
+        g.drawString(typeLabel, panelX + (panelWidth - fm.stringWidth(typeLabel)) / 2, panelY + 70);
+        
+        // Status and time info - centered
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        int infoY = panelY + 100;
+        
+        if (isCompleted) {
+            g.setColor(new Color(100, 200, 100));
+            String status = "✓ DEFEATED";
+            fm = g.getFontMetrics();
+            
+            // Show best time if available
+            int bestTime = gameData.getLevelCompletionTime(selectedLevel);
+            if (bestTime > 0) {
+                int seconds = bestTime / 60;
+                int frames = bestTime % 60;
+                String timeStr = String.format("  •  Best: %d.%02ds", seconds, frames * 100 / 60);
+                status += timeStr;
+            }
+            g.drawString(status, panelX + (panelWidth - fm.stringWidth(status)) / 2, infoY);
+        } else if (isCurrent) {
+            // Animated "READY" text
+            float pulse = (float)(0.7 + 0.3 * Math.sin(time * 5));
+            g.setColor(new Color((int)(100 * pulse + 100), (int)(200 * pulse + 55), (int)(100 * pulse + 100)));
+            String startText = "► PRESS SPACE TO START ◄";
+            fm = g.getFontMetrics();
+            g.drawString(startText, panelX + (panelWidth - fm.stringWidth(startText)) / 2, infoY);
+        } else {
+            g.setColor(new Color(120, 120, 130));
+            String lockText = "🔒 LOCKED";
+            fm = g.getFontMetrics();
+            g.drawString(lockText, panelX + (panelWidth - fm.stringWidth(lockText)) / 2, infoY);
         }
         
-        int maxLevels = 20;
-        int totalRows = (maxLevels + 2) / 3;
-        int maxScroll = Math.max(0, startY + totalRows * 150 - height + 200);
-        if (scrollOffset < maxScroll) {
-            // Down arrow
-            g.setColor(new Color(255, 255, 255, 150));
-            g.setFont(new Font("Arial", Font.BOLD, 30));
-            g.drawString("▼", width / 2 - 10, height - 40);
-        }
+        // Navigation hints at very bottom
+        g.setFont(new Font("Arial", Font.PLAIN, 14));
+        g.setColor(new Color(100, 110, 130));
+        String navHint = "← →  Navigate    SPACE  Start    ESC  Back";
+        fm = g.getFontMetrics();
+        g.drawString(navHint, panelX + (panelWidth - fm.stringWidth(navHint)) / 2, panelY + panelHeight - 15);
     }
     
     public void drawRiskContract(Graphics2D g, int width, int height, int selectedContract, 
@@ -1212,7 +1343,7 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -1243,9 +1374,9 @@ public class Renderer {
         double breathY = Math.cos(time * 0.3) * 1.0;
         g.translate(-cameraX + breathX, -cameraY + breathY);
         
-        // Draw beam attacks (behind everything else) - use snapshot to avoid ConcurrentModificationException
-        java.util.List<BeamAttack> beamSnapshot = new java.util.ArrayList<>(beamAttacks);
-        for (BeamAttack beam : beamSnapshot) {
+        // Draw beam attacks (behind everything else)
+        for (int i = 0; i < beamAttacks.size(); i++) {
+            BeamAttack beam = beamAttacks.get(i);
             if (beam != null) {
                 beam.draw(g, width, height, cameraX, cameraY);
             }
@@ -1304,6 +1435,37 @@ public class Renderer {
         
         // Draw player (only if not in death animation)
         if (player != null) {
+            // Draw resurrection glow if animation is active
+            if (resurrectionAnimation) {
+                double glowRadius = 80 * resurrectionScale;
+                int glowAlpha = (int)(255 * resurrectionGlow);
+                
+                // Outer golden glow
+                g.setColor(new Color(255, 215, 0, Math.max(0, Math.min(255, glowAlpha / 2))));
+                g.fillOval((int)(player.getX() - glowRadius), 
+                          (int)(player.getY() - glowRadius), 
+                          (int)(glowRadius * 2), (int)(glowRadius * 2));
+                
+                // Inner bright glow
+                double innerRadius = glowRadius * 0.6;
+                g.setColor(new Color(255, 255, 200, Math.max(0, Math.min(255, glowAlpha))));
+                g.fillOval((int)(player.getX() - innerRadius), 
+                          (int)(player.getY() - innerRadius), 
+                          (int)(innerRadius * 2), (int)(innerRadius * 2));
+                
+                // Draw resurrection text
+                if (resurrectionTimer > 60) { // Show text in first half of animation
+                    float textAlpha = Math.min(1.0f, (float)(resurrectionTimer - 60) / 60);
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, textAlpha));
+                    g.setFont(new Font("Arial", Font.BOLD, 36));
+                    g.setColor(new Color(255, 215, 0));
+                    String resText = "EXTRA LIFE!";
+                    FontMetrics fm = g.getFontMetrics();
+                    g.drawString(resText, (int)(player.getX() - fm.stringWidth(resText) / 2), (int)(player.getY() - 80));
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                }
+            }
+            
             player.draw(g);
             
             // Draw shield if active
@@ -1408,12 +1570,12 @@ public class Renderer {
                 if (timeRatio > 0.5) {
                     // Green to Yellow (first half)
                     int green = 255;
-                    int red = (int)(255 * (1 - (timeRatio - 0.5) * 2));
+                    int red = Math.max(0, Math.min(255, (int)(255 * (1 - (timeRatio - 0.5) * 2))));
                     circleColor = new Color(red, green, 0, 150);
                 } else {
                     // Yellow to Red (second half)
                     int red = 255;
-                    int green = (int)(255 * (timeRatio * 2));
+                    int green = Math.max(0, Math.min(255, (int)(255 * (timeRatio * 2))));
                     circleColor = new Color(red, green, 0, 150);
                 }
                 
@@ -1424,10 +1586,12 @@ public class Renderer {
             }
         }
         
-        // Draw bullets (use snapshot to prevent ConcurrentModificationException)
-        List<Bullet> bulletsSnapshot = new ArrayList<>(bullets);
-        for (Bullet bullet : bulletsSnapshot) {
-            bullet.draw(g);
+        // Draw bullets (including warnings for inactive bullets)
+        for (int i = 0; i < bullets.size(); i++) {
+            Bullet bullet = bullets.get(i);
+            if (bullet != null) {
+                bullet.draw(g);
+            }
         }
         
         // Draw hitboxes for debugging if enabled
@@ -1473,10 +1637,13 @@ public class Renderer {
             // Bullet hitboxes (yellow circles) - uses SIZE * 0.5 radius (SIZE = 6)
             g2d.setColor(new Color(255, 255, 0, 150));
             g2d.setStroke(new BasicStroke(1));
-            for (Bullet bullet : bulletsSnapshot) {
-                int bulletHitRadius = 3; // SIZE * 0.5 = 6 * 0.5 = 3
-                g2d.drawOval((int)bullet.getX() - bulletHitRadius, (int)bullet.getY() - bulletHitRadius, 
-                            bulletHitRadius * 2, bulletHitRadius * 2);
+            for (int i = 0; i < bullets.size(); i++) {
+                Bullet bullet = bullets.get(i);
+                if (bullet != null && bullet.isActive()) {
+                    int bulletHitRadius = 3; // SIZE * 0.5 = 6 * 0.5 = 3
+                    g2d.drawOval((int)bullet.getX() - bulletHitRadius, (int)bullet.getY() - bulletHitRadius, 
+                                bulletHitRadius * 2, bulletHitRadius * 2);
+                }
             }
             
             g2d.dispose();
@@ -1570,11 +1737,11 @@ public class Renderer {
                 Color textColor;
                 if (timeRatio > 0.5) {
                     int green = 255;
-                    int red = (int)(255 * (1 - (timeRatio - 0.5) * 2));
+                    int red = Math.max(0, Math.min(255, (int)(255 * (1 - (timeRatio - 0.5) * 2))));
                     textColor = new Color(red, green, 0);
                 } else {
                     int red = 255;
-                    int green = (int)(255 * (timeRatio * 2));
+                    int green = Math.max(0, Math.min(255, (int)(255 * (timeRatio * 2))));
                     textColor = new Color(red, green, 0);
                 }
                 
@@ -1863,9 +2030,10 @@ public class Renderer {
         
         // Draw boss intro cinematic
         if (bossIntroActive) {
-            // Dark overlay
+            // Dark overlay - extended beyond screen to prevent shake edge visibility
+            int shakeMargin = 250; // Extra margin to cover screen shake offset (extends all directions)
             g.setColor(new Color(0, 0, 0, 180));
-            g.fillRect(0, 0, width, height);
+            g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
             
             // Boss name/level with fade in
             float introAlpha = Math.max(0.0f, Math.min(1.0f, bossIntroTimer / 30f));
@@ -1880,9 +2048,10 @@ public class Renderer {
         
         // Draw pause menu
         if (isPaused) {
-            // Dark overlay
+            // Dark overlay - extended beyond screen to prevent shake edge visibility
+            int shakeMargin = 250; // Extends all directions equally
             g.setColor(new Color(0, 0, 0, 200));
-            g.fillRect(0, 0, width, height);
+            g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
             
             // Pause title
             g.setFont(new Font("Arial", Font.BOLD, 84));
@@ -2045,10 +2214,10 @@ public class Renderer {
         
         // Holographic title
         g.setFont(new Font("Arial", Font.BOLD, 84));
-        String gameOver = "GAME OVER";
+        String gameOver = "RUN ENDED";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(gameOver)) / 2;
-        int titleY = height / 2 - 100;
+        int titleY = height / 2 - 140;
         
         // Shadow
         g.setColor(new Color(0, 0, 0, 150));
@@ -2069,21 +2238,56 @@ public class Renderer {
         g.drawString(gameOver, titleX + 2 + shineOffset / 10, titleY - 2);
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
-        // Stats with consistent styling
+        // Run stats with consistent styling
         g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        
+        // Level reached this run
+        String level = "Level Reached: " + gameData.getCurrentLevel();
+        fm = g.getFontMetrics();
+        g.drawString(level, (width - fm.stringWidth(level)) / 2, height / 2 - 40);
+        
         String score = "Score: " + gameData.getScore();
         fm = g.getFontMetrics();
-        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 + 20);
+        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2);
         
         String money = "Money Earned: $" + gameData.getRunMoney();
         fm = g.getFontMetrics();
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 60);
+        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 40);
         
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
-        String retry = "Press SPACE to return to menu";
+        // Show persistent stats
+        g.setFont(new Font("Arial", Font.PLAIN, 22));
+        g.setColor(new Color(180, 180, 190));
+        String totalMoney = "Total Money: $" + gameData.getTotalMoney();
         fm = g.getFontMetrics();
-        g.drawString(retry, (width - fm.stringWidth(retry)) / 2, height / 2 + 120);
+        g.drawString(totalMoney, (width - fm.stringWidth(totalMoney)) / 2, height / 2 + 90);
+        
+        String bestRun = "Best Run: Level " + Math.max(gameData.getBestRunLevel(), gameData.getCurrentLevel());
+        fm = g.getFontMetrics();
+        g.drawString(bestRun, (width - fm.stringWidth(bestRun)) / 2, height / 2 + 115);
+        
+        // Show extra lives remaining
+        if (gameData.getExtraLives() > 0) {
+            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.setColor(new Color(255, 215, 0)); // Gold color
+            String livesText = "★ Extra Lives: " + gameData.getExtraLives() + " ★";
+            fm = g.getFontMetrics();
+            g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, height / 2 + 145);
+        }
+        
+        // Controls
+        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        g.setColor(new Color(216, 222, 233));
+        String retry = "SPACE - New Run  |  ESC - Main Menu";
+        fm = g.getFontMetrics();
+        g.drawString(retry, (width - fm.stringWidth(retry)) / 2, height / 2 + 170);
+        
+        // Roguelike reminder
+        g.setFont(new Font("Arial", Font.ITALIC, 18));
+        g.setColor(new Color(163, 190, 140));
+        String keep = "Your upgrades and items are saved!";
+        fm = g.getFontMetrics();
+        g.drawString(keep, (width - fm.stringWidth(keep)) / 2, height / 2 + 200);
     }
     
     public void drawWin(Graphics2D g, int width, int height, double time, double bossKillTime) {

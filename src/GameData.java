@@ -34,6 +34,19 @@ public class GameData {
     // Risk Contracts system (permanent unlock)
     private boolean contractsUnlocked;
     
+    // Roguelike run tracking
+    private int runHighestLevel;      // Highest level reached this run
+    private int totalRunsCompleted;   // Total number of runs (deaths)
+    private int bestRunLevel;         // Best level ever reached in a single run
+    private int totalBossesDefeated;  // Lifetime boss kills
+    
+    // Extra lives (resurrection mechanic)
+    private int extraLives;           // Number of extra lives available
+    
+    // Level select navigation (separate from currentLevel for viewing)
+    private int selectedLevelView;    // Which level is currently selected for viewing in map
+    private int[] levelCompletionTimes; // Best completion time for each level (in frames)
+    
     // Audio settings
     private float masterVolume = 0.7f;
     private float sfxVolume = 0.8f;
@@ -65,6 +78,19 @@ public class GameData {
         
         // Risk contracts start locked
         contractsUnlocked = false;
+        
+        // Roguelike run tracking
+        runHighestLevel = 1;
+        totalRunsCompleted = 0;
+        bestRunLevel = 1;
+        totalBossesDefeated = 0;
+        
+        // Extra lives
+        extraLives = 0;
+        
+        // Level select navigation
+        selectedLevelView = 1;
+        levelCompletionTimes = new int[100];
     }
     
     // Getters and setters
@@ -210,6 +236,103 @@ public class GameData {
     public boolean areContractsUnlocked() { return contractsUnlocked; }
     public void unlockContracts() { contractsUnlocked = true; }
     public void setContractsUnlocked(boolean unlocked) { contractsUnlocked = unlocked; }
+    
+    // Roguelike run methods
+    public void startNewRun() {
+        // Update stats before resetting
+        if (runHighestLevel > bestRunLevel) {
+            bestRunLevel = runHighestLevel;
+        }
+        totalRunsCompleted++;
+        
+        // Reset run-specific data
+        score = 0;
+        runMoney = 0;
+        survivalTime = 0;
+        currentLevel = 1;
+        runHighestLevel = 1;
+        
+        // Keep: totalMoney, upgrades, active items, unlocked items, contracts, defeated bosses tracking
+    }
+    
+    public void onBossDefeated() {
+        totalBossesDefeated++;
+        if (currentLevel > runHighestLevel) {
+            runHighestLevel = currentLevel;
+        }
+    }
+    
+    public int getRunHighestLevel() { return runHighestLevel; }
+    public int getTotalRunsCompleted() { return totalRunsCompleted; }
+    public int getBestRunLevel() { return bestRunLevel; }
+    public int getTotalBossesDefeated() { return totalBossesDefeated; }
+    
+    // Extra lives methods
+    public int getExtraLives() { return extraLives; }
+    public void setExtraLives(int lives) { this.extraLives = Math.max(0, lives); }
+    public void addExtraLife() { this.extraLives++; }
+    public boolean useExtraLife() {
+        if (extraLives > 0) {
+            extraLives--;
+            return true;
+        }
+        return false;
+    }
+    
+    // Level select navigation methods
+    public int getSelectedLevelView() { return selectedLevelView; }
+    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(20, level)); }
+    
+    public int getLevelCompletionTime(int level) {
+        if (level >= 1 && level <= levelCompletionTimes.length) {
+            return levelCompletionTimes[level - 1];
+        }
+        return 0;
+    }
+    
+    public void setLevelCompletionTime(int level, int timeInFrames) {
+        if (level >= 1 && level <= levelCompletionTimes.length) {
+            // Only save if it's a new record (or first completion)
+            if (levelCompletionTimes[level - 1] == 0 || timeInFrames < levelCompletionTimes[level - 1]) {
+                levelCompletionTimes[level - 1] = timeInFrames;
+            }
+        }
+    }
+    
+    // Boss name generator - matches actual aircraft names from Boss.java
+    public static String getBossName(int level) {
+        if (level <= 0) return "Unknown";
+        
+        if (level % 2 == 1) {
+            // Odd levels: Fighter planes
+            switch ((level - 1) / 2 % 10) {
+                case 0: return "MIG-15";
+                case 1: return "MIG-21";
+                case 2: return "MIG-29";
+                case 3: return "SU-27";
+                case 4: return "SU-57";
+                case 5: return "F-86 SABRE";
+                case 6: return "F-4 PHANTOM";
+                case 7: return "F-15 EAGLE";
+                case 8: return "F-22 RAPTOR";
+                default: return "F-35 LIGHTNING";
+            }
+        } else {
+            // Even levels: Helicopters
+            switch ((level / 2 - 1) % 10) {
+                case 0: return "UH-1 HUEY";
+                case 1: return "AH-64 APACHE";
+                case 2: return "MI-24 HIND";
+                case 3: return "CH-47 CHINOOK";
+                case 4: return "MI-28 HAVOC";
+                case 5: return "AH-1 COBRA";
+                case 6: return "KA-52 ALLIGATOR";
+                case 7: return "UH-60 BLACK HAWK";
+                case 8: return "MI-26 HALO";
+                default: return "AH-64E GUARDIAN";
+            }
+        }
+    }
     
     // Audio settings methods
     public float getMasterVolume() { return masterVolume; }

@@ -30,7 +30,8 @@ public class Game extends JPanel implements Runnable {
     private boolean mouseEnabled = true; // Track if mouse navigation is active
     private Cursor blankCursor; // Hidden cursor for gameplay
     private Cursor defaultCursor; // Normal cursor for menus
-    private double levelSelectScroll; // Scroll offset for level select
+    private double levelSelectScroll; // Target scroll position for level select
+    private double levelSelectScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
     
     // Core systems
@@ -51,7 +52,7 @@ public class Game extends JPanel implements Runnable {
     private List<BeamAttack> beamAttacks;
     
     // Particle limits for performance
-    private static final int MAX_PARTICLES = 500;
+    private static final int MAX_PARTICLES = 300; // Reduced for better performance
     
     // Cached colors for performance
     private static final Color IMPACT_WHITE = new Color(255, 255, 255);
@@ -199,6 +200,13 @@ public class Game extends JPanel implements Runnable {
     // Smooth UI animations
     private double displayedScore = 0; // Animated score display
     private double displayedMoney = 0; // Animated money display
+    
+    // Extra Life / Resurrection system
+    public boolean resurrectionAnimation = false;
+    public int resurrectionTimer = 0;
+    public static final int RESURRECTION_DURATION = 120; // 2 seconds
+    public double resurrectionScale = 0.0;
+    public double resurrectionGlow = 0.0;
     
     // Afterimage trail for player
     private double[] afterimageX = new double[5];
@@ -527,12 +535,23 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case LEVEL_SELECT:
-                if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) { selectPreviousLevel(); screenShakeIntensity = 2; }
-                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) { selectNextLevel(); screenShakeIntensity = 2; }
-                else if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { scrollLevelSelectUp(); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { scrollLevelSelectDown(); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_SPACE) { startSelectedLevel(); screenShakeIntensity = 5; }
-                else if (key == KeyEvent.VK_ESCAPE) { gameState = GameState.MENU; screenShakeIntensity = 3; }
+                // Path-style navigation: Left/Right to move along path, can view all levels
+                if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) { 
+                    navigateLevelMap(-1); 
+                    screenShakeIntensity = 2; 
+                }
+                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) { 
+                    navigateLevelMap(1); 
+                    screenShakeIntensity = 2; 
+                }
+                else if (key == KeyEvent.VK_SPACE) { 
+                    tryStartLevel(); 
+                    screenShakeIntensity = 5; 
+                }
+                else if (key == KeyEvent.VK_ESCAPE) { 
+                    gameState = GameState.MENU; 
+                    screenShakeIntensity = 3; 
+                }
                 break;
             
             case RISK_CONTRACT:
@@ -595,12 +614,14 @@ public class Game extends JPanel implements Runnable {
                             item.activate();
                             screenShakeIntensity = 3;
                         }
-                    } else if (key == KeyEvent.VK_T && currentBoss != null && player != null) {
+                    } else if (key == KeyEvent.VK_T && currentBoss != null) {
                         // Debug: Instantly defeat boss and win level
+                        bossVulnerable = true; // Force vulnerability
                         while (currentBoss.getCurrentHealth() > 0) {
                             currentBoss.takeDamage();
                         }
                         screenShakeIntensity = 15;
+                        System.out.println("DEBUG: Boss defeated via T key");
                     }
                 }
                 break;
@@ -642,14 +663,16 @@ public class Game extends JPanel implements Runnable {
                 
             case GAME_OVER:
                 if (key == KeyEvent.VK_SPACE) {
+                    // Roguelike: Give survival reward and start new run from level 1
                     int survivalReward = gameData.getSurvivalTime() / 60;
-                    gameData.addRunMoney(survivalReward);
                     gameData.addTotalMoney(survivalReward);
-                    gameData.setScore(0);
-                    gameData.setRunMoney(0);
-                    gameData.setSurvivalTime(0);
+                    gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
                     startGame();
                 } else if (key == KeyEvent.VK_ESCAPE) {
+                    // Go to menu but don't start new run yet (let them check stats, shop, etc)
+                    int survivalReward = gameData.getSurvivalTime() / 60;
+                    gameData.addTotalMoney(survivalReward);
+                    gameData.startNewRun();
                     transitionToState(GameState.MENU);
                 }
                 break;
@@ -791,20 +814,54 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
-    private void startSelectedLevel() {
-        if (gameData.getCurrentLevel() <= gameData.getMaxUnlockedLevel()) {
+    private void navigateLevelMap(int direction) {
+        int newLevel = gameData.getSelectedLevelView() + direction;
+        if (newLevel >= 1 && newLevel <= 20) {
+            gameData.setSelectedLevelView(newLevel);
+            // Set target scroll position (will animate smoothly)
+            levelSelectScroll = newLevel;
+            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+        }
+    }
+    
+    private void tryStartLevel() {
+        int selectedLevel = gameData.getSelectedLevelView();
+        int currentLevel = gameData.getCurrentLevel();
+        int maxUnlocked = gameData.getMaxUnlockedLevel();
+        
+        // Can start any unlocked level (for debug or level select)
+        if (selectedLevel <= maxUnlocked) {
             soundManager.playSound(SoundManager.Sound.LEVEL_START);
-            // Only show risk contract screen if contracts are unlocked
+            // Set current level to the selected one
+            gameData.setCurrentLevel(selectedLevel);
             if (gameData.areContractsUnlocked()) {
                 selectedRiskContract = 0;
                 transitionToState(GameState.RISK_CONTRACT);
             } else {
-                // Skip contract selection, start with no contract
                 riskContractType = 0;
                 riskContractActive = false;
                 riskContractMultiplier = 1.0;
                 startGame();
             }
+        } else {
+            // Locked - play error sound  
+            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+        }
+    }
+    
+    private void startSelectedLevel() {
+        // Roguelike: Always start at current level (can't replay old levels)
+        soundManager.playSound(SoundManager.Sound.LEVEL_START);
+        // Only show risk contract screen if contracts are unlocked
+        if (gameData.areContractsUnlocked()) {
+            selectedRiskContract = 0;
+            transitionToState(GameState.RISK_CONTRACT);
+        } else {
+            // Skip contract selection, start with no contract
+            riskContractType = 0;
+            riskContractActive = false;
+            riskContractMultiplier = 1.0;
+            startGame();
         }
     }
     
@@ -958,6 +1015,61 @@ public class Game extends JPanel implements Runnable {
                 selectedMenuItem = 0;
                 break;
         }
+    }
+    
+    // Handle player death - check for extra life first
+    private void handlePlayerDeath() {
+        // Check if player has extra lives
+        if (gameData.useExtraLife()) {
+            // Trigger resurrection animation
+            resurrectionAnimation = true;
+            resurrectionTimer = RESURRECTION_DURATION;
+            resurrectionScale = 0.0;
+            resurrectionGlow = 1.0;
+            
+            // Clear bullets and beam attacks to give player a chance
+            bullets.clear();
+            beamAttacks.clear();
+            
+            // Create resurrection particles
+            if (enableParticles) {
+                for (int i = 0; i < 40; i++) {
+                    double angle = Math.random() * TWO_PI;
+                    double speed = 1 + Math.random() * 4;
+                    addParticle(
+                        player.getX(), player.getY(),
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        new Color(255, 215, 0, 200), // Gold particles
+                        60, 8,
+                        Particle.ParticleType.SPARK
+                    );
+                }
+            }
+            
+            // Play resurrection sound
+            soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCK);
+            soundManager.playSound(SoundManager.Sound.UI_POPUP_OPEN);
+            
+            // Grant temporary invincibility
+            playerInvincible = true;
+            respawnInvincibilityTimer = 180; // 3 seconds of invincibility
+            
+            // Screen effects
+            screenShakeIntensity = 15;
+            slowMotionFactor = 0.2;
+            slowMotionTimer = 30;
+            
+            // Don't end the game - continue playing
+            return;
+        }
+        
+        // No extra lives - normal game over
+        soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+        soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
+        soundManager.stopMusic();
+        screenShakeIntensity = 10;
+        tookDamageThisBoss = true;
+        gameState = GameState.GAME_OVER;
     }
 
     private void startGame() {
@@ -1179,6 +1291,15 @@ public class Game extends JPanel implements Runnable {
             stateTransitionProgress = Math.min(1.0f, stateTransitionProgress + TRANSITION_SPEED);
         }
         
+        // Smooth scroll animation for level select carousel
+        if (gameState == GameState.LEVEL_SELECT) {
+            double scrollDiff = levelSelectScroll - levelSelectScrollAnimated;
+            levelSelectScrollAnimated += scrollDiff * 0.15; // Smooth interpolation
+            if (Math.abs(scrollDiff) < 0.01) {
+                levelSelectScrollAnimated = levelSelectScroll;
+            }
+        }
+        
         if (gameState != GameState.PLAYING) return;
         
         // Update afterimage trail for player
@@ -1204,6 +1325,19 @@ public class Game extends JPanel implements Runnable {
         playerInvincible = false;
         dashSpeedMultiplier = 1.0;
         // Shield persists until used
+        
+        // Update resurrection animation
+        if (resurrectionAnimation) {
+            resurrectionTimer--;
+            // Animate scale from 0 to 1
+            double progress = 1.0 - (resurrectionTimer / (double)RESURRECTION_DURATION);
+            resurrectionScale = Math.min(1.0, progress * 2.0); // Scale up in first half
+            resurrectionGlow = Math.max(0.0, 1.0 - progress); // Glow fades out
+            
+            if (resurrectionTimer <= 0) {
+                resurrectionAnimation = false;
+            }
+        }
         
         // Handle respawn invincibility timer
         if (respawnInvincibilityTimer > 0) {
@@ -1318,7 +1452,7 @@ public class Game extends JPanel implements Runnable {
                         
                         // Add jet trail particles during descent
                         if (progress > 0.1 && Math.random() < 0.4) {
-                            double angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+                            double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Point upward (thrusters push down)
                             double speed = 1 + Math.random() * 2;
                             particles.add(new Particle(
                                 currentBoss.getX() + (Math.random() - 0.5) * 30,
@@ -1629,6 +1763,9 @@ public class Game extends JPanel implements Runnable {
                 
                 // Check if boss is defeated using new health system
                 if (currentBoss.isDead()) {
+                    // Roguelike: Track boss defeat for stats
+                    gameData.onBossDefeated();
+                    
                     // Track perfect boss kill for achievements
                     if (!tookDamageThisBoss) {
                         consecutivePerfectBosses++;
@@ -1675,6 +1812,9 @@ public class Game extends JPanel implements Runnable {
                     
                     // Update money achievement
                     achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
+                    
+                    // Save level completion time
+                    gameData.setLevelCompletionTime(gameData.getCurrentLevel(), (int)(gameTimeSeconds * 60));
                     
                     // Start boss death animation
                     soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
@@ -1768,11 +1908,7 @@ public class Game extends JPanel implements Runnable {
                 return;
             } else {
                 // Hit boss when not vulnerable - player dies
-                soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
-                soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
-                screenShakeIntensity = 10;
-                tookDamageThisBoss = true;
-                gameState = GameState.GAME_OVER;
+                handlePlayerDeath();
                 return;
             }
         }
@@ -1860,9 +1996,9 @@ public class Game extends JPanel implements Runnable {
                     itemUnlockAnimation = true;
                     itemUnlockTimer = ITEM_UNLOCK_DURATION;
                     
-                    // Check if this is the FIRST mega boss (level 5 = index 4, but level starts at 1)
-                    // Level 3 is actually the first mega boss (3 % 3 == 0)
-                    if (currentLevel == 3 && !gameData.areContractsUnlocked()) {
+                    // Check if this is the SECOND mega boss (level 6)
+                    // Level 6 is the second mega boss (6 % 3 == 0)
+                    if (currentLevel == 6 && !gameData.areContractsUnlocked()) {
                         // Unlock risk contracts permanently!
                         gameData.unlockContracts();
                         // We'll show the contract animation AFTER the item animation finishes
@@ -1870,6 +2006,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
+                soundManager.stopMusic();
                 gameState = GameState.WIN;
                 bossDeathAnimation = false;
                 return;
@@ -2037,6 +2174,9 @@ public class Game extends JPanel implements Runnable {
         
         // Check beam attack collisions (only if player exists)
         for (BeamAttack beam : beamAttacks) {
+            // Update beam lifecycle
+            beam.update(dt);
+            
             // Play beam lifecycle sounds
             if (beam.shouldPlayWarning()) {
                 soundManager.playSound(SoundManager.Sound.BEAM_WARNING, 0.5f);
@@ -2047,7 +2187,6 @@ public class Game extends JPanel implements Runnable {
             
             if (player != null && beam.collidesWith(player)) {
                 // Hit by beam - game over
-                // TODO: Play sound effect - player_death.wav
                 
                 // Create death particles
                 for (int j = 0; j < 20; j++) {
@@ -2060,10 +2199,7 @@ public class Game extends JPanel implements Runnable {
                         Particle.ParticleType.SPARK
                     );
                 }
-                soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
-                soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
-                screenShakeIntensity = 10;
-                gameState = GameState.GAME_OVER;
+                handlePlayerDeath();
                 return;
             }
         }
@@ -2233,7 +2369,6 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // No dodge - game over
-                    soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
                     
                     // Create death particles
                     if (enableParticles) {
@@ -2248,11 +2383,7 @@ public class Game extends JPanel implements Runnable {
                             );
                         }
                     }
-                    soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
-                    soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
-                    screenShakeIntensity = 10;
-                    tookDamageThisBoss = true;
-                    gameState = GameState.GAME_OVER;
+                    handlePlayerDeath();
                     return;
                 }
                 
@@ -2478,7 +2609,7 @@ public class Game extends JPanel implements Runnable {
         int baseX = (int)(x * INV_GRID_CELL_SIZE);
         int baseY = (int)(y * INV_GRID_CELL_SIZE);
         
-        // Check 3x3 grid around player
+        // Check 3x3 grid around player - manually add to avoid addAll overhead
         for (int dx = -1; dx <= 1; dx++) {
             int checkX = baseX + dx;
             for (int dy = -1; dy <= 1; dy++) {
@@ -2486,7 +2617,9 @@ public class Game extends JPanel implements Runnable {
                 int key = checkX * GRID_WIDTH_MULTIPLIER + checkY;
                 List<Bullet> cellBullets = bulletGrid.get(key);
                 if (cellBullets != null) {
-                    nearbyBulletsCache.addAll(cellBullets);
+                    for (Bullet b : cellBullets) {
+                        nearbyBulletsCache.add(b);
+                    }
                 }
             }
         }
@@ -2548,7 +2681,7 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
                 break;
             case LEVEL_SELECT:
-                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScroll);
+                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScrollAnimated);
                 break;
             case RISK_CONTRACT:
                 renderer.drawRiskContract(g2d, WIDTH, HEIGHT, selectedRiskContract, RISK_CONTRACT_NAMES, RISK_CONTRACT_DESCRIPTIONS, RISK_CONTRACT_MULTIPLIERS, gradientTime, gameData.getCurrentLevel());
@@ -2556,7 +2689,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:
@@ -2597,6 +2730,13 @@ public class Game extends JPanel implements Runnable {
                 int[] themes = {1, 5, 6, 7, 8};
                 int theme = themes[(int)(Math.random() * themes.length)];
                 soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+            }
+            
+            // Initialize level select scroll position when entering
+            if (newState == GameState.LEVEL_SELECT) {
+                int selectedLevel = gameData.getSelectedLevelView();
+                levelSelectScroll = selectedLevel;
+                levelSelectScrollAnimated = selectedLevel;
             }
             
             previousState = gameState;

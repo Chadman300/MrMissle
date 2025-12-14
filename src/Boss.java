@@ -97,9 +97,9 @@ public class Boss {
         // Size: mega bosses are 150% size, mini bosses are 95% size
         this.size = isMegaBoss ? (int)(BASE_SIZE * 1.5) : (int)(BASE_SIZE * 0.95);
         
-        // Attack patterns unlock faster - 2 per level
-        // Level 1: 2 patterns, Level 2: 4 patterns, etc.
-        this.maxPatterns = Math.min(2 + (level * 2), 15); // Cap at 15 patterns (includes explosives)
+        // Attack patterns unlock gradually - approximately 1 per level
+        // Level 1: 3 patterns, Level 2: 4 patterns, ..., Level 13+: all 15 patterns
+        this.maxPatterns = Math.min(2 + level, 15); // All patterns unlocked by level 13
         
         this.shootTimer = 0;
         this.shootInterval = Math.max(45, 75 + level * 2); // Slightly faster but more consistent
@@ -111,7 +111,7 @@ public class Boss {
         this.moveTimer = 0;
         this.beamAttacks = new ArrayList<>();
         this.beamAttackTimer = 180 + (int)(Math.random() * 60); // First beam after 3-4 seconds
-        this.beamAttackInterval = Math.max(240, 360 - level * 8); // Less frequent, more manageable
+        this.beamAttackInterval = Math.max(300, 480 - level * 10); // Less frequent, more manageable
         
         // Initialize health and phases
         this.maxHealth = isMegaBoss ? 3 : 2; // Mega bosses have 3 hits, mini bosses have 2 hits
@@ -123,14 +123,14 @@ public class Boss {
         // Initialize attack rhythm phases - scale with level
         this.isAssaultPhase = true;
         this.attackPhaseTimer = 0;
-        // Assault gets longer and recovery gets shorter at higher levels
-        this.assaultPhaseDuration = 300 + level * 15; // 5-8 seconds
-        this.recoveryPhaseDuration = Math.max(120, 210 - level * 8); // 3.5-2 seconds
-        // Mega bosses are more aggressive
+        // Assault gets longer and recovery gets shorter at higher levels (slower scaling)
+        this.assaultPhaseDuration = 300 + level * 8; // 5-6.3 seconds (reduced from *15)
+        this.recoveryPhaseDuration = Math.max(150, 210 - level * 4); // 3.5-2.5 seconds (reduced from *8)
+        // Mega bosses are more aggressive (but not overwhelming)
         if (isMegaBoss) {
-            this.assaultPhaseDuration += 60; // +1 second assault
-            this.recoveryPhaseDuration -= 30; // -0.5 second recovery
-            this.assaultSpeedMultiplier = 2.2; // Even faster attacks
+            this.assaultPhaseDuration += 30; // +0.5 second assault (reduced from +60)
+            this.recoveryPhaseDuration -= 15; // -0.25 second recovery (reduced from -30)
+            this.assaultSpeedMultiplier = 1.95; // Moderately faster attacks (reduced from 2.2)
         }
         
         loadSprites();
@@ -296,8 +296,8 @@ public class Boss {
         
         // Acceleration-based movement
         if (distance > 10) { // Dead zone to prevent jittering
-            // Calculate desired acceleration direction
-            double accelStrength = ACCELERATION * (1.0 + level * 0.05);
+            // Calculate desired acceleration direction (reduced scaling)
+            double accelStrength = ACCELERATION * (1.0 + level * 0.025);
             ax = (dx / distance) * accelStrength * deltaTime;
             ay = (dy / distance) * accelStrength * deltaTime;
             
@@ -317,9 +317,9 @@ public class Boss {
         vx *= FRICTION;
         vy *= FRICTION;
         
-        // Limit max speed
+        // Limit max speed (reduced scaling)
         double speed = Math.sqrt(vx * vx + vy * vy);
-        double maxSpeed = MAX_SPEED * (1.0 + level * 0.1);
+        double maxSpeed = MAX_SPEED * (1.0 + level * 0.05);
         if (speed > maxSpeed) {
             vx = (vx / speed) * maxSpeed;
             vy = (vy / speed) * maxSpeed;
@@ -460,8 +460,8 @@ public class Boss {
             shoot(bullets, player);
         }
         
-        // Beam attacks (at higher levels)
-        if (level >= 2) {
+        // Beam attacks (at higher levels - starting at level 4)
+        if (level >= 4) {
             beamAttackTimer += deltaTime;
             if (beamAttackTimer >= beamAttackInterval) {
                 beamAttackTimer = 0;
@@ -483,8 +483,8 @@ public class Boss {
         int bulletCountBefore = bullets.size();
         
         // Mega bosses have special attack patterns
-        if (isMegaBoss && Math.random() < 0.25) {
-            // 25% chance to use mega boss special attacks
+        if (isMegaBoss && Math.random() < 0.15) {
+            // 15% chance to use mega boss special attacks (reduced from 25%)
             int specialPattern = (int)(Math.random() * 5);
             switch (specialPattern) {
                 case 0:
@@ -513,7 +513,7 @@ public class Boss {
                 shootSpiral(bullets);
                 break;
             case 1: // Circle pattern
-                shootCircle(bullets, 15 + level * 2); // Increased from 10 + level
+                shootCircle(bullets, 15 + level); // Slower increase (was level * 2)
                 break;
             case 2: // Aimed at player
                 shootAtPlayer(bullets, player, 6); // Increased from 4
@@ -522,7 +522,7 @@ public class Boss {
                 shootWave(bullets);
                 break;
             case 4: // Random spray
-                shootRandom(bullets, 10 + level * 2); // Increased from 6 + level
+                shootRandom(bullets, 10 + level); // Slower increase (was level * 2)
                 break;
             case 5: // Fast bullets
                 shootFast(bullets, player);
@@ -575,7 +575,7 @@ public class Boss {
     }
     
     private void shootCircle(List<Bullet> bullets, int numBullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -585,7 +585,7 @@ public class Boss {
     }
     
     private void shootAtPlayer(List<Bullet> bullets, Player player, int spread) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         for (int i = -spread; i <= spread; i++) {
             double angle = angleToPlayer + (i * 0.2);
@@ -596,8 +596,8 @@ public class Boss {
     }
     
     private void shootWave(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 16 + level * 2; // Increased from 12 + level
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        int numBullets = 16 + level; // Slower increase (was level * 2)
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double speed = (2 + Math.sin(i * 0.5) * 1.5) * speedMultiplier;
@@ -608,7 +608,7 @@ public class Boss {
     }
     
     private void shootRandom(List<Bullet> bullets, int numBullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = (2 + Math.random() * 2) * speedMultiplier;
@@ -619,9 +619,9 @@ public class Boss {
     }
     
     private void shootFast(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = 0; i < 5 + level; i++) { // Increased from 3 + level / 2
+        for (int i = 0; i < 5 + level / 2; i++) { // Slower increase (was level)
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.5;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -630,8 +630,8 @@ public class Boss {
     }
     
     private void shootLarge(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 5 + level; // Increased from 3 + level / 2
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        int numBullets = 5 + level / 2; // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -642,7 +642,7 @@ public class Boss {
     
     private void shootMixed(List<Bullet> bullets, Player player) {
         // Combination attack with different bullet types
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Homing bullets
@@ -665,8 +665,8 @@ public class Boss {
     }
     
     private void shootSpiralBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 5 + level; // Increased from 3 + level / 2
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        int numBullets = 5 + level / 2; // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -676,8 +676,8 @@ public class Boss {
     }
     
     private void shootSplittingBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 4 + level; // Increased from 2 + level / 2
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        int numBullets = 4 + level / 2; // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -687,7 +687,7 @@ public class Boss {
     }
     
     private void shootAcceleratingBullets(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         for (int i = -2; i <= 2; i++) { // Increased from -1 to 1 (now 5 bullets instead of 3)
             double angle = angleToPlayer + i * 0.3;
@@ -698,8 +698,8 @@ public class Boss {
     }
     
     private void shootWaveBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        int numBullets = 8 + level; // Increased from 5 + level / 2
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        int numBullets = 8 + level / 2; // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -709,7 +709,7 @@ public class Boss {
     }
     
     private void shootBombs(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         int numBullets = 3 + level / 2; // Increased from 2 + level / 3
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
@@ -720,7 +720,7 @@ public class Boss {
     }
     
     private void shootGrenades(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         int numBullets = 2 + (level >= 5 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
         for (int i = 0; i < numBullets; i++) {
@@ -732,7 +732,7 @@ public class Boss {
     }
     
     private void shootNukes(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         // 1-3 nukes since they're very powerful
         int numBullets = 1 + (level >= 4 ? 1 : 0) + (level >= 7 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
         for (int i = 0; i < numBullets; i++) {
@@ -747,7 +747,7 @@ public class Boss {
     
     private void shootMegaBarrage(List<Bullet> bullets, Player player) {
         // Massive dense bullet storm aimed at player
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Dense cone of bullets
@@ -778,7 +778,7 @@ public class Boss {
     
     private void shootMegaSpiral(List<Bullet> bullets) {
         // Layered spiral with multiple speeds and types
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleOffset = shootTimer * 0.15;
         
         // Three layers of spirals at different speeds
@@ -802,7 +802,7 @@ public class Boss {
     
     private void shootMegaCross(List<Bullet> bullets, Player player) {
         // Cross pattern with rotating arms + homing center
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Four arms of the cross
@@ -833,7 +833,7 @@ public class Boss {
     
     private void shootMegaStar(List<Bullet> bullets) {
         // Star burst with splitting bullets
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         int numPoints = 6 + level / 3; // 6-9 points
         
         for (int point = 0; point < numPoints; point++) {
@@ -902,8 +902,8 @@ public class Boss {
     
     private void spawnBeamAttack(int screenWidth, int screenHeight) {
         // Mega bosses have more intense beam patterns
-        if (isMegaBoss && Math.random() < 0.5) {
-            // 50% chance for mega boss special beam patterns
+        if (isMegaBoss && Math.random() < 0.35) {
+            // 35% chance for mega boss special beam patterns (reduced from 50%)
             int specialBeam = (int)(Math.random() * 3);
             switch (specialBeam) {
                 case 0: // Cross pattern beams

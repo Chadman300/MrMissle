@@ -12,7 +12,7 @@ public class ShopManager {
     }
     
     public void setSelectedShopItem(int item) {
-        this.selectedShopItem = Math.max(0, Math.min(5, item));
+        this.selectedShopItem = Math.max(0, Math.min(6, item));
     }
     
     public void selectPrevious() {
@@ -20,7 +20,7 @@ public class ShopManager {
     }
     
     public void selectNext() {
-        selectedShopItem = Math.min(5, selectedShopItem + 1);
+        selectedShopItem = Math.min(6, selectedShopItem + 1);
     }
     
     public int getItemCost(int itemIndex) {
@@ -31,6 +31,7 @@ public class ShopManager {
             case 3: return 125 + (gameData.getLuckyDodgeUpgradeLevel() * 65);
             case 4: return 150 + (gameData.getAttackWindowUpgradeLevel() * 75);
             case 5: return 200; // Score multiplier
+            case 6: return 5000 + (gameData.getExtraLives() * 3000); // Extra Life - very expensive
             default: return 0;
         }
     }
@@ -65,6 +66,9 @@ public class ShopManager {
                 case 5:
                     // Score multiplier (not implemented yet)
                     break;
+                case 6:
+                    gameData.addExtraLife();
+                    break;
             }
             return true;
         }
@@ -78,7 +82,8 @@ public class ShopManager {
             "Bullet Slow - Slows enemy bullets by 0.1%",
             "Lucky Dodge - Small chance to phase through bullets",
             "Attack Window+ - Adds 1 second to boss vulnerability window",
-            "Score Multiplier - Increases score gain (Coming Soon)"
+            "Score Multiplier - Increases score gain (Coming Soon)",
+            "Extra Life - Resurrect once when you die"
         };
     }
 }
