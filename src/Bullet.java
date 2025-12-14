@@ -30,6 +30,12 @@ public class Bullet {
     // Cached math constants
     private static final double TWO_PI = Math.PI * 2;
     private static final double HALF_PI = Math.PI / 2;
+    private static final double SQRT_2 = Math.sqrt(2);
+    private static final double INV_SQRT_2 = 1.0 / Math.sqrt(2);
+    
+    // Cached speed for collision detection (avoid repeated sqrt)
+    private double cachedSpeed = 0;
+    private int speedCacheAge = 0;
     private int warningTime;
     private static final int WARNING_DURATION = 120; // Frames before bullet activates
     private double age; // Frames since activation
@@ -187,14 +193,20 @@ public class Bullet {
                     double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
                     double currentAngle = Math.atan2(vy, vx);
                     double angleDiff = angleToPlayer - currentAngle;
-                    // Normalize angle
-                    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-                    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                    // Normalize angle (optimized)
+                    if (angleDiff > Math.PI) angleDiff -= TWO_PI;
+                    else if (angleDiff < -Math.PI) angleDiff += TWO_PI;
                     // Turn slightly towards player (scaled by delta time)
                     currentAngle += angleDiff * 0.02 * deltaTime;
-                    double speed = Math.sqrt(vx * vx + vy * vy);
-                    vx = Math.cos(currentAngle) * speed;
-                    vy = Math.sin(currentAngle) * speed;
+                    // Cache and reuse speed calculation
+                    if (speedCacheAge > 10 || cachedSpeed == 0) {
+                        cachedSpeed = Math.sqrt(vx * vx + vy * vy);
+                        speedCacheAge = 0;
+                    } else {
+                        speedCacheAge++;
+                    }
+                    vx = Math.cos(currentAngle) * cachedSpeed;
+                    vy = Math.sin(currentAngle) * cachedSpeed;
                 }
                 break;
             case BOUNCING:
@@ -213,10 +225,18 @@ public class Bullet {
             case SPIRAL:
                 // Rotate velocity vector to create spiral motion
                 spiralAngle += 0.08;
-                double currentSpeed = Math.sqrt(vx * vx + vy * vy);
+                // Cache speed and angle calculations
+                if (speedCacheAge > 10 || cachedSpeed == 0) {
+                    cachedSpeed = Math.sqrt(vx * vx + vy * vy);
+                    speedCacheAge = 0;
+                } else {
+                    speedCacheAge++;
+                }
                 double baseAngle = Math.atan2(vy, vx);
-                vx = Math.cos(baseAngle + Math.sin(spiralAngle) * 0.5) * currentSpeed;
-                vy = Math.sin(baseAngle + Math.sin(spiralAngle) * 0.5) * currentSpeed;
+                double spiralOffset = Math.sin(spiralAngle) * 0.5;
+                double newAngle = baseAngle + spiralOffset;
+                vx = Math.cos(newAngle) * cachedSpeed;
+                vy = Math.sin(newAngle) * cachedSpeed;
                 break;
             case ACCELERATING:
                 // Speed up over time
@@ -235,7 +255,7 @@ public class Bullet {
             case GRENADE:
             case NUKE:
                 // Slow down over time
-                double slowFactor = 0.97; // 3% slowdown per frame
+                double slowFactor = 0.99; // 1% slowdown per frame (less friction)
                 vx *= Math.pow(slowFactor, deltaTime);
                 vy *= Math.pow(slowFactor, deltaTime);
                 
@@ -584,10 +604,11 @@ public class Bullet {
         if (warningTime > 0) return false; // Can't hit during warning
         double dx = x - player.getX();
         double dy = y - player.getY();
-        double distance = Math.sqrt(dx * dx + dy * dy);
-        // Smaller hitbox (30% of sprite size)
+        double distanceSquared = dx * dx + dy * dy;
+        // Smaller hitbox (30% of sprite size) - use squared distance to avoid sqrt
         int actualSize = (type == BulletType.LARGE) ? SIZE + 4 : (type == BulletType.FAST) ? SIZE - 2 : SIZE;
-        return distance < (actualSize * 0.5) + (player.getSize() * 0.3);
+        double threshold = (actualSize * 0.5) + (player.getSize() * 0.3);
+        return distanceSquared < threshold * threshold;
     }
     
     public boolean shouldSplit() {

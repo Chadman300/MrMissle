@@ -129,6 +129,14 @@ public class UIButton {
         g2.dispose();
     }
     
+    public boolean contains(int mouseX, int mouseY) {
+        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+    }
+    
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
     public String getText() { return text; }
     public void setText(String text) { this.text = text; }
 }

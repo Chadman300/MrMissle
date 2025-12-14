@@ -1,5 +1,6 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +26,10 @@ public class Game extends JPanel implements Runnable {
     private GameState gameState;
     private int selectedStatItem;
     private int selectedMenuItem; // For main menu navigation
+    private int mouseX, mouseY; // Mouse position for UI navigation
+    private boolean mouseEnabled = true; // Track if mouse navigation is active
+    private Cursor blankCursor; // Hidden cursor for gameplay
+    private Cursor defaultCursor; // Normal cursor for menus
     private double levelSelectScroll; // Scroll offset for level select
     private double settingsScroll; // Scroll offset for settings menu
     
@@ -68,7 +73,10 @@ public class Game extends JPanel implements Runnable {
     
     // Spatial grid for bullet collision optimization
     private static final int GRID_CELL_SIZE = 50;
+    private static final int GRID_WIDTH_MULTIPLIER = 10000; // For hash calculation
+    private static final double INV_GRID_CELL_SIZE = 1.0 / GRID_CELL_SIZE; // Pre-computed inverse
     private Map<Integer, List<Bullet>> bulletGrid;
+    private List<Bullet> nearbyBulletsCache = new ArrayList<>(); // Reusable list for performance
     
     // Player trail effect
     private int trailSpawnTimer;
@@ -135,7 +143,7 @@ public class Game extends JPanel implements Runnable {
     private int bossFlashTimer; // Flash effect when boss takes damage
     private static final int BOSS_MAX_HITS = 3;
     private static final int VULNERABILITY_DURATION = 1200; // 20 second window
-    private static final int INVULNERABILITY_DURATION = 150; // 2.5 seconds at start (changed from 300/5 seconds)
+    private static final int INVULNERABILITY_DURATION = 180; // 3 seconds at start
     private boolean bossDeathAnimation;
     private int deathAnimationTimer;
     private static final int DEATH_ANIMATION_DURATION = 180; // 3 seconds
@@ -150,6 +158,24 @@ public class Game extends JPanel implements Runnable {
     private int grazeScore = 0; // Accumulate graze score
     private int hitPauseTimer = 0; // Brief pause on impact
     private int screenFlashTimer = 0; // Screen flash on player hit
+    
+    // Game feel effects
+    private int hitFreezeFrames = 0; // Freeze frames on boss damage
+    private double slowMotionFactor = 1.0; // Slow-motion multiplier (1.0 = normal)
+    private int slowMotionTimer = 0; // Timer for slow-motion effect
+    private double comboPulseScale = 1.0; // Scale pulse on combo increase
+    private double cameraBreathOffset = 0; // Subtle camera breathing
+    private double cameraBreathTime = 0; // Time for camera breathing sine wave
+    
+    // Smooth UI animations
+    private double displayedScore = 0; // Animated score display
+    private double displayedMoney = 0; // Animated money display
+    
+    // Afterimage trail for player
+    private double[] afterimageX = new double[5];
+    private double[] afterimageY = new double[5];
+    private double[] afterimageAlpha = new double[5];
+    private int afterimageTimer = 0;
     
     // Active item effects
     private boolean playerInvincible; // For INVINCIBILITY item and DASH i-frames
@@ -178,6 +204,7 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableMotionBlur = false;
     public static boolean enableChromaticAberration = true;
     public static boolean enableVignette = true;
+    public static boolean enableHitboxes = false; // Debug: show hitboxes for all objects
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
     
@@ -204,7 +231,13 @@ public class Game extends JPanel implements Runnable {
         setBackground(Color.BLACK);
         setFocusable(true);
         setDoubleBuffered(true); // Enable double buffering for smoother rendering
-        setCursor(new Cursor(Cursor.CROSSHAIR_CURSOR)); // Crosshair cursor for fullscreen
+        
+        // Create blank cursor for hiding during gameplay
+        blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(
+            new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), 
+            new Point(0, 0), "blank");
+        defaultCursor = new Cursor(Cursor.DEFAULT_CURSOR);
+        setCursor(defaultCursor);
         
         // Initialize systems
         keys = new boolean[256];
@@ -253,6 +286,21 @@ public class Game extends JPanel implements Runnable {
         consecutivePerfectBosses = 0;
         totalGrazesThisRun = 0;
         
+        // Initialize game feel effects
+        hitFreezeFrames = 0;
+        slowMotionFactor = 1.0;
+        slowMotionTimer = 0;
+        comboPulseScale = 1.0;
+        cameraBreathOffset = 0;
+        cameraBreathTime = 0;
+        displayedScore = 0;
+        displayedMoney = 0;
+        for (int i = 0; i < afterimageX.length; i++) {
+            afterimageX[i] = 0;
+            afterimageY[i] = 0;
+            afterimageAlpha[i] = 0;
+        }
+        
         // Setup input
         addKeyListener(new KeyAdapter() {
             @Override
@@ -275,6 +323,37 @@ public class Game extends JPanel implements Runnable {
             }
         });
         
+        // Add mouse listeners for UI navigation
+        addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                mouseX = e.getX();
+                mouseY = e.getY();
+                handleMouseMove();
+            }
+            
+            @Override
+            public void mouseDragged(java.awt.event.MouseEvent e) {
+                mouseX = e.getX();
+                mouseY = e.getY();
+            }
+        });
+        
+        addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                handleMouseClick(e);
+            }
+            
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                // Also handle press for more responsive feel
+                if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
+                    handleMouseClick(e);
+                }
+            }
+        });
+        
         // Start loading assets in background thread
         startAssetLoading();
     }
@@ -289,7 +368,7 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    selectedMenuItem = Math.min(4, selectedMenuItem + 1);
+                    selectedMenuItem = Math.min(5, selectedMenuItem + 1);
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
@@ -299,7 +378,8 @@ public class Game extends JPanel implements Runnable {
                         case 1: transitionToState(GameState.INFO); break;
                         case 2: transitionToState(GameState.STATS); break;
                         case 3: transitionToState(GameState.SHOP); break;
-                        case 4: transitionToState(GameState.SETTINGS); break;
+                        case 4: transitionToState(GameState.ACHIEVEMENTS); break;
+                        case 5: transitionToState(GameState.SETTINGS); break;
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -352,7 +432,7 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 1; 
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    selectedSettingsItem = Math.min(9, selectedSettingsItem + 1);
+                    selectedSettingsItem = Math.min(10, selectedSettingsItem + 1);
                     ensureSettingsItemVisible();
                     screenShakeIntensity = 1; 
                 }
@@ -365,6 +445,10 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case INFO:
+                if (key == KeyEvent.VK_ESCAPE) gameState = GameState.MENU;
+                break;
+                
+            case ACHIEVEMENTS:
                 if (key == KeyEvent.VK_ESCAPE) gameState = GameState.MENU;
                 break;
                 
@@ -589,12 +673,112 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    private void handleMouseMove() {
+        // Only handle mouse in menu states
+        if (gameState == GameState.MENU) {
+            UIButton[] buttons = renderer.getMenuButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i].contains(mouseX, mouseY)) {
+                    if (selectedMenuItem != i) {
+                        selectedMenuItem = i;
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.SETTINGS) {
+            UIButton[] buttons = renderer.getSettingsButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    if (selectedSettingsItem != i) {
+                        selectedSettingsItem = i;
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.PLAYING && isPaused) {
+            UIButton[] buttons = renderer.getPauseButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    if (selectedPauseItem != i) {
+                        selectedPauseItem = i;
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    private void handleMouseClick(java.awt.event.MouseEvent e) {
+        if (e.getButton() != java.awt.event.MouseEvent.BUTTON1) return;
+        
+        if (gameState == GameState.MENU) {
+            UIButton[] buttons = renderer.getMenuButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i].contains(mouseX, mouseY)) {
+                    selectedMenuItem = i;
+                    activateMenuItem(selectedMenuItem);
+                    break;
+                }
+            }
+        } else if (gameState == GameState.SETTINGS) {
+            UIButton[] buttons = renderer.getSettingsButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    toggleSetting(i);
+                    break;
+                }
+            }
+        } else if (gameState == GameState.PLAYING && isPaused) {
+            UIButton[] buttons = renderer.getPauseButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    selectedPauseItem = i;
+                    activatePauseMenuItem(selectedPauseItem);
+                    break;
+                }
+            }
+        }
+    }
+    
+    private void activateMenuItem(int index) {
+        screenShakeIntensity = 5;
+        switch (index) {
+            case 0: gameState = GameState.LEVEL_SELECT; break;
+            case 1: gameState = GameState.INFO; break;
+            case 2: gameState = GameState.STATS; break;
+            case 3: gameState = GameState.SHOP; break;
+            case 4: gameState = GameState.ACHIEVEMENTS; break;
+            case 5: gameState = GameState.SETTINGS; break;
+        }
+    }
+    
+    private void activatePauseMenuItem(int index) {
+        switch (index) {
+            case 0: // Resume
+                isPaused = false;
+                break;
+            case 1: // Restart
+                isPaused = false;
+                startGame();
+                break;
+            case 2: // Main Menu
+                isPaused = false;
+                gameState = GameState.MENU;
+                selectedMenuItem = 0;
+                break;
+        }
+    }
+
     private void startGame() {
         gameState = GameState.PLAYING;
         player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
+        beamAttacks.clear();
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel()); // Normal position, will move during intro
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
@@ -706,6 +890,49 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
+        // Update cursor visibility based on game state
+        boolean shouldHideCursor = (gameState == GameState.PLAYING && !isPaused);
+        Cursor currentCursor = getCursor();
+        if (shouldHideCursor && currentCursor != blankCursor) {
+            setCursor(blankCursor);
+        } else if (!shouldHideCursor && currentCursor == blankCursor) {
+            setCursor(defaultCursor);
+        }
+        
+        // Handle hit freeze frames (pause game briefly on boss damage)
+        if (hitFreezeFrames > 0) {
+            hitFreezeFrames--;
+            return; // Skip update during freeze
+        }
+        
+        // Apply slow-motion effect to delta time
+        double effectiveDelta = deltaTime;
+        if (slowMotionTimer > 0) {
+            slowMotionTimer--;
+            effectiveDelta = deltaTime * slowMotionFactor;
+            if (slowMotionTimer <= 0) {
+                slowMotionFactor = 1.0; // Reset
+            }
+        }
+        
+        // Use effectiveDelta for all gameplay updates during slow-motion
+        final double dt = effectiveDelta;
+        
+        // Update combo pulse animation (decay back to 1.0)
+        if (comboPulseScale > 1.0) {
+            comboPulseScale = Math.max(1.0, comboPulseScale - 0.05);
+        }
+        
+        // Update camera breathing effect
+        cameraBreathTime += 0.02;
+        cameraBreathOffset = Math.sin(cameraBreathTime) * 2.0;
+        
+        // Smooth UI number animations
+        double scoreTarget = gameData.getScore();
+        double moneyTarget = gameData.getTotalMoney() + gameData.getRunMoney();
+        displayedScore += (scoreTarget - displayedScore) * 0.15;
+        displayedMoney += (moneyTarget - displayedMoney) * 0.15;
+        
         // Update item unlock animation timer (let it countdown for animation progress)
         if (itemUnlockTimer > 0) {
             itemUnlockTimer--;
@@ -726,6 +953,25 @@ public class Game extends JPanel implements Runnable {
         }
         
         if (gameState != GameState.PLAYING) return;
+        
+        // Update afterimage trail for player
+        if (player != null) {
+            afterimageTimer++;
+            if (afterimageTimer >= 3) { // Every 3 frames
+                afterimageTimer = 0;
+                // Shift old positions
+                for (int i = afterimageX.length - 1; i > 0; i--) {
+                    afterimageX[i] = afterimageX[i-1];
+                    afterimageY[i] = afterimageY[i-1];
+                    afterimageAlpha[i] = afterimageAlpha[i-1] * 0.7; // Fade out
+                }
+                // Add new position
+                double speed = Math.sqrt(player.getVX() * player.getVX() + player.getVY() * player.getVY());
+                afterimageX[0] = player.getX();
+                afterimageY[0] = player.getY();
+                afterimageAlpha[0] = Math.min(1.0, speed / 4.0); // Only visible when moving fast
+            }
+        }
         
         // Reset active item effect states each frame
         playerInvincible = false;
@@ -785,6 +1031,14 @@ public class Game extends JPanel implements Runnable {
             screenShakeY = 0;
         }
         
+        // Update flash timers
+        if (bossFlashTimer > 0) {
+            bossFlashTimer--;
+        }
+        if (screenFlashTimer > 0) {
+            screenFlashTimer--;
+        }
+        
         // Update combo timer
         if (comboTimer > 0) {
             comboTimer -= deltaTime;
@@ -805,12 +1059,12 @@ public class Game extends JPanel implements Runnable {
         if (player != null) {
             // Only allow player control when intro pan is complete
             if (!introPanActive) {
-                player.update(keys, WIDTH, HEIGHT, deltaTime);
+                player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
             }
             
             // Handle intro sequence
             if (introPanActive) {
-                introPanTimer += deltaTime;
+                introPanTimer += dt;
                 
                 double halfDuration = INTRO_PAN_DURATION / 2.0;
                 if (introPanTimer < halfDuration) {
@@ -1067,15 +1321,17 @@ public class Game extends JPanel implements Runnable {
                         );
                     }
                     
-                    // Smoke particles (more with each hit)
-                    for (int i = 0; i < 15 * particleMultiplier; i++) {
+                    // Smoke particles (more with each hit) - use SMOKE type for softer look
+                    for (int i = 0; i < 8 * particleMultiplier; i++) {
                         double angle = Math.random() * TWO_PI;
-                        double speed = 0.5 + Math.random() * 2;
+                        double speed = 0.3 + Math.random() * 1.2;
+                        int gray = 50 + (int)(Math.random() * 40); // Vary darkness
                         addParticle(
-                            currentBoss.getX(), currentBoss.getY(),
+                            currentBoss.getX() + (Math.random() - 0.5) * 30, 
+                            currentBoss.getY() + (Math.random() - 0.5) * 20,
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            new Color(80, 80, 80, 150), 40, 8,
-                            Particle.ParticleType.SPARK
+                            new Color(gray, gray, gray, 120), 50 + (int)(Math.random() * 20), 12 + Math.random() * 8,
+                            Particle.ParticleType.SMOKE
                         );
                     }
                     
@@ -1130,12 +1386,15 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 
+                // Hit-pause: freeze frames on boss damage (more frames for more hits)
+                hitFreezeFrames = 3 + bossHitCount * 2;
+                
                 // Reset vulnerability
                 bossVulnerable = false;
                 invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
                 
                 screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
-                bossFlashTimer = 8; // Boss flash effect
+                bossFlashTimer = 12; // Longer boss flash effect
                 
                 // Check if boss is defeated using new health system
                 if (currentBoss.isDead()) {
@@ -1448,16 +1707,17 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 if (Math.random() < spawnChance * 0.7) {
-                    // Smoke particles (darker, slower)
+                    // Smoke particles (darker, slower) - use SMOKE type for softer look
                     double angle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
-                    double speed = 0.3 + Math.random() * 1.0;
+                    double speed = 0.2 + Math.random() * 0.8;
+                    int gray = 40 + (int)(Math.random() * 30);
                     addParticle(
                         currentBoss.getX() + (Math.random() - 0.5) * 35,
                         currentBoss.getY() + (Math.random() - 0.5) * 25,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed,
-                        new Color(60, 60, 60, 180), 50 + (int)(Math.random() * 30), 8 + Math.random() * 5,
-                        Particle.ParticleType.TRAIL
+                        new Color(gray, gray, gray, 140), 60 + (int)(Math.random() * 40), 10 + Math.random() * 6,
+                        Particle.ParticleType.SMOKE
                     );
                 }
             }
@@ -1700,15 +1960,43 @@ public class Game extends JPanel implements Runnable {
                     totalGrazesThisRun++;
                     comboSystem.addCombo();
                     
+                    // Trigger combo pulse effect
+                    comboPulseScale = 1.3;
+                    
+                    // Brief slow-motion on very close calls
+                    if (dist < grazeRadius * 0.5) {
+                        slowMotionFactor = 0.3;
+                        slowMotionTimer = 4; // 4 frames of slow-mo
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 3);
+                    }
+                    
                     // Add score with combo multiplier
                     int grazeScore = (int)(10 * comboSystem.getMultiplier());
                     gameData.addScore(grazeScore);
                     
-                    // Create graze particle effect
+                    // Create enhanced graze particle effect ("whoosh" particles)
                     if (enableParticles) {
-                        addParticle(bullet.getX(), bullet.getY(), 0, -1,
-                            new Color(100, 200, 255), 15, 3,
-                            Particle.ParticleType.SPARK);
+                        // Directional whoosh particles
+                        double bulletAngle = Math.atan2(bullet.getVY(), bullet.getVX());
+                        for (int j = 0; j < 6; j++) {
+                            double spreadAngle = bulletAngle + Math.PI + (Math.random() - 0.5) * 1.0;
+                            double speed = 2 + Math.random() * 3;
+                            addParticle(
+                                player.getX() + (Math.random() - 0.5) * 10, 
+                                player.getY() + (Math.random() - 0.5) * 10,
+                                Math.cos(spreadAngle) * speed, Math.sin(spreadAngle) * speed,
+                                new Color(100, 200, 255, 200), 18, 4,
+                                Particle.ParticleType.TRAIL
+                            );
+                        }
+                        // Glow ring at graze point
+                        addParticle(
+                            (bullet.getX() + player.getX()) / 2, 
+                            (bullet.getY() + player.getY()) / 2, 
+                            0, 0,
+                            new Color(150, 220, 255, 180), 12, 15,
+                            Particle.ParticleType.EXPLOSION
+                        );
                     }
                 }
             }
@@ -1796,9 +2084,9 @@ public class Game extends JPanel implements Runnable {
     
     // Spatial grid methods for optimized collision detection
     private int getGridKey(double x, double y) {
-        int gridX = (int)(x / GRID_CELL_SIZE);
-        int gridY = (int)(y / GRID_CELL_SIZE);
-        return gridX * 10000 + gridY; // Simple hash
+        int gridX = (int)(x * INV_GRID_CELL_SIZE);
+        int gridY = (int)(y * INV_GRID_CELL_SIZE);
+        return gridX * GRID_WIDTH_MULTIPLIER + gridY; // Simple hash
     }
     
     private void rebuildBulletGrid() {
@@ -1812,27 +2100,38 @@ public class Game extends JPanel implements Runnable {
     }
     
     private List<Bullet> getNearbyBullets(double x, double y) {
-        List<Bullet> nearby = new ArrayList<>();
+        nearbyBulletsCache.clear(); // Reuse list to avoid allocation
+        // Pre-compute base grid coordinates
+        int baseX = (int)(x * INV_GRID_CELL_SIZE);
+        int baseY = (int)(y * INV_GRID_CELL_SIZE);
+        
         // Check 3x3 grid around player
         for (int dx = -1; dx <= 1; dx++) {
+            int checkX = baseX + dx;
             for (int dy = -1; dy <= 1; dy++) {
-                int checkX = (int)(x / GRID_CELL_SIZE) + dx;
-                int checkY = (int)(y / GRID_CELL_SIZE) + dy;
-                int key = checkX * 10000 + checkY;
+                int checkY = baseY + dy;
+                int key = checkX * GRID_WIDTH_MULTIPLIER + checkY;
                 List<Bullet> cellBullets = bulletGrid.get(key);
                 if (cellBullets != null) {
-                    nearby.addAll(cellBullets);
+                    nearbyBulletsCache.addAll(cellBullets);
                 }
             }
         }
-        return nearby;
+        return nearbyBulletsCache;
     }
     
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Use faster rendering during intense gameplay, better quality for menus
+        if (gameState == GameState.PLAYING && bullets.size() > 100) {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        } else {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         
         // Draw previous state if transitioning
         if (stateTransitionProgress < 1.0f && previousState != null) {
@@ -1864,6 +2163,9 @@ public class Game extends JPanel implements Runnable {
                 break;
             case INFO:
                 renderer.drawInfo(g2d, WIDTH, HEIGHT, gradientTime);
+                break;
+            case ACHIEVEMENTS:
+                renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager);
                 break;
             case STATS:
                 renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime);
@@ -1959,6 +2261,9 @@ public class Game extends JPanel implements Runnable {
                 break;
             case 9: // Vignette
                 enableVignette = !enableVignette;
+                break;
+            case 10: // Hitboxes
+                enableHitboxes = !enableHitboxes;
                 break;
         }
     }
@@ -2123,6 +2428,24 @@ public class Game extends JPanel implements Runnable {
             case BOMB:
                 // Clear all bullets (instant effect)
                 int clearedBullets = bullets.size();
+                
+                // Create destruction particles for each bullet before clearing
+                if (enableParticles) {
+                    for (Bullet bullet : bullets) {
+                        // Spawn particles at each bullet's position
+                        for (int j = 0; j < 3; j++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 1 + Math.random() * 2;
+                            addParticle(
+                                bullet.getX(), bullet.getY(),
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                new Color(255, 200, 100, 200), 15, 4,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                }
+                
                 for (Bullet bullet : bullets) {
                     returnBulletToPool(bullet);
                 }
@@ -2144,8 +2467,17 @@ public class Game extends JPanel implements Runnable {
                             Particle.ParticleType.SPARK
                         );
                     }
+                    // Add expanding shockwave rings
+                    for (int i = 0; i < 3; i++) {
+                        addParticle(
+                            player.getX(), player.getY(), 0, 0,
+                            new Color(255, 200, 100, 200 - i * 50), 30 + i * 10, 50 + i * 40,
+                            Particle.ParticleType.EXPLOSION
+                        );
+                    }
                 }
                 
+                hitFreezeFrames = 5; // Brief freeze on bomb
                 screenShakeIntensity = 15;
                 break;
                 

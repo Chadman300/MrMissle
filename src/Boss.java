@@ -60,6 +60,16 @@ public class Boss {
     private int phaseTransitionTimer;
     private static final int PHASE_TRANSITION_DURATION = 90; // 1.5 seconds
     
+    // Attack rhythm phases (Assault vs Recovery)
+    private boolean isAssaultPhase = true; // true = aggressive, false = recovery
+    private int attackPhaseTimer = 0;
+    private int assaultPhaseDuration = 300; // 5 seconds of assault (at 60fps)
+    private int recoveryPhaseDuration = 180; // 3 seconds of recovery
+    private double assaultSpeedMultiplier = 1.8; // Attack 80% faster during assault
+    private double recoverySpeedMultiplier = 0.4; // Attack 60% slower during recovery
+    private int phaseFlashTimer = 0; // Visual flash when phase changes
+    private boolean justChangedPhase = false; // For visual effects
+    
     public Boss(double x, double y, int level) {
         this.x = x;
         this.y = y;
@@ -84,7 +94,7 @@ public class Boss {
         this.maxPatterns = Math.min(2 + (level * 2), 15); // Cap at 15 patterns (includes explosives)
         
         this.shootTimer = 0;
-        this.shootInterval = Math.max(50, 80 + level * 3); // Back to original timing
+        this.shootInterval = Math.max(45, 75 + level * 2); // Slightly faster but more consistent
         // Start with random pattern from available pool
         this.patternType = (int)(Math.random() * maxPatterns);
         // Start with current position as target
@@ -92,15 +102,28 @@ public class Boss {
         this.targetY = y;
         this.moveTimer = 0;
         this.beamAttacks = new ArrayList<>();
-        this.beamAttackTimer = 120 + (int)(Math.random() * 60); // First beam after 2-3 seconds
-        this.beamAttackInterval = Math.max(180, 300 - level * 10); // More frequent at higher levels
+        this.beamAttackTimer = 180 + (int)(Math.random() * 60); // First beam after 3-4 seconds
+        this.beamAttackInterval = Math.max(240, 360 - level * 8); // Less frequent, more manageable
         
         // Initialize health and phases
-        this.maxHealth = isMegaBoss ? 4 : 3; // Mega bosses have 4 phases, regular have 3
+        this.maxHealth = isMegaBoss ? 3 : 2; // Mega bosses have 3 hits, mini bosses have 2 hits
         this.currentHealth = maxHealth;
         this.currentPhase = 0;
         this.phaseTransitioning = false;
         this.phaseTransitionTimer = 0;
+        
+        // Initialize attack rhythm phases - scale with level
+        this.isAssaultPhase = true;
+        this.attackPhaseTimer = 0;
+        // Assault gets longer and recovery gets shorter at higher levels
+        this.assaultPhaseDuration = 300 + level * 15; // 5-8 seconds
+        this.recoveryPhaseDuration = Math.max(120, 210 - level * 8); // 3.5-2 seconds
+        // Mega bosses are more aggressive
+        if (isMegaBoss) {
+            this.assaultPhaseDuration += 60; // +1 second assault
+            this.recoveryPhaseDuration -= 30; // -0.5 second recovery
+            this.assaultSpeedMultiplier = 2.2; // Even faster attacks
+        }
         
         loadSprites();
     }
@@ -400,9 +423,30 @@ public class Boss {
             vy *= -0.5; // Bounce with energy loss
         }
         
+        // Update attack rhythm phase (Assault vs Recovery)
+        attackPhaseTimer += deltaTime;
+        phaseFlashTimer = Math.max(0, phaseFlashTimer - 1);
+        justChangedPhase = false;
+        
+        int currentPhaseDuration = isAssaultPhase ? assaultPhaseDuration : recoveryPhaseDuration;
+        if (attackPhaseTimer >= currentPhaseDuration) {
+            attackPhaseTimer = 0;
+            isAssaultPhase = !isAssaultPhase;
+            phaseFlashTimer = 30; // Visual flash for 0.5 seconds
+            justChangedPhase = true;
+            
+            // When entering assault phase, immediately switch to a new pattern
+            if (isAssaultPhase) {
+                patternType = (int)(Math.random() * maxPatterns);
+            }
+        }
+        
+        // Calculate attack speed based on current phase
+        double attackPhaseMultiplier = isAssaultPhase ? assaultSpeedMultiplier : recoverySpeedMultiplier;
+        
         // Shooting pattern (scaled by delta time) - faster in later phases
         double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
-        shootTimer += deltaTime * phaseSpeedMultiplier;
+        shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier;
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
             shoot(bullets, player);
@@ -1150,12 +1194,22 @@ public class Boss {
     public boolean isMegaBoss() { return isMegaBoss; }
     public String getVehicleName() { return getVehicleName(level); }
     
+    // Attack phase getters
+    public boolean isAssaultPhase() { return isAssaultPhase; }
+    public boolean isRecoveryPhase() { return !isAssaultPhase; }
+    public float getAttackPhaseProgress() { 
+        int duration = isAssaultPhase ? assaultPhaseDuration : recoveryPhaseDuration;
+        return (float)attackPhaseTimer / duration;
+    }
+    public int getPhaseFlashTimer() { return phaseFlashTimer; }
+    public boolean justChangedPhase() { return justChangedPhase; }
+    
     // Get money reward based on boss type
     public int getMoneyReward() {
         if (isMegaBoss) {
-            return 500 + (level * 200); // Mega bosses give much more money
+            return 700 + (level * 250); // Mega bosses give much more money
         } else {
-            return 100 + (level * 50); // Mini bosses give less money
+            return 150 + (level * 70); // Mini bosses give better rewards
         }
     }
 }

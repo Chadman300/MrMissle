@@ -9,11 +9,20 @@ public class Particle {
     private double size;
     private ParticleType type;
     
+    // Cached values to avoid recomputation
+    private double progress; // Cached progress (0 to 1)
+    private double expansionSize; // Cached expansion size for SMOKE/DODGE
+    
     // Cached AlphaComposite instances for performance
     private static final AlphaComposite[] ALPHA_CACHE = new AlphaComposite[101];
+    private static final BasicStroke STROKE_3 = new BasicStroke(3f);
+    private static final BasicStroke[] STROKE_CACHE = new BasicStroke[20];
     static {
         for (int i = 0; i <= 100; i++) {
             ALPHA_CACHE[i] = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, i / 100f);
+        }
+        for (int i = 0; i < 20; i++) {
+            STROKE_CACHE[i] = new BasicStroke(i * 0.5f);
         }
     }
     
@@ -21,7 +30,8 @@ public class Particle {
         SPARK,      // Quick burst
         TRAIL,      // Smooth trail
         EXPLOSION,  // Expanding circle
-        DODGE       // Lucky dodge effect
+        DODGE,      // Lucky dodge effect
+        SMOKE       // Soft, expanding smoke puffs
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
@@ -63,6 +73,18 @@ public class Particle {
         lifetime -= deltaTime;
         vx *= 0.98;
         vy *= 0.98;
+        
+        // Pre-compute progress for rendering
+        progress = 1.0 - (double)lifetime / maxLifetime;
+        
+        // Pre-compute expansion size for SMOKE and DODGE types
+        if (type == ParticleType.SMOKE) {
+            expansionSize = size * (1.5 + progress * 2.5);
+        } else if (type == ParticleType.DODGE) {
+            expansionSize = size * (1 + (maxLifetime - lifetime) / (double)maxLifetime);
+        } else if (type == ParticleType.EXPLOSION) {
+            expansionSize = size * (1 + progress * 2);
+        }
     }
     
     public void draw(Graphics2D g) {
@@ -80,21 +102,38 @@ public class Particle {
             case TRAIL:
                 g.setColor(color);
                 int trailLength = (int)(size * 2);
-                g.setStroke(new BasicStroke((float)size));
+                int strokeIndex = Math.min(19, Math.max(0, (int)(size * 2)));
+                g.setStroke(STROKE_CACHE[strokeIndex]);
                 g.drawLine((int)x, (int)y, (int)(x - vx * trailLength), (int)(y - vy * trailLength));
                 break;
                 
             case EXPLOSION:
-                double expansionSize = size * (1 + (maxLifetime - lifetime) / (double)maxLifetime * 2);
                 g.setColor(color);
-                g.setStroke(new BasicStroke(3f));
+                g.setStroke(STROKE_3);
                 g.drawOval((int)(x - expansionSize/2), (int)(y - expansionSize/2), (int)expansionSize, (int)expansionSize);
                 break;
                 
             case DODGE:
-                double dodgeSize = size * (1 + (maxLifetime - lifetime) / (double)maxLifetime);
                 g.setColor(color);
-                g.fillOval((int)(x - dodgeSize/2), (int)(y - dodgeSize/2), (int)dodgeSize, (int)dodgeSize);
+                g.fillOval((int)(x - expansionSize/2), (int)(y - expansionSize/2), (int)expansionSize, (int)expansionSize);
+                break;
+                
+            case SMOKE:
+                // Smoke expands and fades - softer, larger look
+                int baseAlpha = color.getAlpha();
+                int fadedAlpha = (int)(baseAlpha * alpha * 0.6);
+                
+                // Outer soft layer (use cached color components)
+                int r = color.getRed();
+                int gColor = color.getGreen();
+                int b = color.getBlue();
+                g.setColor(new Color(r, gColor, b, Math.max(0, fadedAlpha / 2)));
+                g.fillOval((int)(x - expansionSize * 0.7), (int)(y - expansionSize * 0.7), 
+                          (int)(expansionSize * 1.4), (int)(expansionSize * 1.4));
+                
+                // Core layer
+                g.setColor(new Color(r, gColor, b, Math.max(0, fadedAlpha)));
+                g.fillOval((int)(x - expansionSize/2), (int)(y - expansionSize/2), (int)expansionSize, (int)expansionSize);
                 break;
         }
         

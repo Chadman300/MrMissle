@@ -26,11 +26,11 @@ public class ShopManager {
     public int getItemCost(int itemIndex) {
         switch (itemIndex) {
             case 0: return 0; // Free (just continue)
-            case 1: return 100 + (gameData.getSpeedUpgradeLevel() * 50);
-            case 2: return 150 + (gameData.getBulletSlowUpgradeLevel() * 75);
-            case 3: return 200 + (gameData.getLuckyDodgeUpgradeLevel() * 100);
-            case 4: return 250 + (gameData.getAttackWindowUpgradeLevel() * 125);
-            case 5: return 300; // Score multiplier
+            case 1: return 75 + (gameData.getSpeedUpgradeLevel() * 35);
+            case 2: return 100 + (gameData.getBulletSlowUpgradeLevel() * 50);
+            case 3: return 125 + (gameData.getLuckyDodgeUpgradeLevel() * 65);
+            case 4: return 150 + (gameData.getAttackWindowUpgradeLevel() * 75);
+            case 5: return 200; // Score multiplier
             default: return 0;
         }
     }

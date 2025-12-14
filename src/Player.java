@@ -8,6 +8,7 @@ import javax.imageio.ImageIO;
 public class Player {
     private double x, y;
     private double vx, vy; // Velocity
+    private double prevVX, prevVY; // Previous velocity for squash/stretch
     private static final int SIZE = 20;
     private static final double MAX_SPEED = 6.0;
     private static final double ACCELERATION = 0.5;
@@ -15,6 +16,15 @@ public class Player {
     private double speedMultiplier;
     private int flickerTimer; // For Lucky Dodge animation
     private static final int FLICKER_DURATION = 15; // Frames to flicker
+    
+    // Cached values for performance
+    private double cachedSpeed = 0; // Cached velocity magnitude
+    private int speedCacheAge = 0; // Age of cached speed value
+    private static final double INV_SQRT_2 = 1.0 / Math.sqrt(2); // Pre-computed constant
+    
+    // Squash and stretch animation
+    private double squashX = 1.0; // Horizontal scale
+    private double squashY = 1.0; // Vertical scale
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
@@ -33,8 +43,12 @@ public class Player {
         this.y = y;
         this.vx = 0;
         this.vy = 0;
+        this.prevVX = 0;
+        this.prevVY = 0;
         this.speedMultiplier = 1.0 + (speedUpgradeLevel * 0.15);
         this.flickerTimer = 0;
+        this.squashX = 1.0;
+        this.squashY = 1.0;
         loadSprite();
     }
     
@@ -80,6 +94,10 @@ public class Player {
         // Decrement flicker timer (scaled by delta time)
         if (flickerTimer > 0) flickerTimer -= deltaTime;
         
+        // Store previous velocity for squash/stretch calculation
+        prevVX = vx;
+        prevVY = vy;
+        
         // Acceleration-based movement
         double ax = 0, ay = 0;
         
@@ -90,8 +108,8 @@ public class Player {
         
         // Normalize diagonal acceleration
         if (ax != 0 && ay != 0) {
-            ax *= 0.707; // 1/sqrt(2)
-            ay *= 0.707;
+            ax *= INV_SQRT_2;
+            ay *= INV_SQRT_2;
         }
         
         // Apply acceleration to velocity (scaled by delta time)
@@ -103,13 +121,41 @@ public class Player {
         if (ax == 0) vx *= frictionFactor;
         if (ay == 0) vy *= frictionFactor;
         
-        // Clamp velocity to max speed
+        // Clamp velocity to max speed using cached speed calculation
         double maxSpeed = MAX_SPEED * speedMultiplier;
-        double speed = Math.sqrt(vx * vx + vy * vy);
-        if (speed > maxSpeed) {
-            vx = (vx / speed) * maxSpeed;
-            vy = (vy / speed) * maxSpeed;
+        // Only recalculate speed every few frames or when needed
+        if (speedCacheAge > 3 || cachedSpeed == 0 || (ax != 0 || ay != 0)) {
+            cachedSpeed = Math.sqrt(vx * vx + vy * vy);
+            speedCacheAge = 0;
+        } else {
+            speedCacheAge++;
         }
+        
+        if (cachedSpeed > maxSpeed) {
+            double ratio = maxSpeed / cachedSpeed;
+            vx *= ratio;
+            vy *= ratio;
+            cachedSpeed = maxSpeed;
+        }
+        
+        // Calculate squash/stretch based on speed and direction changes
+        double speedRatio = cachedSpeed / maxSpeed;
+        double targetSquashX = 1.0 - speedRatio * 0.15; // Compress horizontally when moving
+        double targetSquashY = 1.0 + speedRatio * 0.2;  // Stretch vertically when moving
+        
+        // Detect direction change for additional squash effect
+        if ((vx > 0 && prevVX < 0) || (vx < 0 && prevVX > 0)) {
+            targetSquashX = 1.2; // Brief horizontal squash on direction change
+            targetSquashY = 0.8;
+        }
+        if ((vy > 0 && prevVY < 0) || (vy < 0 && prevVY > 0)) {
+            targetSquashY = 1.2;
+            targetSquashX = 0.8;
+        }
+        
+        // Smoothly interpolate squash values
+        squashX += (targetSquashX - squashX) * 0.2;
+        squashY += (targetSquashY - squashY) * 0.2;
         
         // Apply velocity to position (scaled by delta time)
         x += vx * deltaTime;
@@ -156,6 +202,9 @@ public class Player {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.translate(x, y);
+        
+        // Apply squash/stretch transformation
+        g2d.scale(squashX, squashY);
         
         // Calculate sprite dimensions proportionally based on native size
         int spriteWidth, spriteHeight;
@@ -227,13 +276,14 @@ public class Player {
     }
     
     public boolean collidesWith(Boss boss) {
-        // Check if player touches boss (instant win)
+        // Check if player touches boss (instant win) - use squared distance
         if (boss == null) return false;
         double dx = x - boss.getX();
         double dy = y - boss.getY();
-        double distance = Math.sqrt(dx * dx + dy * dy);
+        double distanceSquared = dx * dx + dy * dy;
         // Smaller hitbox for boss collision (40% of sprite size)
-        return distance < (SIZE * 0.4) + (boss.getSize() * 0.6);
+        double threshold = (SIZE * 0.4) + (boss.getSize() * 0.6);
+        return distanceSquared < threshold * threshold;
     }
     
     public void triggerFlicker() {

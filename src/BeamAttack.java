@@ -64,7 +64,14 @@ public class BeamAttack {
         }
     }
     
-    public void draw(Graphics2D g, int screenWidth, int screenHeight) {
+    public void draw(Graphics2D g, int screenWidth, int screenHeight, double cameraX, double cameraY) {
+        // Extend drawing area to account for camera offset
+        int margin = 100; // Extra margin to ensure beams reach screen edges
+        int minX = (int)cameraX - margin;
+        int minY = (int)cameraY - margin;
+        int maxX = (int)cameraX + screenWidth + margin;
+        int maxY = (int)cameraY + screenHeight + margin;
+        
         if (warningTimer > 0) {
             // Calculate color transition: green → yellow → red
             // Progress from 0 (start) to 1 (end of warning)
@@ -99,13 +106,13 @@ public class BeamAttack {
             if (type == BeamType.VERTICAL) {
                 // Draw vertical warning line
                 int x = (int)(position - width / 2);
-                g.fillRect(x, 0, (int)width, screenHeight);
+                g.fillRect(x, minY, (int)width, maxY - minY);
                 
                 // Draw warning borders
                 g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
                 g.setStroke(new BasicStroke(3));
-                g.drawLine(x, 0, x, screenHeight);
-                g.drawLine(x + (int)width, 0, x + (int)width, screenHeight);
+                g.drawLine(x, minY, x, maxY);
+                g.drawLine(x + (int)width, minY, x + (int)width, maxY);
                 
                 // Draw warning text
                 if (warningTimer > 30) {
@@ -114,20 +121,20 @@ public class BeamAttack {
                     FontMetrics fm = g.getFontMetrics();
                     int textX = (int)(position - fm.stringWidth(warning) / 2);
                     // Draw multiple warning symbols along the beam
-                    for (int y = 50; y < screenHeight; y += 100) {
+                    for (int y = minY + 50; y < maxY; y += 100) {
                         g.drawString(warning, textX, y);
                     }
                 }
             } else {
                 // Draw horizontal warning line
                 int y = (int)(position - width / 2);
-                g.fillRect(0, y, screenWidth, (int)width);
+                g.fillRect(minX, y, maxX - minX, (int)width);
                 
                 // Draw warning borders
                 g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
                 g.setStroke(new BasicStroke(3));
-                g.drawLine(0, y, screenWidth, y);
-                g.drawLine(0, y + (int)width, screenWidth, y + (int)width);
+                g.drawLine(minX, y, maxX, y);
+                g.drawLine(minX, y + (int)width, maxX, y + (int)width);
                 
                 // Draw warning text
                 if (warningTimer > 30) {
@@ -136,7 +143,7 @@ public class BeamAttack {
                     FontMetrics fm = g.getFontMetrics();
                     int textY = (int)(position + fm.getHeight() / 3);
                     // Draw multiple warning symbols along the beam
-                    for (int x = 50; x < screenWidth; x += 100) {
+                    for (int x = minX + 50; x < maxX; x += 100) {
                         g.drawString(warning, x, textY);
                     }
                 }
@@ -148,19 +155,19 @@ public class BeamAttack {
                 
                 // Outer glow
                 g.setColor(new Color(191, 97, 106, 80));
-                g.fillRect(x - 10, 0, (int)width + 20, screenHeight);
+                g.fillRect(x - 10, minY, (int)width + 20, maxY - minY);
                 
                 // Main beam (red)
                 g.setColor(new Color(191, 97, 106, 200));
-                g.fillRect(x, 0, (int)width, screenHeight);
+                g.fillRect(x, minY, (int)width, maxY - minY);
                 
                 // Inner bright core
                 g.setColor(new Color(255, 150, 150, 220));
-                g.fillRect(x + (int)width / 4, 0, (int)width / 2, screenHeight);
+                g.fillRect(x + (int)width / 4, minY, (int)width / 2, maxY - minY);
                 
                 // Animated scanlines for effect
                 g.setColor(new Color(255, 200, 200, 100));
-                for (int y = 0; y < screenHeight; y += 8) {
+                for (int y = minY; y < maxY; y += 8) {
                     int offset = (int)((beamTimer * 10) % 8);
                     g.fillRect(x, y + offset, (int)width, 2);
                 }
@@ -169,24 +176,29 @@ public class BeamAttack {
                 
                 // Outer glow
                 g.setColor(new Color(191, 97, 106, 80));
-                g.fillRect(0, y - 10, screenWidth, (int)width + 20);
+                g.fillRect(minX, y - 10, maxX - minX, (int)width + 20);
                 
                 // Main beam (red)
                 g.setColor(new Color(191, 97, 106, 200));
-                g.fillRect(0, y, screenWidth, (int)width);
+                g.fillRect(minX, y, maxX - minX, (int)width);
                 
                 // Inner bright core
                 g.setColor(new Color(255, 150, 150, 220));
-                g.fillRect(0, y + (int)width / 4, screenWidth, (int)width / 2);
+                g.fillRect(minX, y + (int)width / 4, maxX - minX, (int)width / 2);
                 
                 // Animated scanlines for effect
                 g.setColor(new Color(255, 200, 200, 100));
-                for (int x = 0; x < screenWidth; x += 8) {
+                for (int x = minX; x < maxX; x += 8) {
                     int offset = (int)((beamTimer * 10) % 8);
                     g.fillRect(x + offset, y, 2, (int)width);
                 }
             }
         }
+    }
+    
+    // Overload for backward compatibility
+    public void draw(Graphics2D g, int screenWidth, int screenHeight) {
+        draw(g, screenWidth, screenHeight, 0, 0);
     }
     
     public BeamType getType() { return type; }
