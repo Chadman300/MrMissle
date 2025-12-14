@@ -31,6 +31,16 @@ public class GameData {
     private ActiveItem equippedItem;
     private int equippedItemIndex; // Index in unlocked items list
     
+    // Risk Contracts system (permanent unlock)
+    private boolean contractsUnlocked;
+    
+    // Audio settings
+    private float masterVolume = 0.7f;
+    private float sfxVolume = 0.8f;
+    private float uiVolume = 0.8f;
+    private float musicVolume = 0.5f;
+    private boolean soundEnabled = true;
+
     public GameData() {
         score = 0;
         totalMoney = 0;
@@ -52,6 +62,9 @@ public class GameData {
         unlockedItems = new java.util.ArrayList<>();
         equippedItem = null;
         equippedItemIndex = -1;
+        
+        // Risk contracts start locked
+        contractsUnlocked = false;
     }
     
     // Getters and setters
@@ -192,4 +205,25 @@ public class GameData {
     public java.util.List<ActiveItem.ItemType> getUnlockedItems() { return unlockedItems; }
     public int getEquippedItemIndex() { return equippedItemIndex; }
     public boolean hasActiveItems() { return !unlockedItems.isEmpty(); }
+    
+    // Risk Contracts methods
+    public boolean areContractsUnlocked() { return contractsUnlocked; }
+    public void unlockContracts() { contractsUnlocked = true; }
+    public void setContractsUnlocked(boolean unlocked) { contractsUnlocked = unlocked; }
+    
+    // Audio settings methods
+    public float getMasterVolume() { return masterVolume; }
+    public void setMasterVolume(float volume) { this.masterVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getSfxVolume() { return sfxVolume; }
+    public void setSfxVolume(float volume) { this.sfxVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getUiVolume() { return uiVolume; }
+    public void setUiVolume(float volume) { this.uiVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getMusicVolume() { return musicVolume; }
+    public void setMusicVolume(float volume) { this.musicVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public boolean isSoundEnabled() { return soundEnabled; }
+    public void setSoundEnabled(boolean enabled) { this.soundEnabled = enabled; }
 }

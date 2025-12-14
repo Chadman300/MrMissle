@@ -97,6 +97,14 @@ public class Game extends JPanel implements Runnable {
     private static final int ITEM_UNLOCK_DURATION = 180; // 3 seconds
     private static final int ITEM_DISMISS_DURATION = 30; // 0.5 seconds fade out
     
+    // Contract unlock animation
+    private boolean contractUnlockAnimation;
+    private boolean contractUnlockDismissing;
+    private int contractUnlockTimer;
+    private int contractUnlockDismissTimer;
+    private static final int CONTRACT_UNLOCK_DURATION = 240; // 4 seconds (longer for more info)
+    private static final int CONTRACT_DISMISS_DURATION = 30;
+    
     // UI Transitions
     private GameState previousState;
     private float stateTransitionProgress; // 0.0 = old state, 1.0 = new state
@@ -155,9 +163,30 @@ public class Game extends JPanel implements Runnable {
     
     // Polish effects
     private static final double GRAZE_DISTANCE = 25; // Distance for graze detection
+    private static final double CLOSE_CALL_DISTANCE = 15; // Very close graze
+    private static final double PERFECT_DODGE_DISTANCE = 8; // Frame-perfect dodge
     private int grazeScore = 0; // Accumulate graze score
     private int hitPauseTimer = 0; // Brief pause on impact
     private int screenFlashTimer = 0; // Screen flash on player hit
+    
+    // Perfect Dodge system
+    private int perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
+    private static final int PERFECT_DODGE_IFRAMES = 8; // 8 frames of invincibility
+    private int perfectDodgeFlashTimer = 0; // Visual flash effect
+    
+    // Risk Contract system
+    private boolean riskContractActive = false;
+    private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no shield
+    private double riskContractMultiplier = 1.0; // Money multiplier from contract
+    private int selectedRiskContract = 0; // Currently selected contract in menu
+    private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Shieldless"};
+    private static final String[] RISK_CONTRACT_DESCRIPTIONS = {
+        "Play normally with no modifiers",
+        "Double the bullets, double the money! (2x)",
+        "Bullets move 50% faster (1.75x)",
+        "Shield item disabled (1.5x)"
+    };
+    private static final double[] RISK_CONTRACT_MULTIPLIERS = {1.0, 2.0, 1.75, 1.5};
     
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
@@ -196,6 +225,7 @@ public class Game extends JPanel implements Runnable {
     
     // Settings
     private int selectedSettingsItem;
+    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Debug
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
     public static boolean enableParticles = true;
@@ -207,6 +237,9 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableHitboxes = false; // Debug: show hitboxes for all objects
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
+    
+    // Sound Manager
+    private SoundManager soundManager;
     
     // Quit confirmation
     private int escapeTimer; // Timer for double-tap escape confirmation
@@ -254,6 +287,7 @@ public class Game extends JPanel implements Runnable {
         comboSystem = new ComboSystem();
         pendingAchievements = new ArrayList<>();
         damageNumbers = new ArrayList<>();
+        soundManager = SoundManager.getInstance();
         
         // Initial state - start with loading screen
         gameState = GameState.LOADING;
@@ -261,11 +295,16 @@ public class Game extends JPanel implements Runnable {
         selectedMenuItem = 0;
         settingsScroll = 0;
         selectedSettingsItem = 0;
+        selectedSettingsCategory = 0;
         gradientTime = 0;
         itemUnlockAnimation = false;
         itemUnlockDismissing = false;
         itemUnlockTimer = 0;
         itemUnlockDismissTimer = 0;
+        contractUnlockAnimation = false;
+        contractUnlockDismissing = false;
+        contractUnlockTimer = 0;
+        contractUnlockDismissTimer = 0;
         previousState = GameState.MENU;
         stateTransitionProgress = 1.0f;
         unlockedItemName = "";
@@ -286,6 +325,13 @@ public class Game extends JPanel implements Runnable {
         consecutivePerfectBosses = 0;
         totalGrazesThisRun = 0;
         
+        // Sync sound settings with soundManager
+        soundManager.setMasterVolume(gameData.getMasterVolume());
+        soundManager.setSfxVolume(gameData.getSfxVolume());
+        soundManager.setUiVolume(gameData.getUiVolume());
+        soundManager.setMusicVolume(gameData.getMusicVolume());
+        soundManager.setSoundEnabled(gameData.isSoundEnabled());
+        
         // Initialize game feel effects
         hitFreezeFrames = 0;
         slowMotionFactor = 1.0;
@@ -302,6 +348,7 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Setup input
+        setFocusTraversalKeysEnabled(false); // Prevent TAB from being consumed
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -365,13 +412,16 @@ public class Game extends JPanel implements Runnable {
             case MENU:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
                     selectedMenuItem = Math.max(0, selectedMenuItem - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
                     selectedMenuItem = Math.min(5, selectedMenuItem + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                     screenShakeIntensity = 5;
                     switch (selectedMenuItem) {
                         case 0: transitionToState(GameState.LEVEL_SELECT); break;
@@ -429,19 +479,43 @@ public class Game extends JPanel implements Runnable {
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
                     selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); 
                     ensureSettingsItemVisible();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1; 
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    selectedSettingsItem = Math.min(10, selectedSettingsItem + 1);
+                    int maxItems = getMaxSettingsItems();
+                    selectedSettingsItem = Math.min(maxItems, selectedSettingsItem + 1);
                     ensureSettingsItemVisible();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1; 
                 }
-                else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    toggleSetting(selectedSettingsItem);
-                    screenShakeIntensity = 3;
+                else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                    adjustSetting(selectedSettingsItem, -1);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 2;
                 }
-                else if (key == KeyEvent.VK_SPACE) { toggleSetting(selectedSettingsItem); screenShakeIntensity = 3; }
-                else if (key == KeyEvent.VK_ESCAPE) { gameState = GameState.MENU; screenShakeIntensity = 3; }
+                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                    adjustSetting(selectedSettingsItem, 1);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 2;
+                }
+                else if (key == KeyEvent.VK_SPACE) { 
+                    toggleSetting(selectedSettingsItem);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3; 
+                }
+                else if (key == KeyEvent.VK_TAB) {
+                    // Switch category
+                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 3;
+                    selectedSettingsItem = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                    screenShakeIntensity = 2;
+                }
+                else if (key == KeyEvent.VK_ESCAPE) { 
+                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    gameState = GameState.MENU; 
+                    screenShakeIntensity = 3; 
+                }
                 break;
                 
             case INFO:
@@ -459,6 +533,22 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { scrollLevelSelectDown(); screenShakeIntensity = 1; }
                 else if (key == KeyEvent.VK_SPACE) { startSelectedLevel(); screenShakeIntensity = 5; }
                 else if (key == KeyEvent.VK_ESCAPE) { gameState = GameState.MENU; screenShakeIntensity = 3; }
+                break;
+            
+            case RISK_CONTRACT:
+                if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                    selectedRiskContract = Math.max(0, selectedRiskContract - 1);
+                    screenShakeIntensity = 2;
+                } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                    selectedRiskContract = Math.min(RISK_CONTRACT_NAMES.length - 1, selectedRiskContract + 1);
+                    screenShakeIntensity = 2;
+                } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    confirmRiskContract();
+                    screenShakeIntensity = 5;
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    transitionToState(GameState.LEVEL_SELECT);
+                    screenShakeIntensity = 3;
+                }
                 break;
                 
             case PLAYING:
@@ -484,6 +574,7 @@ public class Game extends JPanel implements Runnable {
                 } else {
                     // Regular gameplay controls
                     if (key == KeyEvent.VK_P || key == KeyEvent.VK_ESCAPE) {
+                        soundManager.playSound(SoundManager.Sound.PAUSE);
                         isPaused = true;
                         selectedPauseItem = 0;
                         screenShakeIntensity = 3;
@@ -505,9 +596,11 @@ public class Game extends JPanel implements Runnable {
                             screenShakeIntensity = 3;
                         }
                     } else if (key == KeyEvent.VK_T && currentBoss != null && player != null) {
-                        // Debug: Teleport player to boss (instant death)
-                        player.setPosition(currentBoss.getX(), currentBoss.getY());
-                        screenShakeIntensity = 10;
+                        // Debug: Instantly defeat boss and win level
+                        while (currentBoss.getCurrentHealth() > 0) {
+                            currentBoss.takeDamage();
+                        }
+                        screenShakeIntensity = 15;
                     }
                 }
                 break;
@@ -545,7 +638,18 @@ public class Game extends JPanel implements Runnable {
                 
             case WIN:
                 if (key == KeyEvent.VK_SPACE) {
-                    // If animation is playing, start dismiss animation
+                    // If contract animation is playing, start dismiss animation
+                    if (contractUnlockAnimation && !contractUnlockDismissing) {
+                        contractUnlockDismissing = true;
+                        contractUnlockDismissTimer = CONTRACT_DISMISS_DURATION;
+                        return;
+                    }
+                    // If contract dismiss is happening, wait
+                    if (contractUnlockDismissing) {
+                        return;
+                    }
+                    
+                    // If item animation is playing, start dismiss animation
                     if (itemUnlockAnimation && !itemUnlockDismissing) {
                         itemUnlockDismissing = true;
                         itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
@@ -622,10 +726,12 @@ public class Game extends JPanel implements Runnable {
     
     private void selectPreviousLevel() {
         gameData.setCurrentLevel(Math.max(1, gameData.getCurrentLevel() - 1));
+        soundManager.playSound(SoundManager.Sound.LEVEL_SWITCH);
     }
     
     private void selectNextLevel() {
         gameData.setCurrentLevel(Math.min(gameData.getMaxUnlockedLevel(), gameData.getCurrentLevel() + 1));
+        soundManager.playSound(SoundManager.Sound.LEVEL_SWITCH);
         ensureLevelVisible();
     }
     
@@ -669,8 +775,26 @@ public class Game extends JPanel implements Runnable {
     
     private void startSelectedLevel() {
         if (gameData.getCurrentLevel() <= gameData.getMaxUnlockedLevel()) {
-            startGame();
+            soundManager.playSound(SoundManager.Sound.LEVEL_START);
+            // Only show risk contract screen if contracts are unlocked
+            if (gameData.areContractsUnlocked()) {
+                selectedRiskContract = 0;
+                transitionToState(GameState.RISK_CONTRACT);
+            } else {
+                // Skip contract selection, start with no contract
+                riskContractType = 0;
+                riskContractActive = false;
+                riskContractMultiplier = 1.0;
+                startGame();
+            }
         }
+    }
+    
+    private void confirmRiskContract() {
+        riskContractType = selectedRiskContract;
+        riskContractActive = selectedRiskContract > 0;
+        riskContractMultiplier = RISK_CONTRACT_MULTIPLIERS[selectedRiskContract];
+        startGame();
     }
     
     private void handleMouseMove() {
@@ -687,6 +811,22 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
+            // Check if hovering over category tabs
+            String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+            int tabWidth = 200;
+            int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
+            int tabY = 130;
+            
+            for (int i = 0; i < categories.length; i++) {
+                int tabX = tabStartX + i * tabWidth;
+                if (mouseX >= tabX && mouseX <= tabX + tabWidth - 10 &&
+                    mouseY >= tabY && mouseY <= tabY + 40) {
+                    // Hovering over tab - we'll handle click separately
+                    break;
+                }
+            }
+            
+            // Check if hovering over settings items
             UIButton[] buttons = renderer.getSettingsButtons();
             for (int i = 0; i < buttons.length; i++) {
                 if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
@@ -724,11 +864,39 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
-            UIButton[] buttons = renderer.getSettingsButtons();
-            for (int i = 0; i < buttons.length; i++) {
-                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
-                    toggleSetting(i);
+            // Check if clicking on category tabs first
+            String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+            int tabWidth = 200;
+            int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
+            int tabY = 130;
+            
+            boolean clickedTab = false;
+            for (int i = 0; i < categories.length; i++) {
+                int tabX = tabStartX + i * tabWidth;
+                if (mouseX >= tabX && mouseX <= tabX + tabWidth - 10 &&
+                    mouseY >= tabY && mouseY <= tabY + 40) {
+                    if (selectedSettingsCategory != i) {
+                        selectedSettingsCategory = i;
+                        selectedSettingsItem = 0;
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        screenShakeIntensity = 2;
+                    }
+                    clickedTab = true;
                     break;
+                }
+            }
+            
+            // If didn't click tab, check settings items
+            if (!clickedTab) {
+                UIButton[] buttons = renderer.getSettingsButtons();
+                for (int i = 0; i < buttons.length; i++) {
+                    if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                        selectedSettingsItem = i;
+                        toggleSetting(i);
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 2;
+                        break;
+                    }
                 }
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
@@ -744,6 +912,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void activateMenuItem(int index) {
+        soundManager.playSound(SoundManager.Sound.MENU_OPEN);
         screenShakeIntensity = 5;
         switch (index) {
             case 0: gameState = GameState.LEVEL_SELECT; break;
@@ -758,6 +927,7 @@ public class Game extends JPanel implements Runnable {
     private void activatePauseMenuItem(int index) {
         switch (index) {
             case 0: // Resume
+                soundManager.playSound(SoundManager.Sound.UNPAUSE);
                 isPaused = false;
                 break;
             case 1: // Restart
@@ -918,6 +1088,14 @@ public class Game extends JPanel implements Runnable {
         // Use effectiveDelta for all gameplay updates during slow-motion
         final double dt = effectiveDelta;
         
+        // Update perfect dodge i-frames
+        if (perfectDodgeIFrames > 0) {
+            perfectDodgeIFrames--;
+        }
+        if (perfectDodgeFlashTimer > 0) {
+            perfectDodgeFlashTimer--;
+        }
+        
         // Update combo pulse animation (decay back to 1.0)
         if (comboPulseScale > 1.0) {
             comboPulseScale = Math.max(1.0, comboPulseScale - 0.05);
@@ -944,6 +1122,28 @@ public class Game extends JPanel implements Runnable {
             if (itemUnlockDismissTimer <= 0) {
                 itemUnlockAnimation = false;
                 itemUnlockDismissing = false;
+                
+                // After item animation ends, check if we should show contract unlock
+                // This happens on level 3 (first mega boss)
+                if (gameData.getCurrentLevel() == 3 && gameData.areContractsUnlocked() && !contractUnlockAnimation) {
+                    soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                    contractUnlockAnimation = true;
+                    contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
+                }
+            }
+        }
+        
+        // Update contract unlock animation timer
+        if (contractUnlockTimer > 0) {
+            contractUnlockTimer--;
+        }
+        
+        // Update contract dismiss animation
+        if (contractUnlockDismissing) {
+            contractUnlockDismissTimer--;
+            if (contractUnlockDismissTimer <= 0) {
+                contractUnlockAnimation = false;
+                contractUnlockDismissing = false;
             }
         }
         
@@ -1286,7 +1486,7 @@ public class Game extends JPanel implements Runnable {
         // Check if player hit boss (only vulnerable during special window)
         if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation) {
             if (bossVulnerable) {
-                // TODO: Play sound effect - boss_hit.wav
+                soundManager.playSound(SoundManager.Sound.BOSS_HIT);
                 
                 // Deal damage to boss using new health system
                 currentBoss.takeDamage();
@@ -1446,6 +1646,7 @@ public class Game extends JPanel implements Runnable {
                     achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
                     
                     // Start boss death animation
+                    soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
                     bossDeathAnimation = true;
                     deathAnimationTimer = DEATH_ANIMATION_DURATION;
                     bossDeathScale = 1.0;
@@ -1622,10 +1823,20 @@ public class Game extends JPanel implements Runnable {
                         gameData.equipItem(0);
                     }
                     // Trigger animation
+                    soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
                     itemUnlockAnimation = true;
                     itemUnlockTimer = ITEM_UNLOCK_DURATION;
+                    
+                    // Check if this is the FIRST mega boss (level 5 = index 4, but level starts at 1)
+                    // Level 3 is actually the first mega boss (3 % 3 == 0)
+                    if (currentLevel == 3 && !gameData.areContractsUnlocked()) {
+                        // Unlock risk contracts permanently!
+                        gameData.unlockContracts();
+                        // We'll show the contract animation AFTER the item animation finishes
+                    }
                 }
                 
+                soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
                 gameState = GameState.WIN;
                 bossDeathAnimation = false;
                 return;
@@ -1642,7 +1853,7 @@ public class Game extends JPanel implements Runnable {
             vulnerabilityChance *= 0.5; // Half as likely at levels 1-3
         }
         if (!bossVulnerable && currentBoss != null && invulnerabilityTimer <= 0 && Math.random() < vulnerabilityChance) {
-            // TODO: Play sound effect - vulnerability_window_open.wav
+            soundManager.playSound(SoundManager.Sound.VULNERABILITY_WINDOW);
             
             bossVulnerable = true;
             // Base duration + 60 frames (1 second) per upgrade level
@@ -1683,8 +1894,37 @@ public class Game extends JPanel implements Runnable {
         
         // Update boss with delta time (but not during death animation, intro, or respawn delay)
         if (currentBoss != null && !bossDeathAnimation && !introPanActive && player != null) {
+            int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
+            
+            // Apply risk contract effects to newly spawned bullets
+            if (riskContractType > 0 && bullets.size() > bulletCountBefore) {
+                List<Bullet> newBullets = new java.util.ArrayList<>();
+                for (int i = bulletCountBefore; i < bullets.size(); i++) {
+                    Bullet bullet = bullets.get(i);
+                    
+                    // Speed Demon: 50% faster bullets
+                    if (riskContractType == 2) {
+                        double speedMult = 1.5;
+                        bullet.multiplySpeed(speedMult);
+                    }
+                    
+                    // Bullet Storm: duplicate bullets with slight offset
+                    if (riskContractType == 1) {
+                        Bullet duplicate = getBulletFromPool();
+                        duplicate.reset(
+                            bullet.getX() + (Math.random() - 0.5) * 10,
+                            bullet.getY() + (Math.random() - 0.5) * 10,
+                            bullet.getVX() * (0.9 + Math.random() * 0.2),
+                            bullet.getVY() * (0.9 + Math.random() * 0.2),
+                            bullet.getType()
+                        );
+                        newBullets.add(duplicate);
+                    }
+                }
+                bullets.addAll(newBullets);
+            }
             
             // Add continuous flame and smoke particles from damaged boss
             if (bossHitCount > 0 && enableParticles) {
@@ -1729,6 +1969,7 @@ public class Game extends JPanel implements Runnable {
             
             if (respawnDelayTimer <= 0) {
                 // Respawn player at bottom with shield
+                soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
                 shieldActive = true;
                 playerInvincible = true;
@@ -1813,7 +2054,13 @@ public class Game extends JPanel implements Runnable {
             
             // Check if explosive bullets should explode
             if (bullet.shouldExplode()) {
-                // TODO: Play sound effect - explosion.wav (volume/pitch based on bullet type)
+                // Random 8-bit explosion sound for variety
+                SoundManager.Sound[] explosionSounds = {
+                    SoundManager.Sound.EXPL_SHORT_1, SoundManager.Sound.EXPL_SHORT_2, 
+                    SoundManager.Sound.EXPL_SHORT_3, SoundManager.Sound.EXPL_SHORT_4, 
+                    SoundManager.Sound.EXPL_SHORT_5
+                };
+                soundManager.playSound(explosionSounds[(int)(Math.random() * explosionSounds.length)], 0.5f);
                 
                 // Create explosion particles with shockwave
                 if (enableParticles) {
@@ -1869,9 +2116,16 @@ public class Game extends JPanel implements Runnable {
                         continue;
                     }
                     
+                    // Check for perfect dodge i-frames
+                    if (perfectDodgeIFrames > 0) {
+                        // Perfect dodge invincibility - phase through bullet
+                        continue;
+                    }
+                    
                     // Check for shield
                     if (shieldActive) {
                         // Shield blocks the hit
+                        soundManager.playSound(SoundManager.Sound.SHIELD_BREAK);
                         shieldActive = false;
                         bullets.remove(bullet);
                         returnBulletToPool(bullet);
@@ -1899,7 +2153,7 @@ public class Game extends JPanel implements Runnable {
                     if (luckyDodgeLevel > 0) {
                         double dodgeChance = luckyDodgeLevel * 0.05; // 5% per level
                         if (Math.random() < dodgeChance) {
-                            // TODO: Play sound effect - lucky_dodge.wav (pitch up with combo)
+                            soundManager.playSound(SoundManager.Sound.DODGE, 1.0f + (dodgeCombo * 0.1f));
                             
                             // Lucky dodge! Trigger flicker animation
                             player.triggerFlicker();
@@ -1931,7 +2185,7 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // No dodge - game over
-                    // TODO: Play sound effect - player_death.wav
+                    soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
                     
                     // Create death particles
                     if (enableParticles) {
@@ -1954,49 +2208,122 @@ public class Game extends JPanel implements Runnable {
                 
                 // Check for graze (near miss)
                 double grazeRadius = GRAZE_DISTANCE * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.GRAZE_RADIUS);
+                double closeCallRadius = CLOSE_CALL_DISTANCE * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.GRAZE_RADIUS);
+                double perfectDodgeRadius = PERFECT_DODGE_DISTANCE;
                 double dist = Math.sqrt(Math.pow(bullet.getX() - player.getX(), 2) + Math.pow(bullet.getY() - player.getY(), 2));
+                
                 if (!bullet.hasGrazed() && dist < grazeRadius && dist > player.getSize() / 2.0) {
                     bullet.setGrazed(true);
                     totalGrazesThisRun++;
-                    comboSystem.addCombo();
                     
-                    // Trigger combo pulse effect
-                    comboPulseScale = 1.3;
+                    // Determine graze tier
+                    boolean isPerfectDodge = dist < perfectDodgeRadius;
+                    boolean isCloseCall = dist < closeCallRadius;
                     
-                    // Brief slow-motion on very close calls
-                    if (dist < grazeRadius * 0.5) {
-                        slowMotionFactor = 0.3;
-                        slowMotionTimer = 4; // 4 frames of slow-mo
+                    // Calculate graze value based on tier
+                    int grazeValue = 1;
+                    int moneyBonus = 0;
+                    Color particleColor = new Color(100, 200, 255, 200);
+                    
+                    if (isPerfectDodge) {
+                        // PERFECT DODGE - highest reward
+                        soundManager.playSound(SoundManager.Sound.PERFECT_DODGE, 1.2f);
+                        grazeValue = 5;
+                        moneyBonus = (int)(25 * riskContractMultiplier);
+                        particleColor = new Color(255, 215, 0, 255); // Gold
+                        
+                        // Grant brief invincibility
+                        perfectDodgeIFrames = PERFECT_DODGE_IFRAMES;
+                        perfectDodgeFlashTimer = 20;
+                        
+                        // Intense slow-mo and effects
+                        slowMotionFactor = 0.15;
+                        slowMotionTimer = 10;
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 5);
+                        comboPulseScale = 1.6;
+                        
+                        // Spawn damage number showing "PERFECT!"
+                        damageNumbers.add(new DamageNumber("PERFECT!", player.getX(), player.getY() - 30, new Color(255, 215, 0), 24));
+                        
+                    } else if (isCloseCall) {
+                        // CLOSE CALL - medium reward
+                        soundManager.playSound(SoundManager.Sound.CLOSE_CALL, 0.9f);
+                        grazeValue = 2;
+                        moneyBonus = (int)(10 * riskContractMultiplier);
+                        particleColor = new Color(150, 255, 150, 220); // Green
+                        
+                        // Moderate slow-mo
+                        slowMotionFactor = 0.25;
+                        slowMotionTimer = 6;
                         screenShakeIntensity = Math.max(screenShakeIntensity, 3);
+                        comboPulseScale = 1.4;
+                        
+                    } else {
+                        // Normal graze - use blop sounds for subtle feedback
+                        SoundManager.Sound[] blopSounds = {
+                            SoundManager.Sound.BLOP_1, SoundManager.Sound.BLOP_2, SoundManager.Sound.BLOP_3
+                        };
+                        soundManager.playSound(blopSounds[(int)(Math.random() * blopSounds.length)], 0.4f);
+                        grazeValue = 1;
+                        moneyBonus = (int)(2 * riskContractMultiplier);
+                        comboPulseScale = 1.2;
                     }
                     
+                    // Add combo with tier info
+                    comboSystem.addCombo(grazeValue, isCloseCall, isPerfectDodge, soundManager);
+                    
                     // Add score with combo multiplier
-                    int grazeScore = (int)(10 * comboSystem.getMultiplier());
+                    int grazeScore = (int)(10 * grazeValue * comboSystem.getMultiplier());
                     gameData.addScore(grazeScore);
                     
-                    // Create enhanced graze particle effect ("whoosh" particles)
+                    // Add money bonus
+                    if (moneyBonus > 0) {
+                        gameData.addRunMoney(moneyBonus);
+                        if (isPerfectDodge) {
+                            soundManager.playSound(SoundManager.Sound.COIN_PICKUP, 1.2f);
+                        }
+                    }
+                    
+                    // Create enhanced graze particle effect
                     if (enableParticles) {
-                        // Directional whoosh particles
+                        // More particles for higher tiers
+                        int particleCount = isPerfectDodge ? 15 : (isCloseCall ? 10 : 6);
                         double bulletAngle = Math.atan2(bullet.getVY(), bullet.getVX());
-                        for (int j = 0; j < 6; j++) {
-                            double spreadAngle = bulletAngle + Math.PI + (Math.random() - 0.5) * 1.0;
-                            double speed = 2 + Math.random() * 3;
+                        
+                        for (int j = 0; j < particleCount; j++) {
+                            double spreadAngle = bulletAngle + Math.PI + (Math.random() - 0.5) * 1.2;
+                            double speed = 2 + Math.random() * (isPerfectDodge ? 5 : 3);
                             addParticle(
                                 player.getX() + (Math.random() - 0.5) * 10, 
                                 player.getY() + (Math.random() - 0.5) * 10,
                                 Math.cos(spreadAngle) * speed, Math.sin(spreadAngle) * speed,
-                                new Color(100, 200, 255, 200), 18, 4,
+                                particleColor, 20, isPerfectDodge ? 6 : 4,
                                 Particle.ParticleType.TRAIL
                             );
                         }
+                        
                         // Glow ring at graze point
+                        int ringSize = isPerfectDodge ? 30 : (isCloseCall ? 20 : 15);
                         addParticle(
                             (bullet.getX() + player.getX()) / 2, 
                             (bullet.getY() + player.getY()) / 2, 
                             0, 0,
-                            new Color(150, 220, 255, 180), 12, 15,
+                            particleColor, 15, ringSize,
                             Particle.ParticleType.EXPLOSION
                         );
+                        
+                        // Extra starburst for perfect dodges
+                        if (isPerfectDodge) {
+                            for (int j = 0; j < 8; j++) {
+                                double angle = (j / 8.0) * TWO_PI;
+                                addParticle(
+                                    player.getX(), player.getY(),
+                                    Math.cos(angle) * 4, Math.sin(angle) * 4,
+                                    new Color(255, 255, 200, 200), 25, 3,
+                                    Particle.ParticleType.SPARK
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -2172,10 +2499,13 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem);
                 break;
             case SETTINGS:
-                renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll);
+                renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
                 break;
             case LEVEL_SELECT:
                 renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScroll);
+                break;
+            case RISK_CONTRACT:
+                renderer.drawRiskContract(g2d, WIDTH, HEIGHT, selectedRiskContract, RISK_CONTRACT_NAMES, RISK_CONTRACT_DESCRIPTIONS, RISK_CONTRACT_MULTIPLIERS, gradientTime, gameData.getCurrentLevel());
                 break;
             case PLAYING:
                 // Apply screen shake
@@ -2195,6 +2525,10 @@ public class Game extends JPanel implements Runnable {
                 // Draw item unlock animation if active
                 if (itemUnlockAnimation) {
                     drawItemUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
+                // Draw contract unlock animation if active (after item animation)
+                if (contractUnlockAnimation) {
+                    drawContractUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
                 break;
             case SHOP:
@@ -2231,41 +2565,71 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        switch (settingIndex) {
-            case 0: // Background Mode
-                backgroundMode = (backgroundMode + 1) % 3;
-                break;
-            case 1: // Gradient Animation
-                enableGradientAnimation = !enableGradientAnimation;
-                break;
-            case 2: // Gradient Quality
-                gradientQuality = (gradientQuality + 1) % 3; // Cycle through 0, 1, 2
-                break;
-            case 3: // Grain Effect
-                enableGrainEffect = !enableGrainEffect;
-                break;
-            case 4: // Particle Effects
-                enableParticles = !enableParticles;
-                break;
-            case 5: // Shadows
-                enableShadows = !enableShadows;
-                break;
-            case 6: // Bloom
-                enableBloom = !enableBloom;
-                break;
-            case 7: // Motion Blur
-                enableMotionBlur = !enableMotionBlur;
-                break;
-            case 8: // Chromatic Aberration
-                enableChromaticAberration = !enableChromaticAberration;
-                break;
-            case 9: // Vignette
-                enableVignette = !enableVignette;
-                break;
-            case 10: // Hitboxes
+        // Category 0: Graphics (11 settings)
+        // Category 1: Audio (5 settings)
+        // Category 2: Debug (1 setting)
+        
+        if (selectedSettingsCategory == 0) {
+            // Graphics settings
+            switch (settingIndex) {
+                case 0: backgroundMode = (backgroundMode + 1) % 3; break;
+                case 1: enableGradientAnimation = !enableGradientAnimation; break;
+                case 2: gradientQuality = (gradientQuality + 1) % 3; break;
+                case 3: enableGrainEffect = !enableGrainEffect; break;
+                case 4: enableParticles = !enableParticles; break;
+                case 5: enableShadows = !enableShadows; break;
+                case 6: enableBloom = !enableBloom; break;
+                case 7: enableMotionBlur = !enableMotionBlur; break;
+                case 8: enableChromaticAberration = !enableChromaticAberration; break;
+                case 9: enableVignette = !enableVignette; break;
+            }
+        } else if (selectedSettingsCategory == 1) {
+            // Audio settings
+            if (settingIndex == 0) {
+                gameData.setSoundEnabled(!gameData.isSoundEnabled());
+                soundManager.setSoundEnabled(gameData.isSoundEnabled());
+            }
+        } else if (selectedSettingsCategory == 2) {
+            // Debug settings
+            if (settingIndex == 0) {
                 enableHitboxes = !enableHitboxes;
-                break;
+            }
         }
+    }
+    
+    private void adjustSetting(int settingIndex, int direction) {
+        // Only audio sliders respond to left/right
+        if (selectedSettingsCategory == 1) {
+            float step = 0.05f * direction;
+            switch (settingIndex) {
+                case 1: // Master Volume
+                    gameData.setMasterVolume(gameData.getMasterVolume() + step);
+                    soundManager.setMasterVolume(gameData.getMasterVolume());
+                    break;
+                case 2: // SFX Volume
+                    gameData.setSfxVolume(gameData.getSfxVolume() + step);
+                    soundManager.setSfxVolume(gameData.getSfxVolume());
+                    break;
+                case 3: // UI Volume
+                    gameData.setUiVolume(gameData.getUiVolume() + step);
+                    soundManager.setUiVolume(gameData.getUiVolume());
+                    break;
+                case 4: // Music Volume
+                    gameData.setMusicVolume(gameData.getMusicVolume() + step);
+                    soundManager.setMusicVolume(gameData.getMusicVolume());
+                    break;
+            }
+        } else {
+            // Other categories toggle on left/right
+            toggleSetting(settingIndex);
+        }
+    }
+    
+    private int getMaxSettingsItems() {
+        if (selectedSettingsCategory == 0) return 9; // Graphics: 10 items (0-9)
+        if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
+        if (selectedSettingsCategory == 2) return 0; // Debug: 1 item (0)
+        return 0;
     }
     
     private void startAssetLoading() {
@@ -2274,9 +2638,14 @@ public class Game extends JPanel implements Runnable {
                 targetLoadingProgress = 10;
                 repaint();
                 
+                // Preload sounds
+                soundManager.preloadSounds();
+                targetLoadingProgress = 40;
+                repaint();
+                
                 // Create renderer (this loads backgrounds and overlay)
                 renderer = new Renderer(gameData, shopManager);
-                targetLoadingProgress = 80;
+                targetLoadingProgress = 90;
                 repaint();
                 
                 // Small delay to ensure everything is ready
@@ -2421,12 +2790,20 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHIELD:
-                // Shield is active - will tank next hit
-                shieldActive = true;
+                // Shield is active - will tank next hit (disabled by Shieldless contract)
+                if (riskContractType != 3) {
+                    soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
+                    shieldActive = true;
+                } else {
+                    // Show message that shield is disabled
+                    damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
+                }
                 break;
                 
             case BOMB:
                 // Clear all bullets (instant effect)
+                soundManager.playSound(SoundManager.Sound.BOMB_ACTIVATE);
+                soundManager.playSound(SoundManager.Sound.EXPL_LONG_1, 0.8f);
                 int clearedBullets = bullets.size();
                 
                 // Create destruction particles for each bullet before clearing
@@ -2541,6 +2918,7 @@ public class Game extends JPanel implements Runnable {
                 
             case INVINCIBILITY:
                 // Player is invincible
+                soundManager.playSound(SoundManager.Sound.INVINCIBILITY_ACTIVATE);
                 playerInvincible = true;
                 break;
                 
@@ -2705,6 +3083,193 @@ public class Game extends JPanel implements Runnable {
                 g.setColor(new Color(150, 150, 150, (int)(200 * hintPulse)));
                 g.drawString(hintText, hintX, hintY);
             }
+        }
+    }
+    
+    private void drawContractUnlockAnimation(Graphics2D g, int width, int height) {
+        // Calculate animation progress (0.0 to 1.0)
+        float progress = 1.0f - ((float) contractUnlockTimer / CONTRACT_UNLOCK_DURATION);
+        
+        // Calculate dismiss progress (1.0 = visible, 0.0 = gone)
+        float dismissMultiplier = 1.0f;
+        if (contractUnlockDismissing) {
+            dismissMultiplier = (float) contractUnlockDismissTimer / CONTRACT_DISMISS_DURATION;
+        }
+        
+        // Full dark overlay with fade
+        int overlayAlpha = (int)(220 * Math.min(progress * 2, 1.0f) * dismissMultiplier);
+        g.setColor(new Color(0, 0, 0, Math.min(overlayAlpha, 220)));
+        g.fillRect(0, 0, width, height);
+        
+        // Calculate position (slide up from bottom, slide down when dismissing)
+        int centerX = width / 2;
+        int startY = height + 350;
+        int endY = height / 2;
+        int dismissOffset = (int)((1.0f - dismissMultiplier) * 400);
+        int currentY = (int)(startY + (endY - startY) * Math.pow(progress, 0.7)) + dismissOffset;
+        
+        // Scale effect
+        float scale;
+        if (progress < 0.4f) {
+            scale = (float)Math.pow(progress / 0.4f, 0.5);
+        } else {
+            scale = 1.0f;
+        }
+        scale *= dismissMultiplier;
+        
+        // Red/orange glow layers for contracts (danger theme)
+        for (int i = 0; i < 3; i++) {
+            int glowSize = Math.max(1, (int)((550 + i * 120) * scale));
+            float pulseSpeed = 2.0f + i * 0.5f;
+            float pulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 200.0 * pulseSpeed)) * 0.3f + 0.7f;
+            
+            RadialGradientPaint glowPaint = new RadialGradientPaint(
+                centerX, currentY,
+                glowSize,
+                new float[]{0.0f, 0.5f, 1.0f},
+                new Color[]{
+                    new Color(255, 100, 50, (int)(60 * scale * pulse * dismissMultiplier)),
+                    new Color(200, 50, 50, (int)(30 * scale * pulse * dismissMultiplier)),
+                    new Color(150, 50, 50, 0)
+                }
+            );
+            g.setPaint(glowPaint);
+            g.fillOval(centerX - glowSize, currentY - glowSize, glowSize * 2, glowSize * 2);
+        }
+        
+        // Animated danger particles
+        if (progress > 0.3f && enableParticles) {
+            int particleCount = 40;
+            for (int i = 0; i < particleCount; i++) {
+                double angle = (System.currentTimeMillis() / 40.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                int radius = (int)(220 * scale);
+                int px = (int)(centerX + Math.cos(angle) * radius);
+                int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
+                int size = (int)(5 * scale);
+                
+                float particleAlpha = (float)Math.abs(Math.sin(angle * 4 + System.currentTimeMillis() / 80.0));
+                g.setColor(new Color(255, 150, 100, (int)(180 * particleAlpha * scale * dismissMultiplier)));
+                g.fillOval(px - size/2, py - size/2, size, size);
+            }
+        }
+        
+        // Draw box with danger styling
+        int boxWidth = (int)(750 * scale);
+        int boxHeight = (int)(380 * scale);
+        int boxX = centerX - boxWidth / 2;
+        int boxY = currentY - boxHeight / 2;
+        
+        // Box shadow
+        g.setColor(new Color(0, 0, 0, (int)(120 * Math.min(progress * 2, 1.0f))));
+        g.fillRoundRect(boxX + 6, boxY + 6, boxWidth, boxHeight, 25, 25);
+        
+        // Box background with dark red gradient
+        GradientPaint boxGradient = new GradientPaint(
+            boxX, boxY, new Color(50, 25, 30, (int)(245 * Math.min(progress * 2, 1.0f))),
+            boxX, boxY + boxHeight, new Color(30, 15, 20, (int)(245 * Math.min(progress * 2, 1.0f)))
+        );
+        g.setPaint(boxGradient);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
+        
+        // Animated border with pulsing red/orange
+        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 120.0));
+        int borderR = (int)(200 + 55 * borderPulse);
+        int borderG = (int)(80 + 70 * borderPulse);
+        int borderB = (int)(50 + 50 * borderPulse);
+        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * Math.min(progress * 2, 1.0f))));
+        g.setStroke(new BasicStroke(5));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
+        
+        // Inner warning stripes (diagonal lines at top)
+        if (progress > 0.2f) {
+            float stripeAlpha = Math.min((progress - 0.2f) / 0.2f, 1.0f) * dismissMultiplier;
+            g.setClip(boxX + 10, boxY + 10, boxWidth - 20, 30);
+            g.setColor(new Color(255, 200, 0, (int)(100 * stripeAlpha)));
+            for (int i = -10; i < boxWidth + 30; i += 20) {
+                g.fillPolygon(
+                    new int[]{boxX + i, boxX + i + 15, boxX + i + 25, boxX + i + 10},
+                    new int[]{boxY + 10, boxY + 10, boxY + 40, boxY + 40},
+                    4
+                );
+            }
+            g.setClip(null);
+        }
+        
+        // Text content
+        if (progress > 0.25f) {
+            float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
+            
+            // "RISK CONTRACTS UNLOCKED!" with shadow
+            g.setFont(new Font("Arial", Font.BOLD, (int)(48 * scale)));
+            String titleText = "RISK CONTRACTS UNLOCKED!";
+            FontMetrics titleFm = g.getFontMetrics();
+            int titleX = centerX - titleFm.stringWidth(titleText) / 2;
+            int titleY = currentY - (int)(120 * scale);
+            
+            // Title shadow
+            g.setColor(new Color(0, 0, 0, (int)(180 * textAlpha)));
+            g.drawString(titleText, titleX + 3, titleY + 3);
+            
+            // Title text with danger pulse
+            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 150.0)) * 0.3f + 0.7f;
+            g.setColor(new Color(255, 150, 100, (int)(255 * textAlpha * titlePulse)));
+            g.drawString(titleText, titleX, titleY);
+        }
+        
+        // Description section
+        if (progress > 0.4f) {
+            float descAlpha = Math.min((progress - 0.4f) / 0.3f, 1.0f) * dismissMultiplier;
+            
+            // Contract symbol
+            g.setFont(new Font("Arial", Font.BOLD, (int)(60 * scale)));
+            String symbol = "⚠";
+            FontMetrics symbolFm = g.getFontMetrics();
+            g.setColor(new Color(255, 200, 50, (int)(255 * descAlpha)));
+            g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(50 * scale));
+            
+            // Description lines
+            String[] descLines = {
+                "Choose a RISK CONTRACT before each level",
+                "to multiply your rewards!",
+                "",
+                "• Bullet Storm - 2x bullets, 2x money",
+                "• Speed Demon - Faster bullets, 1.75x money", 
+                "• Shieldless - No shield, 1.5x money"
+            };
+            
+            g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+            int lineY = currentY + (int)(10 * scale);
+            for (String line : descLines) {
+                if (line.isEmpty()) {
+                    lineY += (int)(10 * scale);
+                    continue;
+                }
+                FontMetrics lineFm = g.getFontMetrics();
+                int lineX = centerX - lineFm.stringWidth(line) / 2;
+                
+                // Different colors for bullet points
+                if (line.startsWith("•")) {
+                    g.setColor(new Color(255, 200, 150, (int)(220 * descAlpha)));
+                } else {
+                    g.setColor(new Color(200, 200, 200, (int)(220 * descAlpha)));
+                }
+                g.drawString(line, lineX, lineY);
+                lineY += (int)(26 * scale);
+            }
+        }
+        
+        // "Press SPACE to continue" hint
+        if (progress > 0.7f) {
+            float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
+            g.setFont(new Font("Arial", Font.PLAIN, (int)(18 * scale)));
+            String hintText = "Press SPACE to continue";
+            FontMetrics hintFm = g.getFontMetrics();
+            int hintX = centerX - hintFm.stringWidth(hintText) / 2;
+            int hintY = currentY + (int)(160 * scale);
+            
+            float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
+            g.setColor(new Color(180, 180, 180, (int)(200 * hintPulse * hintAlpha)));
+            g.drawString(hintText, hintX, hintY);
         }
     }
 }

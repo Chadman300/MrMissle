@@ -623,6 +623,12 @@ public class Bullet {
     public double getY() { return y; }
     public double getVX() { return vx; }
     public double getVY() { return vy; }
+    public BulletType getType() { return type; }
+    
+    public void multiplySpeed(double factor) {
+        vx *= factor;
+        vy *= factor;
+    }
     
     public boolean hasGrazed() { return hasGrazed; }
     public void setGrazed(boolean grazed) { this.hasGrazed = grazed; }

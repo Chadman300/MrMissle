@@ -1063,6 +1063,155 @@ public class Renderer {
         }
     }
     
+    public void drawRiskContract(Graphics2D g, int width, int height, int selectedContract, 
+                                  String[] contractNames, String[] contractDescriptions, 
+                                  double[] contractMultipliers, double time, int level) {
+        // Draw animated background
+        Color[] colors = getLevelGradientColors(level);
+        drawAnimatedGradient(g, width, height, time, colors);
+        
+        // Dark overlay for contrast
+        g.setColor(new Color(0, 0, 0, 180));
+        g.fillRect(0, 0, width, height);
+        
+        // Title
+        g.setFont(new Font("Arial", Font.BOLD, 48));
+        String title = "RISK CONTRACT";
+        FontMetrics titleFm = g.getFontMetrics();
+        int titleX = (width - titleFm.stringWidth(title)) / 2;
+        
+        // Title glow
+        float glowPulse = (float)(0.4 + 0.2 * Math.sin(time * 2));
+        g.setColor(new Color(255, 100, 100, (int)(100 * glowPulse)));
+        g.drawString(title, titleX - 3, 83);
+        g.drawString(title, titleX + 3, 77);
+        
+        g.setColor(new Color(255, 150, 150));
+        g.drawString(title, titleX, 80);
+        
+        // Subtitle
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        String subtitle = "Choose your challenge modifier for Level " + level;
+        FontMetrics subFm = g.getFontMetrics();
+        g.setColor(new Color(200, 200, 200));
+        g.drawString(subtitle, (width - subFm.stringWidth(subtitle)) / 2, 120);
+        
+        // Draw contract cards
+        int cardWidth = 200;
+        int cardHeight = 280;
+        int cardSpacing = 30;
+        int totalWidth = contractNames.length * cardWidth + (contractNames.length - 1) * cardSpacing;
+        int startX = (width - totalWidth) / 2;
+        int cardY = 160;
+        
+        for (int i = 0; i < contractNames.length; i++) {
+            int cardX = startX + i * (cardWidth + cardSpacing);
+            boolean isSelected = (i == selectedContract);
+            
+            // Card selection animation
+            double cardScale = isSelected ? 1.05 + 0.02 * Math.sin(time * 4) : 1.0;
+            int scaledWidth = (int)(cardWidth * cardScale);
+            int scaledHeight = (int)(cardHeight * cardScale);
+            int offsetX = (cardWidth - scaledWidth) / 2;
+            int offsetY = (cardHeight - scaledHeight) / 2;
+            
+            // Card shadow
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillRoundRect(cardX + offsetX + 5, cardY + offsetY + 5, scaledWidth, scaledHeight, 15, 15);
+            
+            // Card background
+            if (isSelected) {
+                // Selected card has colored gradient
+                Color topColor = i == 0 ? new Color(60, 100, 60) : 
+                                i == 1 ? new Color(120, 50, 50) :
+                                i == 2 ? new Color(50, 80, 120) : new Color(100, 80, 50);
+                Color bottomColor = i == 0 ? new Color(40, 70, 40) :
+                                   i == 1 ? new Color(80, 30, 30) :
+                                   i == 2 ? new Color(30, 50, 80) : new Color(70, 50, 30);
+                GradientPaint gradient = new GradientPaint(
+                    cardX + offsetX, cardY + offsetY, topColor,
+                    cardX + offsetX, cardY + offsetY + scaledHeight, bottomColor);
+                g.setPaint(gradient);
+            } else {
+                g.setColor(new Color(40, 45, 55));
+            }
+            g.fillRoundRect(cardX + offsetX, cardY + offsetY, scaledWidth, scaledHeight, 15, 15);
+            
+            // Card border
+            g.setColor(isSelected ? new Color(255, 255, 200) : new Color(80, 85, 95));
+            g.setStroke(new BasicStroke(isSelected ? 3 : 2));
+            g.drawRoundRect(cardX + offsetX, cardY + offsetY, scaledWidth, scaledHeight, 15, 15);
+            
+            // Contract icon/symbol
+            int iconY = cardY + offsetY + 50;
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            String icon = i == 0 ? "○" : i == 1 ? "◆◆" : i == 2 ? "»»" : "⊘";
+            FontMetrics iconFm = g.getFontMetrics();
+            Color iconColor = i == 0 ? new Color(100, 180, 100) :
+                             i == 1 ? new Color(255, 100, 100) :
+                             i == 2 ? new Color(100, 150, 255) : new Color(255, 180, 100);
+            g.setColor(isSelected ? iconColor : new Color(100, 100, 100));
+            g.drawString(icon, cardX + offsetX + (scaledWidth - iconFm.stringWidth(icon)) / 2, iconY);
+            
+            // Contract name
+            g.setFont(new Font("Arial", Font.BOLD, 18));
+            FontMetrics nameFm = g.getFontMetrics();
+            g.setColor(isSelected ? Color.WHITE : new Color(150, 150, 150));
+            g.drawString(contractNames[i], cardX + offsetX + (scaledWidth - nameFm.stringWidth(contractNames[i])) / 2, 
+                        cardY + offsetY + 90);
+            
+            // Multiplier
+            g.setFont(new Font("Arial", Font.BOLD, 28));
+            String multiplier = i == 0 ? "—" : String.format("%.2fx", contractMultipliers[i]);
+            FontMetrics multFm = g.getFontMetrics();
+            g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
+            g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
+                        cardY + offsetY + 130);
+            
+            // Description (word wrapped)
+            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setColor(isSelected ? new Color(200, 200, 200) : new Color(120, 120, 120));
+            String desc = contractDescriptions[i];
+            int descY = cardY + offsetY + 160;
+            int maxLineWidth = scaledWidth - 20;
+            
+            // Simple word wrapping
+            String[] words = desc.split(" ");
+            StringBuilder line = new StringBuilder();
+            int lineY = descY;
+            for (String word : words) {
+                String testLine = line.isEmpty() ? word : line + " " + word;
+                FontMetrics descFm = g.getFontMetrics();
+                if (descFm.stringWidth(testLine) > maxLineWidth) {
+                    g.drawString(line.toString(), cardX + offsetX + 10, lineY);
+                    line = new StringBuilder(word);
+                    lineY += 18;
+                } else {
+                    line = new StringBuilder(testLine);
+                }
+            }
+            if (!line.isEmpty()) {
+                g.drawString(line.toString(), cardX + offsetX + 10, lineY);
+            }
+        }
+        
+        // Controls hint
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setColor(new Color(150, 150, 150));
+        String hint = "← →  Select   |   SPACE  Confirm   |   ESC  Back";
+        FontMetrics hintFm = g.getFontMetrics();
+        g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
+        
+        // Warning for risky contracts
+        if (selectedContract > 0) {
+            g.setFont(new Font("Arial", Font.BOLD, 16));
+            g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
+            String warning = "⚠ Higher risk = Higher reward!";
+            FontMetrics warnFm = g.getFontMetrics();
+            g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
+        }
+    }
+    
     public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
@@ -1552,6 +1701,66 @@ public class Renderer {
             g.setTransform(comboTransform);
         }
         
+        // Draw combo milestone announcements (center screen, big dramatic text)
+        if (comboSystem != null && comboSystem.getCurrentAnnouncement() != null) {
+            String announcement = comboSystem.getCurrentAnnouncement();
+            float announcementProgress = comboSystem.getAnnouncementTimer() / 90.0f;
+            
+            // Scale in then fade out effect
+            float scale = announcementProgress > 0.8f ? 
+                (1.0f - announcementProgress) / 0.2f * 0.5f + 1.0f : // Scale up from 1.0 to 1.5
+                Math.min(1.5f, 1.5f - (0.8f - announcementProgress) * 0.25f); // Settle to 1.25
+            float alpha = Math.min(1.0f, announcementProgress * 2.0f); // Fade out in last half
+            
+            AffineTransform announcementTransform = g.getTransform();
+            int centerX = width / 2;
+            int centerY = height / 3;
+            
+            g.translate(centerX, centerY);
+            g.scale(scale, scale);
+            g.translate(-centerX, -centerY);
+            
+            // Draw shadow
+            g.setFont(new Font("Arial", Font.BOLD, 72));
+            FontMetrics announceFm = g.getFontMetrics();
+            int announceWidth = announceFm.stringWidth(announcement);
+            
+            g.setColor(new Color(0, 0, 0, (int)(180 * alpha)));
+            g.drawString(announcement, centerX - announceWidth / 2 + 4, centerY + 4);
+            
+            // Draw main text with gradient-like color based on announcement
+            Color announceColor = switch(announcement) {
+                case "NICE!" -> new Color(163, 190, 140, (int)(255 * alpha)); // Green
+                case "GREAT!" -> new Color(136, 192, 208, (int)(255 * alpha)); // Blue
+                case "AMAZING!" -> new Color(235, 203, 139, (int)(255 * alpha)); // Yellow
+                case "INCREDIBLE!" -> new Color(208, 135, 112, (int)(255 * alpha)); // Orange
+                case "LEGENDARY!" -> new Color(180, 142, 173, (int)(255 * alpha)); // Purple
+                case "GODLIKE!" -> new Color(191, 97, 106, (int)(255 * alpha)); // Red
+                case "IMPOSSIBLE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
+                default -> new Color(255, 255, 255, (int)(255 * alpha));
+            };
+            g.setColor(announceColor);
+            g.drawString(announcement, centerX - announceWidth / 2, centerY);
+            
+            g.setTransform(announcementTransform);
+        }
+        
+        // Draw close call / perfect dodge indicators below combo
+        if (comboSystem != null && (comboSystem.getCloseCallCount() > 0 || comboSystem.getPerfectDodgeCount() > 0)) {
+            int indicatorY = showCombo && dodgeCombo > 1 ? 70 : 10;
+            g.setFont(new Font("Arial", Font.BOLD, 14));
+            
+            if (comboSystem.getPerfectDodgeCount() > 0) {
+                g.setColor(new Color(255, 215, 0)); // Gold for perfect
+                g.drawString("⚡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
+                indicatorY += 18;
+            }
+            if (comboSystem.getCloseCallCount() > 0) {
+                g.setColor(new Color(163, 190, 140)); // Green for close call
+                g.drawString("★ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
+            }
+        }
+        
         // Draw active item UI
         equippedItem = gameData.getEquippedItem();
         if (equippedItem != null) {
@@ -1934,7 +2143,7 @@ public class Renderer {
         g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 130);
     }
     
-    public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
+    public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {
         // Draw animated gradient with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -1964,18 +2173,70 @@ public class Renderer {
         g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        // Category tabs
+        String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+        int tabWidth = 200;
+        int tabStartX = (width - categories.length * tabWidth) / 2;
+        int tabY = 130;
+        
+        g.setFont(new Font("Arial", Font.BOLD, 20));
+        for (int i = 0; i < categories.length; i++) {
+            int tabX = tabStartX + i * tabWidth;
+            boolean isSelected = i == selectedCategory;
+            
+            // Tab background
+            if (isSelected) {
+                g.setColor(new Color(88, 91, 112, 200));
+            } else {
+                g.setColor(new Color(67, 76, 94, 150));
+            }
+            g.fillRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
+            
+            // Tab border
+            if (isSelected) {
+                g.setColor(new Color(235, 203, 139));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
+            }
+            
+            // Tab text
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            fm = g.getFontMetrics();
+            g.drawString(categories[i], tabX + (tabWidth - 10 - fm.stringWidth(categories[i])) / 2, tabY + 26);
+        }
+        
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(new Color(216, 222, 233));
-        String subtitle = "Use UP/DOWN to navigate | SPACE or arrows to toggle | Mouse wheel to scroll";
+        String subtitle = "TAB to switch category | Arrow keys to adjust | Mouse wheel to scroll";
         fm = g.getFontMetrics();
-        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 120);
+        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 185);
         
         // Create clipping region for scrollable area
         Shape oldClip = g.getClip();
-        g.setClip(0, 160, width, height - 220);
+        g.setClip(0, 200, width, height - 260);
         
-        // Settings items
-        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Show Hitboxes"};
+        // Draw settings based on category
+        if (selectedCategory == 0) {
+            drawGraphicsSettings(g, width, height, selectedItem, time, scrollOffset);
+        } else if (selectedCategory == 1) {
+            drawAudioSettings(g, width, height, selectedItem, time, scrollOffset, gameData);
+        } else if (selectedCategory == 2) {
+            drawDebugSettings(g, width, height, selectedItem, time, scrollOffset);
+        }
+        
+        // Restore clipping
+        g.setClip(oldClip);
+        
+        // Instructions
+        g.setColor(new Color(216, 222, 233));
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        String inst = "Press ESC to return to menu";
+        fm = g.getFontMetrics();
+        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height - 30);
+    }
+    
+    private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
+        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette"};
         String[] settingValues = {
             Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
             Game.enableGradientAnimation ? "ON" : "OFF",
@@ -1986,8 +2247,7 @@ public class Renderer {
             Game.enableBloom ? "ON" : "OFF",
             Game.enableMotionBlur ? "ON" : "OFF",
             Game.enableChromaticAberration ? "ON" : "OFF",
-            Game.enableVignette ? "ON" : "OFF",
-            Game.enableHitboxes ? "ON" : "OFF"
+            Game.enableVignette ? "ON" : "OFF"
         };
         
         String[] descriptions = {
@@ -2000,46 +2260,121 @@ public class Renderer {
             "Glow effect on bright objects (performance impact)",
             "Blur effect on fast moving objects (performance impact)",
             "Color fringing on screen edges (cinematic effect)",
-            "Darken screen edges (focuses attention on center)",
-            "Debug: Show collision hitboxes for player, boss, and bullets"
+            "Darken screen edges (focuses attention on center)"
         };
         
-        int y = 200 - (int)scrollOffset;
-        for (int i = 0; i < settingNames.length; i++) {
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
+    }
+    
+    private void drawAudioSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, GameData gameData) {
+        String[] settingNames = {"Sound Enabled", "Master Volume", "SFX Volume", "UI Volume", "Music Volume"};
+        String[] settingValues = {
+            gameData.isSoundEnabled() ? "ON" : "OFF",
+            String.format("%.0f%%", gameData.getMasterVolume() * 100),
+            String.format("%.0f%%", gameData.getSfxVolume() * 100),
+            String.format("%.0f%%", gameData.getUiVolume() * 100),
+            String.format("%.0f%%", gameData.getMusicVolume() * 100)
+        };
+        
+        String[] descriptions = {
+            "Enable or disable all sound effects",
+            "Overall volume level (affects all sounds)",
+            "Volume for game sound effects (explosions, hits, etc.)",
+            "Volume for menu sounds (clicks, navigation, etc.)",
+            "Volume for background music (not yet implemented)"
+        };
+        
+        float[] volumes = {0, gameData.getMasterVolume(), gameData.getSfxVolume(), gameData.getUiVolume(), gameData.getMusicVolume()};
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, true, volumes);
+    }
+    
+    private void drawDebugSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
+        String[] settingNames = {"Show Hitboxes"};
+        String[] settingValues = {Game.enableHitboxes ? "ON" : "OFF"};
+        String[] descriptions = {"Debug: Show collision hitboxes for player, boss, and bullets"};
+        
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
+    }
+    
+    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders) {
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, showSliders, null);
+    }
+    
+    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders, float[] sliderValues) {
+        int y = 240 - (int)scrollOffset;
+        FontMetrics fm;
+        
+        for (int i = 0; i < names.length; i++) {
             // Skip rendering if outside visible area
-            if (y < 140 || y > height - 80) {
-                y += 150;
+            if (y < 180 || y > height - 90) {
+                y += 120;
                 continue;
             }
             
-            // Build button text
-            String buttonText = settingNames[i] + ": " + settingValues[i];
-            settingsButtons[i] = new UIButton(buttonText, 0, 0, 700, 80, new Color(76, 86, 106), new Color(235, 203, 139));
+            boolean isSelected = i == selectedItem;
             
-            settingsButtons[i].setPosition((width - 700) / 2, y - 20);
-            settingsButtons[i].update(i == selectedItem, time);
-            settingsButtons[i].draw(g, time);
+            // Background box
+            int boxX = (width - 700) / 2;
+            int boxY = y - 20;
+            int boxWidth = 700;
+            int boxHeight = 70;
             
-            // Draw description below if selected
-            if (i == selectedItem) {
-                g.setFont(new Font("Arial", Font.ITALIC, 16));
-                g.setColor(new Color(216, 222, 233)); // Palette light gray
-                fm = g.getFontMetrics();
-                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 85);
+            if (isSelected) {
+                g.setColor(new Color(88, 91, 112, 200));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                
+                g.setColor(new Color(235, 203, 139));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+            } else {
+                g.setColor(new Color(67, 76, 94, 150));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
             }
             
-            y += 150;
+            // Setting name
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.drawString(names[i], boxX + 20, boxY + 28);
+            
+            // Value or slider
+            if (showSliders && sliderValues != null && i > 0) {
+                // Draw volume slider
+                int sliderX = boxX + 20;
+                int sliderY = boxY + 40;
+                int sliderWidth = boxWidth - 40;
+                int sliderHeight = 10;
+                
+                // Slider background
+                g.setColor(new Color(46, 52, 64));
+                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
+                
+                // Slider fill
+                int fillWidth = (int)(sliderWidth * sliderValues[i]);
+                g.setColor(new Color(163, 190, 140));
+                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
+                
+                // Value text
+                g.setFont(new Font("Arial", Font.PLAIN, 16));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            } else {
+                // Regular value text
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            }
+            
+            // Draw description below if selected
+            if (isSelected) {
+                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+            }
+            
+            y += 120;
         }
-        
-        // Restore clipping
-        g.setClip(oldClip);
-        
-        // Instructions
-        g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
-        String inst = "Press ESC to return to menu";
-        fm = g.getFontMetrics();
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height - 50);
     }
     
     public void drawDebug(Graphics2D g, int width, int height, double time) {
