@@ -606,7 +606,11 @@ public class Game extends JPanel implements Runnable {
                         cameraX = 0;
                         cameraY = 0;
                         screenShakeIntensity = 8;
-                    } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive) {
+                    } else if (key == KeyEvent.VK_SPACE && bossIntroActive) {
+                        // Skip boss intro cinematic
+                        bossIntroActive = false;
+                        screenShakeIntensity = 5;
+                    } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
                         eKeyPressed = true;
                         ActiveItem item = gameData.getEquippedItem();
