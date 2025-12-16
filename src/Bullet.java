@@ -1,8 +1,6 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import javax.imageio.ImageIO;
 
 public class Bullet {
     private double x, y;
@@ -128,7 +126,7 @@ public class Bullet {
     
     private static void loadSpriteWithPath(String path, int index) throws IOException {
         try {
-            bulletSprites[index] = ImageIO.read(new File(path));
+            bulletSprites[index] = AssetLoader.loadImage(path);
         } catch (IOException e) {
             System.err.println("Could not load bullet sprite: " + path);
             throw e;
@@ -137,13 +135,13 @@ public class Bullet {
     
     private static void loadSpriteWithPathAndShadow(String spritePath, String shadowPath, int index) throws IOException {
         try {
-            bulletSprites[index] = ImageIO.read(new File(spritePath));
+            bulletSprites[index] = AssetLoader.loadImage(spritePath);
         } catch (IOException e) {
             System.err.println("Could not load bullet sprite: " + spritePath);
             throw e;
         }
         try {
-            bulletShadows[index] = ImageIO.read(new File(shadowPath));
+            bulletShadows[index] = AssetLoader.loadImage(shadowPath);
         } catch (IOException e) {
             System.err.println("Could not load bullet shadow: " + shadowPath);
             throw e;

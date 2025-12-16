@@ -170,7 +170,7 @@ public class GameData {
     
     // Cheat/Debug methods
     public void unlockAllLevels() {
-        maxUnlockedLevel = 20;
+        maxUnlockedLevel = 28;
         for (int i = 0; i < defeatedBosses.length; i++) {
             defeatedBosses[i] = true;
         }
@@ -251,6 +251,7 @@ public class GameData {
         survivalTime = 0;
         currentLevel = 1;
         runHighestLevel = 1;
+        maxUnlockedLevel = 1; // Reset level progression on death
         
         // Keep: totalMoney, upgrades, active items, unlocked items, contracts, defeated bosses tracking
     }
@@ -281,7 +282,7 @@ public class GameData {
     
     // Level select navigation methods
     public int getSelectedLevelView() { return selectedLevelView; }
-    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(20, level)); }
+    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(28, level)); }
     
     public int getLevelCompletionTime(int level) {
         if (level >= 1 && level <= levelCompletionTimes.length) {

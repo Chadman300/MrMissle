@@ -1,9 +1,7 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import javax.imageio.ImageIO;
 
 public class Player {
     private double x, y;
@@ -54,21 +52,17 @@ public class Player {
     
     private void loadSprite() {
         if (missileSprite == null) {
-            String path = "sprites\\Missle Man Assets\\Missles\\Missle Black.png";
+            String path = "sprites/Missle Man Assets/Missles/Missle Black.png";
             try {
-                BufferedImage original = ImageIO.read(new File(path));
-                //missileSprite = rotateImage180(original);
-                missileSprite = original;
+                missileSprite = AssetLoader.loadImage(path);
             } catch (IOException e) {
                 System.err.println("Could not load missile sprite: " + path);
             }
         }
         if (missileShadow == null) {
-            String path = "sprites\\Missle Man Assets\\Missles\\Missle Black Shadow.png";
+            String path = "sprites/Missle Man Assets/Missles/Missle Black Shadow.png";
             try {
-                BufferedImage original = ImageIO.read(new File(path));
-                //missileShadow = rotateImage180(original);
-                missileShadow = original;
+                missileShadow = AssetLoader.loadImage(path);
             } catch (IOException e) {
                 System.err.println("Could not load missile shadow: " + path);
             }

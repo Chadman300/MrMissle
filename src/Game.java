@@ -217,6 +217,7 @@ public class Game extends JPanel implements Runnable {
     // Active item effects
     private boolean playerInvincible; // For INVINCIBILITY item and DASH i-frames
     private boolean shieldActive; // For SHIELD item
+    private int shieldHits; // Number of hits shield has taken (3 max)
     private int respawnInvincibilityTimer; // Shorter invincibility after respawn
     private double dashSpeedMultiplier; // For DASH item
     
@@ -618,14 +619,26 @@ public class Game extends JPanel implements Runnable {
                             item.activate();
                             screenShakeIntensity = 3;
                         }
-                    } else if (key == KeyEvent.VK_T && currentBoss != null) {
-                        // Debug: Instantly defeat boss and win level
-                        bossVulnerable = true; // Force vulnerability
-                        while (currentBoss.getCurrentHealth() > 0) {
-                            currentBoss.takeDamage();
+                    } else if (key == KeyEvent.VK_T) {
+                        // Debug: Skip level instantly
+                        if (currentBoss != null && !bossDeathAnimation) {
+                            // Force boss to die properly
+                            soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
+                            bossDeathAnimation = true;
+                            deathAnimationTimer = DEATH_ANIMATION_DURATION;
+                            bossDeathScale = 1.0;
+                            bossDeathRotation = 0;
+                            bossKillTime = gameTimeSeconds;
+                            player = null; // Remove player
+                            screenShakeIntensity = 25;
+                            System.out.println("DEBUG: Level skipped via T key - boss death triggered");
+                        } else if (!bossDeathAnimation) {
+                            // Boss not spawned yet, transition directly to WIN
+                            soundManager.stopMusic();
+                            gameState = GameState.WIN;
+                            screenShakeIntensity = 15;
+                            System.out.println("DEBUG: Level skipped via T key - direct to WIN");
                         }
-                        screenShakeIntensity = 15;
-                        System.out.println("DEBUG: Boss defeated via T key");
                     }
                 }
                 break;
@@ -644,9 +657,9 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_SPACE) {
                     int selected = shopManager.getSelectedShopItem();
                     if (selected == 0) {
-                        // Continue to next level
+                        // Continue to level select
                         soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        startGame();
+                        transitionToState(GameState.LEVEL_SELECT);
                         screenShakeIntensity = 5;
                     } else {
                         boolean purchased = shopManager.purchaseItem(selected);
@@ -660,7 +673,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    startGame(); 
+                    transitionToState(GameState.LEVEL_SELECT); 
                     screenShakeIntensity = 3; 
                 }
                 break;
@@ -671,7 +684,8 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
-                    startGame();
+                    // Force players to go through level select again
+                    transitionToState(GameState.LEVEL_SELECT);
                 } else if (key == KeyEvent.VK_ESCAPE) {
                     // Go to menu but don't start new run yet (let them check stats, shop, etc)
                     int survivalReward = gameData.getSurvivalTime() / 60;
@@ -714,6 +728,11 @@ public class Game extends JPanel implements Runnable {
                     if (!gameData.getDefeatedBosses()[currentLevel - 1]) {
                         gameData.setBossDefeated(currentLevel - 1, true);
                         bossReward += 100;
+                    }
+                    
+                    // Check for Risk Contract introduction at level 6
+                    if (currentLevel == 5 && !gameData.areContractsUnlocked()) {
+                        gameData.unlockContracts();
                     }
                     
                     // Apply LUCKY_CHARM multiplier if equipped
@@ -820,7 +839,7 @@ public class Game extends JPanel implements Runnable {
     
     private void navigateLevelMap(int direction) {
         int newLevel = gameData.getSelectedLevelView() + direction;
-        if (newLevel >= 1 && newLevel <= 20) {
+        if (newLevel >= 1 && newLevel <= 28) {
             gameData.setSelectedLevelView(newLevel);
             // Set target scroll position (will animate smoothly)
             levelSelectScroll = newLevel;
@@ -927,6 +946,74 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
+        } else if (gameState == GameState.SHOP) {
+            // Check if hovering over shop items
+            UIButton[] buttons = renderer.getShopButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    int currentSelected = shopManager.getSelectedShopItem();
+                    if (currentSelected != i) {
+                        shopManager.setSelectedShopItem(i);
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.RISK_CONTRACT) {
+            // Check if hovering over risk contract cards
+            // Card dimensions (from drawRiskContract method)
+            int cardWidth = 200;
+            int cardHeight = 280;
+            int cardSpacing = 30;
+            int totalWidth = RISK_CONTRACT_NAMES.length * cardWidth + (RISK_CONTRACT_NAMES.length - 1) * cardSpacing;
+            int startX = (WIDTH - totalWidth) / 2;
+            int cardY = 160;
+            
+            for (int i = 0; i < RISK_CONTRACT_NAMES.length; i++) {
+                int cardX = startX + i * (cardWidth + cardSpacing);
+                
+                // Check if mouse is over this card
+                if (mouseX >= cardX && mouseX <= cardX + cardWidth &&
+                    mouseY >= cardY && mouseY <= cardY + cardHeight) {
+                    if (selectedRiskContract != i) {
+                        selectedRiskContract = i;
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.LEVEL_SELECT) {
+            // Check if hovering over level nodes
+            int centerY = HEIGHT / 2 - 40;
+            int centerX = WIDTH / 2;
+            int levelSpacing = WIDTH / 2;
+            int centerNodeRadius = 80;
+            double scrollDelta = levelSelectScrollAnimated - gameData.getSelectedLevelView();
+            
+            // Check nodes within range
+            for (int i = -2; i <= 2; i++) {
+                int level = gameData.getSelectedLevelView() + i;
+                if (level < 1 || level > 20) continue;
+                
+                int baseX = centerX + i * levelSpacing;
+                int x = (int)(baseX - scrollDelta * levelSpacing);
+                
+                // Calculate node radius based on distance
+                double distFromCenter = Math.abs(x - centerX) / (double)levelSpacing;
+                double scale = Math.max(0.4, 1.0 - distFromCenter * 0.5);
+                int nodeRadius = (int)(centerNodeRadius * scale);
+                
+                // Check if mouse is over this node
+                double dist = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - centerY, 2));
+                if (dist <= nodeRadius) {
+                    if (gameData.getSelectedLevelView() != level) {
+                        int direction = level - gameData.getSelectedLevelView();
+                        navigateLevelMap(direction);
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
         }
     }
     
@@ -984,6 +1071,93 @@ public class Game extends JPanel implements Runnable {
                 if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                     selectedPauseItem = i;
                     activatePauseMenuItem(selectedPauseItem);
+                    break;
+                }
+            }
+        } else if (gameState == GameState.SHOP) {
+            // Check if clicking on shop items
+            UIButton[] buttons = renderer.getShopButtons();
+            for (int i = 0; i < buttons.length; i++) {
+                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                    shopManager.setSelectedShopItem(i);
+                    
+                    // Perform the purchase/continue action (same as SPACE key)
+                    if (i == 0) {
+                        // Continue button - go to level select
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        transitionToState(GameState.LEVEL_SELECT);
+                        screenShakeIntensity = 5;
+                    } else {
+                        // Try to purchase item
+                        boolean purchased = shopManager.purchaseItem(i);
+                        if (purchased) {
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                        } else {
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
+                        }
+                        screenShakeIntensity = purchased ? 10 : 3;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.RISK_CONTRACT) {
+            // Check if clicking on risk contract cards
+            int cardWidth = 200;
+            int cardHeight = 280;
+            int cardSpacing = 30;
+            int totalWidth = RISK_CONTRACT_NAMES.length * cardWidth + (RISK_CONTRACT_NAMES.length - 1) * cardSpacing;
+            int startX = (WIDTH - totalWidth) / 2;
+            int cardY = 160;
+            
+            for (int i = 0; i < RISK_CONTRACT_NAMES.length; i++) {
+                int cardX = startX + i * (cardWidth + cardSpacing);
+                
+                // Check if mouse is over this card
+                if (mouseX >= cardX && mouseX <= cardX + cardWidth &&
+                    mouseY >= cardY && mouseY <= cardY + cardHeight) {
+                    selectedRiskContract = i;
+                    
+                    // Confirm selection (same as SPACE key)
+                    confirmRiskContract();
+                    screenShakeIntensity = 5;
+                    break;
+                }
+            }
+        } else if (gameState == GameState.LEVEL_SELECT) {
+            // Check if clicking on level nodes
+            int centerY = HEIGHT / 2 - 40;
+            int centerX = WIDTH / 2;
+            int levelSpacing = WIDTH / 2;
+            int centerNodeRadius = 80;
+            double scrollDelta = levelSelectScrollAnimated - gameData.getSelectedLevelView();
+            
+            // Check nodes within range
+            for (int i = -2; i <= 2; i++) {
+                int level = gameData.getSelectedLevelView() + i;
+                if (level < 1 || level > 20) continue;
+                
+                int baseX = centerX + i * levelSpacing;
+                int x = (int)(baseX - scrollDelta * levelSpacing);
+                
+                // Calculate node radius based on distance
+                double distFromCenter = Math.abs(x - centerX) / (double)levelSpacing;
+                double scale = Math.max(0.4, 1.0 - distFromCenter * 0.5);
+                int nodeRadius = (int)(centerNodeRadius * scale);
+                
+                // Check if mouse is over this node
+                double dist = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - centerY, 2));
+                if (dist <= nodeRadius) {
+                    // Navigate to this level first
+                    if (gameData.getSelectedLevelView() != level) {
+                        int direction = level - gameData.getSelectedLevelView();
+                        navigateLevelMap(direction);
+                    }
+                    
+                    // If clicking the centered node, try to start that level
+                    if (distFromCenter < 0.3) {
+                        tryStartLevel();
+                    }
+                    screenShakeIntensity = 2;
                     break;
                 }
             }
@@ -1098,7 +1272,7 @@ public class Game extends JPanel implements Runnable {
         int theme = themes[(int)(Math.random() * themes.length)];
         soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
         
-        invulnerabilityTimer = INVULNERABILITY_DURATION; // 5 seconds of immunity
+        invulnerabilityTimer = 150; // 2.5 seconds of immunity at boss start
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
         waitingForRespawn = false;
@@ -1328,6 +1502,7 @@ public class Game extends JPanel implements Runnable {
         // Reset active item effect states each frame
         playerInvincible = false;
         dashSpeedMultiplier = 1.0;
+        shieldHits = 0;
         // Shield persists until used
         
         // Update resurrection animation
@@ -1365,6 +1540,19 @@ public class Game extends JPanel implements Runnable {
             int scoreGain = (int)deltaTime;
             if (item != null && item.getType() == ActiveItem.ItemType.LUCKY_CHARM) {
                 scoreGain = (int)(scoreGain * 1.5); // 50% bonus
+                
+                // Show visual feedback - occasional sparkles around player
+                if (enableParticles && Math.random() < 0.05 * deltaTime) {
+                    double angle = Math.random() * TWO_PI;
+                    double radius = 30 + Math.random() * 20;
+                    addParticle(
+                        player.getX() + Math.cos(angle) * radius,
+                        player.getY() + Math.sin(angle) * radius,
+                        0, -1.0,
+                        new Color(255, 215, 0, 200), 25, 3,
+                        Particle.ParticleType.SPARK
+                    );
+                }
             }
             gameData.addScore(scoreGain);
         }
@@ -2146,6 +2334,7 @@ public class Game extends JPanel implements Runnable {
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
                 shieldActive = true;
+                shieldHits = 0; // Reset shield hit counter
                 playerInvincible = true;
                 respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
                 waitingForRespawn = false;
@@ -2220,7 +2409,7 @@ public class Game extends JPanel implements Runnable {
             // Apply time slow from active item
             if (equippedItem != null && equippedItem.isActive() && 
                 equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
-                bullet.applySlow(0.5); // 50% speed
+                bullet.applySlow(0.3); // 30% speed (70% slow)
             }
             
             bullet.update(player, WIDTH, HEIGHT, deltaTime);
@@ -2294,7 +2483,7 @@ public class Game extends JPanel implements Runnable {
         rebuildBulletGrid();
         
         // Check collisions using spatial grid (much faster for many bullets!)
-        if (player != null) {
+        if (player != null && !bossDeathAnimation) {
             List<Bullet> nearbyBullets = getNearbyBullets(player.getX(), player.getY());
             for (Bullet bullet : nearbyBullets) {
                 if (bullet.isActive() && bullet.collidesWith(player)) {
@@ -2313,10 +2502,16 @@ public class Game extends JPanel implements Runnable {
                     // Check for shield
                     if (shieldActive) {
                         // Shield blocks the hit
+                        shieldHits++;
                         soundManager.playSound(SoundManager.Sound.SHIELD_BREAK);
-                        shieldActive = false;
                         bullets.remove(bullet);
                         returnBulletToPool(bullet);
+                        
+                        // Shield breaks after 3 hits
+                        if (shieldHits >= 3) {
+                            shieldActive = false;
+                            shieldHits = 0;
+                        }
                         
                         // Create shield break particles
                         if (enableParticles) {
@@ -2949,24 +3144,26 @@ public class Game extends JPanel implements Runnable {
             case DASH:
                 // Apply speed boost and invincibility during dash
                 playerInvincible = true;
-                dashSpeedMultiplier = 5.0;
+                dashSpeedMultiplier = 2.5; // Reduced from 5.0
                 if (player != null) {
+                    // Dash works when moving, preserves current velocity direction
                     player.applyDashBoost(dashSpeedMultiplier);
                 }
                 break;
                 
             case SHOCKWAVE:
                 // Push all bullets away from player (instant effect)
+                soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
                 if (player != null) {
                     for (Bullet bullet : bullets) {
                         double dx = bullet.getX() - player.getX();
                         double dy = bullet.getY() - player.getY();
                         double distance = Math.sqrt(dx * dx + dy * dy);
                         
-                        if (distance < 300) { // Shockwave radius
+                        if (distance < 300 && distance > 0) { // Shockwave radius
                             // Push bullet away
                             double angle = Math.atan2(dy, dx);
-                            double pushForce = 10 * (1.0 - distance / 300);
+                            double pushForce = 15 * (1.0 - distance / 300);
                             bullet.applyForce(Math.cos(angle) * pushForce, Math.sin(angle) * pushForce);
                         }
                     }
@@ -2994,6 +3191,7 @@ public class Game extends JPanel implements Runnable {
                 if (riskContractType != 3) {
                     soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
                     shieldActive = true;
+                    shieldHits = 0; // Reset hit counter
                 } else {
                     // Show message that shield is disabled
                     damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
@@ -3023,9 +3221,7 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 
-                for (Bullet bullet : bullets) {
-                    returnBulletToPool(bullet);
-                }
+                // Clear all bullets properly
                 bullets.clear();
                 
                 // Award score for cleared bullets

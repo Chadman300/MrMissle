@@ -37,9 +37,9 @@ public class ActiveItem {
                 break;
             case SHIELD:
                 name = "Shield";
-                description = "Tank one hit (7.5s cooldown)";
+                description = "Tank 3 hits (7.5s cooldown)";
                 cooldownFrames = 450; // 7.5 seconds (was 15)
-                activeDuration = 600; // Active for 10 seconds
+                activeDuration = 180; // Active for 3 seconds (short burst)
                 break;
             case MAGNET:
                 name = "Magnet";
@@ -57,7 +57,7 @@ public class ActiveItem {
                 name = "Dash";
                 description = "Dash with I-frames (2s cooldown)";
                 cooldownFrames = 120; // 2 seconds (was 3.5)
-                activeDuration = 20; // 0.33 seconds of dash
+                activeDuration = 15; // 0.25 seconds of dash (reduced)
                 break;
             case BOMB:
                 name = "Bomb";
@@ -67,9 +67,9 @@ public class ActiveItem {
                 break;
             case TIME_SLOW:
                 name = "Time Slow";
-                description = "Slow bullets 50% (7.5s cooldown)";
+                description = "Slow bullets 70% (7.5s cooldown)";
                 cooldownFrames = 450; // 7.5 seconds (was 15)
-                activeDuration = 240; // 4 seconds
+                activeDuration = 120; // 2 seconds (reduced from 4)
                 break;
             case LASER_BEAM:
                 name = "Laser Beam";

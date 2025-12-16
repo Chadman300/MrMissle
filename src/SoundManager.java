@@ -1,4 +1,3 @@
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -201,17 +200,16 @@ public class SoundManager {
             return soundCache.get(sound.name());
         }
         
-        File soundFile = new File(sound.getPath());
-        if (!soundFile.exists()) {
+        try {
+            Clip clip = AssetLoader.loadAudioClip(sound.getPath());
+            if (clip != null) {
+                soundCache.put(sound.name(), clip);
+            }
+            return clip;
+        } catch (Exception e) {
             System.err.println("Sound file not found: " + sound.getPath());
             return null;
         }
-        
-        AudioInputStream audioStream = AudioSystem.getAudioInputStream(soundFile);
-        Clip clip = AudioSystem.getClip();
-        clip.open(audioStream);
-        soundCache.put(sound.name(), clip);
-        return clip;
     }
     
     public void playSound(Sound sound) {
@@ -315,16 +313,12 @@ public class SoundManager {
     }
     
     private Clip loadSoundClip(Sound sound) throws LineUnavailableException, IOException, UnsupportedAudioFileException {
-        File soundFile = new File(sound.path);
-        if (!soundFile.exists()) {
+        try {
+            return AssetLoader.loadAudioClip(sound.path);
+        } catch (Exception e) {
             System.err.println("Sound file not found: " + sound.path);
             return null;
         }
-        
-        AudioInputStream audioStream = AudioSystem.getAudioInputStream(soundFile);
-        Clip clip = AudioSystem.getClip();
-        clip.open(audioStream);
-        return clip;
     }
     
     private void setVolume(Clip clip, float volume) {
@@ -410,15 +404,7 @@ public class SoundManager {
         stopMusic();
         
         try {
-            File musicFile = new File(wavPath);
-            if (!musicFile.exists()) {
-                System.err.println("Music file not found: " + wavPath);
-                System.err.println("Note: Java's built-in audio only supports WAV files.");
-                System.err.println("Please convert " + musicPath + " to WAV format.");
-                return;
-            }
-            
-            AudioInputStream audioStream = AudioSystem.getAudioInputStream(musicFile);
+            AudioInputStream audioStream = AssetLoader.getAudioInputStream(wavPath);
             musicClip = AudioSystem.getClip();
             musicClip.open(audioStream);
             musicClip.loop(Clip.LOOP_CONTINUOUSLY);

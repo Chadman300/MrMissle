@@ -1,10 +1,8 @@
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import javax.imageio.ImageIO;
 
 public class Boss {
     private double x, y;
@@ -39,13 +37,13 @@ public class Boss {
     private List<BeamAttack> beamAttacks; // Active beam attacks
     
     // Multiple sprite variants for planes and helicopters
-    private static BufferedImage[] miniBossPlaneSprites = new BufferedImage[8];
-    private static BufferedImage[] megaBossPlaneSprites = new BufferedImage[8];
-    private static BufferedImage[] helicopterSprites = new BufferedImage[8];
-    private static BufferedImage[] miniBossPlaneShadows = new BufferedImage[8];
-    private static BufferedImage[] megaBossPlaneShadows = new BufferedImage[8];
-    private static BufferedImage[] helicopterShadows = new BufferedImage[8];
+    private static BufferedImage[] miniBossPlaneSprites = new BufferedImage[17]; // Planes 1-9, 11-15, Helicopters 2-4
+    private static BufferedImage[] megaBossPlaneSprites = new BufferedImage[9]; // Boss Planes 1-8, Helicopter 1
+    private static BufferedImage[] miniBossPlaneShadows = new BufferedImage[17];
+    private static BufferedImage[] megaBossPlaneShadows = new BufferedImage[9];
     private static BufferedImage[] helicopterBlades = new BufferedImage[3]; // Rotor blade sprites
+    private static BufferedImage finalBossSprite;
+    private static BufferedImage finalBossShadow;
     private static boolean spritesLoaded = false;
     
     // Animation for helicopter blades
@@ -150,27 +148,46 @@ public class Boss {
     private void loadSprites() {
         if (spritesLoaded) return;
         try {
-            // Load mini boss plane variants (Regular Planes)
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png", miniBossPlaneSprites, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png", miniBossPlaneSprites, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png", miniBossPlaneSprites, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10.png", miniBossPlaneSprites, 3);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png", miniBossPlaneSprites, 4);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png", miniBossPlaneSprites, 5);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png", miniBossPlaneSprites, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png", miniBossPlaneSprites, 7);
+            // Load mini boss planes: Planes 1-9, 11-15 (14 planes)
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 1.png", miniBossPlaneSprites, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 2.png", miniBossPlaneSprites, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 3.png", miniBossPlaneSprites, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 4.png", miniBossPlaneSprites, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 5.png", miniBossPlaneSprites, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 6.png", miniBossPlaneSprites, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png", miniBossPlaneSprites, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png", miniBossPlaneSprites, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png", miniBossPlaneSprites, 8);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png", miniBossPlaneSprites, 9);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png", miniBossPlaneSprites, 10);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png", miniBossPlaneSprites, 11);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png", miniBossPlaneSprites, 12);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 15.png", miniBossPlaneSprites, 13);
+            // Helicopters 2, 3, 4 for mini bosses
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png", miniBossPlaneSprites, 14);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png", miniBossPlaneSprites, 15);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", miniBossPlaneSprites, 16);
             
-            // Load mini boss plane shadows
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png", miniBossPlaneShadows, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png", miniBossPlaneShadows, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png", miniBossPlaneShadows, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 10 Shadow.png", miniBossPlaneShadows, 3);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png", miniBossPlaneShadows, 4);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png", miniBossPlaneShadows, 5);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png", miniBossPlaneShadows, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png", miniBossPlaneShadows, 7);
+            // Load mini boss shadows
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 1 Shadow.png", miniBossPlaneShadows, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 2 Shadow.png", miniBossPlaneShadows, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 3 Shadow.png", miniBossPlaneShadows, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 4 Shadow.png", miniBossPlaneShadows, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 5 Shadow.png", miniBossPlaneShadows, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 6 Shadow.png", miniBossPlaneShadows, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png", miniBossPlaneShadows, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png", miniBossPlaneShadows, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png", miniBossPlaneShadows, 8);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png", miniBossPlaneShadows, 9);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png", miniBossPlaneShadows, 10);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png", miniBossPlaneShadows, 11);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png", miniBossPlaneShadows, 12);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 15 Shadow.png", miniBossPlaneShadows, 13);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", miniBossPlaneShadows, 14);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", miniBossPlaneShadows, 15);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", miniBossPlaneShadows, 16);
             
-            // Load mega boss plane variants (Boss Planes)
+            // Load mega boss planes: Boss Planes 1-8 (8 boss planes)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png", megaBossPlaneSprites, 0);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2.png", megaBossPlaneSprites, 1);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3.png", megaBossPlaneSprites, 2);
@@ -179,8 +196,10 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png", megaBossPlaneSprites, 5);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png", megaBossPlaneSprites, 6);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 7);
+            // Helicopter 1 for mega bosses
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", megaBossPlaneSprites, 8);
             
-            // Load mega boss plane shadows
+            // Load mega boss shadows
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png", megaBossPlaneShadows, 0);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png", megaBossPlaneShadows, 1);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png", megaBossPlaneShadows, 2);
@@ -189,31 +208,16 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png", megaBossPlaneShadows, 5);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png", megaBossPlaneShadows, 6);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 7);
-            
-            // Load helicopter variants
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", helicopterSprites, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png", helicopterSprites, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png", helicopterSprites, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", helicopterSprites, 3);
-            helicopterSprites[4] = helicopterSprites[0]; // Reuse
-            helicopterSprites[5] = helicopterSprites[1]; // Reuse
-            helicopterSprites[6] = helicopterSprites[2]; // Reuse
-            helicopterSprites[7] = helicopterSprites[3]; // Reuse
-            
-            // Load helicopter shadows
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", helicopterShadows, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", helicopterShadows, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", helicopterShadows, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", helicopterShadows, 3);
-            helicopterShadows[4] = helicopterShadows[0]; // Reuse
-            helicopterShadows[5] = helicopterShadows[1]; // Reuse
-            helicopterShadows[6] = helicopterShadows[0]; // Reuse
-            helicopterShadows[7] = helicopterShadows[1]; // Reuse
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", megaBossPlaneShadows, 8);
             
             // Load helicopter blade sprites
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png", helicopterBlades, 0);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Wings.png", helicopterBlades, 1);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png", helicopterBlades, 2);
+            
+            // Load final boss
+            finalBossSprite = rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png"));
+            finalBossShadow = rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss Shadow.png"));
             
             spritesLoaded = true;
         } catch (IOException e) {
@@ -224,7 +228,7 @@ public class Boss {
     
     private void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
         try {
-            array[index] = rotateImage180(ImageIO.read(new File(path)));
+            array[index] = rotateImage180(AssetLoader.loadImage(path));
         } catch (IOException e) {
             System.err.println("Could not load boss sprite: " + path);
             throw e;
@@ -242,7 +246,7 @@ public class Boss {
     // Update only visual animations (helicopter blades, etc.) - safe to call during intro
     public void updateAnimations(double deltaTime) {
         // Animate helicopter blades if this is a helicopter
-        if (level % 2 == 0) {
+        if (isHelicopter()) {
             bladeRotation += BLADE_ROTATION_SPEED * deltaTime;
             if (bladeRotation > Math.PI * 2) {
                 bladeRotation -= Math.PI * 2;
@@ -987,44 +991,72 @@ public class Boss {
     }
     
     private BufferedImage getCurrentSprite() {
-        // Get the currently displayed sprite based on level
-        int spriteIndex = ((level - 1) / 2) % 8;
-        
-        if (level % 2 == 0) {
-            // Helicopter
-            return helicopterSprites[spriteIndex];
-        } else if (isMegaBoss) {
-            // Mega boss plane
-            return megaBossPlaneSprites[spriteIndex];
-        } else {
-            // Mini boss plane
-            return miniBossPlaneSprites[spriteIndex];
+        // Level 28 is the final boss
+        if (level == 28) {
+            return finalBossSprite;
         }
+        
+        // Get sprite index based on level
+        if (isMegaBoss) {
+            // Mega bosses: cycle through Boss Planes 1-8 and Helicopter 1 (9 sprites)
+            int megaIndex = ((level / 3) - 1) % 9; // levels 3,6,9,12,15,18 -> indices 0-5
+            return megaBossPlaneSprites[megaIndex];
+        } else {
+            // Mini bosses: cycle through Planes 1-9, 11-15, Helicopters 2-4 (17 sprites)
+            int miniIndex = (level - 1) % 17; // distribute across all mini boss levels
+            return miniBossPlaneSprites[miniIndex];
+        }
+    }
+    
+    private boolean isHelicopter() {
+        // Determine if current boss is a helicopter based on sprite
+        if (level == 28) return false; // Final boss is not a helicopter
+        
+        if (isMegaBoss) {
+            int megaIndex = ((level / 3) - 1) % 9;
+            return megaIndex == 8; // Helicopter 1 is at index 8
+        } else {
+            int miniIndex = (level - 1) % 17;
+            return miniIndex >= 14; // Helicopters 2-4 are at indices 14-16
+        }
+    }
+    
+    private int getHelicopterBladeIndex() {
+        // Get the appropriate blade sprite for the current helicopter
+        if (isMegaBoss) {
+            return 0; // Helicopter 1 uses blade 0 (Helecopter Wings.png)
+        } else {
+            int miniIndex = (level - 1) % 17;
+            if (miniIndex == 14) return 0; // Helicopter 2 uses blade 0
+            if (miniIndex == 15) return 1; // Helicopter 3 uses blade 1
+            if (miniIndex == 16) return 2; // Helicopter 4 uses blade 2
+        }
+        return 0;
     }
     
     public void draw(Graphics2D g) {
         Graphics2D g2d = (Graphics2D) g.create();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
-        // Odd levels = fighter planes, Even levels = helicopters
-        // Select sprite variant based on level (cycles through 8 variants)
-        int spriteIndex = ((level - 1) / 2) % 8;
+        // Get appropriate sprite and shadow
         BufferedImage sprite;
         BufferedImage shadow;
+        boolean isHelicopter = isHelicopter();
         
-        if (level % 2 == 0) {
-            // Even levels: Helicopters (always mega bosses)
-            sprite = helicopterSprites[spriteIndex];
-            shadow = helicopterShadows[spriteIndex];
+        if (level == 28) {
+            // Final boss
+            sprite = finalBossSprite;
+            shadow = finalBossShadow;
+        } else if (isMegaBoss) {
+            // Mega bosses: Boss Planes 1-8 and Helicopter 1
+            int megaIndex = ((level / 3) - 1) % 9;
+            sprite = megaBossPlaneSprites[megaIndex];
+            shadow = megaBossPlaneShadows[megaIndex];
         } else {
-            // Odd levels: Planes (can be mini or mega)
-            if (isMegaBoss) {
-                sprite = megaBossPlaneSprites[spriteIndex];
-                shadow = megaBossPlaneShadows[spriteIndex];
-            } else {
-                sprite = miniBossPlaneSprites[spriteIndex];
-                shadow = miniBossPlaneShadows[spriteIndex];
-            }
+            // Mini bosses: Planes 1-9, 11-15, Helicopters 2-4
+            int miniIndex = (level - 1) % 17;
+            sprite = miniBossPlaneSprites[miniIndex];
+            shadow = miniBossPlaneShadows[miniIndex];
         }
         
         if (sprite != null) {
@@ -1075,14 +1107,12 @@ public class Boss {
             // Now rotate for the sprite itself
             g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
-            boolean isHelicopter = (level % 2 == 0);
             // Draw sprite
             g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
             
             // Draw spinning helicopter blades if this is a helicopter
             if (isHelicopter && helicopterBlades[0] != null) {
-                // Choose blade sprite based on helicopter variant
-                int bladeIndex = Math.min(spriteIndex / 3, 2); // 0-2, 3-5, 6-7 map to blade 0, 1, 2
+                int bladeIndex = getHelicopterBladeIndex();
                 BufferedImage bladeSprite = helicopterBlades[bladeIndex];
                 
                 if (bladeSprite != null) {

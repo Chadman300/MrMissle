@@ -1,10 +1,8 @@
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import javax.imageio.ImageIO;
 
 public class Renderer {
     private GameData gameData;
@@ -114,34 +112,16 @@ public class Renderer {
             int totalLoaded = 0;
             for (int set = 0; set < 14; set++) {
                 for (int layer = 0; layer < 6; layer++) {
-                    // Try multiple possible paths to handle different working directories
-                    String[] possiblePaths = {
-                        String.format("sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1),
-                        String.format("../sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1),
-                        String.format("sprites\\Backgrounds\\background (%d)\\%d.png", set + 1, layer + 1),
-                        String.format("..\\sprites\\Backgrounds\\background (%d)\\%d.png", set + 1, layer + 1)
-                    };
+                    String path = String.format("sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1);
                     
                     BufferedImage image = null;
-                    String successfulPath = null;
-                    for (String path : possiblePaths) {
-                        File file = new File(path);
-                        if (file.exists()) {
-                            try {
-                                image = ImageIO.read(file);
-                                if (image != null) {
-                                    successfulPath = path;
-                                    totalLoaded++;
-                                    break;
-                                }
-                            } catch (IOException e) {
-                                System.err.println("Could not load background sprite: " + path);
-                            }
+                    try {
+                        image = AssetLoader.loadImage(path);
+                        if (image != null) {
+                            totalLoaded++;
                         }
-                    }
-                    
-                    if (image == null) {
-                        System.err.println("Failed to load background layer " + (layer + 1) + " for set " + (set + 1) + ". Tried paths: " + String.join(", ", possiblePaths));
+                    } catch (IOException e) {
+                        // Layer doesn't exist for this set - this is normal
                     }
                     
                     // Store the image (can be null if layer doesn't exist for this set)
@@ -166,25 +146,12 @@ public class Renderer {
     private void loadOverlay() {
         if (overlayLoaded) return;
         try {
-            String[] possiblePaths = {
-                "sprites/Backgrounds/Overlay.png",
-                "../sprites/Backgrounds/Overlay.png",
-                "sprites\\Backgrounds\\Overlay.png",
-                "..\\sprites\\Backgrounds\\Overlay.png"
-            };
-            
-            for (String path : possiblePaths) {
-                File file = new File(path);
-                if (file.exists()) {
-                    overlayImage = ImageIO.read(file);
-                    overlayLoaded = true;
-                    System.out.println("Overlay image loaded from: " + path);
-                    return;
-                }
-            }
-            System.out.println("Overlay image not found - will run without overlay");
+            String path = "sprites/Backgrounds/Overlay.png";
+            overlayImage = AssetLoader.loadImage(path);
+            overlayLoaded = true;
+            System.out.println("Overlay image loaded successfully");
         } catch (Exception e) {
-            System.err.println("Error loading overlay: " + e.getMessage());
+            System.out.println("Overlay image not found - will run without overlay");
             overlayLoaded = false;
         }
     }
@@ -914,7 +881,7 @@ public class Renderer {
         // Progress indicator (dots at top)
         int dotY = 80;
         int dotSpacing = 20;
-        int totalDots = 20;
+        int totalDots = 28;
         int dotsStartX = (width - (totalDots - 1) * dotSpacing) / 2;
         
         for (int i = 1; i <= totalDots; i++) {
@@ -954,7 +921,7 @@ public class Renderer {
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
             g.drawString("◄", 15, centerY + 18);
         }
-        if (selectedLevel < 20) {
+        if (selectedLevel < 28) {
             // Right arrow
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
@@ -971,7 +938,7 @@ public class Renderer {
         // Draw levels based on scroll position (show 5 levels for smooth transitions)
         for (int i = -2; i <= 2; i++) {
             int level = selectedLevel + i;
-            if (level < 1 || level > 20) continue;
+            if (level < 1 || level > 28) continue;
             
             // Calculate x position based on scroll offset for smooth animation
             double scrollDelta = scrollOffset - selectedLevel;
@@ -1189,7 +1156,7 @@ public class Renderer {
         // Navigation hints at very bottom
         g.setFont(new Font("Arial", Font.PLAIN, 14));
         g.setColor(new Color(100, 110, 130));
-        String navHint = "← →  Navigate    SPACE  Start    ESC  Back";
+        String navHint = "← → or CLICK  Navigate    SPACE or CLICK  Start    ESC  Back";
         fm = g.getFontMetrics();
         g.drawString(navHint, panelX + (panelWidth - fm.stringWidth(navHint)) / 2, panelY + panelHeight - 15);
     }
@@ -1329,7 +1296,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "← →  Select   |   SPACE  Confirm   |   ESC  Back";
+        String hint = "← → or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -2203,7 +2170,7 @@ public class Renderer {
         // Instructions
         g.setColor(new Color(216, 222, 233));
         g.setFont(new Font("Arial", Font.PLAIN, 20));
-        String inst1 = "Use UP/DOWN to select | SPACE to purchase | ESC to continue";
+        String inst1 = "Use UP/DOWN or MOUSE to select | SPACE or CLICK to purchase | ESC to continue";
         fm = g.getFontMetrics();
         g.drawString(inst1, (width - fm.stringWidth(inst1)) / 2, height - 50);
     }
