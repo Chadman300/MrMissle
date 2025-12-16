@@ -155,4 +155,8 @@ public class ComboSystem {
     public int getTotalGrazeValue() {
         return totalGrazeValue;
     }
+    
+    public int getTotalDodges() {
+        return totalGrazeValue; // Total grazes = total dodges
+    }
 }

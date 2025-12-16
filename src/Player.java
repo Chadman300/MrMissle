@@ -9,6 +9,7 @@ public class Player {
     private double prevVX, prevVY; // Previous velocity for squash/stretch
     private static final int SIZE = 20;
     private static final double MAX_SPEED = 6.0;
+    private static final double DASH_MAX_SPEED = 15.0; // Higher speed limit during dash
     private static final double ACCELERATION = 0.5;
     private static final double FRICTION = 0.85;
     private double speedMultiplier;
@@ -23,6 +24,11 @@ public class Player {
     // Squash and stretch animation
     private double squashX = 1.0; // Horizontal scale
     private double squashY = 1.0; // Vertical scale
+    
+    // Dash state
+    private boolean isDashing = false;
+    private int dashFrames = 0;
+    private static final int DASH_DURATION = 15; // Frames to ignore speed limit
     
     // Sun angle for directional shadows (top-left, about 135 degrees)
     private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
@@ -115,8 +121,17 @@ public class Player {
         if (ax == 0) vx *= frictionFactor;
         if (ay == 0) vy *= frictionFactor;
         
-        // Clamp velocity to max speed using cached speed calculation
-        double maxSpeed = MAX_SPEED * speedMultiplier;
+        // Update dash state
+        if (isDashing) {
+            dashFrames--;
+            if (dashFrames <= 0) {
+                isDashing = false;
+            }
+        }
+        
+        // Clamp velocity to max speed using cached speed calculation (higher limit during dash)
+        double maxSpeed = isDashing ? (DASH_MAX_SPEED * speedMultiplier) : (MAX_SPEED * speedMultiplier);
+        
         // Only recalculate speed every few frames or when needed
         if (speedCacheAge > 3 || cachedSpeed == 0 || (ax != 0 || ay != 0)) {
             cachedSpeed = Math.sqrt(vx * vx + vy * vy);
@@ -294,6 +309,14 @@ public class Player {
     public double getVX() { return vx; }
     public double getVY() { return vy; }
     
+    // Get the angle the missile is facing based on velocity
+    public double getAngle() {
+        if (vx == 0 && vy == 0) {
+            return -Math.PI / 2; // Point upward when stationary
+        }
+        return Math.atan2(vy, vx);
+    }
+    
     // Set position (for debug teleport)
     public void setPosition(double x, double y) {
         this.x = x;
@@ -305,5 +328,44 @@ public class Player {
         // Increase current velocity by the multiplier
         vx *= multiplier;
         vy *= multiplier;
+    }
+    
+    public void applyDashImpulse(double multiplier, boolean[] keys) {
+        // Get current input direction
+        double dashX = 0;
+        double dashY = 0;
+        
+        if (keys[KeyEvent.VK_W] || keys[KeyEvent.VK_UP]) dashY -= 1;
+        if (keys[KeyEvent.VK_S] || keys[KeyEvent.VK_DOWN]) dashY += 1;
+        if (keys[KeyEvent.VK_A] || keys[KeyEvent.VK_LEFT]) dashX -= 1;
+        if (keys[KeyEvent.VK_D] || keys[KeyEvent.VK_RIGHT]) dashX += 1;
+        
+        // If no input, use current velocity direction
+        if (dashX == 0 && dashY == 0) {
+            if (vx != 0 || vy != 0) {
+                double speed = Math.sqrt(vx * vx + vy * vy);
+                dashX = vx / speed;
+                dashY = vy / speed;
+            } else {
+                // No movement at all, dash upward by default
+                dashY = -1;
+            }
+        }
+        
+        // Normalize diagonal dashes
+        if (dashX != 0 && dashY != 0) {
+            double length = Math.sqrt(dashX * dashX + dashY * dashY);
+            dashX /= length;
+            dashY /= length;
+        }
+        
+        // Add strong impulse in dash direction (adds to current velocity)
+        double dashSpeed = MAX_SPEED * multiplier;
+        vx += dashX * dashSpeed;
+        vy += dashY * dashSpeed;
+        
+        // Enable dash mode to temporarily ignore speed limits
+        isDashing = true;
+        dashFrames = DASH_DURATION;
     }
 }

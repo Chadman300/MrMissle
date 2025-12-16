@@ -80,7 +80,7 @@ public class ShopManager {
             "Continue - Return to level select",
             "Speed Boost - Increases movement speed by 15%",
             "Bullet Slow - Slows enemy bullets by 0.1%",
-            "Lucky Dodge - Small chance to phase through bullets",
+            "Lucky Dodge - 5% chance per level to phase through bullets",
             "Attack Window+ - Adds 1 second to boss vulnerability window",
             "Score Multiplier - Increases score gain (Coming Soon)",
             "Extra Life - Resurrect once when you die"

@@ -220,6 +220,9 @@ public class Game extends JPanel implements Runnable {
     private int shieldHits; // Number of hits shield has taken (3 max)
     private int respawnInvincibilityTimer; // Shorter invincibility after respawn
     private double dashSpeedMultiplier; // For DASH item
+    private double spawnProtectionX; // X position where spawn protection was activated
+    private double spawnProtectionY; // Y position where spawn protection was activated
+    private static final double SPAWN_PROTECTION_RADIUS = 150; // Radius player can move before losing protection
     
     // Camera tracking with smooth interpolation
     private double cameraX = 0;
@@ -481,7 +484,7 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 2;
                     }
                 }
-                else if (key == KeyEvent.VK_ESCAPE) { gameState = GameState.MENU; screenShakeIntensity = 3; }
+                else if (key == KeyEvent.VK_ESCAPE) { transitionToState(GameState.MENU); screenShakeIntensity = 3; }
                 break;
                 
             case SETTINGS:
@@ -522,17 +525,17 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    gameState = GameState.MENU; 
+                    transitionToState(GameState.MENU); 
                     screenShakeIntensity = 3; 
                 }
                 break;
                 
             case INFO:
-                if (key == KeyEvent.VK_ESCAPE) gameState = GameState.MENU;
+                if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
                 
             case ACHIEVEMENTS:
-                if (key == KeyEvent.VK_ESCAPE) gameState = GameState.MENU;
+                if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
                 
             case LEVEL_SELECT:
@@ -550,7 +553,7 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 5; 
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
-                    gameState = GameState.MENU; 
+                    transitionToState(GameState.MENU); 
                     screenShakeIntensity = 3; 
                 }
                 break;
@@ -618,6 +621,10 @@ public class Game extends JPanel implements Runnable {
                         if (item != null && item.canActivate()) {
                             item.activate();
                             screenShakeIntensity = 3;
+                            // Handle instant effects immediately (before update() deactivates them)
+                            if (item.getActiveDuration() == 0) {
+                                handleActiveItemEffects(item, 1.0);
+                            }
                         }
                     } else if (key == KeyEvent.VK_T) {
                         // Debug: Skip level instantly
@@ -728,11 +735,6 @@ public class Game extends JPanel implements Runnable {
                     if (!gameData.getDefeatedBosses()[currentLevel - 1]) {
                         gameData.setBossDefeated(currentLevel - 1, true);
                         bossReward += 100;
-                    }
-                    
-                    // Check for Risk Contract introduction at level 6
-                    if (currentLevel == 5 && !gameData.areContractsUnlocked()) {
-                        gameData.unlockContracts();
                     }
                     
                     // Apply LUCKY_CHARM multiplier if equipped
@@ -851,6 +853,12 @@ public class Game extends JPanel implements Runnable {
         int selectedLevel = gameData.getSelectedLevelView();
         int currentLevel = gameData.getCurrentLevel();
         int maxUnlocked = gameData.getMaxUnlockedLevel();
+        
+        // Cannot replay levels that have already been beaten
+        if (selectedLevel < currentLevel) {
+            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+            return;
+        }
         
         // Can start any unlocked level (for debug or level select)
         if (selectedLevel <= maxUnlocked) {
@@ -1189,7 +1197,7 @@ public class Game extends JPanel implements Runnable {
                 break;
             case 2: // Main Menu
                 isPaused = false;
-                gameState = GameState.MENU;
+                transitionToState(GameState.MENU);
                 selectedMenuItem = 0;
                 break;
         }
@@ -1199,6 +1207,9 @@ public class Game extends JPanel implements Runnable {
     private void handlePlayerDeath() {
         // Check if player has extra lives
         if (gameData.useExtraLife()) {
+            // Track lives used stat
+            gameData.getCurrentLevelStats().incrementLivesUsed();
+            
             // Trigger resurrection animation
             resurrectionAnimation = true;
             resurrectionTimer = RESURRECTION_DURATION;
@@ -1232,6 +1243,10 @@ public class Game extends JPanel implements Runnable {
             playerInvincible = true;
             respawnInvincibilityTimer = 180; // 3 seconds of invincibility
             
+            // Track spawn position for radius check
+            spawnProtectionX = player.getX();
+            spawnProtectionY = player.getY();
+            
             // Screen effects
             screenShakeIntensity = 15;
             slowMotionFactor = 0.2;
@@ -1263,6 +1278,18 @@ public class Game extends JPanel implements Runnable {
         comboTimer = 0;
         bossVulnerable = false;
         vulnerabilityTimer = 0;
+        
+        // Reset level stats for new attempt
+        gameData.resetCurrentLevelStats();
+        
+        // Track spawn position for spawn protection radius
+        spawnProtectionX = WIDTH / 2;
+        spawnProtectionY = HEIGHT - 200;
+        
+        // Reset cumulative run stats if starting from level 1
+        if (gameData.getCurrentLevel() == 1) {
+            gameData.resetCumulativeRunStats();
+        }
         
         // Start ambient background sound
         soundManager.startAmbientSound();
@@ -1441,8 +1468,8 @@ public class Game extends JPanel implements Runnable {
                 itemUnlockDismissing = false;
                 
                 // After item animation ends, check if we should show contract unlock
-                // This happens on level 3 (first mega boss)
-                if (gameData.getCurrentLevel() == 3 && gameData.areContractsUnlocked() && !contractUnlockAnimation) {
+                // This happens on level 6 (second mega boss)
+                if (gameData.getCurrentLevel() == 6 && gameData.areContractsUnlocked() && !contractUnlockAnimation) {
                     soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
                     contractUnlockAnimation = true;
                     contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
@@ -1521,6 +1548,21 @@ public class Game extends JPanel implements Runnable {
         // Handle respawn invincibility timer
         if (respawnInvincibilityTimer > 0) {
             respawnInvincibilityTimer -= deltaTime;
+            
+            // Check if player moved too far from spawn point
+            if (player != null) {
+                double dx = player.getX() - spawnProtectionX;
+                double dy = player.getY() - spawnProtectionY;
+                double distanceFromSpawn = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distanceFromSpawn > SPAWN_PROTECTION_RADIUS) {
+                    // Player moved too far - remove protection immediately
+                    respawnInvincibilityTimer = 0;
+                    shieldActive = false;
+                    playerInvincible = false;
+                }
+            }
+            
             if (respawnInvincibilityTimer <= 0) {
                 // Timer expired - remove shield and invincibility
                 shieldActive = false;
@@ -1791,7 +1833,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             // Spawn fire trail behind player
-            if (Game.enableParticles) {
+            if (player != null && Game.enableParticles) {
                 trailSpawnTimer++;
                 if (trailSpawnTimer >= 2) { // Every 2 frames
                     trailSpawnTimer = 0;
@@ -2005,8 +2047,14 @@ public class Game extends JPanel implements Runnable {
                     // Update money achievement
                     achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
                     
-                    // Save level completion time
+                    // Save level completion time and stats
                     gameData.setLevelCompletionTime(gameData.getCurrentLevel(), (int)(gameTimeSeconds * 60));
+                    gameData.getCurrentLevelStats().setTimeInFrames((int)(gameTimeSeconds * 60));
+                    gameData.getCurrentLevelStats().setDodges(comboSystem.getTotalDodges());
+                    gameData.getCurrentLevelStats().setPerfectDodges(comboSystem.getPerfectDodgeCount());
+                    gameData.getCurrentLevelStats().setMaxCombo(comboSystem.getMaxCombo());
+                    // Bullets spawned, near misses, damage taken, and closest call are already being tracked throughout the level
+                    gameData.saveLevelStats(gameData.getCurrentLevel());
                     
                     // Start boss death animation
                     soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
@@ -2170,6 +2218,15 @@ public class Game extends JPanel implements Runnable {
                 
                 // Check if this is a mega boss (every 3rd level)
                 int currentLevel = gameData.getCurrentLevel();
+                
+                // Check if this is level 7 (currentLevel == 6, 0-indexed)
+                // Unlock risk contracts when defeating level 7 boss
+                if (currentLevel == 6 && !gameData.areContractsUnlocked()) {
+                    // Unlock risk contracts permanently!
+                    gameData.unlockContracts();
+                    // We'll show the contract animation in the WIN state
+                }
+                
                 if (currentLevel % 3 == 0 && !gameData.getDefeatedBosses()[currentLevel - 1]) {
                     // Unlock item before transitioning
                     gameData.unlockNextItem();
@@ -2187,20 +2244,20 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
                     itemUnlockAnimation = true;
                     itemUnlockTimer = ITEM_UNLOCK_DURATION;
-                    
-                    // Check if this is the SECOND mega boss (level 6)
-                    // Level 6 is the second mega boss (6 % 3 == 0)
-                    if (currentLevel == 6 && !gameData.areContractsUnlocked()) {
-                        // Unlock risk contracts permanently!
-                        gameData.unlockContracts();
-                        // We'll show the contract animation AFTER the item animation finishes
-                    }
                 }
                 
                 soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
                 soundManager.stopMusic();
                 gameState = GameState.WIN;
                 bossDeathAnimation = false;
+                
+                // If level 7 was defeated and contracts were unlocked, trigger animation
+                if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation) {
+                    soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                    contractUnlockAnimation = true;
+                    contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
+                }
+                
                 return;
             }
         }
@@ -2259,6 +2316,14 @@ public class Game extends JPanel implements Runnable {
             int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
+            
+            // Track bullets spawned for stats
+            int bulletsSpawned = bullets.size() - bulletCountBefore;
+            if (bulletsSpawned > 0) {
+                for (int i = 0; i < bulletsSpawned; i++) {
+                    gameData.getCurrentLevelStats().incrementBulletsSpawned();
+                }
+            }
             
             // Apply risk contract effects to newly spawned bullets
             if (riskContractType > 0 && bullets.size() > bulletCountBefore) {
@@ -2337,6 +2402,11 @@ public class Game extends JPanel implements Runnable {
                 shieldHits = 0; // Reset shield hit counter
                 playerInvincible = true;
                 respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
+                
+                // Track spawn position for radius check
+                spawnProtectionX = player.getX();
+                spawnProtectionY = player.getY();
+                
                 waitingForRespawn = false;
                 
                 // Add respawn flash effect
@@ -2507,10 +2577,15 @@ public class Game extends JPanel implements Runnable {
                         bullets.remove(bullet);
                         returnBulletToPool(bullet);
                         
-                        // Shield breaks after 3 hits
+                        // Shield breaks after 3 hits - deactivate item immediately
                         if (shieldHits >= 3) {
                             shieldActive = false;
                             shieldHits = 0;
+                            // Force deactivate the shield item
+                            ActiveItem shieldItem = gameData.getEquippedItem();
+                            if (shieldItem != null && shieldItem.getType() == ActiveItem.ItemType.SHIELD) {
+                                shieldItem.setActive(false);
+                            }
                         }
                         
                         // Create shield break particles
@@ -2582,6 +2657,8 @@ public class Game extends JPanel implements Runnable {
                             );
                         }
                     }
+                    // Track damage taken
+                    gameData.getCurrentLevelStats().incrementDamageTaken();
                     handlePlayerDeath();
                     return;
                 }
@@ -2596,9 +2673,18 @@ public class Game extends JPanel implements Runnable {
                     bullet.setGrazed(true);
                     totalGrazesThisRun++;
                     
+                    // Track closest call and graze distance for risk %
+                    gameData.getCurrentLevelStats().updateClosestCall(dist);
+                    gameData.getCurrentLevelStats().addGrazeDistance(dist);
+                    
                     // Determine graze tier
                     boolean isPerfectDodge = dist < perfectDodgeRadius;
                     boolean isCloseCall = dist < closeCallRadius;
+                    
+                    // Track near misses (close calls that aren't perfect dodges)
+                    if (isCloseCall && !isPerfectDodge) {
+                        gameData.getCurrentLevelStats().incrementNearMisses();
+                    }
                     
                     // Calculate graze value based on tier
                     int grazeValue = 1;
@@ -2933,7 +3019,9 @@ public class Game extends JPanel implements Runnable {
             
             // Initialize level select scroll position when entering
             if (newState == GameState.LEVEL_SELECT) {
-                int selectedLevel = gameData.getSelectedLevelView();
+                // Always start at current level when opening journey map
+                int selectedLevel = gameData.getCurrentLevel();
+                gameData.setSelectedLevelView(selectedLevel);
                 levelSelectScroll = selectedLevel;
                 levelSelectScrollAnimated = selectedLevel;
             }
@@ -3051,14 +3139,14 @@ public class Game extends JPanel implements Runnable {
                 // Wait a moment then switch to menu
                 Thread.sleep(300);
                 loadingComplete = true;
-                gameState = GameState.MENU;
+                transitionToState(GameState.MENU);
                 repaint();
                 
             } catch (Exception e) {
                 e.printStackTrace();
                 // On error, still go to menu
                 loadingComplete = true;
-                gameState = GameState.MENU;
+                transitionToState(GameState.MENU);
                 repaint();
             }
         });
@@ -3144,10 +3232,10 @@ public class Game extends JPanel implements Runnable {
             case DASH:
                 // Apply speed boost and invincibility during dash
                 playerInvincible = true;
-                dashSpeedMultiplier = 2.5; // Reduced from 5.0
+                dashSpeedMultiplier = 1.1; // Quick burst without excessive speed
                 if (player != null) {
-                    // Dash works when moving, preserves current velocity direction
-                    player.applyDashBoost(dashSpeedMultiplier);
+                    // Apply dash impulse in current movement direction
+                    player.applyDashImpulse(dashSpeedMultiplier, keys);
                 }
                 break;
                 
@@ -3160,10 +3248,10 @@ public class Game extends JPanel implements Runnable {
                         double dy = bullet.getY() - player.getY();
                         double distance = Math.sqrt(dx * dx + dy * dy);
                         
-                        if (distance < 300 && distance > 0) { // Shockwave radius
-                            // Push bullet away
+                        if (distance < 400 && distance > 0) { // Larger shockwave radius (was 300)
+                            // Push bullet away with much stronger force
                             double angle = Math.atan2(dy, dx);
-                            double pushForce = 15 * (1.0 - distance / 300);
+                            double pushForce = 35 * (1.0 - distance / 400); // Much stronger (was 15)
                             bullet.applyForce(Math.cos(angle) * pushForce, Math.sin(angle) * pushForce);
                         }
                     }
@@ -3277,19 +3365,37 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case LASER_BEAM:
-                // Fire a damaging laser beam upward
-                // Damage bullets in path
+                // Fire a damaging laser beam from missile tip in facing direction
                 if (player != null) {
-                    double laserX = player.getX();
+                    double angle = player.getAngle();
                     double laserWidth = 40;
+                    double laserLength = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT); // Reach full screen diagonal
+                    
+                    // Calculate tip position (30 pixels from center in facing direction)
+                    double tipDistance = 30;
+                    double tipX = player.getX() + Math.cos(angle) * tipDistance;
+                    double tipY = player.getY() + Math.sin(angle) * tipDistance;
+                    
+                    // Calculate laser end point
+                    double laserEndX = tipX + Math.cos(angle) * laserLength;
+                    double laserEndY = tipY + Math.sin(angle) * laserLength;
                     
                     for (int i = bullets.size() - 1; i >= 0; i--) {
                         Bullet bullet = bullets.get(i);
                         double bulletX = bullet.getX();
                         double bulletY = bullet.getY();
                         
-                        // Check if bullet is in laser path
-                        if (Math.abs(bulletX - laserX) < laserWidth / 2 && bulletY < player.getY()) {
+                        // Check if bullet is within laser beam (line segment collision)
+                        // Calculate distance from bullet to laser line
+                        double dx = laserEndX - tipX;
+                        double dy = laserEndY - tipY;
+                        double lineLength = Math.sqrt(dx * dx + dy * dy);
+                        double t = Math.max(0, Math.min(1, ((bulletX - tipX) * dx + (bulletY - tipY) * dy) / (lineLength * lineLength)));
+                        double closestX = tipX + t * dx;
+                        double closestY = tipY + t * dy;
+                        double distanceToLine = Math.sqrt(Math.pow(bulletX - closestX, 2) + Math.pow(bulletY - closestY, 2));
+                        
+                        if (distanceToLine < laserWidth / 2) {
                             bullets.remove(i);
                             returnBulletToPool(bullet);
                             gameData.addScore(10);
@@ -3297,11 +3403,11 @@ public class Game extends JPanel implements Runnable {
                             // Create destruction particles
                             if (enableParticles) {
                                 for (int j = 0; j < 5; j++) {
-                                    double angle = Math.random() * TWO_PI;
+                                    double particleAngle = Math.random() * TWO_PI;
                                     double speed = 1 + Math.random() * 3;
                                     addParticle(
                                         bulletX, bulletY,
-                                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                        Math.cos(particleAngle) * speed, Math.sin(particleAngle) * speed,
                                         new Color(235, 203, 139), 15, 4,
                                         Particle.ParticleType.SPARK
                                     );

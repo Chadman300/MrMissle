@@ -36,6 +36,11 @@ public class Renderer {
     private static final BasicStroke STROKE_2 = new BasicStroke(2f);
     private static final BasicStroke STROKE_3 = new BasicStroke(3f);
     
+    // Cached vignette for performance
+    private BufferedImage cachedVignette = null;
+    private int cachedVignetteWidth = 0;
+    private int cachedVignetteHeight = 0;
+    
     // Cached Font objects to avoid repeated creation
     private static final Font FONT_TITLE_LARGE = new Font("Arial", Font.BOLD, 84);
     private static final Font FONT_TITLE = new Font("Arial", Font.BOLD, 72);
@@ -849,10 +854,15 @@ public class Renderer {
             g.setFont(new Font("Arial", Font.BOLD, 26));
             g.drawString(upgradeNames[i], width / 2 - 390, y);
             
-            // Draw owned count
+            // Draw owned count and effect info
             g.setFont(new Font("Arial", Font.PLAIN, 20));
             g.setColor(new Color(136, 192, 208)); // Palette cyan
-            g.drawString("Owned: " + owned, width / 2 - 390, y + 28);
+            String infoText = "Owned: " + owned;
+            if (i == 2 && active > 0) { // Lucky Dodge - show percentage
+                int dodgePercent = active * 5;
+                infoText += "  (" + dodgePercent + "% chance)";
+            }
+            g.drawString(infoText, width / 2 - 390, y + 28);
             
             y += 100;
         }
@@ -1045,7 +1055,7 @@ public class Renderer {
                 int starSize = (int)(24 * scale);
                 g.setFont(new Font("Arial", Font.BOLD, starSize));
                 g.setColor(new Color(255, 215, 0));
-                String crown = "★";
+                String crown = "*";
                 fm = g.getFontMetrics();
                 g.drawString(crown, x - fm.stringWidth(crown) / 2, centerY - nodeRadius - 10);
             }
@@ -1055,7 +1065,7 @@ public class Renderer {
                 int checkSize = (int)(22 * scale);
                 g.setFont(new Font("Arial", Font.BOLD, checkSize));
                 g.setColor(new Color(100, 255, 100));
-                String check = "✓";
+                String check = "V";
                 fm = g.getFontMetrics();
                 g.drawString(check, x + nodeRadius - checkSize / 2, centerY - nodeRadius + checkSize);
             }
@@ -1063,9 +1073,9 @@ public class Renderer {
             // Lock icon for locked
             if (isLocked) {
                 int lockSize = (int)(18 * scale);
-                g.setFont(new Font("Arial", Font.PLAIN, lockSize));
+                g.setFont(new Font("Arial", Font.BOLD, lockSize));
                 g.setColor(new Color(100, 100, 110));
-                String lock = "🔒";
+                String lock = "[L]";
                 fm = g.getFontMetrics();
                 g.drawString(lock, x - fm.stringWidth(lock) / 2, centerY + nodeRadius + lockSize + 5);
             }
@@ -1078,7 +1088,7 @@ public class Renderer {
     }
     
     private void drawLevelInfoPanel(Graphics2D g, int width, int height, int selectedLevel, int currentLevel, double time) {
-        int panelHeight = 140;
+        int panelHeight = 200;
         int panelY = height - panelHeight - 30;
         int panelWidth = 500;
         int panelX = (width - panelWidth) / 2;
@@ -1117,17 +1127,17 @@ public class Renderer {
         // Level type label - centered
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(isMegaBoss ? new Color(255, 200, 100) : new Color(140, 150, 170));
-        String typeLabel = isMegaBoss ? "★ MEGA BOSS - Level " + selectedLevel : "Level " + selectedLevel;
+        String typeLabel = isMegaBoss ? "* MEGA BOSS - Level " + selectedLevel : "Level " + selectedLevel;
         fm = g.getFontMetrics();
         g.drawString(typeLabel, panelX + (panelWidth - fm.stringWidth(typeLabel)) / 2, panelY + 70);
         
-        // Status and time info - centered
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        // Status and stats info
+        g.setFont(new Font("Arial", Font.BOLD, 16));
         int infoY = panelY + 100;
         
         if (isCompleted) {
             g.setColor(new Color(100, 200, 100));
-            String status = "✓ DEFEATED";
+            String status = "V DEFEATED";
             fm = g.getFontMetrics();
             
             // Show best time if available
@@ -1135,20 +1145,86 @@ public class Renderer {
             if (bestTime > 0) {
                 int seconds = bestTime / 60;
                 int frames = bestTime % 60;
-                String timeStr = String.format("  •  Best: %d.%02ds", seconds, frames * 100 / 60);
+                String timeStr = String.format("  -  Best: %d.%02ds", seconds, frames * 100 / 60);
                 status += timeStr;
             }
             g.drawString(status, panelX + (panelWidth - fm.stringWidth(status)) / 2, infoY);
+            
+            // Show level stats if available
+            LevelStats stats = gameData.getLevelStats(selectedLevel);
+            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setColor(new Color(160, 170, 180));
+            infoY += 20;
+            
+            // First line: Dodges and Perfect
+            StringBuilder line1 = new StringBuilder();
+            if (stats.getDodges() > 0) {
+                line1.append("Dodges: ").append(stats.getDodges());
+            }
+            if (stats.getPerfectDodges() > 0) {
+                if (line1.length() > 0) line1.append("  -  ");
+                line1.append("Perfect: ").append(stats.getPerfectDodges());
+            }
+            if (line1.length() > 0) {
+                fm = g.getFontMetrics();
+                g.drawString(line1.toString(), panelX + (panelWidth - fm.stringWidth(line1.toString())) / 2, infoY);
+                infoY += 18;
+            }
+            
+            // Second line: Near Misses and Max Combo
+            StringBuilder line2 = new StringBuilder();
+            if (stats.getNearMisses() > 0) {
+                line2.append("Near Misses: ").append(stats.getNearMisses());
+            }
+            if (stats.getMaxCombo() > 0) {
+                if (line2.length() > 0) line2.append("  -  ");
+                line2.append("Max Combo: ").append(stats.getMaxCombo()).append("x");
+            }
+            if (line2.length() > 0) {
+                fm = g.getFontMetrics();
+                g.drawString(line2.toString(), panelX + (panelWidth - fm.stringWidth(line2.toString())) / 2, infoY);
+                infoY += 18;
+            }
+            
+            // Third line: Bullets and Risk %
+            StringBuilder line3 = new StringBuilder();
+            if (stats.getBulletsSpawned() > 0) {
+                line3.append("Bullets: ").append(stats.getBulletsSpawned());
+            }
+            int riskPercent = stats.getRiskPercentage();
+            if (riskPercent > 0) {
+                if (line3.length() > 0) line3.append("  -  ");
+                line3.append("Risk: ").append(riskPercent).append("%");
+            }
+            if (line3.length() > 0) {
+                fm = g.getFontMetrics();
+                g.drawString(line3.toString(), panelX + (panelWidth - fm.stringWidth(line3.toString())) / 2, infoY);
+                infoY += 18;
+            }
+            
+            // Fourth line: Damage and Lives
+            StringBuilder line4 = new StringBuilder();
+            if (stats.getDamageTaken() > 0) {
+                line4.append("Damage: ").append(stats.getDamageTaken());
+            }
+            if (stats.getLivesUsed() > 0) {
+                if (line4.length() > 0) line4.append("  -  ");
+                line4.append("Lives: ").append(stats.getLivesUsed());
+            }
+            if (line4.length() > 0) {
+                fm = g.getFontMetrics();
+                g.drawString(line4.toString(), panelX + (panelWidth - fm.stringWidth(line4.toString())) / 2, infoY);
+            }
         } else if (isCurrent) {
             // Animated "READY" text
             float pulse = (float)(0.7 + 0.3 * Math.sin(time * 5));
             g.setColor(new Color((int)(100 * pulse + 100), (int)(200 * pulse + 55), (int)(100 * pulse + 100)));
-            String startText = "► PRESS SPACE TO START ◄";
+            String startText = "> PRESS SPACE TO START <";
             fm = g.getFontMetrics();
             g.drawString(startText, panelX + (panelWidth - fm.stringWidth(startText)) / 2, infoY);
         } else {
             g.setColor(new Color(120, 120, 130));
-            String lockText = "🔒 LOCKED";
+            String lockText = "[L] LOCKED";
             fm = g.getFontMetrics();
             g.drawString(lockText, panelX + (panelWidth - fm.stringWidth(lockText)) / 2, infoY);
         }
@@ -1156,7 +1232,7 @@ public class Renderer {
         // Navigation hints at very bottom
         g.setFont(new Font("Arial", Font.PLAIN, 14));
         g.setColor(new Color(100, 110, 130));
-        String navHint = "← → or CLICK  Navigate    SPACE or CLICK  Start    ESC  Back";
+        String navHint = "<- -> or CLICK  Navigate    SPACE or CLICK  Start    ESC  Back";
         fm = g.getFontMetrics();
         g.drawString(navHint, panelX + (panelWidth - fm.stringWidth(navHint)) / 2, panelY + panelHeight - 15);
     }
@@ -1240,16 +1316,46 @@ public class Renderer {
             g.setStroke(new BasicStroke(isSelected ? 3 : 2));
             g.drawRoundRect(cardX + offsetX, cardY + offsetY, scaledWidth, scaledHeight, 15, 15);
             
-            // Contract icon/symbol
+            // Contract icon/symbol - draw custom graphics
             int iconY = cardY + offsetY + 50;
-            g.setFont(new Font("Arial", Font.BOLD, 48));
-            String icon = i == 0 ? "○" : i == 1 ? "◆◆" : i == 2 ? "»»" : "⊘";
-            FontMetrics iconFm = g.getFontMetrics();
+            int iconCenterX = cardX + offsetX + scaledWidth / 2;
             Color iconColor = i == 0 ? new Color(100, 180, 100) :
                              i == 1 ? new Color(255, 100, 100) :
                              i == 2 ? new Color(100, 150, 255) : new Color(255, 180, 100);
             g.setColor(isSelected ? iconColor : new Color(100, 100, 100));
-            g.drawString(icon, cardX + offsetX + (scaledWidth - iconFm.stringWidth(icon)) / 2, iconY);
+            g.setStroke(new BasicStroke(3));
+            
+            if (i == 0) {
+                // No Contract - Circle with checkmark
+                g.drawOval(iconCenterX - 25, iconY - 35, 50, 50);
+                g.setStroke(new BasicStroke(4));
+                g.drawLine(iconCenterX - 10, iconY - 10, iconCenterX, iconY);
+                g.drawLine(iconCenterX, iconY, iconCenterX + 15, iconY - 20);
+            } else if (i == 1) {
+                // Bullet Storm - Multiple circles
+                g.fillOval(iconCenterX - 20, iconY - 25, 15, 15);
+                g.fillOval(iconCenterX + 5, iconY - 25, 15, 15);
+                g.fillOval(iconCenterX - 8, iconY - 5, 15, 15);
+            } else if (i == 2) {
+                // Speed Demon - Forward arrows
+                int[] xPoints1 = {iconCenterX - 20, iconCenterX - 10, iconCenterX - 20};
+                int[] yPoints1 = {iconY - 25, iconY - 10, iconY + 5};
+                g.fillPolygon(xPoints1, yPoints1, 3);
+                int[] xPoints2 = {iconCenterX + 5, iconCenterX + 15, iconCenterX + 5};
+                int[] yPoints2 = {iconY - 25, iconY - 10, iconY + 5};
+                g.fillPolygon(xPoints2, yPoints2, 3);
+            } else {
+                // Shieldless - Shield with X
+                g.drawArc(iconCenterX - 20, iconY - 30, 40, 45, 0, 180);
+                g.drawLine(iconCenterX - 20, iconY - 30, iconCenterX - 20, iconY + 5);
+                g.drawLine(iconCenterX + 20, iconY - 30, iconCenterX + 20, iconY + 5);
+                g.drawLine(iconCenterX - 20, iconY + 5, iconCenterX, iconY + 15);
+                g.drawLine(iconCenterX + 20, iconY + 5, iconCenterX, iconY + 15);
+                g.setStroke(new BasicStroke(3));
+                g.drawLine(iconCenterX - 15, iconY - 20, iconCenterX + 15, iconY + 10);
+                g.drawLine(iconCenterX + 15, iconY - 20, iconCenterX - 15, iconY + 10);
+            }
+            g.setStroke(new BasicStroke(1));
             
             // Contract name
             g.setFont(new Font("Arial", Font.BOLD, 18));
@@ -1353,22 +1459,54 @@ public class Renderer {
         ActiveItem equippedItem = gameData.getEquippedItem();
         if (player != null && equippedItem != null && equippedItem.isActive() && 
             equippedItem.getType() == ActiveItem.ItemType.LASER_BEAM) {
-            double laserX = player.getX();
+            
+            double angle = player.getAngle();
             double laserWidth = 40;
-            double laserY = 0; // Beam goes to top of screen
-            double laserHeight = player.getY();
+            double laserLength = Math.sqrt(width * width + height * height); // Full screen diagonal
             
-            // Outer glow
-            g.setColor(new Color(235, 203, 139, 50));
-            g.fillRect((int)(laserX - laserWidth), (int)laserY, (int)(laserWidth * 2), (int)laserHeight);
+            // Calculate tip position (30 pixels from center in facing direction)
+            double tipDistance = 30;
+            double tipX = player.getX() + Math.cos(angle) * tipDistance;
+            double tipY = player.getY() + Math.sin(angle) * tipDistance;
             
-            // Inner beam
-            g.setColor(new Color(235, 203, 139, 150));
-            g.fillRect((int)(laserX - laserWidth / 2), (int)laserY, (int)laserWidth, (int)laserHeight);
+            // Calculate laser end point
+            double laserEndX = tipX + Math.cos(angle) * laserLength;
+            double laserEndY = tipY + Math.sin(angle) * laserLength;
             
-            // Core
-            g.setColor(new Color(255, 255, 200, 200));
-            g.fillRect((int)(laserX - laserWidth / 4), (int)laserY, (int)(laserWidth / 2), (int)laserHeight);
+            // Draw laser beam as a rotated rectangle
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.translate(tipX, tipY);
+            g2d.rotate(angle);
+            
+            // Draw triangular cone at the beginning (funneling effect)
+            double coneLength = 60; // Length of the cone
+            double coneBaseWidth = laserWidth * 2; // Cone starts wider
+            
+            // Cone outer glow
+            int[] coneXGlow = {0, (int)coneLength, (int)coneLength};
+            int[] coneYGlow = {0, (int)(-laserWidth), (int)(laserWidth)};
+            g2d.setColor(new Color(235, 203, 139, 80));
+            g2d.fillPolygon(coneXGlow, coneYGlow, 3);
+            
+            // Cone inner fill
+            int[] coneX = {0, (int)coneLength, (int)coneLength};
+            int[] coneY = {0, (int)(-laserWidth * 0.7), (int)(laserWidth * 0.7)};
+            g2d.setColor(new Color(235, 203, 139, 180));
+            g2d.fillPolygon(coneX, coneY, 3);
+            
+            // Outer glow (starts at end of cone)
+            g2d.setColor(new Color(235, 203, 139, 50));
+            g2d.fillRect((int)coneLength, (int)(-laserWidth), (int)(laserLength - coneLength), (int)(laserWidth * 2));
+            
+            // Inner beam (starts at end of cone)
+            g2d.setColor(new Color(235, 203, 139, 150));
+            g2d.fillRect((int)coneLength, (int)(-laserWidth / 2), (int)(laserLength - coneLength), (int)laserWidth);
+            
+            // Core (starts at end of cone)
+            g2d.setColor(new Color(255, 255, 200, 200));
+            g2d.fillRect((int)coneLength, (int)(-laserWidth / 4), (int)(laserLength - coneLength), (int)(laserWidth / 2));
+            
+            g2d.dispose();
         }
         
         // Draw particles (behind sprites) - use snapshot to avoid ConcurrentModificationException
@@ -1728,7 +1866,7 @@ public class Renderer {
             
             // Phase label and icon
             g.setFont(new Font("Arial", Font.BOLD, 11));
-            String phaseText = boss.isAssaultPhase() ? "⚔ ASSAULT" : "◐ RECOVERY";
+            String phaseText = boss.isAssaultPhase() ? "[!] ASSAULT" : "[-] RECOVERY";
             Color phaseColor = boss.isAssaultPhase() ? new Color(255, 80, 80) : new Color(80, 180, 255);
             
             // Flash effect when phase changes
@@ -1893,6 +2031,20 @@ public class Renderer {
                 g.setColor(new Color(163, 190, 140)); // Green for close call
                 g.drawString("★ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
             }
+        }
+        
+        // Draw extra lives indicator (top right, above active item)
+        if (gameData.getExtraLives() > 0) {
+            int livesUIX = width - 210;
+            int livesUIY = showCombo && dodgeCombo > 1 ? 170 : 100;
+            
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRoundRect(livesUIX, livesUIY, 200, 40, 10, 10);
+            
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setColor(new Color(255, 215, 0)); // Gold
+            String livesText = "Lives: " + gameData.getExtraLives();
+            g.drawString(livesText, livesUIX + 10, livesUIY + 27);
         }
         
         // Draw active item UI
@@ -2222,6 +2374,50 @@ public class Renderer {
         fm = g.getFontMetrics();
         g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 40);
         
+        // Display cumulative run stats
+        LevelStats runStats = gameData.getCumulativeRunStats();
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setColor(new Color(200, 200, 210));
+        int statsY = height / 2 + 85;
+        
+        if (runStats.getDodges() > 0 || runStats.getPerfectDodges() > 0) {
+            String dodges = "Run Stats - Dodges: " + runStats.getDodges() + "  Perfect: " + runStats.getPerfectDodges();
+            fm = g.getFontMetrics();
+            g.drawString(dodges, (width - fm.stringWidth(dodges)) / 2, statsY);
+            statsY += 24;
+        }
+        
+        if (runStats.getBulletsSpawned() > 0 || runStats.getMaxCombo() > 0) {
+            String combat = "Bullets Faced: " + runStats.getBulletsSpawned() + "  Max Combo: " + runStats.getMaxCombo() + "x";
+            fm = g.getFontMetrics();
+            g.drawString(combat, (width - fm.stringWidth(combat)) / 2, statsY);
+            statsY += 24;
+        }
+        
+        if (runStats.getRiskPercentage() > 0 || runStats.getNearMisses() > 0) {
+            String risk = "Near Misses: " + runStats.getNearMisses() + "  Risk %: " + runStats.getRiskPercentage() + "%";
+            fm = g.getFontMetrics();
+            // Color risk based on level
+            int riskPercent = runStats.getRiskPercentage();
+            if (riskPercent >= 70) {
+                g.setColor(new Color(255, 120, 120));
+            } else if (riskPercent >= 40) {
+                g.setColor(new Color(255, 180, 100));
+            } else {
+                g.setColor(new Color(150, 200, 255));
+            }
+            g.drawString(risk, (width - fm.stringWidth(risk)) / 2, statsY);
+            g.setColor(new Color(200, 200, 210));
+            statsY += 24;
+        }
+        
+        if (runStats.getDamageTaken() > 0 || runStats.getLivesUsed() > 0) {
+            String survival = "Damage Taken: " + runStats.getDamageTaken() + "  Lives Used: " + runStats.getLivesUsed();
+            fm = g.getFontMetrics();
+            g.drawString(survival, (width - fm.stringWidth(survival)) / 2, statsY);
+            statsY += 30;
+        }
+        
         // Show persistent stats
         g.setFont(new Font("Arial", Font.PLAIN, 22));
         g.setColor(new Color(180, 180, 190));
@@ -2266,7 +2462,7 @@ public class Renderer {
         String win = "VICTORY!";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(win)) / 2;
-        int titleY = height / 2 - 120;
+        int titleY = height / 2 - 180;
         
         // Shadow
         g.setColor(new Color(0, 0, 0, 100));
@@ -2289,14 +2485,14 @@ public class Renderer {
         
         // Stats with consistent styling
         g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.setFont(new Font("Arial", Font.BOLD, 32));
         String score = "Score: " + gameData.getScore();
         fm = g.getFontMetrics();
-        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 10);
+        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 90);
         
         String money = "Money Earned: $" + gameData.getRunMoney();
         fm = g.getFontMetrics();
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 30);
+        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 - 50);
         
         // Display boss kill time
         int minutes = (int)(bossKillTime / 60);
@@ -2305,13 +2501,93 @@ public class Renderer {
         String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
         fm = g.getFontMetrics();
         g.setColor(new Color(255, 215, 0)); // Gold color for time
-        g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 + 70);
+        g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 - 10);
+        
+        // Display level stats (only non-zero stats)
+        LevelStats stats = gameData.getCurrentLevelStats();
+        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setColor(new Color(180, 190, 200));
+        int statsY = height / 2 + 20;
+        
+        if (stats.getDodges() > 0) {
+            String dodges = "Dodges: " + stats.getDodges();
+            fm = g.getFontMetrics();
+            g.drawString(dodges, (width - fm.stringWidth(dodges)) / 2, statsY);
+            statsY += 26;
+        }
+        
+        if (stats.getPerfectDodges() > 0) {
+            String perfect = "Perfect Dodges: " + stats.getPerfectDodges();
+            fm = g.getFontMetrics();
+            g.setColor(new Color(255, 215, 0));
+            g.drawString(perfect, (width - fm.stringWidth(perfect)) / 2, statsY);
+            g.setColor(new Color(180, 190, 200));
+            statsY += 26;
+        }
+        
+        if (stats.getNearMisses() > 0) {
+            String nearMiss = "Near Misses: " + stats.getNearMisses();
+            fm = g.getFontMetrics();
+            g.setColor(new Color(255, 165, 0));
+            g.drawString(nearMiss, (width - fm.stringWidth(nearMiss)) / 2, statsY);
+            g.setColor(new Color(180, 190, 200));
+            statsY += 26;
+        }
+        
+        if (stats.getMaxCombo() > 0) {
+            String maxCombo = "Max Combo: " + stats.getMaxCombo() + "x";
+            fm = g.getFontMetrics();
+            g.setColor(new Color(100, 200, 255));
+            g.drawString(maxCombo, (width - fm.stringWidth(maxCombo)) / 2, statsY);
+            g.setColor(new Color(180, 190, 200));
+            statsY += 26;
+        }
+        
+        if (stats.getBulletsSpawned() > 0) {
+            String bullets = "Bullets: " + stats.getBulletsSpawned();
+            fm = g.getFontMetrics();
+            g.drawString(bullets, (width - fm.stringWidth(bullets)) / 2, statsY);
+            statsY += 26;
+        }
+        
+        int riskPercent = stats.getRiskPercentage();
+        if (riskPercent > 0) {
+            String risk = "Risk %: " + riskPercent + "%";
+            fm = g.getFontMetrics();
+            // Color based on risk level
+            if (riskPercent >= 70) {
+                g.setColor(new Color(255, 100, 100)); // High risk - red
+            } else if (riskPercent >= 40) {
+                g.setColor(new Color(255, 165, 0)); // Medium risk - orange
+            } else {
+                g.setColor(new Color(100, 200, 255)); // Low risk - blue
+            }
+            g.drawString(risk, (width - fm.stringWidth(risk)) / 2, statsY);
+            g.setColor(new Color(180, 190, 200));
+            statsY += 26;
+        }
+        
+        if (stats.getDamageTaken() > 0) {
+            String damage = "Damage Taken: " + stats.getDamageTaken();
+            fm = g.getFontMetrics();
+            g.setColor(new Color(200, 100, 100));
+            g.drawString(damage, (width - fm.stringWidth(damage)) / 2, statsY);
+            g.setColor(new Color(180, 190, 200));
+            statsY += 26;
+        }
+        
+        if (stats.getLivesUsed() > 0) {
+            String lives = "Lives Used: " + stats.getLivesUsed();
+            fm = g.getFontMetrics();
+            g.drawString(lives, (width - fm.stringWidth(lives)) / 2, statsY);
+            statsY += 26;
+        }
         
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.PLAIN, 24));
         String inst = "Press SPACE to Visit Shop";
         fm = g.getFontMetrics();
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 130);
+        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 160);
     }
     
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {
@@ -2863,33 +3139,41 @@ public class Renderer {
     }
     
     private void applyVignette(Graphics2D g, int width, int height) {
-        // Vignette effect: darken edges to focus attention on center
-        Composite originalComposite = g.getComposite();
-        
-        // Create radial gradient from center
-        int centerX = width / 2;
-        int centerY = height / 2;
-        int radius = (int)Math.sqrt(centerX * centerX + centerY * centerY) * 3;
-        
-        // Draw multiple layers for smooth gradient
-        for (int i = 0; i < 4; i++) {
-            float alpha = Math.min(1.0f, 0.36f * (i + 1)); // Cap at 1.0f to avoid exceeding range
-            int innerRadius = radius - (radius / 4) * (4 - i);
-            int outerRadius = radius;
+        // Check if we need to regenerate the cached vignette
+        if (cachedVignette == null || cachedVignetteWidth != width || cachedVignetteHeight != height) {
+            // Create a new vignette image
+            cachedVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D vg = cachedVignette.createGraphics();
+            vg.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            // Create radial gradient from center
+            int centerX = width / 2;
+            int centerY = height / 2;
+            int radius = (int)Math.sqrt(centerX * centerX + centerY * centerY) * 3;
             
-            // Draw darkened edges - starts darkening much earlier (0.2 instead of 0.4)
-            RadialGradientPaint gradient = new RadialGradientPaint(
-                centerX, centerY, outerRadius,
-                new float[]{0.0f, 0.2f, 1.0f},
-                new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 255)}
-            );
-            g.setPaint(gradient);
-            g.fillRect(0, 0, width, height);
+            // Draw multiple layers for smooth gradient
+            for (int i = 0; i < 4; i++) {
+                float alpha = Math.min(1.0f, 0.36f * (i + 1));
+                
+                vg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                
+                // Draw darkened edges
+                RadialGradientPaint gradient = new RadialGradientPaint(
+                    centerX, centerY, radius,
+                    new float[]{0.0f, 0.2f, 1.0f},
+                    new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 255)}
+                );
+                vg.setPaint(gradient);
+                vg.fillRect(0, 0, width, height);
+            }
+            
+            vg.dispose();
+            cachedVignetteWidth = width;
+            cachedVignetteHeight = height;
         }
         
-        g.setComposite(originalComposite);
+        // Simply draw the cached vignette
+        g.drawImage(cachedVignette, 0, 0, null);
     }
     
     // Optimized Balatro-style animated gradient system

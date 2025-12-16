@@ -39,7 +39,7 @@ public class ActiveItem {
                 name = "Shield";
                 description = "Tank 3 hits (7.5s cooldown)";
                 cooldownFrames = 450; // 7.5 seconds (was 15)
-                activeDuration = 180; // Active for 3 seconds (short burst)
+                activeDuration = 60; // Active for 1 second (reduced from 3)
                 break;
             case MAGNET:
                 name = "Magnet";

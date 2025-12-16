@@ -46,6 +46,9 @@ public class GameData {
     // Level select navigation (separate from currentLevel for viewing)
     private int selectedLevelView;    // Which level is currently selected for viewing in map
     private int[] levelCompletionTimes; // Best completion time for each level (in frames)
+    private LevelStats[] levelStats; // Detailed stats for each level
+    private LevelStats currentLevelStats; // Stats being tracked for current run
+    private LevelStats cumulativeRunStats; // Combined stats for the entire run
     
     // Audio settings
     private float masterVolume = 0.7f;
@@ -91,6 +94,12 @@ public class GameData {
         // Level select navigation
         selectedLevelView = 1;
         levelCompletionTimes = new int[100];
+        levelStats = new LevelStats[100];
+        for (int i = 0; i < levelStats.length; i++) {
+            levelStats[i] = new LevelStats();
+        }
+        currentLevelStats = new LevelStats();
+        cumulativeRunStats = new LevelStats();
     }
     
     // Getters and setters
@@ -297,6 +306,35 @@ public class GameData {
             if (levelCompletionTimes[level - 1] == 0 || timeInFrames < levelCompletionTimes[level - 1]) {
                 levelCompletionTimes[level - 1] = timeInFrames;
             }
+        }
+    }
+    
+    // Level stats methods
+    public LevelStats getCurrentLevelStats() { return currentLevelStats; }
+    
+    public LevelStats getCumulativeRunStats() { return cumulativeRunStats; }
+    
+    public void resetCumulativeRunStats() {
+        cumulativeRunStats.reset();
+    }
+    
+    public void resetCurrentLevelStats() {
+        currentLevelStats.reset();
+    }
+    
+    public LevelStats getLevelStats(int level) {
+        if (level >= 1 && level <= levelStats.length) {
+            return levelStats[level - 1];
+        }
+        return new LevelStats(); // Return empty stats if out of bounds
+    }
+    
+    public void saveLevelStats(int level) {
+        if (level >= 1 && level <= levelStats.length) {
+            // Save individual level stats
+            levelStats[level - 1] = currentLevelStats.copy();
+            // Add to cumulative run stats
+            cumulativeRunStats.addStats(currentLevelStats);
         }
     }
     
