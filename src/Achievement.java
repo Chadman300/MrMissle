@@ -14,7 +14,8 @@ public class Achievement {
         GRAZE_COUNT,     // Graze X bullets in one game
         HIGH_COMBO,      // Reach combo of X
         MONEY_EARNED,    // Earn X total money
-        PERFECT_BOSS     // Defeat boss taking no damage
+        PERFECT_BOSS,    // Defeat boss taking no damage
+        NO_UPGRADES      // Complete levels without purchasing any upgrades
     }
     
     public Achievement(String id, String name, String description, AchievementType type, int target) {

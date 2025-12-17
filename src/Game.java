@@ -242,6 +242,7 @@ public class Game extends JPanel implements Runnable {
     // Settings
     private int selectedSettingsItem;
     private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Debug
+    public static boolean isFullscreen = true; // Start in fullscreen by default
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
     public static boolean enableParticles = true;
@@ -466,6 +467,8 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_O) { transitionToState(GameState.SETTINGS); screenShakeIntensity = 5; }
                 // Debug menu shortcut
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
+                // Fullscreen toggle
+                else if (key == KeyEvent.VK_F11) { toggleFullscreen(); screenShakeIntensity = 3; }
                 break;
                 
             case STATS:
@@ -570,6 +573,11 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
                     transitionToState(GameState.MENU); 
                     screenShakeIntensity = 3; 
+                }
+                else if (key == KeyEvent.VK_F11) {
+                    toggleFullscreen();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
                 }
                 break;
                 
@@ -2078,6 +2086,11 @@ public class Game extends JPanel implements Runnable {
                     achievementManager.updateProgress(Achievement.AchievementType.GRAZE_COUNT, totalGrazesThisRun);
                     achievementManager.updateProgress(Achievement.AchievementType.HIGH_COMBO, comboSystem.getMaxCombo());
                     
+                    // Check for Raw Dog achievement (no upgrades purchased)
+                    if (hasNoUpgradesPurchased()) {
+                        achievementManager.updateProgress(Achievement.AchievementType.NO_UPGRADES, gameData.getCurrentLevel());
+                    }
+                    
                     // Check for newly unlocked achievements
                     List<Achievement> newlyUnlocked = achievementManager.getRecentlyUnlocked();
                     if (!newlyUnlocked.isEmpty()) {
@@ -3166,6 +3179,7 @@ public class Game extends JPanel implements Runnable {
                 case 7: enableMotionBlur = !enableMotionBlur; break;
                 case 8: enableChromaticAberration = !enableChromaticAberration; break;
                 case 9: enableVignette = !enableVignette; break;
+                case 10: toggleFullscreen(); break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -3210,10 +3224,64 @@ public class Game extends JPanel implements Runnable {
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 9; // Graphics: 10 items (0-9)
+        if (selectedSettingsCategory == 0) return 10; // Graphics: 11 items (0-10)
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
         if (selectedSettingsCategory == 2) return 0; // Debug: 1 item (0)
         return 0;
+    }
+    
+    private void toggleFullscreen() {
+        isFullscreen = !isFullscreen;
+        java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
+        if (window instanceof javax.swing.JFrame) {
+            javax.swing.JFrame frame = (javax.swing.JFrame) window;
+            java.awt.GraphicsDevice device = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+            
+            if (isFullscreen) {
+                // Switch to fullscreen - maximized and undecorated
+                frame.dispose();
+                frame.setUndecorated(true);
+                frame.setExtendedState(javax.swing.JFrame.MAXIMIZED_BOTH);
+                frame.setVisible(true);
+                device.setFullScreenWindow(frame);
+            } else {
+                // Switch to windowed - get screen size and make 80% of screen
+                device.setFullScreenWindow(null);
+                frame.dispose();
+                frame.setExtendedState(javax.swing.JFrame.NORMAL);
+                frame.setUndecorated(false);
+                
+                java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+                int windowWidth = (int)(screenSize.width * 0.8);
+                int windowHeight = (int)(screenSize.height * 0.8);
+                
+                frame.setSize(windowWidth, windowHeight);
+                frame.setLocationRelativeTo(null);
+                frame.setVisible(true);
+            }
+            
+            // Request focus back to game
+            this.requestFocusInWindow();
+        }
+    }
+    
+    private boolean hasNoUpgradesPurchased() {
+        // Check shop upgrades
+        if (gameData.getSpeedUpgradeLevel() > 0) return false;
+        if (gameData.getBulletSlowUpgradeLevel() > 0) return false;
+        if (gameData.getLuckyDodgeUpgradeLevel() > 0) return false;
+        if (gameData.getAttackWindowUpgradeLevel() > 0) return false;
+        
+        // Check passive upgrades
+        if (passiveUpgradeManager != null) {
+            for (PassiveUpgrade upgrade : passiveUpgradeManager.getAllUpgrades()) {
+                if (upgrade.getCurrentLevel() > 0) {
+                    return false;
+                }
+            }
+        }
+        
+        return true;
     }
     
     private void startAssetLoading() {

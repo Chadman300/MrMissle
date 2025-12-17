@@ -2899,7 +2899,7 @@ public class Renderer {
     }
     
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
-        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette"};
+        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Fullscreen Mode"};
         String[] settingValues = {
             Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
             Game.enableGradientAnimation ? "ON" : "OFF",
@@ -2910,7 +2910,8 @@ public class Renderer {
             Game.enableBloom ? "ON" : "OFF",
             Game.enableMotionBlur ? "ON" : "OFF",
             Game.enableChromaticAberration ? "ON" : "OFF",
-            Game.enableVignette ? "ON" : "OFF"
+            Game.enableVignette ? "ON" : "OFF",
+            Game.isFullscreen ? "Fullscreen" : "Windowed"
         };
         
         String[] descriptions = {
@@ -2923,7 +2924,8 @@ public class Renderer {
             "Glow effect on bright objects (performance impact)",
             "Blur effect on fast moving objects (performance impact)",
             "Color fringing on screen edges (cinematic effect)",
-            "Darken screen edges (focuses attention on center)"
+            "Darken screen edges (focuses attention on center)",
+            "Toggle between fullscreen and windowed mode (F11)"
         };
         
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);

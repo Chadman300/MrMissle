@@ -46,6 +46,13 @@ public class AchievementManager {
         addAchievement("penny_pincher", "Penny Pincher", "Earn $1000 total", Achievement.AchievementType.MONEY_EARNED, 1000);
         addAchievement("money_maker", "Money Maker", "Earn $5000 total", Achievement.AchievementType.MONEY_EARNED, 5000);
         addAchievement("tycoon", "Tycoon", "Earn $10000 total", Achievement.AchievementType.MONEY_EARNED, 10000);
+        
+        // Raw Dog - No upgrades challenges
+        addAchievement("raw_dog_5", "Raw Dog I", "Reach level 5 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 5);
+        addAchievement("raw_dog_10", "Raw Dog II", "Reach level 10 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 10);
+        addAchievement("raw_dog_15", "Raw Dog III", "Reach level 15 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 15);
+        addAchievement("raw_dog_20", "Raw Dog IV", "Reach level 20 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 20);
+        addAchievement("raw_dog_master", "Raw Dog Master", "Reach level 28 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 28);
     }
     
     private void addAchievement(String id, String name, String description, Achievement.AchievementType type, int target) {
