@@ -14,14 +14,8 @@ public class PassiveUpgradeManager {
     }
     
     private void initializeUpgrades() {
-        addUpgrade("speed", "Swift Movement", "Increase movement speed by 10% per level", 
-                   PassiveUpgrade.UpgradeType.MOVEMENT_SPEED, 100, 5);
-        
         addUpgrade("health", "Extra Hearts", "Increase maximum health by 1 per level", 
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 150, 3);
-        
-        addUpgrade("graze", "Graze Master", "Increase graze detection radius by 15% per level", 
-                   PassiveUpgrade.UpgradeType.GRAZE_RADIUS, 80, 5);
         
         addUpgrade("cooldown", "Quick Charge", "Reduce item cooldown by 10% per level", 
                    PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 120, 5);
@@ -29,14 +23,11 @@ public class PassiveUpgradeManager {
         addUpgrade("bullet_size", "Small Bullets", "Reduce enemy bullet size by 5% per level", 
                    PassiveUpgrade.UpgradeType.BULLET_SIZE, 200, 5);
         
-        addUpgrade("combo_time", "Combo Extender", "Increase combo duration by 20% per level", 
-                   PassiveUpgrade.UpgradeType.COMBO_DURATION, 100, 5);
+        addUpgrade("money_score", "Fortune & Glory", "Increase money and score earned by 15% per level", 
+                   PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 150, 5);
         
-        addUpgrade("money", "Fortune Seeker", "Increase money earned by 15% per level", 
-                   PassiveUpgrade.UpgradeType.MONEY_GAIN, 150, 5);
-        
-        addUpgrade("score", "Score Booster", "Increase score gained by 20% per level", 
-                   PassiveUpgrade.UpgradeType.SCORE_MULTIPLIER, 100, 5);
+        addUpgrade("critical", "Critical Strike", "1% chance per level to instantly kill boss", 
+                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 250, 5);
     }
     
     private void addUpgrade(String id, String name, String description, 

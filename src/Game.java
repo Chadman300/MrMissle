@@ -32,6 +32,8 @@ public class Game extends JPanel implements Runnable {
     private Cursor defaultCursor; // Normal cursor for menus
     private double levelSelectScroll; // Target scroll position for level select
     private double levelSelectScrollAnimated; // Animated (smooth) scroll position
+    private double shopScroll; // Target scroll position for shop
+    private double shopScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
     
     // Core systems
@@ -296,6 +298,7 @@ public class Game extends JPanel implements Runnable {
         shopManager = new ShopManager(gameData);
         achievementManager = new AchievementManager();
         passiveUpgradeManager = new PassiveUpgradeManager();
+        shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
         pendingAchievements = new ArrayList<>();
         damageNumbers = new ArrayList<>();
@@ -652,12 +655,14 @@ public class Game extends JPanel implements Runnable {
                 
             case SHOP:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
-                    shopManager.selectPrevious(); 
+                    shopManager.selectPrevious();
+                    updateShopScroll();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1; 
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    shopManager.selectNext(); 
+                    shopManager.selectNext();
+                    updateShopScroll();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1; 
                 }
@@ -1505,6 +1510,15 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // Smooth scroll animation for shop
+        if (gameState == GameState.SHOP) {
+            double shopScrollDiff = shopScroll - shopScrollAnimated;
+            shopScrollAnimated += shopScrollDiff * 0.15; // Smooth interpolation
+            if (Math.abs(shopScrollDiff) < 0.01) {
+                shopScrollAnimated = shopScroll;
+            }
+        }
+        
         if (gameState != GameState.PLAYING) return;
         
         // Update afterimage trail for player
@@ -1810,7 +1824,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             // Update combo system
-            comboSystem.update(deltaTime, passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.COMBO_DURATION));
+            comboSystem.update(deltaTime, 1.0); // Combo duration no longer has passive upgrade
             
             // Update damage numbers
             for (int i = damageNumbers.size() - 1; i >= 0; i--) {
@@ -2028,7 +2042,7 @@ public class Game extends JPanel implements Runnable {
                     // Apply combo multiplier
                     winBonus = (int)(winBonus * comboSystem.getMultiplier());
                     // Apply score multiplier passive
-                    winBonus = (int)(winBonus * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.SCORE_MULTIPLIER));
+                    winBonus = (int)(winBonus * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
                     gameData.addScore(winBonus);
                     
                     int moneyReward = currentBoss.getMoneyReward();
@@ -2039,7 +2053,7 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // Apply money gain passive multiplier
-                    moneyReward = (int)(moneyReward * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_GAIN));
+                    moneyReward = (int)(moneyReward * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
                     
                     gameData.addRunMoney(moneyReward);
                     gameData.addTotalMoney(moneyReward);
@@ -2275,8 +2289,8 @@ public class Game extends JPanel implements Runnable {
             soundManager.playSound(SoundManager.Sound.VULNERABILITY_WINDOW);
             
             bossVulnerable = true;
-            // Base duration + 60 frames (1 second) per upgrade level
-            vulnerabilityTimer = VULNERABILITY_DURATION + (gameData.getActiveAttackWindowLevel() * 60);
+            // Base duration + 15 frames (0.25 seconds) per upgrade level
+            vulnerabilityTimer = VULNERABILITY_DURATION + (gameData.getActiveAttackWindowLevel() * 15);
             // Visual indicator - sparkles around boss
             if (enableParticles) {
                 // Larger burst of sparkles when vulnerability opens
@@ -2609,7 +2623,7 @@ public class Game extends JPanel implements Runnable {
                     // Lucky Dodge chance - phase through bullets
                     int luckyDodgeLevel = gameData.getActiveLuckyDodgeLevel();
                     if (luckyDodgeLevel > 0) {
-                        double dodgeChance = luckyDodgeLevel * 0.05; // 5% per level
+                        double dodgeChance = Math.min(luckyDodgeLevel * 0.03, 0.35); // 3% per level, capped at 35%
                         if (Math.random() < dodgeChance) {
                             soundManager.playSound(SoundManager.Sound.DODGE, 1.0f + (dodgeCombo * 0.1f));
                             
@@ -2664,8 +2678,8 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 // Check for graze (near miss)
-                double grazeRadius = GRAZE_DISTANCE * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.GRAZE_RADIUS);
-                double closeCallRadius = CLOSE_CALL_DISTANCE * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.GRAZE_RADIUS);
+                double grazeRadius = GRAZE_DISTANCE; // Graze radius no longer has passive upgrade
+                double closeCallRadius = CLOSE_CALL_DISTANCE; // Close call radius no longer has passive upgrade
                 double perfectDodgeRadius = PERFECT_DODGE_DISTANCE;
                 double dist = Math.sqrt(Math.pow(bullet.getX() - player.getX(), 2) + Math.pow(bullet.getY() - player.getY(), 2));
                 
@@ -2959,8 +2973,8 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager);
                 break;
             case STATS:
-                renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime);
-                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem);
+                renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager);
+                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager);
                 break;
             case SETTINGS:
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
@@ -2996,7 +3010,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
             case SHOP:
-                renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime);
+                renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
                 break;
             case DEBUG:
                 renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime);
@@ -3026,6 +3040,12 @@ public class Game extends JPanel implements Runnable {
                 levelSelectScrollAnimated = selectedLevel;
             }
             
+            // Reset shop scroll when entering shop
+            if (newState == GameState.SHOP) {
+                shopScroll = 0;
+                shopScrollAnimated = 0;
+            }
+            
             previousState = gameState;
             gameState = newState;
             stateTransitionProgress = 0.0f;
@@ -3045,6 +3065,19 @@ public class Game extends JPanel implements Runnable {
         int selected = shopManager.getSelectedShopItem();
         if (selected == 0) startGame();
         else shopManager.purchaseItem(selected);
+    }
+    
+    private void updateShopScroll() {
+        // Calculate target scroll offset to keep selected item centered
+        int selectedItem = shopManager.getSelectedShopItem();
+        int itemsVisible = 7; // Number of items visible on screen
+        
+        // Only scroll if selection is beyond visible area
+        if (selectedItem > itemsVisible - 3) {
+            shopScroll = (selectedItem - (itemsVisible - 3)) * 80; // 80 pixels per item
+        } else {
+            shopScroll = 0;
+        }
     }
     
     private void toggleSetting(int settingIndex) {
@@ -3127,7 +3160,7 @@ public class Game extends JPanel implements Runnable {
                 repaint();
                 
                 // Create renderer (this loads backgrounds and overlay)
-                renderer = new Renderer(gameData, shopManager);
+                renderer = new Renderer(gameData, shopManager, passiveUpgradeManager);
                 targetLoadingProgress = 90;
                 repaint();
                 

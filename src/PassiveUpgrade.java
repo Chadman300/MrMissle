@@ -8,14 +8,11 @@ public class PassiveUpgrade {
     private UpgradeType type;
     
     public enum UpgradeType {
-        MOVEMENT_SPEED,     // Increase player movement speed
         MAX_HEALTH,         // Increase max health
-        GRAZE_RADIUS,       // Increase graze detection radius
         ITEM_COOLDOWN,      // Reduce item cooldown
         BULLET_SIZE,        // Reduce bullet size (easier to dodge)
-        COMBO_DURATION,     // Increase combo timeout
-        MONEY_GAIN,         // Increase money earned
-        SCORE_MULTIPLIER    // Increase score gain
+        MONEY_AND_SCORE,    // Increase money and score earned
+        CRITICAL_HIT        // Chance to instantly kill boss
     }
     
     public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int maxLevel) {
@@ -42,22 +39,16 @@ public class PassiveUpgrade {
     
     public double getMultiplier() {
         switch (type) {
-            case MOVEMENT_SPEED:
-                return 1.0 + (currentLevel * 0.1); // +10% per level
             case MAX_HEALTH:
                 return currentLevel; // +1 health per level
-            case GRAZE_RADIUS:
-                return 1.0 + (currentLevel * 0.15); // +15% per level
             case ITEM_COOLDOWN:
                 return 1.0 - (currentLevel * 0.1); // -10% per level (min 0.5)
             case BULLET_SIZE:
                 return 1.0 - (currentLevel * 0.05); // -5% per level (min 0.75)
-            case COMBO_DURATION:
-                return 1.0 + (currentLevel * 0.2); // +20% per level
-            case MONEY_GAIN:
-                return 1.0 + (currentLevel * 0.15); // +15% per level
-            case SCORE_MULTIPLIER:
-                return 1.0 + (currentLevel * 0.2); // +20% per level
+            case MONEY_AND_SCORE:
+                return 1.0 + (currentLevel * 0.15); // +15% per level for both money and score
+            case CRITICAL_HIT:
+                return currentLevel * 0.01; // 1% chance per level to instantly kill boss
             default:
                 return 1.0;
         }

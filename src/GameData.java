@@ -3,6 +3,12 @@ public class GameData {
     public static final int WIDTH = 1200;
     public static final int HEIGHT = 800;
     
+    // Upgrade caps
+    public static final int MAX_SPEED_LEVEL = 10;
+    public static final int MAX_BULLET_SLOW_LEVEL = 50;
+    public static final int MAX_LUCKY_DODGE_LEVEL = 12;
+    public static final int MAX_ATTACK_WINDOW_LEVEL = 10;
+    
     // Score and money
     private int score;
     private int totalMoney;
@@ -134,19 +140,35 @@ public class GameData {
     
     public int getSpeedUpgradeLevel() { return speedUpgradeLevel; }
     public void setSpeedUpgradeLevel(int level) { this.speedUpgradeLevel = level; }
-    public void incrementSpeedUpgrade() { this.speedUpgradeLevel++; }
+    public void incrementSpeedUpgrade() { 
+        if (this.speedUpgradeLevel < MAX_SPEED_LEVEL) {
+            this.speedUpgradeLevel++;
+        }
+    }
     
     public int getBulletSlowUpgradeLevel() { return bulletSlowUpgradeLevel; }
     public void setBulletSlowUpgradeLevel(int level) { this.bulletSlowUpgradeLevel = level; }
-    public void incrementBulletSlowUpgrade() { this.bulletSlowUpgradeLevel++; }
+    public void incrementBulletSlowUpgrade() { 
+        if (this.bulletSlowUpgradeLevel < MAX_BULLET_SLOW_LEVEL) {
+            this.bulletSlowUpgradeLevel++;
+        }
+    }
     
     public int getLuckyDodgeUpgradeLevel() { return luckyDodgeUpgradeLevel; }
     public void setLuckyDodgeUpgradeLevel(int level) { this.luckyDodgeUpgradeLevel = level; }
-    public void incrementLuckyDodgeUpgrade() { this.luckyDodgeUpgradeLevel++; }
+    public void incrementLuckyDodgeUpgrade() { 
+        if (this.luckyDodgeUpgradeLevel < MAX_LUCKY_DODGE_LEVEL) {
+            this.luckyDodgeUpgradeLevel++;
+        }
+    }
     
     public int getAttackWindowUpgradeLevel() { return attackWindowUpgradeLevel; }
     public void setAttackWindowUpgradeLevel(int level) { this.attackWindowUpgradeLevel = level; }
-    public void incrementAttackWindowUpgrade() { this.attackWindowUpgradeLevel++; }
+    public void incrementAttackWindowUpgrade() { 
+        if (this.attackWindowUpgradeLevel < MAX_ATTACK_WINDOW_LEVEL) {
+            this.attackWindowUpgradeLevel++;
+        }
+    }
     
     public int getActiveSpeedLevel() { return activeSpeedLevel; }
     public void setActiveSpeedLevel(int level) { this.activeSpeedLevel = Math.max(0, Math.min(speedUpgradeLevel, level)); }
