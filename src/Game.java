@@ -34,6 +34,8 @@ public class Game extends JPanel implements Runnable {
     private double levelSelectScrollAnimated; // Animated (smooth) scroll position
     private double shopScroll; // Target scroll position for shop
     private double shopScrollAnimated; // Animated (smooth) scroll position
+    private double statsScroll; // Target scroll position for stats screen
+    private double statsScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
     
     // Core systems
@@ -467,24 +469,62 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case STATS:
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { selectedStatItem = Math.max(0, selectedStatItem - 1); screenShakeIntensity = 1; }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { selectedStatItem = Math.min(4, selectedStatItem + 1); screenShakeIntensity = 1; }
+                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0); // active item + 4 shop upgrades + passives
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
+                    selectedStatItem = Math.max(0, selectedStatItem - 1);
+                    updateStatsScroll();
+                    screenShakeIntensity = 1; 
+                }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
+                    selectedStatItem = Math.min(maxStatItems - 1, selectedStatItem + 1);
+                    updateStatsScroll();
+                    screenShakeIntensity = 1; 
+                }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                    if (selectedStatItem == 4 && gameData.hasActiveItems()) {
+                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
+                        // Active item selection (now at index 0)
                         gameData.equipPreviousItem();
                         screenShakeIntensity = 2;
-                    } else {
-                        gameData.adjustUpgrade(selectedStatItem, -1);
+                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
+                        // Shop upgrades (indices 1-4)
+                        gameData.adjustUpgrade(selectedStatItem - 1, -1);
                         screenShakeIntensity = 2;
+                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
+                        // Passive upgrades (index 5+) - allocate like shop upgrades
+                        int passiveIndex = selectedStatItem - 5;
+                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
+                        // Skip Extra Hearts (last item) - it's read-only
+                        if (passiveIndex < numPassives - 1) {
+                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                            if (upgrade.getActiveLevel() > 0) {
+                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() - 1);
+                                screenShakeIntensity = 2;
+                            }
+                        }
                     }
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    if (selectedStatItem == 4 && gameData.hasActiveItems()) {
+                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
+                        // Active item selection (now at index 0)
                         gameData.equipNextItem();
                         screenShakeIntensity = 2;
-                    } else {
-                        gameData.adjustUpgrade(selectedStatItem, 1);
+                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
+                        // Shop upgrades (indices 1-4)
+                        gameData.adjustUpgrade(selectedStatItem - 1, 1);
                         screenShakeIntensity = 2;
+                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
+                        // Passive upgrades (index 5+) - allocate like shop upgrades
+                        int passiveIndex = selectedStatItem - 5;
+                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
+                        // Skip Extra Hearts (last item) - it's read-only
+                        if (passiveIndex < numPassives - 1) {
+                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                            // Only allow increasing up to purchased level (not maxLevel)
+                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() + 1);
+                                screenShakeIntensity = 2;
+                            }
+                        }
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { transitionToState(GameState.MENU); screenShakeIntensity = 3; }
@@ -1516,6 +1556,15 @@ public class Game extends JPanel implements Runnable {
             shopScrollAnimated += shopScrollDiff * 0.15; // Smooth interpolation
             if (Math.abs(shopScrollDiff) < 0.01) {
                 shopScrollAnimated = shopScroll;
+            }
+        }
+        
+        // Smooth scroll animation for stats screen
+        if (gameState == GameState.STATS) {
+            double statsScrollDiff = statsScroll - statsScrollAnimated;
+            statsScrollAnimated += statsScrollDiff * 0.15; // Smooth interpolation
+            if (Math.abs(statsScrollDiff) < 0.01) {
+                statsScrollAnimated = statsScroll;
             }
         }
         
@@ -2974,7 +3023,7 @@ public class Game extends JPanel implements Runnable {
                 break;
             case STATS:
                 renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager);
-                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager);
+                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated);
                 break;
             case SETTINGS:
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
@@ -3046,6 +3095,13 @@ public class Game extends JPanel implements Runnable {
                 shopScrollAnimated = 0;
             }
             
+            // Reset stats scroll when entering stats screen
+            if (newState == GameState.STATS) {
+                statsScroll = 0;
+                statsScrollAnimated = 0;
+                selectedStatItem = 0; // Start at top (active item)
+            }
+            
             previousState = gameState;
             gameState = newState;
             stateTransitionProgress = 0.0f;
@@ -3077,6 +3133,18 @@ public class Game extends JPanel implements Runnable {
             shopScroll = (selectedItem - (itemsVisible - 3)) * 80; // 80 pixels per item
         } else {
             shopScroll = 0;
+        }
+    }
+    
+    private void updateStatsScroll() {
+        // Calculate target scroll offset to keep selected item centered
+        int itemsVisible = 6; // Number of items visible on screen
+        
+        // Only scroll if selection is beyond visible area
+        if (selectedStatItem > itemsVisible - 2) {
+            statsScroll = (selectedStatItem - (itemsVisible - 2)) * 90; // 90 pixels per item (card height + padding)
+        } else {
+            statsScroll = 0;
         }
     }
     

@@ -14,9 +14,6 @@ public class PassiveUpgradeManager {
     }
     
     private void initializeUpgrades() {
-        addUpgrade("health", "Extra Hearts", "Increase maximum health by 1 per level", 
-                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 150, 3);
-        
         addUpgrade("cooldown", "Quick Charge", "Reduce item cooldown by 10% per level", 
                    PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 120, 5);
         
@@ -28,6 +25,9 @@ public class PassiveUpgradeManager {
         
         addUpgrade("critical", "Critical Strike", "1% chance per level to instantly kill boss", 
                    PassiveUpgrade.UpgradeType.CRITICAL_HIT, 250, 5);
+        
+        addUpgrade("health", "Extra Lives", "Purchase an extra life (Max 3)", 
+                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
     }
     
     private void addUpgrade(String id, String name, String description, 
@@ -40,9 +40,23 @@ public class PassiveUpgradeManager {
     public boolean purchaseUpgrade(String id, GameData gameData) {
         PassiveUpgrade upgrade = upgradeMap.get(id);
         if (upgrade != null && upgrade.canUpgrade(gameData.getTotalMoney())) {
+            // Special handling for Extra Lives
+            if (id.equals("health")) {
+                // Can only buy if not at max lives
+                if (gameData.getExtraLives() >= 3) {
+                    return false; // Already at max lives
+                }
+            }
+            
             int cost = upgrade.getCost();
             gameData.setTotalMoney(gameData.getTotalMoney() - cost);
             upgrade.upgrade();
+            
+            // Apply extra life when purchasing
+            if (id.equals("health")) {
+                gameData.addExtraLife();
+            }
+            
             return true;
         }
         return false;

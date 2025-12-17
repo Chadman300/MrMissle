@@ -38,6 +38,11 @@ public class UIButton {
         this.y = y;
     }
     
+    public void setSize(int width, int height) {
+        this.width = width;
+        this.height = height;
+    }
+    
     public void update(boolean selected, double time) {
         this.isSelected = selected;
         

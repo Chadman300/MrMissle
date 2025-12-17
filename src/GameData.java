@@ -301,8 +301,12 @@ public class GameData {
     
     // Extra lives methods
     public int getExtraLives() { return extraLives; }
-    public void setExtraLives(int lives) { this.extraLives = Math.max(0, lives); }
-    public void addExtraLife() { this.extraLives++; }
+    public void setExtraLives(int lives) { this.extraLives = Math.max(0, Math.min(3, lives)); }
+    public void addExtraLife() { 
+        if (this.extraLives < 3) {
+            this.extraLives++;
+        }
+    }
     public boolean useExtraLife() {
         if (extraLives > 0) {
             extraLives--;

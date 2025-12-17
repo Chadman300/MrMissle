@@ -3,7 +3,8 @@ public class PassiveUpgrade {
     private String name;
     private String description;
     private int cost;
-    private int currentLevel;
+    private int currentLevel;  // How many purchased from shop
+    private int activeLevel;   // How many allocated/active in stats & loadout
     private int maxLevel;
     private UpgradeType type;
     
@@ -23,6 +24,7 @@ public class PassiveUpgrade {
         this.cost = baseCost;
         this.maxLevel = maxLevel;
         this.currentLevel = 0;
+        this.activeLevel = 0;
     }
     
     public boolean canUpgrade(int money) {
@@ -32,6 +34,7 @@ public class PassiveUpgrade {
     public void upgrade() {
         if (currentLevel < maxLevel) {
             currentLevel++;
+            activeLevel = currentLevel; // Auto-activate when purchased
             // Increase cost for next level (1.5x multiplier)
             cost = (int)(cost * 1.5);
         }
@@ -40,15 +43,15 @@ public class PassiveUpgrade {
     public double getMultiplier() {
         switch (type) {
             case MAX_HEALTH:
-                return currentLevel; // +1 health per level
+                return activeLevel; // +1 health per level
             case ITEM_COOLDOWN:
-                return 1.0 - (currentLevel * 0.1); // -10% per level (min 0.5)
+                return 1.0 - (activeLevel * 0.1); // -10% per level (min 0.5)
             case BULLET_SIZE:
-                return 1.0 - (currentLevel * 0.05); // -5% per level (min 0.75)
+                return 1.0 - (activeLevel * 0.05); // -5% per level (min 0.75)
             case MONEY_AND_SCORE:
-                return 1.0 + (currentLevel * 0.15); // +15% per level for both money and score
+                return 1.0 + (activeLevel * 0.15); // +15% per level for both money and score
             case CRITICAL_HIT:
-                return currentLevel * 0.01; // 1% chance per level to instantly kill boss
+                return activeLevel * 0.01; // 1% chance per level to instantly kill boss
             default:
                 return 1.0;
         }
@@ -59,8 +62,21 @@ public class PassiveUpgrade {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public int getCost() { return cost; }
-    public int getCurrentLevel() { return currentLevel; }
+    public int getCurrentLevel() { return currentLevel; } // Purchased level
+    public int getActiveLevel() { return activeLevel; }   // Allocated level
     public int getMaxLevel() { return maxLevel; }
     public UpgradeType getType() { return type; }
     public boolean isMaxed() { return currentLevel >= maxLevel; }
+    
+    // Setter for manual level adjustment in stats & loadout (active level)
+    public void setActiveLevel(int level) {
+        this.activeLevel = Math.max(0, Math.min(level, currentLevel)); // Can't exceed purchased amount
+    }
+    
+    // Setter for purchased level (used by shop)
+    public void setCurrentLevel(int level) {
+        this.currentLevel = Math.max(0, Math.min(level, maxLevel));
+        // Ensure active level doesn't exceed purchased level
+        this.activeLevel = Math.min(this.activeLevel, this.currentLevel);
+    }
 }

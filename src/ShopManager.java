@@ -17,7 +17,8 @@ public class ShopManager {
     }
     
     public void setSelectedShopItem(int item) {
-        this.selectedShopItem = Math.max(0, Math.min(14, item));
+        int maxIndex = getTotalShopItems() - 1;
+        this.selectedShopItem = Math.max(0, Math.min(maxIndex, item));
     }
     
     public void selectPrevious() {
@@ -25,7 +26,8 @@ public class ShopManager {
     }
     
     public void selectNext() {
-        selectedShopItem = Math.min(14, selectedShopItem + 1);
+        int maxIndex = getTotalShopItems() - 1;
+        selectedShopItem = Math.min(maxIndex, selectedShopItem + 1);
     }
     
     public int getItemCost(int itemIndex) {
@@ -95,6 +97,12 @@ public class ShopManager {
         return false;
     }
     
+    public int getTotalShopItems() {
+        // 1 Continue + 4 shop upgrades + passive upgrades
+        int passiveCount = (passiveUpgradeManager != null) ? passiveUpgradeManager.getAllUpgrades().size() : 0;
+        return 5 + passiveCount;
+    }
+    
     public String[] getShopItems() {
         java.util.List<String> items = new java.util.ArrayList<>();
         items.add("Continue - Return to level select");
@@ -105,8 +113,19 @@ public class ShopManager {
         
         // Add passive upgrades
         if (passiveUpgradeManager != null) {
-            for (PassiveUpgrade upgrade : passiveUpgradeManager.getAllUpgrades()) {
-                String maxInfo = upgrade.isMaxed() ? " (MAXED)" : " (" + upgrade.getCurrentLevel() + "/" + upgrade.getMaxLevel() + ")";
+            java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
+            for (int i = 0; i < upgrades.size(); i++) {
+                PassiveUpgrade upgrade = upgrades.get(i);
+                String maxInfo;
+                
+                // Special handling for Extra Lives (last upgrade)
+                if (i == upgrades.size() - 1) {
+                    int currentLives = gameData.getExtraLives();
+                    maxInfo = (currentLives >= 3) ? " (MAXED)" : " (" + currentLives + "/3 lives)";
+                } else {
+                    maxInfo = upgrade.isMaxed() ? " (MAXED)" : " (" + upgrade.getCurrentLevel() + "/" + upgrade.getMaxLevel() + ")";
+                }
+                
                 items.add(upgrade.getName() + " - " + upgrade.getDescription() + maxInfo);
             }
         }
@@ -125,7 +144,12 @@ public class ShopManager {
                 if (itemIndex >= 5 && itemIndex <= 14 && passiveUpgradeManager != null) {
                     int passiveIndex = itemIndex - 5;
                     if (passiveIndex < passiveUpgradeManager.getAllUpgrades().size()) {
-                        return passiveUpgradeManager.getAllUpgrades().get(passiveIndex).isMaxed();
+                        PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                        // Special handling for Extra Lives (last upgrade) - maxed at 3 lives
+                        if (passiveIndex == passiveUpgradeManager.getAllUpgrades().size() - 1) {
+                            return gameData.getExtraLives() >= 3;
+                        }
+                        return upgrade.isMaxed();
                     }
                 }
                 return false;
