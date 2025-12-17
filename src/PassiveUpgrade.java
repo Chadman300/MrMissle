@@ -51,7 +51,7 @@ public class PassiveUpgrade {
             case MONEY_AND_SCORE:
                 return 1.0 + (activeLevel * 0.15); // +15% per level for both money and score
             case CRITICAL_HIT:
-                return activeLevel * 0.01; // 1% chance per level to instantly kill boss
+                return activeLevel * 0.005; // 0.5% chance per level to instantly kill boss
             default:
                 return 1.0;
         }

@@ -37,6 +37,8 @@ public class Game extends JPanel implements Runnable {
     private double statsScroll; // Target scroll position for stats screen
     private double statsScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
+    private double achievementsScroll; // Target scroll position for achievements
+    private double achievementsScrollAnimated; // Animated (smooth) scroll position
     
     // Core systems
     private GameData gameData;
@@ -586,7 +588,21 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case ACHIEVEMENTS:
-                if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    achievementsScroll = Math.max(0, achievementsScroll - 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    // Calculate max scroll based on achievement count
+                    int totalAchievements = achievementManager.getAllAchievements().size();
+                    int rows = (int)Math.ceil(totalAchievements / 3.0);
+                    int maxScroll = Math.max(0, (rows * 115) - 600); // 115 per row, 600 visible area
+                    achievementsScroll = Math.min(maxScroll, achievementsScroll + 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
                 
             case LEVEL_SELECT:
@@ -1576,6 +1592,15 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // Smooth scroll animation for achievements screen
+        if (gameState == GameState.ACHIEVEMENTS) {
+            double achievementsScrollDiff = achievementsScroll - achievementsScrollAnimated;
+            achievementsScrollAnimated += achievementsScrollDiff * 0.15; // Smooth interpolation
+            if (Math.abs(achievementsScrollDiff) < 0.01) {
+                achievementsScrollAnimated = achievementsScroll;
+            }
+        }
+        
         if (gameState != GameState.PLAYING) return;
         
         // Update afterimage trail for player
@@ -1958,8 +1983,25 @@ public class Game extends JPanel implements Runnable {
             if (bossVulnerable) {
                 soundManager.playSound(SoundManager.Sound.BOSS_HIT);
                 
-                // Deal damage to boss using new health system
-                currentBoss.takeDamage();
+                // Check for critical strike (instant kill)
+                double critChance = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.CRITICAL_HIT);
+                boolean isCritical = Math.random() < critChance;
+                
+                if (isCritical) {
+                    // Instant kill the boss
+                    while (currentBoss.getCurrentHealth() > 0) {
+                        currentBoss.takeDamage();
+                    }
+                    
+                    // Show critical hit message
+                    damageNumbers.add(new DamageNumber("CRITICAL HIT!", 
+                        currentBoss.getX(), currentBoss.getY() - 60, 
+                        new Color(255, 215, 0), 48));
+                } else {
+                    // Deal normal damage to boss using new health system
+                    currentBoss.takeDamage();
+                }
+                
                 int remainingHealth = currentBoss.getCurrentHealth();
                 
                 // Show damage number
@@ -3032,7 +3074,7 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawInfo(g2d, WIDTH, HEIGHT, gradientTime);
                 break;
             case ACHIEVEMENTS:
-                renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager);
+                renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager, achievementsScrollAnimated);
                 break;
             case STATS:
                 renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager);
@@ -3113,6 +3155,12 @@ public class Game extends JPanel implements Runnable {
                 statsScroll = 0;
                 statsScrollAnimated = 0;
                 selectedStatItem = 0; // Start at top (active item)
+            }
+            
+            // Reset achievements scroll when entering achievements screen
+            if (newState == GameState.ACHIEVEMENTS) {
+                achievementsScroll = 0;
+                achievementsScrollAnimated = 0;
             }
             
             previousState = gameState;

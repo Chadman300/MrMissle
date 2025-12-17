@@ -23,7 +23,7 @@ public class PassiveUpgradeManager {
         addUpgrade("money_score", "Fortune & Glory", "Increase money and score earned by 15% per level", 
                    PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 150, 5);
         
-        addUpgrade("critical", "Critical Strike", "1% chance per level to instantly kill boss", 
+        addUpgrade("critical", "Critical Strike", "0.5% chance per level to instantly kill boss", 
                    PassiveUpgrade.UpgradeType.CRITICAL_HIT, 250, 5);
         
         addUpgrade("health", "Extra Lives", "Purchase an extra life (Max 3)", 

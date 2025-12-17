@@ -479,7 +479,7 @@ public class Renderer {
         g.drawString("Press ESC to return to menu | Press R to restart during gameplay | Press P to visit shop", 70, height - 50);
     }
     
-    public void drawAchievements(Graphics2D g, int width, int height, double time, AchievementManager achievementManager) {
+    public void drawAchievements(Graphics2D g, int width, int height, double time, AchievementManager achievementManager, double scrollOffset) {
         // Draw animated gradient background
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -528,12 +528,20 @@ public class Renderer {
         int gapX = 20;
         int gapY = 15;
         
+        // Create clipping region for scrollable area
+        g.setClip(0, 140, width, height - 180);
+        
         for (int i = 0; i < achievements.size(); i++) {
             Achievement ach = achievements.get(i);
             int col = i % columns;
             int row = i / columns;
             int x = startX + col * (cardWidth + gapX);
-            int y = startY + row * (cardHeight + gapY);
+            int y = (int)(startY + row * (cardHeight + gapY) - scrollOffset);
+            
+            // Only draw if visible in clipping region
+            if (y + cardHeight < 140 || y > height - 40) {
+                continue;
+            }
             
             // Card background
             if (ach.isUnlocked()) {
@@ -623,10 +631,13 @@ public class Renderer {
             }
         }
         
+        // Reset clip
+        g.setClip(null);
+        
         // Controls hint
         g.setColor(new Color(216, 222, 233));
         g.setFont(new Font("Arial", Font.PLAIN, 20));
-        String hint = "Press ESC to return to menu";
+        String hint = "Press ESC to return to menu | UP/DOWN to scroll";
         fm = g.getFontMetrics();
         g.drawString(hint, (width - fm.stringWidth(hint)) / 2, height - 40);
     }
