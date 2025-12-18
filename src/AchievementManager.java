@@ -53,6 +53,13 @@ public class AchievementManager {
         addAchievement("raw_dog_15", "Raw Dog III", "Reach level 15 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 15);
         addAchievement("raw_dog_20", "Raw Dog IV", "Reach level 20 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 20);
         addAchievement("raw_dog_master", "Raw Dog Master", "Reach level 28 without purchasing any upgrades", Achievement.AchievementType.NO_UPGRADES, 28);
+        
+        // Speedrunning - Complete levels under time limit (time in seconds)
+        addAchievement("speedrun_30", "Speed Demon I", "Complete a level in under 30 seconds", Achievement.AchievementType.SPEED_RUN, 1800); // 30 seconds * 60 fps
+        addAchievement("speedrun_20", "Speed Demon II", "Complete a level in under 20 seconds", Achievement.AchievementType.SPEED_RUN, 1200); // 20 seconds * 60 fps
+        addAchievement("speedrun_15", "Lightning Fast", "Complete a level in under 15 seconds", Achievement.AchievementType.SPEED_RUN, 900); // 15 seconds * 60 fps
+        addAchievement("speedrun_10", "Sonic Boom", "Complete a level in under 10 seconds", Achievement.AchievementType.SPEED_RUN, 600); // 10 seconds * 60 fps
+        addAchievement("speedrun_master", "Time Lord", "Complete a level in under 7 seconds", Achievement.AchievementType.SPEED_RUN, 420); // 7 seconds * 60 fps
     }
     
     private void addAchievement(String id, String name, String description, Achievement.AchievementType type, int target) {

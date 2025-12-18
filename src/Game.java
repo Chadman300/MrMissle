@@ -2166,13 +2166,24 @@ public class Game extends JPanel implements Runnable {
                     achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
                     
                     // Save level completion time and stats
-                    gameData.setLevelCompletionTime(gameData.getCurrentLevel(), (int)(gameTimeSeconds * 60));
-                    gameData.getCurrentLevelStats().setTimeInFrames((int)(gameTimeSeconds * 60));
+                    int levelTimeInFrames = (int)(gameTimeSeconds * 60);
+                    gameData.setLevelCompletionTime(gameData.getCurrentLevel(), levelTimeInFrames);
+                    gameData.getCurrentLevelStats().setTimeInFrames(levelTimeInFrames);
                     gameData.getCurrentLevelStats().setDodges(comboSystem.getTotalDodges());
                     gameData.getCurrentLevelStats().setPerfectDodges(comboSystem.getPerfectDodgeCount());
                     gameData.getCurrentLevelStats().setMaxCombo(comboSystem.getMaxCombo());
                     // Bullets spawned, near misses, damage taken, and closest call are already being tracked throughout the level
                     gameData.saveLevelStats(gameData.getCurrentLevel());
+                    
+                    // Check speedrun achievements (each achievement checks if time is under its threshold)
+                    for (Achievement speedAchievement : achievementManager.getAllAchievements()) {
+                        if (speedAchievement.getType() == Achievement.AchievementType.SPEED_RUN && 
+                            !speedAchievement.isUnlocked() && 
+                            levelTimeInFrames <= speedAchievement.getTarget()) {
+                            speedAchievement.unlock();
+                            achievementManager.getRecentlyUnlocked().add(speedAchievement);
+                        }
+                    }
                     
                     // Start boss death animation
                     soundManager.playSound(SoundManager.Sound.BOSS_DEATH);

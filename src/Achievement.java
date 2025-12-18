@@ -15,7 +15,8 @@ public class Achievement {
         HIGH_COMBO,      // Reach combo of X
         MONEY_EARNED,    // Earn X total money
         PERFECT_BOSS,    // Defeat boss taking no damage
-        NO_UPGRADES      // Complete levels without purchasing any upgrades
+        NO_UPGRADES,     // Complete levels without purchasing any upgrades
+        SPEED_RUN        // Complete a level within X seconds
     }
     
     public Achievement(String id, String name, String description, AchievementType type, int target) {
