@@ -19,8 +19,12 @@ public class App {
             Game game = new Game();
             frame.add(game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setUndecorated(true); // Remove window borders
-            frame.setExtendedState(JFrame.MAXIMIZED_BOTH); // Maximize window
+            
+            // Start in windowed mode (can toggle fullscreen in settings)
+            frame.setSize(1280, 720); // Default window size
+            frame.setLocationRelativeTo(null); // Center on screen
+            frame.setResizable(true); // Allow resizing
+            
             frame.setVisible(true);
             game.start();
         });

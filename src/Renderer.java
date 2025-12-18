@@ -955,7 +955,7 @@ public class Renderer {
         }
     }
     
-    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset) {
+    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel) {
         int selectedLevel = gameData.getSelectedLevelView();
         
         // Draw animated gradient background
@@ -974,6 +974,16 @@ public class Renderer {
         GradientPaint titleGrad = new GradientPaint(titleX, titleY - 30, new Color(180, 142, 173), titleX, titleY + 20, new Color(235, 203, 139));
         g.setPaint(titleGrad);
         g.drawString(title, titleX, titleY);
+        
+        // Show "RESUME AVAILABLE" indicator if there's a saved game
+        if (hasSavedGame && selectedLevel == savedLevel) {
+            g.setFont(new Font("Arial", Font.BOLD, 24));
+            String resumeText = "⟲ RESUME AVAILABLE";
+            float resumePulse = (float)(0.7 + 0.3 * Math.sin(time * 3));
+            g.setColor(new Color(100, 255, 100, (int)(200 * resumePulse)));
+            FontMetrics resumeFm = g.getFontMetrics();
+            g.drawString(resumeText, (width - resumeFm.stringWidth(resumeText)) / 2, 110);
+        }
         
         // Progress indicator (dots at top)
         int dotY = 80;
@@ -1503,7 +1513,120 @@ public class Renderer {
         }
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow) {
+    public void drawLevelConfirm(Graphics2D g, int width, int height, int level, int selectedConfirmItem, boolean isResume, double time) {
+        // Draw animated background
+        Color[] colors = getLevelGradientColors(level);
+        drawAnimatedGradient(g, width, height, time, colors);
+        
+        // Dark overlay for contrast
+        g.setColor(new Color(0, 0, 0, 180));
+        g.fillRect(0, 0, width, height);
+        
+        // Title
+        g.setFont(new Font("Arial", Font.BOLD, 56));
+        String title = isResume ? "RESUME LEVEL " + level + "?" : "START LEVEL " + level + "?";
+        FontMetrics titleFm = g.getFontMetrics();
+        int titleX = (width - titleFm.stringWidth(title)) / 2;
+        
+        // Title glow
+        float glowPulse = (float)(0.4 + 0.2 * Math.sin(time * 2));
+        g.setColor(new Color(235, 203, 139, (int)(100 * glowPulse)));
+        g.drawString(title, titleX - 2, height / 2 - 48);
+        g.drawString(title, titleX + 2, height / 2 - 52);
+        
+        g.setColor(new Color(235, 203, 139));
+        g.drawString(title, titleX, height / 2 - 50);
+        
+        // Yes and No buttons
+        int buttonWidth = 150;
+        int buttonHeight = 60;
+        int buttonSpacing = 50;
+        int totalWidth = 2 * buttonWidth + buttonSpacing;
+        int startX = (width - totalWidth) / 2;
+        int buttonY = height / 2 + 50;
+        
+        // Draw Yes button
+        boolean yesSelected = (selectedConfirmItem == 0);
+        Color yesColor = yesSelected ? new Color(163, 190, 140) : new Color(80, 90, 70);
+        Color yesHover = new Color(180, 210, 160);
+        
+        // Button shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.fillRoundRect(startX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
+        
+        // Button background
+        if (yesSelected) {
+            double pulse = 1.02 + 0.02 * Math.sin(time * 4);
+            int pulsedWidth = (int)(buttonWidth * pulse);
+            int pulsedHeight = (int)(buttonHeight * pulse);
+            int offsetX = (buttonWidth - pulsedWidth) / 2;
+            int offsetY = (buttonHeight - pulsedHeight) / 2;
+            g.setColor(yesHover);
+            g.fillRoundRect(startX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, 10, 10);
+        } else {
+            g.setColor(yesColor);
+            g.fillRoundRect(startX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        }
+        
+        // Button border
+        g.setColor(yesSelected ? new Color(200, 230, 180) : new Color(120, 130, 110));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(startX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        
+        // Button text
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        FontMetrics yesFm = g.getFontMetrics();
+        g.setColor(Color.WHITE);
+        String yesText = "YES";
+        g.drawString(yesText, startX + (buttonWidth - yesFm.stringWidth(yesText)) / 2, 
+                     buttonY + (buttonHeight + yesFm.getAscent()) / 2 - 2);
+        
+        // Draw No button
+        int noButtonX = startX + buttonWidth + buttonSpacing;
+        boolean noSelected = (selectedConfirmItem == 1);
+        Color noColor = noSelected ? new Color(191, 97, 106) : new Color(90, 50, 60);
+        Color noHover = new Color(220, 120, 130);
+        
+        // Button shadow
+        g.setColor(new Color(0, 0, 0, 100));
+        g.fillRoundRect(noButtonX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
+        
+        // Button background
+        if (noSelected) {
+            double pulse = 1.02 + 0.02 * Math.sin(time * 4);
+            int pulsedWidth = (int)(buttonWidth * pulse);
+            int pulsedHeight = (int)(buttonHeight * pulse);
+            int offsetX = (buttonWidth - pulsedWidth) / 2;
+            int offsetY = (buttonHeight - pulsedHeight) / 2;
+            g.setColor(noHover);
+            g.fillRoundRect(noButtonX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, 10, 10);
+        } else {
+            g.setColor(noColor);
+            g.fillRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        }
+        
+        // Button border
+        g.setColor(noSelected ? new Color(230, 130, 140) : new Color(120, 70, 80));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        
+        // Button text
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        FontMetrics noFm = g.getFontMetrics();
+        g.setColor(Color.WHITE);
+        String noText = "NO";
+        g.drawString(noText, noButtonX + (buttonWidth - noFm.stringWidth(noText)) / 2, 
+                     buttonY + (buttonHeight + noFm.getAscent()) / 2 - 2);
+        
+        // Controls hint
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setColor(new Color(150, 150, 150));
+        String hint = "← → or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        FontMetrics hintFm = g.getFontMetrics();
+        g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
+    }
+    
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2251,6 +2374,56 @@ public class Renderer {
             FontMetrics fm = g2d.getFontMetrics();
             g2d.drawString(bossIntroText, (width - fm.stringWidth(bossIntroText)) / 2, height / 2);
             g2d.dispose();
+        }
+        
+        // Draw Can't Stop contract warning
+        if (riskContractType == 4 && riskContractActive && stoppedMovingTimer > 0 && !isPaused) {
+            int gracePerio = 90; // Match STOPPED_GRACE_PERIOD from Game
+            double timeRemaining = (gracePerio - stoppedMovingTimer) / 60.0; // Convert to seconds
+            float dangerLevel = (float) stoppedMovingTimer / gracePerio;
+            
+            // Pulsing warning bar at bottom of screen
+            int barWidth = 400;
+            int barHeight = 40;
+            int barX = (width - barWidth) / 2;
+            int barY = height - 100;
+            
+            // Background
+            g.setColor(new Color(40, 40, 40, 200));
+            g.fillRoundRect(barX, barY, barWidth, barHeight, 10, 10);
+            
+            // Progress bar (red, gets more intense as time runs out)
+            int progressWidth = (int) (barWidth * (1.0 - dangerLevel));
+            Color warningColor = new Color(
+                (int) (191 + dangerLevel * 64),
+                (int) (97 * (1.0 - dangerLevel)),
+                (int) (106 * (1.0 - dangerLevel)),
+                (int) (150 + dangerLevel * 105)
+            );
+            g.setColor(warningColor);
+            g.fillRoundRect(barX, barY, progressWidth, barHeight, 10, 10);
+            
+            // Border
+            g.setColor(new Color(200, 200, 200));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(barX, barY, barWidth, barHeight, 10, 10);
+            
+            // Warning text with pulsing effect
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
+            g.setColor(new Color(255, 255, 255, (int) (255 * textPulse)));
+            String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
+                                dangerLevel < 0.8 ? "⚠ MOVE NOW!" : "⚠⚠ MOVE! ⚠⚠";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(warningText, barX + (barWidth - fm.stringWidth(warningText)) / 2, barY + 26);
+            
+            // Time remaining text
+            if (timeRemaining > 0) {
+                g.setFont(new Font("Arial", Font.PLAIN, 14));
+                g.setColor(new Color(220, 220, 220));
+                String timeText = String.format("%.1fs", timeRemaining);
+                g.drawString(timeText, barX + barWidth + 10, barY + 26);
+            }
         }
         
         // Draw pause menu

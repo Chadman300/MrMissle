@@ -137,6 +137,45 @@ public class Game extends JPanel implements Runnable {
     private boolean isPaused;
     private int selectedPauseItem;
     
+    // Level confirmation
+    private int selectedLevelToStart = -1; // The level player wants to start
+    private int selectedConfirmItem = 0; // 0 = Yes, 1 = No
+    private boolean isConfirmingResume = false; // Track if confirming resume vs new game
+    
+    // Saved game state for resume feature
+    private boolean hasSavedGame = false;
+    private Player savedPlayer;
+    private Boss savedBoss;
+    private List<Bullet> savedBullets;
+    private List<Particle> savedParticles;
+    private List<BeamAttack> savedBeamAttacks;
+    private List<DamageNumber> savedDamageNumbers;
+    private int savedLevel;
+    private int savedRiskContractType;
+    private boolean savedRiskContractActive;
+    private double savedRiskContractMultiplier;
+    private int savedSurvivalTime;
+    private boolean savedBossVulnerable;
+    private int savedVulnerabilityTimer;
+    private int savedInvulnerabilityTimer;
+    private int savedBossHitCount;
+    private boolean savedTookDamageThisBoss;
+    private int savedDodgeCombo;
+    private boolean savedShieldActive;
+    private int savedShieldHits;
+    private int savedComboTimer;
+    private boolean savedBossIntroActive;
+    private int savedBossIntroTimer;
+    private String savedBossIntroText;
+    private boolean savedWaitingForRespawn;
+    private int savedRespawnDelayTimer;
+    private int savedRespawnInvincibilityTimer;
+    private boolean savedBossDeathAnimation;
+    private int savedDeathAnimationTimer;
+    private double savedBossDeathScale;
+    private double savedBossDeathRotation;
+    private int savedStoppedMovingTimer;
+    
     // Achievement notification
     private List<Achievement> pendingAchievements;
     private int achievementNotificationTimer;
@@ -183,17 +222,23 @@ public class Game extends JPanel implements Runnable {
     
     // Risk Contract system
     private boolean riskContractActive = false;
-    private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no shield
+    private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no shield, 4 = can't stop
     private double riskContractMultiplier = 1.0; // Money multiplier from contract
     private int selectedRiskContract = 0; // Currently selected contract in menu
-    private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Shieldless"};
+    private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Shieldless", "Can't Stop"};
     private static final String[] RISK_CONTRACT_DESCRIPTIONS = {
         "Play normally with no modifiers",
         "Double the bullets, double the money! (2x)",
         "Bullets move 50% faster (1.75x)",
-        "Shield item disabled (1.5x)"
+        "Shield item disabled (1.5x)",
+        "Keep moving or die! (2.5x)"
     };
-    private static final double[] RISK_CONTRACT_MULTIPLIERS = {1.0, 2.0, 1.75, 1.5};
+    private static final double[] RISK_CONTRACT_MULTIPLIERS = {1.0, 2.0, 1.75, 1.5, 2.5};
+    
+    // Can't Stop contract tracking
+    private int stoppedMovingTimer = 0;
+    private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
+    private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
     
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
@@ -394,15 +439,37 @@ public class Game extends JPanel implements Runnable {
         addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
             @Override
             public void mouseMoved(java.awt.event.MouseEvent e) {
-                mouseX = e.getX();
-                mouseY = e.getY();
+                // Transform mouse coordinates from screen space to game space
+                int panelWidth = getWidth();
+                int panelHeight = getHeight();
+                double scaleX = (double) panelWidth / WIDTH;
+                double scaleY = (double) panelHeight / HEIGHT;
+                double scale = Math.min(scaleX, scaleY);
+                int scaledWidth = (int) (WIDTH * scale);
+                int scaledHeight = (int) (HEIGHT * scale);
+                int offsetX = (panelWidth - scaledWidth) / 2;
+                int offsetY = (panelHeight - scaledHeight) / 2;
+                
+                mouseX = (int) ((e.getX() - offsetX) / scale);
+                mouseY = (int) ((e.getY() - offsetY) / scale);
                 handleMouseMove();
             }
             
             @Override
             public void mouseDragged(java.awt.event.MouseEvent e) {
-                mouseX = e.getX();
-                mouseY = e.getY();
+                // Transform mouse coordinates from screen space to game space
+                int panelWidth = getWidth();
+                int panelHeight = getHeight();
+                double scaleX = (double) panelWidth / WIDTH;
+                double scaleY = (double) panelHeight / HEIGHT;
+                double scale = Math.min(scaleX, scaleY);
+                int scaledWidth = (int) (WIDTH * scale);
+                int scaledHeight = (int) (HEIGHT * scale);
+                int offsetX = (panelWidth - scaledWidth) / 2;
+                int offsetY = (panelHeight - scaledHeight) / 2;
+                
+                mouseX = (int) ((e.getX() - offsetX) / scale);
+                mouseY = (int) ((e.getY() - offsetY) / scale);
             }
         });
         
@@ -605,6 +672,23 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
                 
+            case LEVEL_CONFIRM:
+                // Confirmation dialog for level start
+                if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                    selectedConfirmItem = 1 - selectedConfirmItem; // Toggle between 0 and 1
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    confirmLevelStart();
+                    screenShakeIntensity = 3;
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    // Escape goes back to level select
+                    transitionToState(GameState.LEVEL_SELECT);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 2;
+                }
+                break;
+                
             case LEVEL_SELECT:
                 // Path-style navigation: Left/Right to move along path, can view all levels
                 if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) { 
@@ -616,7 +700,17 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2; 
                 }
                 else if (key == KeyEvent.VK_SPACE) { 
-                    tryStartLevel(); 
+                    // Check if there's a saved game to resume
+                    if (hasSavedGame && gameData.getSelectedLevelView() == savedLevel) {
+                        // Show confirmation dialog for resume
+                        selectedLevelToStart = savedLevel;
+                        selectedConfirmItem = 0;
+                        isConfirmingResume = true;
+                        transitionToState(GameState.LEVEL_CONFIRM);
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    } else {
+                        tryStartLevel();
+                    }
                     screenShakeIntensity = 5; 
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
@@ -931,21 +1025,47 @@ public class Game extends JPanel implements Runnable {
         
         // Can start any unlocked level (for debug or level select)
         if (selectedLevel <= maxUnlocked) {
-            soundManager.playSound(SoundManager.Sound.LEVEL_START);
-            // Set current level to the selected one
-            gameData.setCurrentLevel(selectedLevel);
-            if (gameData.areContractsUnlocked()) {
-                selectedRiskContract = 0;
-                transitionToState(GameState.RISK_CONTRACT);
-            } else {
-                riskContractType = 0;
-                riskContractActive = false;
-                riskContractMultiplier = 1.0;
-                startGame();
-            }
+            // Show confirmation dialog before starting level
+            selectedLevelToStart = selectedLevel;
+            selectedConfirmItem = 0;
+            isConfirmingResume = false; // This is a new game start
+            transitionToState(GameState.LEVEL_CONFIRM);
+            soundManager.playSound(SoundManager.Sound.UI_SELECT);
         } else {
             // Locked - play error sound  
             soundManager.playSound(SoundManager.Sound.UI_ERROR);
+        }
+    }
+    
+    private void confirmLevelStart() {
+        if (selectedConfirmItem == 0) {
+            // Yes - either resume or start new level
+            soundManager.playSound(SoundManager.Sound.LEVEL_START);
+            
+            if (isConfirmingResume) {
+                // Resume saved game
+                restoreGameState();
+            } else {
+                // Start new level
+                gameData.setCurrentLevel(selectedLevelToStart);
+                
+                // Clear any saved game state since starting a new level
+                hasSavedGame = false;
+                
+                if (gameData.areContractsUnlocked()) {
+                    selectedRiskContract = 0;
+                    transitionToState(GameState.RISK_CONTRACT);
+                } else {
+                    riskContractType = 0;
+                    riskContractActive = false;
+                    riskContractMultiplier = 1.0;
+                    startGame();
+                }
+            }
+        } else {
+            // No - go back to level select
+            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+            transitionToState(GameState.LEVEL_SELECT);
         }
     }
     
@@ -1057,6 +1177,32 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 1;
                     }
                     break;
+                }
+            }
+        } else if (gameState == GameState.LEVEL_CONFIRM) {
+            // Check if hovering over Yes/No buttons
+            int buttonWidth = 150;
+            int buttonHeight = 60;
+            int buttonSpacing = 50;
+            int totalWidth = 2 * buttonWidth + buttonSpacing;
+            int startX = (WIDTH - totalWidth) / 2;
+            int buttonY = HEIGHT / 2 + 50;
+            
+            // Check Yes button
+            if (mouseX >= startX && mouseX <= startX + buttonWidth &&
+                mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                if (selectedConfirmItem != 0) {
+                    selectedConfirmItem = 0;
+                    screenShakeIntensity = 1;
+                }
+            }
+            // Check No button
+            else if (mouseX >= startX + buttonWidth + buttonSpacing && 
+                     mouseX <= startX + buttonWidth + buttonSpacing + buttonWidth &&
+                     mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                if (selectedConfirmItem != 1) {
+                    selectedConfirmItem = 1;
+                    screenShakeIntensity = 1;
                 }
             }
         } else if (gameState == GameState.LEVEL_SELECT) {
@@ -1200,6 +1346,30 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
+        } else if (gameState == GameState.LEVEL_CONFIRM) {
+            // Check if clicking on Yes/No buttons
+            int buttonWidth = 150;
+            int buttonHeight = 60;
+            int buttonSpacing = 50;
+            int totalWidth = 2 * buttonWidth + buttonSpacing;
+            int startX = (WIDTH - totalWidth) / 2;
+            int buttonY = HEIGHT / 2 + 50;
+            
+            // Check Yes button
+            if (mouseX >= startX && mouseX <= startX + buttonWidth &&
+                mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                selectedConfirmItem = 0;
+                confirmLevelStart();
+                screenShakeIntensity = 3;
+            }
+            // Check No button
+            else if (mouseX >= startX + buttonWidth + buttonSpacing && 
+                     mouseX <= startX + buttonWidth + buttonSpacing + buttonWidth &&
+                     mouseY >= buttonY && mouseY <= buttonY + buttonHeight) {
+                selectedConfirmItem = 1;
+                confirmLevelStart();
+                screenShakeIntensity = 3;
+            }
         } else if (gameState == GameState.LEVEL_SELECT) {
             // Check if clicking on level nodes
             int centerY = HEIGHT / 2 - 40;
@@ -1232,7 +1402,13 @@ public class Game extends JPanel implements Runnable {
                     
                     // If clicking the centered node, try to start that level
                     if (distFromCenter < 0.3) {
-                        tryStartLevel();
+                        // Check if there's a saved game to resume
+                        if (hasSavedGame && level == savedLevel) {
+                            restoreGameState();
+                            soundManager.playSound(SoundManager.Sound.LEVEL_START);
+                        } else {
+                            tryStartLevel();
+                        }
                     }
                     screenShakeIntensity = 2;
                     break;
@@ -1262,10 +1438,12 @@ public class Game extends JPanel implements Runnable {
                 break;
             case 1: // Restart
                 isPaused = false;
+                hasSavedGame = false; // Clear saved game when restarting
                 startGame();
                 break;
             case 2: // Main Menu
                 isPaused = false;
+                saveGameState(); // Save the game state before going to menu
                 transitionToState(GameState.MENU);
                 selectedMenuItem = 0;
                 break;
@@ -1288,6 +1466,10 @@ public class Game extends JPanel implements Runnable {
             // Clear bullets and beam attacks to give player a chance
             bullets.clear();
             beamAttacks.clear();
+            
+            // Give boss 3 seconds of immunity after player resurrection
+            invulnerabilityTimer = 420;
+            bossVulnerable = false;
             
             // Create resurrection particles
             if (enableParticles) {
@@ -1331,7 +1513,108 @@ public class Game extends JPanel implements Runnable {
         soundManager.stopMusic();
         screenShakeIntensity = 10;
         tookDamageThisBoss = true;
+        hasSavedGame = false; // Clear saved game on game over
         gameState = GameState.GAME_OVER;
+    }
+    
+    private void saveGameState() {
+        // Save current game state for resume feature
+        hasSavedGame = true;
+        
+        // Save references (shallow copy is fine for our use case)
+        savedPlayer = player;
+        savedBoss = currentBoss;
+        savedBullets = new ArrayList<>(bullets);
+        savedParticles = new ArrayList<>(particles);
+        savedBeamAttacks = new ArrayList<>(beamAttacks);
+        savedDamageNumbers = new ArrayList<>(damageNumbers);
+        
+        // Save game state variables
+        savedLevel = gameData.getCurrentLevel();
+        savedRiskContractType = riskContractType;
+        savedRiskContractActive = riskContractActive;
+        savedRiskContractMultiplier = riskContractMultiplier;
+        savedSurvivalTime = gameData.getSurvivalTime();
+        savedBossVulnerable = bossVulnerable;
+        savedVulnerabilityTimer = vulnerabilityTimer;
+        savedInvulnerabilityTimer = invulnerabilityTimer;
+        savedBossHitCount = bossHitCount;
+        savedTookDamageThisBoss = tookDamageThisBoss;
+        savedDodgeCombo = dodgeCombo;
+        savedShieldActive = shieldActive;
+        savedShieldHits = shieldHits;
+        savedComboTimer = comboTimer;
+        savedBossIntroActive = bossIntroActive;
+        savedBossIntroTimer = bossIntroTimer;
+        savedBossIntroText = bossIntroText;
+        savedWaitingForRespawn = waitingForRespawn;
+        savedRespawnDelayTimer = respawnDelayTimer;
+        savedRespawnInvincibilityTimer = respawnInvincibilityTimer;
+        savedBossDeathAnimation = bossDeathAnimation;
+        savedDeathAnimationTimer = deathAnimationTimer;
+        savedBossDeathScale = bossDeathScale;
+        savedBossDeathRotation = bossDeathRotation;
+        savedStoppedMovingTimer = stoppedMovingTimer;
+    }
+    
+    private void restoreGameState() {
+        if (!hasSavedGame) {
+            return;
+        }
+        
+        // Restore game state
+        gameState = GameState.PLAYING;
+        isPaused = false;
+        
+        // Restore saved objects
+        player = savedPlayer;
+        currentBoss = savedBoss;
+        bullets.clear();
+        bullets.addAll(savedBullets);
+        particles.clear();
+        particles.addAll(savedParticles);
+        beamAttacks.clear();
+        beamAttacks.addAll(savedBeamAttacks);
+        damageNumbers.clear();
+        damageNumbers.addAll(savedDamageNumbers);
+        
+        // Restore game state variables
+        gameData.setCurrentLevel(savedLevel);
+        riskContractType = savedRiskContractType;
+        riskContractActive = savedRiskContractActive;
+        riskContractMultiplier = savedRiskContractMultiplier;
+        gameData.setSurvivalTime(savedSurvivalTime);
+        bossVulnerable = savedBossVulnerable;
+        vulnerabilityTimer = savedVulnerabilityTimer;
+        invulnerabilityTimer = savedInvulnerabilityTimer;
+        bossHitCount = savedBossHitCount;
+        tookDamageThisBoss = savedTookDamageThisBoss;
+        dodgeCombo = savedDodgeCombo;
+        shieldActive = savedShieldActive;
+        shieldHits = savedShieldHits;
+        comboTimer = savedComboTimer;
+        bossIntroActive = savedBossIntroActive;
+        bossIntroTimer = savedBossIntroTimer;
+        bossIntroText = savedBossIntroText;
+        waitingForRespawn = savedWaitingForRespawn;
+        respawnDelayTimer = savedRespawnDelayTimer;
+        respawnInvincibilityTimer = savedRespawnInvincibilityTimer;
+        bossDeathAnimation = savedBossDeathAnimation;
+        deathAnimationTimer = savedDeathAnimationTimer;
+        bossDeathScale = savedBossDeathScale;
+        bossDeathRotation = savedBossDeathRotation;
+        stoppedMovingTimer = savedStoppedMovingTimer;
+        
+        // Clear saved game after restoring
+        hasSavedGame = false;
+        
+        // Start ambient background sound
+        soundManager.startAmbientSound();
+        
+        // Resume music
+        int[] themes = {1, 5, 6, 7, 8};
+        int theme = themes[(int)(Math.random() * themes.length)];
+        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
     }
 
     private void startGame() {
@@ -1344,6 +1627,7 @@ public class Game extends JPanel implements Runnable {
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
+        stoppedMovingTimer = 0; // Reset Can't Stop timer
         comboTimer = 0;
         bossVulnerable = false;
         vulnerabilityTimer = 0;
@@ -1368,7 +1652,7 @@ public class Game extends JPanel implements Runnable {
         int theme = themes[(int)(Math.random() * themes.length)];
         soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
         
-        invulnerabilityTimer = 150; // 2.5 seconds of immunity at boss start
+        invulnerabilityTimer = 420; // 7 seconds of immunity at boss start
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
         waitingForRespawn = false;
@@ -1755,6 +2039,49 @@ public class Game extends JPanel implements Runnable {
             // Only allow player control when intro pan is complete
             if (!introPanActive) {
                 player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
+                
+                // Can't Stop contract: Check if player is moving
+                if (riskContractType == 4 && riskContractActive) {
+                    double playerSpeed = Math.sqrt(player.getVX() * player.getVX() + player.getVY() * player.getVY());
+                    
+                    if (playerSpeed < MIN_MOVEMENT_SPEED) {
+                        // Player is not moving
+                        stoppedMovingTimer++;
+                        
+                        // Show warning when timer is running low
+                        if (stoppedMovingTimer >= STOPPED_GRACE_PERIOD) {
+                            // Kill the player
+                            soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+                            screenShakeIntensity = 10;
+                            tookDamageThisBoss = true;
+                            
+                            // Show death message
+                            damageNumbers.add(new DamageNumber("KEEP MOVING!", player.getX(), player.getY() - 30, 
+                                new Color(191, 97, 106), 28));
+                            
+                            // Create death particles
+                            if (enableParticles) {
+                                for (int i = 0; i < 20; i++) {
+                                    double angle = Math.random() * Math.PI * 2;
+                                    double speed = 2 + Math.random() * 3;
+                                    addParticle(
+                                        player.getX(), player.getY(),
+                                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                        new Color(191, 97, 106), 40, 6,
+                                        Particle.ParticleType.SPARK
+                                    );
+                                }
+                            }
+                            
+                            player = null; // Kill player
+                            gameState = GameState.GAME_OVER;
+                            soundManager.stopMusic();
+                        }
+                    } else {
+                        // Player is moving, reset timer
+                        stoppedMovingTimer = 0;
+                    }
+                }
             }
             
             // Handle intro sequence
@@ -2103,7 +2430,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Reset vulnerability
                 bossVulnerable = false;
-                invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
+                invulnerabilityTimer = 420; // 7 seconds before next vulnerability window
                 
                 screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 bossFlashTimer = 12; // Longer boss flash effect
@@ -2269,7 +2596,7 @@ public class Game extends JPanel implements Runnable {
                     
                     // Reset vulnerability
                     bossVulnerable = false;
-                    invulnerabilityTimer = 90; // 1.5 seconds before next vulnerability window
+                    invulnerabilityTimer = 420; // 7 seconds before next vulnerability window
                     
                     screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 }
@@ -3045,6 +3372,28 @@ public class Game extends JPanel implements Runnable {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         
+        // Calculate scaling to fit window while maintaining aspect ratio
+        int panelWidth = getWidth();
+        int panelHeight = getHeight();
+        
+        double scaleX = (double) panelWidth / WIDTH;
+        double scaleY = (double) panelHeight / HEIGHT;
+        double scale = Math.min(scaleX, scaleY); // Use smaller scale to fit entirely
+        
+        // Calculate offsets to center the game
+        int scaledWidth = (int) (WIDTH * scale);
+        int scaledHeight = (int) (HEIGHT * scale);
+        int offsetX = (panelWidth - scaledWidth) / 2;
+        int offsetY = (panelHeight - scaledHeight) / 2;
+        
+        // Fill background with black (letterboxing/pillarboxing)
+        g2d.setColor(Color.BLACK);
+        g2d.fillRect(0, 0, panelWidth, panelHeight);
+        
+        // Apply transforms
+        g2d.translate(offsetX, offsetY);
+        g2d.scale(scale, scale);
+        
         // Use faster rendering during intense gameplay, better quality for menus
         if (gameState == GameState.PLAYING && bullets.size() > 100) {
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
@@ -3095,7 +3444,10 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
                 break;
             case LEVEL_SELECT:
-                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScrollAnimated);
+                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScrollAnimated, hasSavedGame, savedLevel);
+                break;
+            case LEVEL_CONFIRM:
+                renderer.drawLevelConfirm(g2d, WIDTH, HEIGHT, selectedLevelToStart, selectedConfirmItem, isConfirmingResume, gradientTime);
                 break;
             case RISK_CONTRACT:
                 renderer.drawRiskContract(g2d, WIDTH, HEIGHT, selectedRiskContract, RISK_CONTRACT_NAMES, RISK_CONTRACT_DESCRIPTIONS, RISK_CONTRACT_MULTIPLIERS, gradientTime, gameData.getCurrentLevel());
@@ -3103,7 +3455,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:
