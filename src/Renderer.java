@@ -1626,7 +1626,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2447,6 +2447,55 @@ public class Renderer {
                 pauseButtons[i].update(i == selectedPauseItem, time);
                 pauseButtons[i].draw(g, time);
             }
+        }
+        
+        // Draw unpause countdown
+        if (unpauseCountdownActive) {
+            // Dark overlay
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRect(0, 0, width, height);
+            
+            // Calculate countdown number (3, 2, 1, GO!)
+            int totalDuration = 180; // 3 seconds total
+            int secondsRemaining = (unpauseCountdownTimer / 60) + 1;
+            String countdownText;
+            Color countdownColor;
+            
+            if (secondsRemaining > 0) {
+                countdownText = String.valueOf(secondsRemaining);
+                countdownColor = new Color(235, 203, 139);
+            } else {
+                countdownText = "GO!";
+                countdownColor = new Color(163, 190, 140);
+            }
+            
+            // Pulse effect
+            double pulse = 1.0 + 0.3 * Math.sin(time * 10);
+            int fontSize = (int)(200 * pulse);
+            g.setFont(new Font("Arial", Font.BOLD, fontSize));
+            FontMetrics countdownFm = g.getFontMetrics();
+            
+            // Draw countdown with glow
+            int textX = (width - countdownFm.stringWidth(countdownText)) / 2;
+            int textY = height / 2 + countdownFm.getAscent() / 2;
+            
+            // Glow effect
+            g.setColor(new Color(countdownColor.getRed(), countdownColor.getGreen(), countdownColor.getBlue(), 100));
+            for (int i = 4; i > 0; i--) {
+                g.drawString(countdownText, textX - i, textY - i);
+                g.drawString(countdownText, textX + i, textY + i);
+            }
+            
+            // Main text
+            g.setColor(countdownColor);
+            g.drawString(countdownText, textX, textY);
+            
+            // Subtitle
+            g.setFont(new Font("Arial", Font.PLAIN, 32));
+            String subtitleText = "Get Ready!";
+            FontMetrics subtitleFm = g.getFontMetrics();
+            g.setColor(new Color(216, 222, 233));
+            g.drawString(subtitleText, (width - subtitleFm.stringWidth(subtitleText)) / 2, textY + 80);
         }
         
         // Draw achievement notification

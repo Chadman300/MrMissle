@@ -20,10 +20,10 @@ public class App {
             frame.add(game);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             
-            // Start in windowed mode (can toggle fullscreen in settings)
-            frame.setSize(1280, 720); // Default window size
-            frame.setLocationRelativeTo(null); // Center on screen
-            frame.setResizable(true); // Allow resizing
+            // Start in fullscreen mode with window decorations hidden
+            frame.setUndecorated(true);
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            frame.setResizable(true); // Allow resizing if user exits fullscreen
             
             frame.setVisible(true);
             game.start();

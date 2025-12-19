@@ -136,6 +136,9 @@ public class Game extends JPanel implements Runnable {
     // Pause menu
     private boolean isPaused;
     private int selectedPauseItem;
+    private boolean unpauseCountdownActive;
+    private int unpauseCountdownTimer;
+    private static final int UNPAUSE_COUNTDOWN_DURATION = 180; // 3 seconds (60 fps * 3)
     
     // Level confirmation
     private int selectedLevelToStart = -1; // The level player wants to start
@@ -701,6 +704,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_SPACE) { 
                     // Check if there's a saved game to resume
+                    System.out.println("DEBUG: Space pressed - hasSavedGame: " + hasSavedGame + ", savedLevel: " + savedLevel + ", selectedLevel: " + gameData.getSelectedLevelView());
                     if (hasSavedGame && gameData.getSelectedLevelView() == savedLevel) {
                         // Show confirmation dialog for resume
                         selectedLevelToStart = savedLevel;
@@ -746,13 +750,13 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 1;
                     } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                         screenShakeIntensity = 3;
-                        switch (selectedPauseItem) {
-                            case 0: isPaused = false; break; // Resume
-                            case 1: startGame(); isPaused = false; break; // Restart
-                            case 2: transitionToState(GameState.MENU); isPaused = false; break; // Menu
-                        }
+                        activatePauseMenuItem(selectedPauseItem);
                     } else if (key == KeyEvent.VK_ESCAPE) {
+                        System.out.println("DEBUG: ESC pressed while paused - starting countdown");
                         isPaused = false;
+                        unpauseCountdownActive = true;
+                        unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                        soundManager.playSound(SoundManager.Sound.UNPAUSE);
                         screenShakeIntensity = 2;
                     }
                 } else {
@@ -1404,8 +1408,12 @@ public class Game extends JPanel implements Runnable {
                     if (distFromCenter < 0.3) {
                         // Check if there's a saved game to resume
                         if (hasSavedGame && level == savedLevel) {
-                            restoreGameState();
-                            soundManager.playSound(SoundManager.Sound.LEVEL_START);
+                            // Show confirmation dialog for resume
+                            selectedLevelToStart = savedLevel;
+                            selectedConfirmItem = 0;
+                            isConfirmingResume = true;
+                            transitionToState(GameState.LEVEL_CONFIRM);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
                         } else {
                             tryStartLevel();
                         }
@@ -1435,6 +1443,9 @@ public class Game extends JPanel implements Runnable {
             case 0: // Resume
                 soundManager.playSound(SoundManager.Sound.UNPAUSE);
                 isPaused = false;
+                unpauseCountdownActive = true;
+                unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
                 break;
             case 1: // Restart
                 isPaused = false;
@@ -1442,6 +1453,7 @@ public class Game extends JPanel implements Runnable {
                 startGame();
                 break;
             case 2: // Main Menu
+                System.out.println("DEBUG: Going to main menu from pause - saving game state");
                 isPaused = false;
                 saveGameState(); // Save the game state before going to menu
                 transitionToState(GameState.MENU);
@@ -1520,6 +1532,8 @@ public class Game extends JPanel implements Runnable {
     private void saveGameState() {
         // Save current game state for resume feature
         hasSavedGame = true;
+        
+        System.out.println("DEBUG: Saving game state - Level: " + gameData.getCurrentLevel());
         
         // Save references (shallow copy is fine for our use case)
         savedPlayer = player;
@@ -2035,7 +2049,7 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Update player with delta time (only if alive)
-        if (player != null) {
+        if (player != null && !isPaused && !unpauseCountdownActive) {
             // Only allow player control when intro pan is complete
             if (!introPanActive) {
                 player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
@@ -2230,6 +2244,19 @@ public class Game extends JPanel implements Runnable {
             // If paused, skip all gameplay updates
             if (isPaused) {
                 return;
+            }
+            
+            // Handle unpause countdown
+            if (unpauseCountdownActive) {
+                unpauseCountdownTimer--;
+                if (unpauseCountdownTimer % 60 == 0) {
+                    System.out.println("DEBUG: Countdown active - timer: " + unpauseCountdownTimer);
+                }
+                if (unpauseCountdownTimer <= 0) {
+                    unpauseCountdownActive = false;
+                    System.out.println("DEBUG: Countdown finished");
+                }
+                return; // Don't update game during countdown
             }
             
             // Update combo system
@@ -3455,7 +3482,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:
@@ -3500,8 +3527,9 @@ public class Game extends JPanel implements Runnable {
             
             // Initialize level select scroll position when entering
             if (newState == GameState.LEVEL_SELECT) {
-                // Always start at current level when opening journey map
-                int selectedLevel = gameData.getCurrentLevel();
+                // If there's a saved game, navigate to that level; otherwise current level
+                int selectedLevel = hasSavedGame ? savedLevel : gameData.getCurrentLevel();
+                System.out.println("DEBUG: Entering LEVEL_SELECT - hasSavedGame: " + hasSavedGame + ", navigating to level: " + selectedLevel);
                 gameData.setSelectedLevelView(selectedLevel);
                 levelSelectScroll = selectedLevel;
                 levelSelectScrollAnimated = selectedLevel;
