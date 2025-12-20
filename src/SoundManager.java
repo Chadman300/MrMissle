@@ -152,6 +152,9 @@ public class SoundManager {
         BOSS_DEATH(GAME_PATH + "Explosion/Retro Explosion Swoshes 04.wav"),
         BOSS_ROAR(GAME_PATH + "Roar/Retro Roar 02.wav"),
         
+        // Item effects
+        ITEM_END(GAME_PATH + "Descending/Retro Descending Short 01.wav"),
+        
         // Game Over
         GAME_OVER(GAME_PATH + "Music/Negative/Retro Negative Melody 02 - space voice pad.wav"),
         

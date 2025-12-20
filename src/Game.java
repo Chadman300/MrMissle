@@ -217,6 +217,10 @@ public class Game extends JPanel implements Runnable {
     private int grazeScore = 0; // Accumulate graze score
     private int hitPauseTimer = 0; // Brief pause on impact
     private int screenFlashTimer = 0; // Screen flash on player hit
+    private int itemReadyFlickerTimer = 0; // Flicker when item becomes ready
+    private int itemCompleteFlashTimer = 0; // Flash when item effect completes
+    private boolean wasItemReady = false; // Track previous ready state
+    private boolean wasItemActive = false; // Track previous active state
     
     // Perfect Dodge system
     private int perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
@@ -240,6 +244,7 @@ public class Game extends JPanel implements Runnable {
     
     // Can't Stop contract tracking
     private int stoppedMovingTimer = 0;
+    private boolean hasMovedOnce = false; // Track if player has moved at least once
     private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
     
@@ -892,8 +897,14 @@ public class Game extends JPanel implements Runnable {
                 
             case WIN:
                 if (key == KeyEvent.VK_SPACE) {
-                    // If contract animation is playing, start dismiss animation
+                    // If contract animation is playing, skip to reveal or start dismiss
                     if (contractUnlockAnimation && !contractUnlockDismissing) {
+                        // If still in animation phase, skip to reveal
+                        if (contractUnlockTimer > 0) {
+                            contractUnlockTimer = 0; // Skip to fully revealed state
+                            return;
+                        }
+                        // If already revealed, start dismiss animation
                         contractUnlockDismissing = true;
                         contractUnlockDismissTimer = CONTRACT_DISMISS_DURATION;
                         return;
@@ -903,8 +914,14 @@ public class Game extends JPanel implements Runnable {
                         return;
                     }
                     
-                    // If item animation is playing, start dismiss animation
+                    // If item animation is playing, skip to reveal or start dismiss
                     if (itemUnlockAnimation && !itemUnlockDismissing) {
+                        // If still in animation phase, skip to reveal
+                        if (itemUnlockTimer > 0) {
+                            itemUnlockTimer = 0; // Skip to fully revealed state
+                            return;
+                        }
+                        // If already revealed, start dismiss animation
                         itemUnlockDismissing = true;
                         itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
                         return;
@@ -970,6 +987,11 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_6) {
                     // Unlock all active items
                     gameData.unlockAllItems();
+                    screenShakeIntensity = 5;
+                }
+                else if (key == KeyEvent.VK_7) {
+                    // Unlock risk contracts
+                    gameData.unlockContracts();
                     screenShakeIntensity = 5;
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -1825,6 +1847,8 @@ public class Game extends JPanel implements Runnable {
         invulnerabilityTimer = 300; // 5 seconds of immunity at boss start
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
+        hasMovedOnce = false; // Reset Can't Stop contract movement tracker
+        stoppedMovingTimer = 0;
         waitingForRespawn = false;
         respawnDelayTimer = 0;
         isPaused = false;
@@ -2174,6 +2198,26 @@ public class Game extends JPanel implements Runnable {
         if (equippedItem != null) {
             equippedItem.update();
             
+            // Detect when item becomes ready (exclude Lucky Charm)
+            if (equippedItem.getType() != ActiveItem.ItemType.LUCKY_CHARM) {
+                boolean isReadyNow = equippedItem.canActivate();
+                if (isReadyNow && !wasItemReady) {
+                    // Item just became ready - trigger flicker effect
+                    itemReadyFlickerTimer = 20; // Flicker for 20 frames
+                    soundManager.playSound(SoundManager.Sound.POWERUP_ACTIVATE);
+                }
+                wasItemReady = isReadyNow;
+                
+                // Detect when item effect completes (was active, now not) - exclude Lucky Charm and instant items
+                boolean isActiveNow = equippedItem.isActive();
+                if (wasItemActive && !isActiveNow && equippedItem.getActiveDuration() > 0) {
+                    // Item effect just finished - trigger flash effect
+                    itemCompleteFlashTimer = 15;
+                    soundManager.playSound(SoundManager.Sound.ITEM_END);
+                }
+                wasItemActive = isActiveNow;
+            }
+            
             // Handle active item effects
             if (equippedItem.isActive()) {
                 handleActiveItemEffects(equippedItem, deltaTime);
@@ -2231,12 +2275,19 @@ public class Game extends JPanel implements Runnable {
                 if (riskContractType == 4 && riskContractActive) {
                     double playerSpeed = Math.sqrt(player.getVX() * player.getVX() + player.getVY() * player.getVY());
                     
-                    if (playerSpeed < MIN_MOVEMENT_SPEED) {
-                        // Player is not moving
-                        stoppedMovingTimer++;
-                        
-                        // Show warning when timer is running low
-                        if (stoppedMovingTimer >= STOPPED_GRACE_PERIOD) {
+                    // Mark that player has moved at least once
+                    if (playerSpeed >= MIN_MOVEMENT_SPEED && !hasMovedOnce) {
+                        hasMovedOnce = true;
+                    }
+                    
+                    // Only enforce movement requirement after player has moved once
+                    if (hasMovedOnce) {
+                        if (playerSpeed < MIN_MOVEMENT_SPEED) {
+                            // Player is not moving
+                            stoppedMovingTimer++;
+                            
+                            // Show warning when timer is running low
+                            if (stoppedMovingTimer >= STOPPED_GRACE_PERIOD) {
                             // Kill the player
                             soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
                             screenShakeIntensity = 10;
@@ -2267,6 +2318,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         // Player is moving, reset timer
                         stoppedMovingTimer = 0;
+                    }
                     }
                 }
             }
@@ -2380,8 +2432,8 @@ public class Game extends JPanel implements Runnable {
                     cameraX = 0;
                     cameraY = 0;
                 }
-            } else {
-                // Normal camera follow with slow smooth interpolation (only when intro is done)
+            } else if (player != null) {
+                // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
                 double targetCameraX = 0;
                 double targetCameraY = 0;
                 
@@ -3631,7 +3683,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, vulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:

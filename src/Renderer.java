@@ -117,7 +117,7 @@ public class Renderer {
         if (backgroundsLoaded) return;
         try {
             int totalLoaded = 0;
-            for (int set = 0; set < 14; set++) {
+            for (int set = 0; set < 10; set++) {
                 for (int layer = 0; layer < 6; layer++) {
                     String path = String.format("sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1);
                     
@@ -1367,13 +1367,13 @@ public class Renderer {
         g.setColor(new Color(200, 200, 200));
         g.drawString(subtitle, (width - subFm.stringWidth(subtitle)) / 2, 120);
         
-        // Draw contract cards
-        int cardWidth = 200;
-        int cardHeight = 280;
-        int cardSpacing = 30;
+        // Draw contract cards (larger and centered)
+        int cardWidth = 280;
+        int cardHeight = 380;
+        int cardSpacing = 40;
         int totalWidth = contractNames.length * cardWidth + (contractNames.length - 1) * cardSpacing;
         int startX = (width - totalWidth) / 2;
-        int cardY = 160;
+        int cardY = (height - cardHeight) / 2 - 40;
         
         for (int i = 0; i < contractNames.length; i++) {
             int cardX = startX + i * (cardWidth + cardSpacing);
@@ -1413,68 +1413,68 @@ public class Renderer {
             g.setStroke(new BasicStroke(isSelected ? 3 : 2));
             g.drawRoundRect(cardX + offsetX, cardY + offsetY, scaledWidth, scaledHeight, 15, 15);
             
-            // Contract icon/symbol - draw custom graphics
-            int iconY = cardY + offsetY + 50;
+            // Contract icon/symbol - draw custom graphics (larger)
+            int iconY = cardY + offsetY + 65;
             int iconCenterX = cardX + offsetX + scaledWidth / 2;
             Color iconColor = i == 0 ? new Color(100, 180, 100) :
                              i == 1 ? new Color(255, 100, 100) :
                              i == 2 ? new Color(100, 150, 255) : new Color(255, 180, 100);
             g.setColor(isSelected ? iconColor : new Color(100, 100, 100));
-            g.setStroke(new BasicStroke(3));
+            g.setStroke(new BasicStroke(4));
             
             if (i == 0) {
-                // No Contract - Circle with checkmark
-                g.drawOval(iconCenterX - 25, iconY - 35, 50, 50);
-                g.setStroke(new BasicStroke(4));
-                g.drawLine(iconCenterX - 10, iconY - 10, iconCenterX, iconY);
-                g.drawLine(iconCenterX, iconY, iconCenterX + 15, iconY - 20);
+                // No Contract - Circle with checkmark (larger)
+                g.drawOval(iconCenterX - 35, iconY - 50, 70, 70);
+                g.setStroke(new BasicStroke(5));
+                g.drawLine(iconCenterX - 15, iconY - 15, iconCenterX, iconY);
+                g.drawLine(iconCenterX, iconY, iconCenterX + 20, iconY - 28);
             } else if (i == 1) {
-                // Bullet Storm - Multiple circles
-                g.fillOval(iconCenterX - 20, iconY - 25, 15, 15);
-                g.fillOval(iconCenterX + 5, iconY - 25, 15, 15);
-                g.fillOval(iconCenterX - 8, iconY - 5, 15, 15);
+                // Bullet Storm - Multiple circles (larger)
+                g.fillOval(iconCenterX - 28, iconY - 35, 20, 20);
+                g.fillOval(iconCenterX + 8, iconY - 35, 20, 20);
+                g.fillOval(iconCenterX - 10, iconY - 8, 20, 20);
             } else if (i == 2) {
-                // Speed Demon - Forward arrows
-                int[] xPoints1 = {iconCenterX - 20, iconCenterX - 10, iconCenterX - 20};
-                int[] yPoints1 = {iconY - 25, iconY - 10, iconY + 5};
+                // Speed Demon - Forward arrows (larger)
+                int[] xPoints1 = {iconCenterX - 28, iconCenterX - 14, iconCenterX - 28};
+                int[] yPoints1 = {iconY - 35, iconY - 15, iconY + 5};
                 g.fillPolygon(xPoints1, yPoints1, 3);
-                int[] xPoints2 = {iconCenterX + 5, iconCenterX + 15, iconCenterX + 5};
-                int[] yPoints2 = {iconY - 25, iconY - 10, iconY + 5};
+                int[] xPoints2 = {iconCenterX + 8, iconCenterX + 22, iconCenterX + 8};
+                int[] yPoints2 = {iconY - 35, iconY - 15, iconY + 5};
                 g.fillPolygon(xPoints2, yPoints2, 3);
             } else {
-                // Shieldless - Shield with X
-                g.drawArc(iconCenterX - 20, iconY - 30, 40, 45, 0, 180);
-                g.drawLine(iconCenterX - 20, iconY - 30, iconCenterX - 20, iconY + 5);
-                g.drawLine(iconCenterX + 20, iconY - 30, iconCenterX + 20, iconY + 5);
-                g.drawLine(iconCenterX - 20, iconY + 5, iconCenterX, iconY + 15);
-                g.drawLine(iconCenterX + 20, iconY + 5, iconCenterX, iconY + 15);
-                g.setStroke(new BasicStroke(3));
-                g.drawLine(iconCenterX - 15, iconY - 20, iconCenterX + 15, iconY + 10);
-                g.drawLine(iconCenterX + 15, iconY - 20, iconCenterX - 15, iconY + 10);
+                // Shieldless - Shield with X (larger)
+                g.drawArc(iconCenterX - 28, iconY - 42, 56, 63, 0, 180);
+                g.drawLine(iconCenterX - 28, iconY - 42, iconCenterX - 28, iconY + 7);
+                g.drawLine(iconCenterX + 28, iconY - 42, iconCenterX + 28, iconY + 7);
+                g.drawLine(iconCenterX - 28, iconY + 7, iconCenterX, iconY + 21);
+                g.drawLine(iconCenterX + 28, iconY + 7, iconCenterX, iconY + 21);
+                g.setStroke(new BasicStroke(4));
+                g.drawLine(iconCenterX - 21, iconY - 28, iconCenterX + 21, iconY + 14);
+                g.drawLine(iconCenterX + 21, iconY - 28, iconCenterX - 21, iconY + 14);
             }
             g.setStroke(new BasicStroke(1));
             
             // Contract name
-            g.setFont(new Font("Arial", Font.BOLD, 18));
+            g.setFont(new Font("Arial", Font.BOLD, 24));
             FontMetrics nameFm = g.getFontMetrics();
             g.setColor(isSelected ? Color.WHITE : new Color(150, 150, 150));
             g.drawString(contractNames[i], cardX + offsetX + (scaledWidth - nameFm.stringWidth(contractNames[i])) / 2, 
-                        cardY + offsetY + 90);
+                        cardY + offsetY + 120);
             
             // Multiplier
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(new Font("Arial", Font.BOLD, 36));
             String multiplier = i == 0 ? "—" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
-                        cardY + offsetY + 130);
+                        cardY + offsetY + 170);
             
             // Description (word wrapped)
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(new Font("Arial", Font.PLAIN, 16));
             g.setColor(isSelected ? new Color(200, 200, 200) : new Color(120, 120, 120));
             String desc = contractDescriptions[i];
-            int descY = cardY + offsetY + 160;
-            int maxLineWidth = scaledWidth - 20;
+            int descY = cardY + offsetY + 210;
+            int maxLineWidth = scaledWidth - 30;
             
             // Simple word wrapping
             String[] words = desc.split(" ");
@@ -1484,15 +1484,15 @@ public class Renderer {
                 String testLine = line.isEmpty() ? word : line + " " + word;
                 FontMetrics descFm = g.getFontMetrics();
                 if (descFm.stringWidth(testLine) > maxLineWidth) {
-                    g.drawString(line.toString(), cardX + offsetX + 10, lineY);
+                    g.drawString(line.toString(), cardX + offsetX + 15, lineY);
                     line = new StringBuilder(word);
-                    lineY += 18;
+                    lineY += 22;
                 } else {
                     line = new StringBuilder(testLine);
                 }
             }
             if (!line.isEmpty()) {
-                g.drawString(line.toString(), cardX + offsetX + 10, lineY);
+                g.drawString(line.toString(), cardX + offsetX + 15, lineY);
             }
         }
         
@@ -1626,7 +1626,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int vulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -1920,23 +1920,16 @@ public class Renderer {
                 g2d.dispose();
             }
             
-            // Only draw attack indicator if boss is vulnerable AND not in death animation
-            if (bossVulnerable && !bossDeathAnimation) {
-                // Pulsing ring around boss
-                // Calculate color based on time remaining (green -> yellow -> red)
-                double timeRatio = vulnerabilityTimer / 1200.0; // Normalize to 0-1
+            // Draw invulnerability indicator when boss cannot be attacked
+            if (!bossVulnerable && !bossDeathAnimation && invulnerabilityTimer > 0) {
+                // Pulsing ring around boss during invulnerability
+                // Calculate color based on time remaining (red -> yellow)
+                double timeRatio = invulnerabilityTimer / 300.0; // Normalize to 0-1 (300 frames = 5 seconds)
                 Color circleColor;
-                if (timeRatio > 0.5) {
-                    // Green to Yellow (first half)
-                    int green = 255;
-                    int red = Math.max(0, Math.min(255, (int)(255 * (1 - (timeRatio - 0.5) * 2))));
-                    circleColor = new Color(red, green, 0, 150);
-                } else {
-                    // Yellow to Red (second half)
-                    int red = 255;
-                    int green = Math.max(0, Math.min(255, (int)(255 * (timeRatio * 2))));
-                    circleColor = new Color(red, green, 0, 150);
-                }
+                // Red to Yellow transition (red stays at 255, green increases as timer decreases)
+                int red = 255;
+                int green = Math.max(0, Math.min(255, (int)(255 * (1 - timeRatio))));
+                circleColor = new Color(red, green, 0, 150);
                 
                 double pulseSize = 120 + Math.sin(time * 10) * 15;
                 g.setColor(circleColor);
@@ -2089,34 +2082,11 @@ public class Renderer {
             String hitText = "Hits: " + bossHitCount + "/" + maxHits;
             g.drawString(hitText, barX + barWidth - 70, barY + 57);
             
-            // Vulnerability indicator
-            if (bossVulnerable) {
-                // Calculate color based on time remaining (green -> yellow -> red)
-                double timeRatio = vulnerabilityTimer / 1200.0;
-                Color textColor;
-                if (timeRatio > 0.5) {
-                    int green = 255;
-                    int red = Math.max(0, Math.min(255, (int)(255 * (1 - (timeRatio - 0.5) * 2))));
-                    textColor = new Color(red, green, 0);
-                } else {
-                    int red = 255;
-                    int green = Math.max(0, Math.min(255, (int)(255 * (timeRatio * 2))));
-                    textColor = new Color(red, green, 0);
-                }
-                
-                g.setColor(textColor);
-                g.setFont(new Font("Arial", Font.BOLD, 14));
-                String vulnText = "ATTACK NOW!";
-                fm = g.getFontMetrics();
-                int vulnX = barX + barWidth - fm.stringWidth(vulnText) - 15;
-                g.drawString(vulnText, vulnX, barY + 18);
-            }
-            
-            // Attack Phase indicator (Assault vs Recovery) - positioned above HP bar panel
+            // Attack Phase indicator (Assault vs Recovery) - positioned on right side of boss bar
             int phaseBarWidth = 150;
             int phaseBarHeight = 8;
-            int phaseBarX = barX + barWidth - phaseBarWidth - 10;
-            int phaseBarY = barY - 25;
+            int phaseBarX = barX + barWidth - phaseBarWidth - 15;
+            int phaseBarY = barY + 22;
             
             // Phase label and icon
             g.setFont(new Font("Arial", Font.BOLD, 11));
@@ -2548,7 +2518,26 @@ public class Renderer {
             float alpha = Math.max(0.0f, Math.min(1.0f, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30f : 1.0f));
             
             int notifX = width - 420;
-            int notifY = 200;
+            
+            // Calculate Y position based on what UI is showing
+            int notifY = 10; // Start at top
+            
+            // Check if combo is showing (takes priority)
+            if (showCombo && dodgeCombo > 1) {
+                notifY = 80; // Below combo
+            }
+            
+            // Check if lives are showing
+            if (gameData.getExtraLives() > 0) {
+                int livesY = showCombo && dodgeCombo > 1 ? 10 : 10;
+                notifY = Math.max(notifY, livesY + 50); // Below lives (40px height + 10px padding)
+            }
+            
+            // Check if active item is showing
+            if (equippedItem != null) {
+                int itemUIY = showCombo && dodgeCombo > 1 ? 80 : 10;
+                notifY = Math.max(notifY, itemUIY + 90); // Below item (80px height + 10px padding)
+            }
             
             Graphics2D g2d = (Graphics2D) g.create();
             
@@ -2585,6 +2574,29 @@ public class Renderer {
             float flashAlpha = (float)screenFlashTimer / 15.0f * 0.7f; // Fade out over 15 frames
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
             g2d.setColor(Color.WHITE);
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
+        // Item ready flicker effect (green flicker)
+        if (itemReadyFlickerTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            // Flicker on/off every 4 frames
+            if ((itemReadyFlickerTimer / 4) % 2 == 0) {
+                float flickerAlpha = Math.min(0.3f, (float)itemReadyFlickerTimer / 20.0f * 0.3f);
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
+                g2d.setColor(new Color(163, 190, 140)); // Green tint
+                g2d.fillRect(0, 0, width, height);
+            }
+            g2d.dispose();
+        }
+        
+        // Item complete flash effect (blue flash)
+        if (itemCompleteFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)itemCompleteFlashTimer / 15.0f * 0.5f; // Fade out over 15 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(new Color(80, 180, 255)); // Blue tint
             g2d.fillRect(0, 0, width, height);
             g2d.dispose();
         }
@@ -3387,7 +3399,8 @@ public class Renderer {
             "[3] Max All Upgrades",
             "[4] Give $1,000",
             "[5] Give $100",
-            "[6] Unlock All Active Items"
+            "[6] Unlock All Active Items",
+            "[7] Unlock Risk Contracts"
         };
         
         Color[] colors = {
@@ -3396,7 +3409,8 @@ public class Renderer {
             new Color(138, 43, 226), // Blue violet
             new Color(255, 165, 0),  // Orange
             new Color(135, 206, 250), // Light sky blue
-            new Color(163, 190, 140) // Green for active items
+            new Color(163, 190, 140), // Green for active items
+            new Color(255, 99, 71)   // Tomato red for risk contracts
         };
         
         for (int i = 0; i < options.length; i++) {
