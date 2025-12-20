@@ -62,6 +62,9 @@ public class GameData {
     private float uiVolume = 0.8f;
     private float musicVolume = 0.5f;
     private boolean soundEnabled = true;
+    
+    // Gameplay settings
+    private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
 
     public GameData() {
         score = 0;
@@ -414,4 +417,8 @@ public class GameData {
     
     public boolean isSoundEnabled() { return soundEnabled; }
     public void setSoundEnabled(boolean enabled) { this.soundEnabled = enabled; }
+    
+    // Gameplay settings methods
+    public int getCountdownMode() { return countdownMode; }
+    public void setCountdownMode(int mode) { this.countdownMode = Math.max(0, Math.min(2, mode)); }
 }

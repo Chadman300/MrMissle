@@ -351,7 +351,13 @@ public class SoundManager {
     
     // Getters and setters for volume controls
     public float getMasterVolume() { return masterVolume; }
-    public void setMasterVolume(float volume) { this.masterVolume = Math.max(0, Math.min(1, volume)); }
+    public void setMasterVolume(float volume) { 
+        this.masterVolume = Math.max(0, Math.min(1, volume)); 
+        // Update currently playing music volume
+        if (musicClip != null && musicClip.isRunning()) {
+            setVolume(musicClip, masterVolume * musicVolume * 0.6f);
+        }
+    }
     
     public float getSfxVolume() { return sfxVolume; }
     public void setSfxVolume(float volume) { this.sfxVolume = Math.max(0, Math.min(1, volume)); }
@@ -360,7 +366,13 @@ public class SoundManager {
     public void setUiVolume(float volume) { this.uiVolume = Math.max(0, Math.min(1, volume)); }
     
     public float getMusicVolume() { return musicVolume; }
-    public void setMusicVolume(float volume) { this.musicVolume = Math.max(0, Math.min(1, volume)); }
+    public void setMusicVolume(float volume) { 
+        this.musicVolume = Math.max(0, Math.min(1, volume)); 
+        // Update currently playing music volume
+        if (musicClip != null && musicClip.isRunning()) {
+            setVolume(musicClip, masterVolume * musicVolume * 0.6f);
+        }
+    }
     
     public boolean isSoundEnabled() { return soundEnabled; }
     

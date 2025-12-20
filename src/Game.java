@@ -291,7 +291,7 @@ public class Game extends JPanel implements Runnable {
     
     // Settings
     private int selectedSettingsItem;
-    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Debug
+    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Gameplay, 3=Debug
     public static boolean isFullscreen = true; // Start in fullscreen by default
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
@@ -376,6 +376,17 @@ public class Game extends JPanel implements Runnable {
         previousState = GameState.MENU;
         stateTransitionProgress = 1.0f;
         unlockedItemName = "";
+        
+        // Initialize scroll positions (ensure level select starts at level 1)
+        levelSelectScroll = 1;
+        levelSelectScrollAnimated = 1;
+        shopScroll = 0;
+        shopScrollAnimated = 0;
+        statsScroll = 0;
+        statsScrollAnimated = 0;
+        achievementsScroll = 0;
+        achievementsScrollAnimated = 0;
+        
         screenShakeX = 0;
         screenShakeY = 0;
         trailSpawnTimer = 0;
@@ -386,6 +397,8 @@ public class Game extends JPanel implements Runnable {
         vulnerabilityTimer = 0;
         isPaused = false;
         selectedPauseItem = 0;
+        unpauseCountdownActive = false;
+        unpauseCountdownTimer = 0;
         bossIntroActive = false;
         bossIntroTimer = 0;
         achievementNotificationTimer = 0;
@@ -478,16 +491,19 @@ public class Game extends JPanel implements Runnable {
         
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                handleMouseClick(e);
-            }
-            
-            @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
-                // Also handle press for more responsive feel
+                // Handle press for responsive feel
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
                     handleMouseClick(e);
                 }
+            }
+        });
+        
+        // Add mouse wheel listener for scrolling in menus
+        addMouseWheelListener(new java.awt.event.MouseWheelListener() {
+            @Override
+            public void mouseWheelMoved(java.awt.event.MouseWheelEvent e) {
+                handleMouseWheel(e);
             }
         });
         
@@ -636,7 +652,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_TAB) {
                     // Switch category
-                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 3;
+                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
                     selectedSettingsItem = 0;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                     screenShakeIntensity = 2;
@@ -752,10 +768,13 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 3;
                         activatePauseMenuItem(selectedPauseItem);
                     } else if (key == KeyEvent.VK_ESCAPE) {
-                        System.out.println("DEBUG: ESC pressed while paused - starting countdown");
+                        System.out.println("DEBUG: ESC pressed while paused - checking countdown setting");
                         isPaused = false;
-                        unpauseCountdownActive = true;
-                        unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                        // Start countdown based on mode: 2 = Always (both pause and resume)
+                        if (gameData.getCountdownMode() == 2) {
+                            unpauseCountdownActive = true;
+                            unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                        }
                         soundManager.playSound(SoundManager.Sound.UNPAUSE);
                         screenShakeIntensity = 2;
                     }
@@ -836,7 +855,9 @@ public class Game extends JPanel implements Runnable {
                         transitionToState(GameState.LEVEL_SELECT);
                         screenShakeIntensity = 5;
                     } else {
+                        System.out.println("DEBUG SHOP: Attempting purchase of item " + selected + ", money: " + gameData.getTotalMoney() + ", cost: " + shopManager.getItemCost(selected));
                         boolean purchased = shopManager.purchaseItem(selected);
+                        System.out.println("DEBUG SHOP: Purchase result: " + purchased + ", money after: " + gameData.getTotalMoney());
                         if (purchased) {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
                         } else {
@@ -910,8 +931,10 @@ public class Game extends JPanel implements Runnable {
                         bossReward = (int)(bossReward * 1.5); // 50% bonus
                     }
                     
+                    System.out.println("DEBUG WIN: Level " + currentLevel + " completed, money before: " + gameData.getTotalMoney() + ", reward: " + bossReward);
                     gameData.addRunMoney(bossReward);
                     gameData.addTotalMoney(bossReward);
+                    System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
                     
                     gameData.setCurrentLevel(currentLevel + 1);
                     gameState = GameState.SHOP;
@@ -1258,7 +1281,7 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if clicking on category tabs first
-            String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
             int tabWidth = 200;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
@@ -1281,6 +1304,56 @@ public class Game extends JPanel implements Runnable {
             
             // If didn't click tab, check settings items
             if (!clickedTab) {
+                // Check for volume slider clicks (Audio category only)
+                if (selectedSettingsCategory == 1) {
+                    int boxX = (WIDTH - 700) / 2;
+                    int boxWidth = 700;
+                    int itemHeight = 120;
+                    int startY = 240 - (int)settingsScroll;
+                    
+                    // Check each volume slider (items 1-4)
+                    for (int i = 1; i <= 4; i++) {
+                        int boxY = startY + i * itemHeight - 20;
+                        int sliderX = boxX + 20;
+                        int sliderY = boxY + 40;
+                        int sliderWidth = boxWidth - 40;
+                        int sliderHeight = 10;
+                        
+                        // Check if clicking on this slider
+                        if (mouseX >= sliderX && mouseX <= sliderX + sliderWidth &&
+                            mouseY >= sliderY && mouseY <= sliderY + sliderHeight) {
+                            // Calculate new volume based on click position
+                            float newVolume = (float)(mouseX - sliderX) / sliderWidth;
+                            newVolume = Math.max(0, Math.min(1, newVolume));
+                            
+                            // Set the appropriate volume
+                            switch (i) {
+                                case 1: // Master Volume
+                                    gameData.setMasterVolume(newVolume);
+                                    soundManager.setMasterVolume(newVolume);
+                                    break;
+                                case 2: // SFX Volume
+                                    gameData.setSfxVolume(newVolume);
+                                    soundManager.setSfxVolume(newVolume);
+                                    break;
+                                case 3: // UI Volume
+                                    gameData.setUiVolume(newVolume);
+                                    soundManager.setUiVolume(newVolume);
+                                    break;
+                                case 4: // Music Volume
+                                    gameData.setMusicVolume(newVolume);
+                                    soundManager.setMusicVolume(newVolume);
+                                    break;
+                            }
+                            
+                            selectedSettingsItem = i;
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 1;
+                            return; // Exit after handling slider click
+                        }
+                    }
+                }
+                
                 UIButton[] buttons = renderer.getSettingsButtons();
                 for (int i = 0; i < buttons.length; i++) {
                     if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
@@ -1425,6 +1498,79 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    private void handleMouseWheel(java.awt.event.MouseWheelEvent e) {
+        int rotation = e.getWheelRotation(); // Positive = scroll down, Negative = scroll up
+        
+        switch (gameState) {
+            case SHOP:
+                if (rotation > 0) {
+                    // Scroll down - select next item
+                    shopManager.selectNext();
+                    updateShopScroll();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (rotation < 0) {
+                    // Scroll up - select previous item
+                    shopManager.selectPrevious();
+                    updateShopScroll();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                break;
+                
+            case ACHIEVEMENTS:
+                if (rotation > 0) {
+                    // Scroll down
+                    int totalAchievements = achievementManager.getAllAchievements().size();
+                    int rows = (int)Math.ceil(totalAchievements / 3.0);
+                    int maxScroll = Math.max(0, (rows * 115) - 600);
+                    achievementsScroll = Math.min(maxScroll, achievementsScroll + 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (rotation < 0) {
+                    // Scroll up
+                    achievementsScroll = Math.max(0, achievementsScroll - 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                break;
+                
+            case STATS:
+                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0);
+                if (rotation > 0) {
+                    // Scroll down - select next item
+                    selectedStatItem = Math.min(maxStatItems - 1, selectedStatItem + 1);
+                    updateStatsScroll();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (rotation < 0) {
+                    // Scroll up - select previous item
+                    selectedStatItem = Math.max(0, selectedStatItem - 1);
+                    updateStatsScroll();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                break;
+                
+            case SETTINGS:
+                int maxSettingsItems = getMaxSettingsItems();
+                if (rotation > 0) {
+                    // Scroll down - select next item
+                    selectedSettingsItem = Math.min(maxSettingsItems, selectedSettingsItem + 1);
+                    ensureSettingsItemVisible();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (rotation < 0) {
+                    // Scroll up - select previous item
+                    selectedSettingsItem = Math.max(0, selectedSettingsItem - 1);
+                    ensureSettingsItemVisible();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                break;
+        }
+    }
+    
     private void activateMenuItem(int index) {
         soundManager.playSound(SoundManager.Sound.MENU_OPEN);
         screenShakeIntensity = 5;
@@ -1443,9 +1589,12 @@ public class Game extends JPanel implements Runnable {
             case 0: // Resume
                 soundManager.playSound(SoundManager.Sound.UNPAUSE);
                 isPaused = false;
-                unpauseCountdownActive = true;
-                unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
-                System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
+                // Start countdown based on mode: 2 = Always (both pause and resume)
+                if (gameData.getCountdownMode() == 2) {
+                    unpauseCountdownActive = true;
+                    unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                    System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
+                }
                 break;
             case 1: // Restart
                 isPaused = false;
@@ -1580,6 +1729,13 @@ public class Game extends JPanel implements Runnable {
         gameState = GameState.PLAYING;
         isPaused = false;
         
+        // Start countdown when resuming from menu if mode is 1 (Resume Only) or 2 (Always)
+        if (gameData.getCountdownMode() >= 1) {
+            unpauseCountdownActive = true;
+            unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+            System.out.println("DEBUG: Starting resume countdown - timer: " + unpauseCountdownTimer);
+        }
+        
         // Restore saved objects
         player = savedPlayer;
         currentBoss = savedBoss;
@@ -1673,6 +1829,8 @@ public class Game extends JPanel implements Runnable {
         respawnDelayTimer = 0;
         isPaused = false;
         selectedPauseItem = 0;
+        unpauseCountdownActive = false;
+        unpauseCountdownTimer = 0;
         tookDamageThisBoss = false;
         totalGrazesThisRun = 0;
         comboSystem.resetCombo();
@@ -1771,6 +1929,24 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
+        // Update bullet size multiplier from passive upgrades
+        if (passiveUpgradeManager != null) {
+            double bulletSizeMultiplier = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.BULLET_SIZE);
+            Bullet.setBulletSizeMultiplier(bulletSizeMultiplier);
+        }
+        
+        // Handle unpause countdown timer (decrement even when game is frozen)
+        if (unpauseCountdownActive) {
+            unpauseCountdownTimer--;
+            if (unpauseCountdownTimer % 60 == 0) {
+                System.out.println("DEBUG: Countdown active - timer: " + unpauseCountdownTimer);
+            }
+            if (unpauseCountdownTimer <= 0) {
+                unpauseCountdownActive = false;
+                System.out.println("DEBUG: Countdown finished");
+            }
+        }
+        
         // Update cursor visibility based on game state
         boolean shouldHideCursor = (gameState == GameState.PLAYING && !isPaused);
         Cursor currentCursor = getCursor();
@@ -2048,8 +2224,13 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // If paused or countdown active, freeze all gameplay
+        if (isPaused || unpauseCountdownActive) {
+            return;
+        }
+        
         // Update player with delta time (only if alive)
-        if (player != null && !isPaused && !unpauseCountdownActive) {
+        if (player != null) {
             // Only allow player control when intro pan is complete
             if (!introPanActive) {
                 player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
@@ -2241,24 +2422,6 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            // If paused, skip all gameplay updates
-            if (isPaused) {
-                return;
-            }
-            
-            // Handle unpause countdown
-            if (unpauseCountdownActive) {
-                unpauseCountdownTimer--;
-                if (unpauseCountdownTimer % 60 == 0) {
-                    System.out.println("DEBUG: Countdown active - timer: " + unpauseCountdownTimer);
-                }
-                if (unpauseCountdownTimer <= 0) {
-                    unpauseCountdownActive = false;
-                    System.out.println("DEBUG: Countdown finished");
-                }
-                return; // Don't update game during countdown
-            }
-            
             // Update combo system
             comboSystem.update(deltaTime, 1.0); // Combo duration no longer has passive upgrade
             
@@ -2329,6 +2492,35 @@ public class Game extends JPanel implements Runnable {
             if (!p.isAlive()) {
                 it.remove();
                 returnParticleToPool(p);
+            }
+        }
+        
+        // Check for shockwave collision with player (circular arc - only the visible arc segment)
+        if (currentBoss != null && player != null && currentBoss.isShockwaveActive() && !currentBoss.hasShockwaveHitPlayer()) {
+            double shockwaveRadius = currentBoss.getShockwaveRadius();
+            double shockwaveAngle = currentBoss.getShockwaveAngle();
+            double dx = player.getX() - currentBoss.getX();
+            double dy = player.getY() - currentBoss.getY();
+            double distanceToPlayer = Math.sqrt(dx * dx + dy * dy);
+            double angleToPlayer = Math.atan2(dy, dx);
+            
+            // Calculate angle difference (accounting for wrap-around)
+            double angleDiff = Math.abs(angleToPlayer - shockwaveAngle);
+            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+            
+            double coneAngle = Math.PI / 2; // 90 degree cone (matches visual)
+            double shockwaveThickness = 25; // Narrower detection window for precise edge hits only
+            
+            // Check if player is within cone angle AND the wave edge is currently passing through them
+            // Only hit when wave radius is close to player distance (wave is expanding through player)
+            boolean inCone = angleDiff < coneAngle / 2;
+            boolean atWaveEdge = distanceToPlayer >= (shockwaveRadius - 5) && distanceToPlayer <= (shockwaveRadius + shockwaveThickness);
+            
+            if (inCone && atWaveEdge && distanceToPlayer > 20) {
+                // Apply knockback to player
+                player.applyKnockback(currentBoss.getX(), currentBoss.getY(), currentBoss.getShockwaveKnockback());
+                currentBoss.setShockwaveHitPlayer(); // Mark that player was hit - prevents any further hits
+                screenShakeIntensity = Math.max(screenShakeIntensity, 5);
             }
         }
         
@@ -2733,6 +2925,7 @@ public class Game extends JPanel implements Runnable {
                 soundManager.stopMusic();
                 gameState = GameState.WIN;
                 bossDeathAnimation = false;
+                hasSavedGame = false; // Clear saved game on win so purchases persist
                 
                 // If level 7 was defeated and contracts were unlocked, trigger animation
                 if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation) {
@@ -3529,6 +3722,8 @@ public class Game extends JPanel implements Runnable {
             if (newState == GameState.LEVEL_SELECT) {
                 // If there's a saved game, navigate to that level; otherwise current level
                 int selectedLevel = hasSavedGame ? savedLevel : gameData.getCurrentLevel();
+                // Ensure we never scroll to less than level 1
+                selectedLevel = Math.max(1, selectedLevel);
                 System.out.println("DEBUG: Entering LEVEL_SELECT - hasSavedGame: " + hasSavedGame + ", navigating to level: " + selectedLevel);
                 gameData.setSelectedLevelView(selectedLevel);
                 levelSelectScroll = selectedLevel;
@@ -3603,7 +3798,8 @@ public class Game extends JPanel implements Runnable {
     private void toggleSetting(int settingIndex) {
         // Category 0: Graphics (11 settings)
         // Category 1: Audio (5 settings)
-        // Category 2: Debug (1 setting)
+        // Category 2: Gameplay (1 setting)
+        // Category 3: Debug (1 setting)
         
         if (selectedSettingsCategory == 0) {
             // Graphics settings
@@ -3627,6 +3823,12 @@ public class Game extends JPanel implements Runnable {
                 soundManager.setSoundEnabled(gameData.isSoundEnabled());
             }
         } else if (selectedSettingsCategory == 2) {
+            // Gameplay settings
+            if (settingIndex == 0) {
+                // Cycle through: 0=None, 1=Resume Only, 2=Always
+                gameData.setCountdownMode((gameData.getCountdownMode() + 1) % 3);
+            }
+        } else if (selectedSettingsCategory == 3) {
             // Debug settings
             if (settingIndex == 0) {
                 enableHitboxes = !enableHitboxes;
@@ -3665,7 +3867,8 @@ public class Game extends JPanel implements Runnable {
     private int getMaxSettingsItems() {
         if (selectedSettingsCategory == 0) return 10; // Graphics: 11 items (0-10)
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
-        if (selectedSettingsCategory == 2) return 0; // Debug: 1 item (0)
+        if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
+        if (selectedSettingsCategory == 3) return 0; // Debug: 1 item (0)
         return 0;
     }
     

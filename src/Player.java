@@ -330,6 +330,23 @@ public class Player {
         vy *= multiplier;
     }
     
+    // Apply knockback from shockwave or other effects
+    public void applyKnockback(double sourceX, double sourceY, double strength) {
+        // Calculate direction away from source
+        double dx = x - sourceX;
+        double dy = y - sourceY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0) {
+            // Normalize direction and apply knockback
+            dx /= distance;
+            dy /= distance;
+            
+            vx += dx * strength;
+            vy += dy * strength;
+        }
+    }
+    
     public void applyDashImpulse(double multiplier, boolean[] keys) {
         // Get current input direction
         double dashX = 0;

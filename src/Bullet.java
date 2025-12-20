@@ -31,6 +31,9 @@ public class Bullet {
     private static final double SQRT_2 = Math.sqrt(2);
     private static final double INV_SQRT_2 = 1.0 / Math.sqrt(2);
     
+    // Bullet size multiplier from passive upgrades
+    private static double bulletSizeMultiplier = 1.0;
+    
     // Cached speed for collision detection (avoid repeated sqrt)
     private double cachedSpeed = 0;
     private int speedCacheAge = 0;
@@ -83,6 +86,10 @@ public class Bullet {
         this.bounceCount = 0;
         this.hasGrazed = false;
         loadSprites();
+    }
+    
+    public static void setBulletSizeMultiplier(double multiplier) {
+        bulletSizeMultiplier = multiplier;
     }
     
     private static void loadSprites() {
@@ -353,7 +360,7 @@ public class Bullet {
         // Number of fragments based on type
         int fragmentCount = 8;
         if (type == BulletType.NUKE) fragmentCount = 16;
-        if (type == BulletType.GRENADE) fragmentCount = 8;
+        if (type == BulletType.GRENADE) fragmentCount = 5;
         
         // Create fragments in all directions
         for (int i = 0; i < fragmentCount; i++) {
@@ -444,6 +451,9 @@ public class Bullet {
                 spriteSize = SIZE * 3;
                 break;
         }
+        
+        // Apply bullet size multiplier from passive upgrades
+        spriteSize = (int)(spriteSize * bulletSizeMultiplier);
         
         // Flickering effect for explosives about to detonate
         boolean shouldFlicker = (type == BulletType.BOMB || type == BulletType.GRENADE || type == BulletType.NUKE)
@@ -604,7 +614,9 @@ public class Bullet {
         double dy = y - player.getY();
         double distanceSquared = dx * dx + dy * dy;
         // Smaller hitbox (30% of sprite size) - use squared distance to avoid sqrt
+        // Apply bullet size multiplier to hitbox as well
         int actualSize = (type == BulletType.LARGE) ? SIZE + 4 : (type == BulletType.FAST) ? SIZE - 2 : SIZE;
+        actualSize = (int)(actualSize * bulletSizeMultiplier);
         double threshold = (actualSize * 0.5) + (player.getSize() * 0.3);
         return distanceSquared < threshold * threshold;
     }

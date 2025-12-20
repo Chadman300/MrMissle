@@ -71,6 +71,15 @@ public class Boss {
     private int phaseFlashTimer = 0; // Visual flash when phase changes
     private boolean justChangedPhase = false; // For visual effects
     
+    // Shockwave attack (during recovery phase)
+    private boolean shockwaveActive = false;
+    private double shockwaveRadius = 0;
+    private double shockwaveAngle = 0; // Direction towards player when spawned
+    private boolean shockwaveHasHitPlayer = false; // Track if shockwave already hit player
+    private double shockwaveMaxRadius = 250; // Maximum shockwave reach (smaller)
+    private double shockwaveSpeed = 2.5; // Pixels per frame (slower for better visibility)
+    private static final double SHOCKWAVE_KNOCKBACK = 12; // Knockback strength
+    
     public Boss(double x, double y, int level) {
         this(x, y, level, null);
     }
@@ -126,9 +135,9 @@ public class Boss {
         this.recoveryPhaseDuration = Math.max(150, 210 - level * 4); // 3.5-2.5 seconds (reduced from *8)
         // Mega bosses are more aggressive (but not overwhelming)
         if (isMegaBoss) {
-            this.assaultPhaseDuration += 30; // +0.5 second assault (reduced from +60)
+            this.assaultPhaseDuration += 15; // +0.25 second assault (easier than normal bosses)
             this.recoveryPhaseDuration -= 15; // -0.25 second recovery (reduced from -30)
-            this.assaultSpeedMultiplier = 1.95; // Moderately faster attacks (reduced from 2.2)
+            this.assaultSpeedMultiplier = 1.6; // Moderately faster attacks (easier than before)
         }
         
         loadSprites();
@@ -447,6 +456,20 @@ public class Boss {
             phaseFlashTimer = 30; // Visual flash for 0.5 seconds
             justChangedPhase = true;
             
+            // When entering recovery phase, randomly spawn shockwave (only if boss has been hit at least once)
+            if (!isAssaultPhase && currentHealth < maxHealth && Math.random() < 0.4) { // 40% chance
+                shockwaveActive = true;
+                shockwaveRadius = 0;
+                shockwaveHasHitPlayer = false; // Reset hit tracking
+                // Calculate angle towards player
+                if (player != null) {
+                    shockwaveAngle = Math.atan2(player.getY() - y, player.getX() - x);
+                }
+                if (soundManager != null) {
+                    soundManager.playSound(SoundManager.Sound.MAGIC_CHARGE);
+                }
+            }
+            
             // When entering assault phase, immediately switch to a new pattern
             if (isAssaultPhase) {
                 patternType = (int)(Math.random() * maxPatterns);
@@ -455,6 +478,14 @@ public class Boss {
         
         // Calculate attack speed based on current phase
         double attackPhaseMultiplier = isAssaultPhase ? assaultSpeedMultiplier : recoverySpeedMultiplier;
+        
+        // Update shockwave
+        if (shockwaveActive) {
+            shockwaveRadius += shockwaveSpeed * deltaTime;
+            if (shockwaveRadius >= shockwaveMaxRadius) {
+                shockwaveActive = false;
+            }
+        }
         
         // Shooting pattern (scaled by delta time) - faster in later phases
         double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
@@ -726,7 +757,7 @@ public class Boss {
     private void shootGrenades(List<Bullet> bullets, Player player) {
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        int numBullets = 2 + (level >= 5 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
+        int numBullets = 1 + (level >= 8 ? 1 : 0); // Fires fewer grenades
         for (int i = 0; i < numBullets; i++) {
             double angle = angleToPlayer + (i - numBullets/2.0) * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -886,7 +917,7 @@ public class Boss {
         }
         
         // Grenades aimed at player
-        for (int i = 0; i < 2 + level / 3; i++) {
+        for (int i = 0; i < 1 + level / 5; i++) {
             double angle = angleToPlayer + (i - 1) * 0.4;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -1248,6 +1279,14 @@ public class Boss {
     }
     public int getPhaseFlashTimer() { return phaseFlashTimer; }
     public boolean justChangedPhase() { return justChangedPhase; }
+    
+    // Shockwave getters
+    public boolean isShockwaveActive() { return shockwaveActive; }
+    public double getShockwaveRadius() { return shockwaveRadius; }
+    public double getShockwaveAngle() { return shockwaveAngle; }
+    public boolean hasShockwaveHitPlayer() { return shockwaveHasHitPlayer; }
+    public void setShockwaveHitPlayer() { shockwaveHasHitPlayer = true; }
+    public double getShockwaveKnockback() { return SHOCKWAVE_KNOCKBACK; }
     
     // Get money reward based on boss type
     public int getMoneyReward() {

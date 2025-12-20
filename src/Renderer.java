@@ -1866,6 +1866,49 @@ public class Renderer {
                 g2d.dispose();
             }
             
+            // Draw shockwave during recovery phase (circular arc directed at player)
+            if (boss.isShockwaveActive()) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                double radius = boss.getShockwaveRadius();
+                double angle = boss.getShockwaveAngle();
+                double coneAngle = Math.PI / 2; // 90 degree cone
+                
+                int bossX = (int)boss.getX();
+                int bossY = (int)boss.getY();
+                
+                // Convert angle to degrees for arc drawing
+                // atan2 uses screen coordinates (Y down), but drawArc uses math coordinates (Y up)
+                // So we negate the angle to flip it correctly
+                double adjustedAngle = -Math.toDegrees(angle);
+                int startAngleDeg = (int)(adjustedAngle - Math.toDegrees(coneAngle/2));
+                int arcAngleDeg = (int)Math.toDegrees(coneAngle);
+                
+                // Draw multiple expanding circular arcs
+                for (int i = 0; i < 5; i++) {
+                    double ringRadius = radius - (i * 20);
+                    if (ringRadius > 0) {
+                        // Draw filled arc background with higher opacity for visibility
+                        float bgAlpha = (float)((1.0 - (ringRadius / 250.0)) * 0.4f) / (i * 0.3f + 1);
+                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, bgAlpha));
+                        g2d.setColor(new Color(150, 200, 255));
+                        g2d.fillArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
+                                   (int)(ringRadius * 2), (int)(ringRadius * 2), 
+                                   startAngleDeg, arcAngleDeg);
+                        
+                        // Draw arc outline with much higher opacity
+                        float alpha = (float)((1.0 - (ringRadius / 250.0)) * 1.2f) / (i * 0.2f + 1);
+                        alpha = Math.min(alpha, 1.0f); // Clamp to max 1.0
+                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        g2d.setColor(new Color(100, 180, 255));
+                        g2d.setStroke(new BasicStroke(12 - i * 1.5f)); // Slightly thicker
+                        g2d.drawArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
+                                   (int)(ringRadius * 2), (int)(ringRadius * 2), 
+                                   startAngleDeg, arcAngleDeg);
+                    }
+                }
+                g2d.dispose();
+            }
+            
             // Boss damage flash effect
             if (bossFlashTimer > 0) {
                 Graphics2D g2d = (Graphics2D) g.create();
@@ -2457,7 +2500,8 @@ public class Renderer {
             
             // Calculate countdown number (3, 2, 1, GO!)
             int totalDuration = 180; // 3 seconds total
-            int secondsRemaining = (unpauseCountdownTimer / 60) + 1;
+            // Properly calculate seconds: if timer is 180-121 show 3, 120-61 show 2, 60-1 show 1, 0 show GO
+            int secondsRemaining = (unpauseCountdownTimer > 0) ? ((unpauseCountdownTimer - 1) / 60) + 1 : 0;
             String countdownText;
             Color countdownColor;
             
@@ -2867,16 +2911,21 @@ public class Renderer {
             statsY += 30;
         }
         
+        // Add spacing before persistent stats
+        statsY += 15;
+        
         // Show persistent stats
         g.setFont(new Font("Arial", Font.PLAIN, 22));
         g.setColor(new Color(180, 180, 190));
         String totalMoney = "Total Money: $" + gameData.getTotalMoney();
         fm = g.getFontMetrics();
-        g.drawString(totalMoney, (width - fm.stringWidth(totalMoney)) / 2, height / 2 + 90);
+        g.drawString(totalMoney, (width - fm.stringWidth(totalMoney)) / 2, statsY);
+        statsY += 25;
         
         String bestRun = "Best Run: Level " + Math.max(gameData.getBestRunLevel(), gameData.getCurrentLevel());
         fm = g.getFontMetrics();
-        g.drawString(bestRun, (width - fm.stringWidth(bestRun)) / 2, height / 2 + 115);
+        g.drawString(bestRun, (width - fm.stringWidth(bestRun)) / 2, statsY);
+        statsY += 30;
         
         // Show extra lives remaining
         if (gameData.getExtraLives() > 0) {
@@ -2884,7 +2933,10 @@ public class Renderer {
             g.setColor(new Color(255, 215, 0)); // Gold color
             String livesText = "★ Extra Lives: " + gameData.getExtraLives() + " ★";
             fm = g.getFontMetrics();
-            g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, height / 2 + 145);
+            g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
+            statsY += 35;
+        } else {
+            statsY += 10;
         }
         
         // Controls
@@ -2892,14 +2944,15 @@ public class Renderer {
         g.setColor(new Color(216, 222, 233));
         String retry = "SPACE - New Run  |  ESC - Main Menu";
         fm = g.getFontMetrics();
-        g.drawString(retry, (width - fm.stringWidth(retry)) / 2, height / 2 + 170);
+        g.drawString(retry, (width - fm.stringWidth(retry)) / 2, statsY);
+        statsY += 30;
         
         // Roguelike reminder
         g.setFont(new Font("Arial", Font.ITALIC, 18));
         g.setColor(new Color(163, 190, 140));
         String keep = "Your upgrades and items are saved!";
         fm = g.getFontMetrics();
-        g.drawString(keep, (width - fm.stringWidth(keep)) / 2, height / 2 + 200);
+        g.drawString(keep, (width - fm.stringWidth(keep)) / 2, statsY);
     }
     
     public void drawWin(Graphics2D g, int width, int height, double time, double bossKillTime) {
@@ -3070,7 +3123,7 @@ public class Renderer {
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
         // Category tabs
-        String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+        String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
         int tabWidth = 200;
         int tabStartX = (width - categories.length * tabWidth) / 2;
         int tabY = 130;
@@ -3117,6 +3170,8 @@ public class Renderer {
         } else if (selectedCategory == 1) {
             drawAudioSettings(g, width, height, selectedItem, time, scrollOffset, gameData);
         } else if (selectedCategory == 2) {
+            drawGameplaySettings(g, width, height, selectedItem, time, scrollOffset, gameData);
+        } else if (selectedCategory == 3) {
             drawDebugSettings(g, width, height, selectedItem, time, scrollOffset);
         }
         
@@ -3184,6 +3239,16 @@ public class Renderer {
         
         float[] volumes = {0, gameData.getMasterVolume(), gameData.getSfxVolume(), gameData.getUiVolume(), gameData.getMusicVolume()};
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, true, volumes);
+    }
+    
+    private void drawGameplaySettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, GameData gameData) {
+        String[] settingNames = {"Resume Countdown"};
+        String countdownValue = gameData.getCountdownMode() == 0 ? "None" : 
+                                gameData.getCountdownMode() == 1 ? "Resume Only" : "Always";
+        String[] settingValues = {countdownValue};
+        String[] descriptions = {"When to show countdown: 'None', 'Resume Only' (from menu), or 'Always' (pause and resume)"};
+        
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
     }
     
     private void drawDebugSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {

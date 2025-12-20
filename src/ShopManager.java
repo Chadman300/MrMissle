@@ -61,6 +61,17 @@ public class ShopManager {
             return false; // Can't purchase if already maxed
         }
         
+        // Passive upgrades (5-14) are handled by PassiveUpgradeManager
+        if (itemIndex >= 5 && itemIndex <= 14 && passiveUpgradeManager != null) {
+            int passiveIndex = itemIndex - 5;
+            if (passiveIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                return passiveUpgradeManager.purchaseUpgrade(upgrade.getId(), gameData);
+            }
+            return false;
+        }
+        
+        // Regular upgrades (1-4) are handled here
         if (gameData.getTotalMoney() >= cost) {
             gameData.addTotalMoney(-cost);
             
@@ -80,16 +91,6 @@ public class ShopManager {
                 case 4:
                     gameData.incrementAttackWindowUpgrade();
                     gameData.setActiveAttackWindowLevel(gameData.getAttackWindowUpgradeLevel()); // Auto-select
-                    break;
-                default:
-                    // Passive upgrades (5-14)
-                    if (itemIndex >= 5 && itemIndex <= 14 && passiveUpgradeManager != null) {
-                        int passiveIndex = itemIndex - 5;
-                        if (passiveIndex < passiveUpgradeManager.getAllUpgrades().size()) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
-                            return passiveUpgradeManager.purchaseUpgrade(upgrade.getId(), gameData);
-                        }
-                    }
                     break;
             }
             return true;
