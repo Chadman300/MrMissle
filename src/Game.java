@@ -1628,8 +1628,8 @@ public class Game extends JPanel implements Runnable {
             bullets.clear();
             beamAttacks.clear();
             
-            // Give boss 3 seconds of immunity after player resurrection
-            invulnerabilityTimer = 420;
+            // Give boss 5 seconds of immunity after player resurrection
+            invulnerabilityTimer = 300;
             bossVulnerable = false;
             
             // Create resurrection particles
@@ -1822,7 +1822,7 @@ public class Game extends JPanel implements Runnable {
         int theme = themes[(int)(Math.random() * themes.length)];
         soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
         
-        invulnerabilityTimer = 420; // 7 seconds of immunity at boss start
+        invulnerabilityTimer = 300; // 5 seconds of immunity at boss start
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
         waitingForRespawn = false;
@@ -2213,14 +2213,6 @@ public class Game extends JPanel implements Runnable {
             comboTimer -= deltaTime;
             if (comboTimer <= 0) {
                 dodgeCombo = 0;
-            }
-        }
-        
-        // Update boss vulnerability
-        if (bossVulnerable) {
-            vulnerabilityTimer -= deltaTime;
-            if (vulnerabilityTimer <= 0) {
-                bossVulnerable = false;
             }
         }
         
@@ -2649,7 +2641,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Reset vulnerability
                 bossVulnerable = false;
-                invulnerabilityTimer = 420; // 7 seconds before next vulnerability window
+                invulnerabilityTimer = 300; // 5 seconds of invulnerability
                 
                 screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 bossFlashTimer = 12; // Longer boss flash effect
@@ -2815,7 +2807,7 @@ public class Game extends JPanel implements Runnable {
                     
                     // Reset vulnerability
                     bossVulnerable = false;
-                    invulnerabilityTimer = 420; // 7 seconds before next vulnerability window
+                    invulnerabilityTimer = 300; // 5 seconds of invulnerability
                     
                     screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 }
@@ -2938,53 +2930,12 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Boss becomes vulnerable periodically (less frequent at early levels)
+        // Simple invulnerability system - boss is vulnerable after timer expires
         if (invulnerabilityTimer > 0) {
-            invulnerabilityTimer -= deltaTime; // Countdown immunity timer
-        }
-        
-        double vulnerabilityChance = 0.01 * deltaTime;
-        if (gameData.getCurrentLevel() <= 3) {
-            vulnerabilityChance *= 0.5; // Half as likely at levels 1-3
-        }
-        if (!bossVulnerable && currentBoss != null && invulnerabilityTimer <= 0 && Math.random() < vulnerabilityChance) {
-            soundManager.playSound(SoundManager.Sound.VULNERABILITY_WINDOW);
-            
-            bossVulnerable = true;
-            // Base duration + 15 frames (0.25 seconds) per upgrade level
-            vulnerabilityTimer = VULNERABILITY_DURATION + (gameData.getActiveAttackWindowLevel() * 15);
-            // Visual indicator - sparkles around boss
-            if (enableParticles) {
-                // Larger burst of sparkles when vulnerability opens
-                for (int i = 0; i < 25; i++) {
-                    double angle = Math.random() * TWO_PI;
-                    double radius = 40 + Math.random() * 30;
-                    double speed = 0.5 + Math.random() * 1.5;
-                    addParticle(
-                        currentBoss.getX() + Math.cos(angle) * radius,
-                        currentBoss.getY() + Math.sin(angle) * radius,
-                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        VULNERABILITY_GOLD, 40, 4,
-                        Particle.ParticleType.SPARK
-                    );
-                }
-            }
-        }
-        
-        // Warning sparkles 1 second before vulnerability window closes
-        if (bossVulnerable && vulnerabilityTimer > 0 && vulnerabilityTimer < 60 && currentBoss != null) {
-            // Intermittent warning sparkles
-            if (enableParticles && Math.random() < 0.3 * deltaTime) {
-                double angle = Math.random() * TWO_PI;
-                double radius = 50 + Math.random() * 20;
-                addParticle(
-                    currentBoss.getX() + Math.cos(angle) * radius,
-                    currentBoss.getY() + Math.sin(angle) * radius,
-                    0, -2,
-                    WARNING_RED, 20, 3,
-                    Particle.ParticleType.SPARK
-                );
-            }
+            invulnerabilityTimer -= 1.0; // Countdown at constant rate (300 frames = 5 seconds at 60fps)
+            bossVulnerable = false;
+        } else {
+            bossVulnerable = true; // Boss is always vulnerable when not in immunity period
         }
         
         // Update boss with delta time (but not during death animation, intro, or respawn delay)
@@ -3125,6 +3076,11 @@ public class Game extends JPanel implements Runnable {
             }
             
             if (player != null && beam.collidesWith(player)) {
+                // Check if player is invincible from respawn
+                if (respawnInvincibilityTimer > 0) {
+                    continue; // Skip damage during invincibility
+                }
+                
                 // Hit by beam - game over
                 
                 // Create death particles
