@@ -36,7 +36,7 @@ public class ShopManager {
             case 1: return 75 + (gameData.getSpeedUpgradeLevel() * 35);
             case 2: return 100 + (gameData.getBulletSlowUpgradeLevel() * 50);
             case 3: return 125 + (gameData.getLuckyDodgeUpgradeLevel() * 100);
-            case 4: return 150 + (gameData.getAttackWindowUpgradeLevel() * 75);
+            case 4: return 0; // Removed attack window upgrade
             default: 
                 // Passive upgrades (5-14)
                 if (itemIndex >= 5 && itemIndex <= 14 && passiveUpgradeManager != null) {
@@ -89,8 +89,7 @@ public class ShopManager {
                     gameData.setActiveLuckyDodgeLevel(gameData.getLuckyDodgeUpgradeLevel()); // Auto-select
                     break;
                 case 4:
-                    gameData.incrementAttackWindowUpgrade();
-                    gameData.setActiveAttackWindowLevel(gameData.getAttackWindowUpgradeLevel()); // Auto-select
+                    // Attack window upgrade removed
                     break;
             }
             return true;
@@ -110,7 +109,7 @@ public class ShopManager {
         items.add("Speed Boost - Increases movement speed by 15% (Max 10)");
         items.add("Bullet Slow - Slows enemy bullets by 0.1% (Max 50)");
         items.add("Lucky Dodge - 3% chance per level to phase through bullets (Max 35%)");
-        items.add("Attack Window+ - Adds 0.25 seconds to boss vulnerability window (Max 10)");
+        // Attack Window upgrade removed
         
         // Add passive upgrades
         if (passiveUpgradeManager != null) {
@@ -139,7 +138,7 @@ public class ShopManager {
             case 1: return gameData.getSpeedUpgradeLevel() >= GameData.MAX_SPEED_LEVEL;
             case 2: return gameData.getBulletSlowUpgradeLevel() >= GameData.MAX_BULLET_SLOW_LEVEL;
             case 3: return gameData.getLuckyDodgeUpgradeLevel() >= GameData.MAX_LUCKY_DODGE_LEVEL;
-            case 4: return gameData.getAttackWindowUpgradeLevel() >= GameData.MAX_ATTACK_WINDOW_LEVEL;
+            case 4: return true; // Attack window removed
             default:
                 // Check passive upgrades (5-14)
                 if (itemIndex >= 5 && itemIndex <= 14 && passiveUpgradeManager != null) {

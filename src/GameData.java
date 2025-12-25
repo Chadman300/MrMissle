@@ -39,6 +39,7 @@ public class GameData {
     
     // Risk Contracts system (permanent unlock)
     private boolean contractsUnlocked;
+    private boolean seenContractUnlock; // Track if unlock animation has been shown
     
     // Roguelike run tracking
     private int runHighestLevel;      // Highest level reached this run
@@ -273,6 +274,8 @@ public class GameData {
     public boolean areContractsUnlocked() { return contractsUnlocked; }
     public void unlockContracts() { contractsUnlocked = true; }
     public void setContractsUnlocked(boolean unlocked) { contractsUnlocked = unlocked; }
+    public boolean hasSeenContractUnlock() { return seenContractUnlock; }
+    public void setSeenContractUnlock(boolean seen) { seenContractUnlock = seen; }
     
     // Roguelike run methods
     public void startNewRun() {

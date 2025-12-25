@@ -93,7 +93,7 @@ public class Renderer {
         
         // Initialize stats buttons (5 items: 4 upgrades + active item)
         statsButtons = new UIButton[5];
-        String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Attack Window+", "Active Item"};
+        String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Active Item"};
         Color[] statColors = {new Color(143, 188, 187), new Color(136, 192, 208), new Color(180, 142, 173), new Color(235, 203, 139), new Color(163, 190, 140)};
         for (int i = 0; i < 5; i++) {
             statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
@@ -409,11 +409,11 @@ public class Renderer {
         g.setColor(Color.WHITE);
         g.setFont(FONT_INFO);
         String[] rules = {
-            "• You have 1 HP - One hit = Game Over",
-            "• Boss has 1 HP - One hit during attack window = Victory",
-            "• Move with WASD or Arrow Keys",
-            "• Attack window opens periodically - look for the yellow ring!",
-            "• Beam attacks spawn at higher levels with WARNING indicators"
+            "Ã¢â‚¬Â¢ You have 1 HP - One hit = Game Over",
+            "Ã¢â‚¬Â¢ Boss has 1 HP - One hit during attack window = Victory",
+            "Ã¢â‚¬Â¢ Move with WASD or Arrow Keys",
+            "Ã¢â‚¬Â¢ Attack window opens periodically - look for the yellow ring!",
+            "Ã¢â‚¬Â¢ Beam attacks spawn at higher levels with WARNING indicators"
         };
         
         int y = 155;
@@ -741,7 +741,7 @@ public class Renderer {
                 // Switch indicator
                 g.setFont(new Font("Arial", Font.PLAIN, 14));
                 g.setColor(new Color(180, 180, 180));
-                g.drawString("← → to switch", itemX + 75, y + 70);
+                g.drawString("Ã¢â€ Â Ã¢â€ â€™ to switch", itemX + 75, y + 70);
                 
                 // Unlock count
                 g.setFont(new Font("Arial", Font.BOLD, 16));
@@ -765,8 +765,8 @@ public class Renderer {
         g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - 400, y);
         y += 30;
         
-        // Traditional shop upgrades (Speed, Bullet Slow, Lucky Dodge, Attack Window)
-        String[] upgradeNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Attack Window+"};
+        // Traditional shop upgrades (Speed, Bullet Slow, Lucky Dodge)
+        String[] upgradeNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge"};
         String[] upgradeIcons = {"S", "T", "L", "W"};
         
         for (int i = 0; i < upgradeNames.length; i++) {
@@ -978,7 +978,7 @@ public class Renderer {
         // Show "RESUME AVAILABLE" indicator if there's a saved game
         if (hasSavedGame && selectedLevel == savedLevel) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
-            String resumeText = "⟲ RESUME AVAILABLE";
+            String resumeText = "Ã¢Å¸Â² RESUME AVAILABLE";
             float resumePulse = (float)(0.7 + 0.3 * Math.sin(time * 3));
             g.setColor(new Color(100, 255, 100, (int)(200 * resumePulse)));
             FontMetrics resumeFm = g.getFontMetrics();
@@ -1026,14 +1026,14 @@ public class Renderer {
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("◄", 15, centerY + 18);
+            g.drawString("Ã¢â€”â€ž", 15, centerY + 18);
         }
         if (selectedLevel < 28) {
             // Right arrow
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("►", width - 55, centerY + 18);
+            g.drawString("Ã¢â€“Âº", width - 55, centerY + 18);
         }
         
         // Smooth carousel: use scrollOffset to position all levels
@@ -1463,7 +1463,7 @@ public class Renderer {
             
             // Multiplier
             g.setFont(new Font("Arial", Font.BOLD, 36));
-            String multiplier = i == 0 ? "—" : String.format("%.2fx", contractMultipliers[i]);
+            String multiplier = i == 0 ? "Ã¢â‚¬â€" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
@@ -1499,7 +1499,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "← → or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -1507,7 +1507,7 @@ public class Renderer {
         if (selectedContract > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
-            String warning = "⚠ Higher risk = Higher reward!";
+            String warning = "Ã¢Å¡Â  Higher risk = Higher reward!";
             FontMetrics warnFm = g.getFontMetrics();
             g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
         }
@@ -1621,12 +1621,12 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "← → or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2248,12 +2248,12 @@ public class Renderer {
             
             if (comboSystem.getPerfectDodgeCount() > 0) {
                 g.setColor(new Color(255, 215, 0)); // Gold for perfect
-                g.drawString("⚡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
+                g.drawString("Ã¢Å¡Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
                 indicatorY += 18;
             }
             if (comboSystem.getCloseCallCount() > 0) {
                 g.setColor(new Color(163, 190, 140)); // Green for close call
-                g.drawString("★ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
+                g.drawString("Ã¢Ëœâ€¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
             }
         }
         
@@ -2371,22 +2371,41 @@ public class Renderer {
             }
         }
         
-        // Draw boss intro cinematic
+        // Draw boss intro cinematic (centered dramatic style)
         if (bossIntroActive) {
             // Dark overlay - extended beyond screen to prevent shake edge visibility
             int shakeMargin = 250; // Extra margin to cover screen shake offset (extends all directions)
             g.setColor(new Color(0, 0, 0, 180));
             g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
             
-            // Boss name/level with fade in
-            float introAlpha = Math.max(0.0f, Math.min(1.0f, bossIntroTimer / 30f));
-            Graphics2D g2d = (Graphics2D) g.create();
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, introAlpha));
-            g2d.setFont(new Font("Arial", Font.BOLD, 72));
-            g2d.setColor(Color.WHITE);
-            FontMetrics fm = g2d.getFontMetrics();
-            g2d.drawString(bossIntroText, (width - fm.stringWidth(bossIntroText)) / 2, height / 2);
-            g2d.dispose();
+            // Scale in animation
+            float progress = Math.min(1.0f, bossIntroTimer / 60f);
+            float scale = progress > 0.5f ? 
+                (1.0f - (progress - 0.5f) * 2) * 0.5f + 1.0f : // Scale up from 1.0 to 1.5
+                Math.min(1.5f, 1.5f - (0.5f - progress) * 0.25f); // Settle to 1.25
+            float alpha = Math.min(1.0f, progress * 2.0f);
+            
+            AffineTransform bossTransform = g.getTransform();
+            int centerX = width / 2;
+            int centerY = height / 2;
+            
+            g.translate(centerX, centerY);
+            g.scale(scale, scale);
+            g.translate(-centerX, -centerY);
+            
+            // Draw shadow
+            g.setFont(new Font("Arial", Font.BOLD, 72));
+            FontMetrics fm = g.getFontMetrics();
+            int textWidth = fm.stringWidth(bossIntroText);
+            
+            g.setColor(new Color(0, 0, 0, (int)(180 * alpha)));
+            g.drawString(bossIntroText, centerX - textWidth / 2 + 4, centerY + 4);
+            
+            // Main text (red/orange for boss)
+            g.setColor(new Color(208, 135, 112, (int)(255 * alpha)));
+            g.drawString(bossIntroText, centerX - textWidth / 2, centerY);
+            
+            g.setTransform(bossTransform);
         }
         
         // Draw Can't Stop contract warning
@@ -2426,7 +2445,7 @@ public class Renderer {
             float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
             g.setColor(new Color(255, 255, 255, (int) (255 * textPulse)));
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
-                                dangerLevel < 0.8 ? "⚠ MOVE NOW!" : "⚠⚠ MOVE! ⚠⚠";
+                                dangerLevel < 0.8 ? "Ã¢Å¡Â  MOVE NOW!" : "Ã¢Å¡Â Ã¢Å¡Â  MOVE! Ã¢Å¡Â Ã¢Å¡Â ";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(warningText, barX + (barWidth - fm.stringWidth(warningText)) / 2, barY + 26);
             
@@ -2462,54 +2481,61 @@ public class Renderer {
             }
         }
         
-        // Draw unpause countdown
+        // Draw unpause countdown (centered dramatic style)
         if (unpauseCountdownActive) {
             // Dark overlay
             g.setColor(new Color(0, 0, 0, 150));
             g.fillRect(0, 0, width, height);
             
             // Calculate countdown number (3, 2, 1, GO!)
-            int totalDuration = 180; // 3 seconds total
-            // Properly calculate seconds: if timer is 180-121 show 3, 120-61 show 2, 60-1 show 1, 0 show GO
             int secondsRemaining = (unpauseCountdownTimer > 0) ? ((unpauseCountdownTimer - 1) / 60) + 1 : 0;
             String countdownText;
             Color countdownColor;
             
             if (secondsRemaining > 0) {
                 countdownText = String.valueOf(secondsRemaining);
-                countdownColor = new Color(235, 203, 139);
+                countdownColor = new Color(235, 203, 139); // Gold
             } else {
                 countdownText = "GO!";
-                countdownColor = new Color(163, 190, 140);
+                countdownColor = new Color(163, 190, 140); // Green
             }
             
-            // Pulse effect
-            double pulse = 1.0 + 0.3 * Math.sin(time * 10);
-            int fontSize = (int)(200 * pulse);
-            g.setFont(new Font("Arial", Font.BOLD, fontSize));
+            // Scale animation (quick pop-in on each tick)
+            int frameInTick = unpauseCountdownTimer % 60;
+            float tickProgress = frameInTick / 60.0f;
+            float scale = tickProgress > 0.8f ? 
+                (1.0f - tickProgress) / 0.2f * 0.5f + 1.0f : 
+                Math.min(1.5f, 1.5f - (0.8f - tickProgress) * 0.25f);
+            float alpha = 1.0f;
+            
+            AffineTransform countdownTransform = g.getTransform();
+            int centerX = width / 2;
+            int centerY = height / 3;
+            
+            g.translate(centerX, centerY);
+            g.scale(scale, scale);
+            g.translate(-centerX, -centerY);
+            
+            // Draw shadow
+            g.setFont(new Font("Arial", Font.BOLD, 120));
             FontMetrics countdownFm = g.getFontMetrics();
+            int textWidth = countdownFm.stringWidth(countdownText);
             
-            // Draw countdown with glow
-            int textX = (width - countdownFm.stringWidth(countdownText)) / 2;
-            int textY = height / 2 + countdownFm.getAscent() / 2;
-            
-            // Glow effect
-            g.setColor(new Color(countdownColor.getRed(), countdownColor.getGreen(), countdownColor.getBlue(), 100));
-            for (int i = 4; i > 0; i--) {
-                g.drawString(countdownText, textX - i, textY - i);
-                g.drawString(countdownText, textX + i, textY + i);
-            }
+            g.setColor(new Color(0, 0, 0, (int)(180 * alpha)));
+            g.drawString(countdownText, centerX - textWidth / 2 + 4, centerY + 4);
             
             // Main text
-            g.setColor(countdownColor);
-            g.drawString(countdownText, textX, textY);
+            g.setColor(new Color(countdownColor.getRed(), countdownColor.getGreen(), countdownColor.getBlue(), (int)(255 * alpha)));
+            g.drawString(countdownText, centerX - textWidth / 2, centerY);
             
-            // Subtitle
+            g.setTransform(countdownTransform);
+            
+            // Subtitle (not scaled)
             g.setFont(new Font("Arial", Font.PLAIN, 32));
             String subtitleText = "Get Ready!";
             FontMetrics subtitleFm = g.getFontMetrics();
             g.setColor(new Color(216, 222, 233));
-            g.drawString(subtitleText, (width - subtitleFm.stringWidth(subtitleText)) / 2, textY + 80);
+            g.drawString(subtitleText, (width - subtitleFm.stringWidth(subtitleText)) / 2, centerY + 80);
         }
         
         // Draw achievement notification
@@ -2601,6 +2627,46 @@ public class Renderer {
             g2d.dispose();
         }
         
+        
+        // Achievement unlocked flash effect (gold flash)
+        if (achievementFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)achievementFlashTimer / 20.0f * 0.4f; // Fade out over 20 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(new Color(235, 203, 139)); // Gold tint
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
+        // Boss intro flash effect (red/orange flash)
+        if (bossIntroFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)bossIntroFlashTimer / 25.0f * 0.5f; // Fade out over 25 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(new Color(208, 135, 112)); // Red/orange tint
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
+        // Countdown flash effect (white pulse)
+        if (countdownFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)countdownFlashTimer / 15.0f * 0.3f; // Quick fade over 15 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(new Color(255, 255, 255)); // White flash
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
+        // Boss hit flash effect (intense red flash)
+        if (bossHitFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float flashAlpha = (float)bossHitFlashTimer / 18.0f * 0.6f; // Strong fade over 18 frames
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g2d.setColor(new Color(255, 50, 50)); // Intense red flash
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
         // Apply vignette effect at the end (darkens edges)
         if (Game.enableVignette) {
             applyVignette(g, width, height);
@@ -2943,7 +3009,7 @@ public class Renderer {
         if (gameData.getExtraLives() > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
             g.setColor(new Color(255, 215, 0)); // Gold color
-            String livesText = "★ Extra Lives: " + gameData.getExtraLives() + " ★";
+            String livesText = "Ã¢Ëœâ€¦ Extra Lives: " + gameData.getExtraLives() + " Ã¢Ëœâ€¦";
             fm = g.getFontMetrics();
             g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
             statsY += 35;

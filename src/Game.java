@@ -1,4 +1,4 @@
-import java.awt.*;
+﻿import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -101,6 +101,10 @@ public class Game extends JPanel implements Runnable {
     private int itemUnlockTimer;
     private int itemUnlockDismissTimer; // Timer for fade-out animation
     private String unlockedItemName;
+    private boolean showEquipPrompt; // True if should ask to equip item
+    private int newItemIndex; // Index of newly unlocked item
+    private UIButton[] equipButtons; // [Yes, No] buttons
+    private int selectedEquipButton; // 0 = Yes, 1 = No
     private static final int ITEM_UNLOCK_DURATION = 180; // 3 seconds
     private static final int ITEM_DISMISS_DURATION = 30; // 0.5 seconds fade out
     
@@ -221,6 +225,11 @@ public class Game extends JPanel implements Runnable {
     private int itemCompleteFlashTimer = 0; // Flash when item effect completes
     private boolean wasItemReady = false; // Track previous ready state
     private boolean wasItemActive = false; // Track previous active state
+    private int achievementFlashTimer = 0; // Flash when achievement unlocked
+    private int bossIntroFlashTimer = 0; // Flash when boss intro appears
+    private int countdownFlashTimer = 0; // Flash on each countdown tick
+    private int bossHitFlashTimer = 0; // Flash when boss is hit
+    private int lastCountdownSecond = -1; // Track countdown changes
     
     // Perfect Dodge system
     private int perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
@@ -374,6 +383,23 @@ public class Game extends JPanel implements Runnable {
         itemUnlockDismissing = false;
         itemUnlockTimer = 0;
         itemUnlockDismissTimer = 0;
+        showEquipPrompt = false;
+        newItemIndex = -1;
+        selectedEquipButton = 0;
+        
+        // Create equip item buttons
+        equipButtons = new UIButton[2];
+        int buttonWidth = 200;
+        int buttonHeight = 60;
+        int buttonY = HEIGHT / 2 + 120;
+        int spacing = 30;
+        int totalWidth = (buttonWidth * 2) + spacing;
+        int startX = (WIDTH - totalWidth) / 2;
+        
+        equipButtons[0] = new UIButton("Yes", startX, buttonY, buttonWidth, buttonHeight,
+            new Color(76, 86, 106), new Color(163, 190, 140)); // Green for yes
+        equipButtons[1] = new UIButton("No", startX + buttonWidth + spacing, buttonY, buttonWidth, buttonHeight,
+            new Color(76, 86, 106), new Color(191, 97, 106)); // Red for no
         contractUnlockAnimation = false;
         contractUnlockDismissing = false;
         contractUnlockTimer = 0;
@@ -407,6 +433,11 @@ public class Game extends JPanel implements Runnable {
         bossIntroActive = false;
         bossIntroTimer = 0;
         achievementNotificationTimer = 0;
+        achievementFlashTimer = 0;
+        bossIntroFlashTimer = 0;
+        countdownFlashTimer = 0;
+        bossHitFlashTimer = 0;
+        lastCountdownSecond = -1;
         tookDamageThisBoss = false;
         consecutivePerfectBosses = 0;
         totalGrazesThisRun = 0;
@@ -921,6 +952,10 @@ public class Game extends JPanel implements Runnable {
                             itemUnlockTimer = 0; // Skip to fully revealed state
                             return;
                         }
+                        // If already revealed but showing equip prompt, don't dismiss yet
+                        if (showEquipPrompt) {
+                            return; // Wait for Y/N input
+                        }
                         // If already revealed, start dismiss animation
                         itemUnlockDismissing = true;
                         itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
@@ -929,6 +964,48 @@ public class Game extends JPanel implements Runnable {
                     // If already dismissing, wait for it to complete
                     if (itemUnlockDismissing) {
                         return;
+                    }
+                    
+                    // Handle Y/N input for equip prompt
+                    if (showEquipPrompt && itemUnlockAnimation && itemUnlockTimer == 0) {
+                        if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                            selectedEquipButton = 0; // Yes
+                            soundManager.playSound(SoundManager.Sound.MENU_MOVE);
+                            return;
+                        } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                            selectedEquipButton = 1; // No
+                            soundManager.playSound(SoundManager.Sound.MENU_MOVE);
+                            return;
+                        } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                            if (selectedEquipButton == 0) {
+                                // Yes - Equip the new item
+                                gameData.equipItem(newItemIndex);
+                                soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+                            } else {
+                                // No - Don't equip
+                                soundManager.playSound(SoundManager.Sound.MENU_SELECT);
+                            }
+                            showEquipPrompt = false;
+                            itemUnlockDismissing = true;
+                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                            return;
+                        } else if (key == KeyEvent.VK_Y) {
+                            // Quick yes with Y key
+                            gameData.equipItem(newItemIndex);
+                            soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+                            showEquipPrompt = false;
+                            itemUnlockDismissing = true;
+                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                            return;
+                        } else if (key == KeyEvent.VK_N) {
+                            // Quick no with N key
+                            soundManager.playSound(SoundManager.Sound.MENU_SELECT);
+                            showEquipPrompt = false;
+                            itemUnlockDismissing = true;
+                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                            return;
+                        }
+                        return; // Wait for input
                     }
                     
                     // Unlock next level
@@ -1254,6 +1331,17 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 1;
                 }
             }
+        } else if (gameState == GameState.WIN && showEquipPrompt && itemUnlockAnimation && itemUnlockTimer == 0) {
+            // Check if hovering over equip prompt buttons
+            for (int i = 0; i < equipButtons.length; i++) {
+                if (equipButtons[i].contains(mouseX, mouseY)) {
+                    if (selectedEquipButton != i) {
+                        selectedEquipButton = i;
+                        screenShakeIntensity = 1;
+                    }
+                    break;
+                }
+            }
         } else if (gameState == GameState.LEVEL_SELECT) {
             // Check if hovering over level nodes
             int centerY = HEIGHT / 2 - 40;
@@ -1468,6 +1556,26 @@ public class Game extends JPanel implements Runnable {
                 selectedConfirmItem = 1;
                 confirmLevelStart();
                 screenShakeIntensity = 3;
+            }
+        } else if (gameState == GameState.WIN && showEquipPrompt && itemUnlockAnimation && itemUnlockTimer == 0) {
+            // Check if clicking on equip prompt buttons
+            for (int i = 0; i < equipButtons.length; i++) {
+                if (equipButtons[i].contains(mouseX, mouseY)) {
+                    selectedEquipButton = i;
+                    if (i == 0) {
+                        // Yes - Equip the new item
+                        gameData.equipItem(newItemIndex);
+                        soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+                    } else {
+                        // No - Don't equip
+                        soundManager.playSound(SoundManager.Sound.MENU_SELECT);
+                    }
+                    showEquipPrompt = false;
+                    itemUnlockDismissing = true;
+                    itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                    screenShakeIntensity = 3;
+                    break;
+                }
             }
         } else if (gameState == GameState.LEVEL_SELECT) {
             // Check if clicking on level nodes
@@ -1866,6 +1974,8 @@ public class Game extends JPanel implements Runnable {
         if (currentBoss.isMegaBoss()) {
             bossIntroText += " [MEGA BOSS]";
         }
+        bossIntroFlashTimer = 25; // Flash effect for boss intro
+        soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
         // Start intro sequence with boss entrance
         introPanActive = true;
@@ -1962,11 +2072,27 @@ public class Game extends JPanel implements Runnable {
         // Handle unpause countdown timer (decrement even when game is frozen)
         if (unpauseCountdownActive) {
             unpauseCountdownTimer--;
+            
+            // Calculate current countdown second
+            int currentSecond = (unpauseCountdownTimer > 0) ? ((unpauseCountdownTimer - 1) / 60) + 1 : 0;
+            
+            // Trigger flash and sound on countdown changes
+            if (currentSecond != lastCountdownSecond) {
+                lastCountdownSecond = currentSecond;
+                countdownFlashTimer = 15;
+                if (currentSecond > 0) {
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_TICK);
+                } else {
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_GO);
+                }
+            }
+            
             if (unpauseCountdownTimer % 60 == 0) {
                 System.out.println("DEBUG: Countdown active - timer: " + unpauseCountdownTimer);
             }
             if (unpauseCountdownTimer <= 0) {
                 unpauseCountdownActive = false;
+                lastCountdownSecond = -1;
                 System.out.println("DEBUG: Countdown finished");
             }
         }
@@ -2251,7 +2377,25 @@ public class Game extends JPanel implements Runnable {
         if (screenFlashTimer > 0) {
             screenFlashTimer--;
         }
-        
+        if (itemReadyFlickerTimer > 0) {
+            itemReadyFlickerTimer--;
+        }
+        if (itemCompleteFlashTimer > 0) {
+            itemCompleteFlashTimer--;
+        }
+        if (achievementFlashTimer > 0) {
+            achievementFlashTimer--;
+        }
+        if (bossIntroFlashTimer > 0) {
+            bossIntroFlashTimer--;
+        }
+        if (countdownFlashTimer > 0) {
+            countdownFlashTimer--;
+        }
+        if (bossHitFlashTimer > 0) {
+            bossHitFlashTimer--;
+        }
+
         // Update combo timer
         if (comboTimer > 0) {
             comboTimer -= deltaTime;
@@ -2594,10 +2738,22 @@ public class Game extends JPanel implements Runnable {
                 
                 int remainingHealth = currentBoss.getCurrentHealth();
                 
-                // Show damage number
-                damageNumbers.add(new DamageNumber("HIT! HP: " + remainingHealth, 
+                // Show enhanced damage number with better styling
+                String hitMessage = remainingHealth > 0 ? 
+                    "BOSS HP: " + remainingHealth : "BOSS DEFEATED!";
+                Color hitColor = remainingHealth > 0 ? 
+                    new Color(255, 80, 80) : new Color(255, 215, 0);
+                int fontSize = remainingHealth > 0 ? 42 : 56;
+                
+                damageNumbers.add(new DamageNumber(hitMessage, 
                     currentBoss.getX(), currentBoss.getY() - 60, 
-                    new Color(255, 100, 100), 36));
+                    hitColor, fontSize));
+                
+                // Trigger flash effect and sound
+                bossHitFlashTimer = remainingHealth > 0 ? 18 : 30;
+                soundManager.playSound(remainingHealth > 0 ? 
+                    SoundManager.Sound.BOSS_HIT_CONFIRMED : 
+                    SoundManager.Sound.BOSS_FINAL_HIT);
                 
                 // Increment hit counter (for old visual effects)
                 bossHitCount++;
@@ -2728,6 +2884,8 @@ public class Game extends JPanel implements Runnable {
                     if (!newlyUnlocked.isEmpty()) {
                         pendingAchievements.addAll(newlyUnlocked);
                         achievementNotificationTimer = ACHIEVEMENT_NOTIFICATION_DURATION;
+                        achievementFlashTimer = 20; // Flash effect for achievement
+                        soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCKED);
                         achievementManager.clearRecentlyUnlocked();
                     }
                     
@@ -2866,9 +3024,11 @@ public class Game extends JPanel implements Runnable {
                 
                 return;
             } else {
-                // Hit boss when not vulnerable - player dies
-                handlePlayerDeath();
-                return;
+                // Hit boss when not vulnerable - player dies (only if not invincible)
+                if (!playerInvincible) {
+                    handlePlayerDeath();
+                    return;
+                }
             }
         }
         
@@ -2958,6 +3118,11 @@ public class Game extends JPanel implements Runnable {
                     // Equip first item if this is the first unlock
                     if (unlockedItems.size() == 1) {
                         gameData.equipItem(0);
+                        showEquipPrompt = false;
+                    } else {
+                        // Show equip prompt for subsequent items
+                        showEquipPrompt = true;
+                        newItemIndex = unlockedItems.size() - 1;
                     }
                     // Trigger animation
                     soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
@@ -2971,11 +3136,12 @@ public class Game extends JPanel implements Runnable {
                 bossDeathAnimation = false;
                 hasSavedGame = false; // Clear saved game on win so purchases persist
                 
-                // If level 7 was defeated and contracts were unlocked, trigger animation
-                if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation) {
+                // If level 7 was defeated and contracts were unlocked, trigger animation (only once)
+                if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation && !gameData.hasSeenContractUnlock()) {
                     soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
                     contractUnlockAnimation = true;
                     contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
+                    gameData.setSeenContractUnlock(true);
                 }
                 
                 return;
@@ -3683,7 +3849,7 @@ public class Game extends JPanel implements Runnable {
             case PLAYING:
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer);
                 g2d.translate(-screenShakeX, -screenShakeY);
                 break;
             case LOADING:
@@ -4396,17 +4562,35 @@ public class Game extends JPanel implements Runnable {
                 g.drawString(description, descX, descY);
             }
             
-            // "Press SPACE to continue" hint
+            // "Press SPACE to continue" hint (or buttons for equip prompt)
             if (progress > 0.8f) {
-                g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
-                String hintText = "Press SPACE to continue";
-                FontMetrics hintFm = g.getFontMetrics();
-                int hintX = centerX - hintFm.stringWidth(hintText) / 2;
-                int hintY = currentY + (int)(100 * scale);
-                
-                float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
-                g.setColor(new Color(150, 150, 150, (int)(200 * hintPulse)));
-                g.drawString(hintText, hintX, hintY);
+                if (showEquipPrompt && itemUnlockTimer == 0) {
+                    // Draw equip buttons
+                    g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+                    String promptText = "Equip this item?";
+                    FontMetrics promptFm = g.getFontMetrics();
+                    int promptX = centerX - promptFm.stringWidth(promptText) / 2;
+                    int promptY = currentY + (int)(70 * scale);
+                    
+                    g.setColor(new Color(200, 200, 200, (int)(220 * textAlpha)));
+                    g.drawString(promptText, promptX, promptY);
+                    
+                    // Update and draw buttons
+                    for (int i = 0; i < equipButtons.length; i++) {
+                        equipButtons[i].update(i == selectedEquipButton, time);
+                        equipButtons[i].draw(g, time);
+                    }
+                } else {
+                    g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+                    String hintText = "Press SPACE to continue";
+                    FontMetrics hintFm = g.getFontMetrics();
+                    int hintX = centerX - hintFm.stringWidth(hintText) / 2;
+                    int hintY = currentY + (int)(100 * scale);
+                    
+                    float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
+                    g.setColor(new Color(150, 150, 150, (int)(200 * hintPulse)));
+                    g.drawString(hintText, hintX, hintY);
+                }
             }
         }
     }
@@ -4551,7 +4735,7 @@ public class Game extends JPanel implements Runnable {
             
             // Contract symbol
             g.setFont(new Font("Arial", Font.BOLD, (int)(60 * scale)));
-            String symbol = "⚠";
+            String symbol = "âš ";
             FontMetrics symbolFm = g.getFontMetrics();
             g.setColor(new Color(255, 200, 50, (int)(255 * descAlpha)));
             g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(50 * scale));
@@ -4561,9 +4745,9 @@ public class Game extends JPanel implements Runnable {
                 "Choose a RISK CONTRACT before each level",
                 "to multiply your rewards!",
                 "",
-                "• Bullet Storm - 2x bullets, 2x money",
-                "• Speed Demon - Faster bullets, 1.75x money", 
-                "• Shieldless - No shield, 1.5x money"
+                "â€¢ Bullet Storm - 2x bullets, 2x money",
+                "â€¢ Speed Demon - Faster bullets, 1.75x money", 
+                "â€¢ Shieldless - No shield, 1.5x money"
             };
             
             g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
@@ -4577,7 +4761,7 @@ public class Game extends JPanel implements Runnable {
                 int lineX = centerX - lineFm.stringWidth(line) / 2;
                 
                 // Different colors for bullet points
-                if (line.startsWith("•")) {
+                if (line.startsWith("â€¢")) {
                     g.setColor(new Color(255, 200, 150, (int)(220 * descAlpha)));
                 } else {
                     g.setColor(new Color(200, 200, 200, (int)(220 * descAlpha)));

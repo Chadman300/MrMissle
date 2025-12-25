@@ -149,11 +149,19 @@ public class SoundManager {
         PLAYER_DEATH(GAME_PATH + "Explosion/Retro Explosion Short 15.wav"),
         PLAYER_RESPAWN(GAME_PATH + "PowerUp/Retro PowerUP StereoUP 05.wav"),
         BOSS_HIT(GAME_PATH + "Impact/Retro Impact Metal 05.wav"),
+        BOSS_HIT_CONFIRMED(GAME_PATH + "Impact/Retro Impact Metal 08.wav"),
+        BOSS_FINAL_HIT(GAME_PATH + "Explosion/Retro Explosion Short 19.wav"),
         BOSS_DEATH(GAME_PATH + "Explosion/Retro Explosion Swoshes 04.wav"),
         BOSS_ROAR(GAME_PATH + "Roar/Retro Roar 02.wav"),
         
         // Item effects
         ITEM_END(GAME_PATH + "Descending/Retro Descending Short 01.wav"),
+        
+        // Achievements and Milestones
+        ACHIEVEMENT_UNLOCKED(GAME_PATH + "Events/Positive/Retro Event Positive 01.wav"),
+        BOSS_INTRO(GAME_PATH + "HiTech/Retro HiTech Notification 02.wav"),
+        COUNTDOWN_TICK(UI_PATH + "wav (HD)/rollover1.wav"),
+        COUNTDOWN_GO(GAME_PATH + "Ascending/Retro Ascending Short 01.wav"),
         
         // Game Over
         GAME_OVER(GAME_PATH + "Music/Negative/Retro Negative Melody 02 - space voice pad.wav"),
