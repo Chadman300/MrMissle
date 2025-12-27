@@ -47,10 +47,12 @@ public class UIButton {
         this.isSelected = selected;
         
         if (selected) {
+            // Convert time to seconds for smooth animation
+            double timeInSeconds = time / 1000.0;
             // Subtle sway animation (reduced from 5 to 2 pixels)
-            swayOffset = Math.sin(time * 3) * 2;
+            swayOffset = Math.sin(timeInSeconds * 3) * 2;
             // Subtle scale animation (reduced from 0.05 to 0.015 = 1.5%)
-            scaleAmount = 1.0 + Math.sin(time * 4) * 0.015;
+            scaleAmount = 1.0 + Math.sin(timeInSeconds * 4) * 0.015;
         } else {
             swayOffset = 0;
             scaleAmount = 1.0;

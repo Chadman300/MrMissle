@@ -92,10 +92,10 @@ public class Renderer {
         }
         
         // Initialize stats buttons (5 items: 4 upgrades + active item)
-        statsButtons = new UIButton[5];
+        statsButtons = new UIButton[4];
         String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Active Item"};
-        Color[] statColors = {new Color(143, 188, 187), new Color(136, 192, 208), new Color(180, 142, 173), new Color(235, 203, 139), new Color(163, 190, 140)};
-        for (int i = 0; i < 5; i++) {
+        Color[] statColors = {new Color(143, 188, 187), new Color(136, 192, 208), new Color(180, 142, 173), new Color(235, 203, 139)};
+        for (int i = 0; i < 4; i++) {
             statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
         }
         

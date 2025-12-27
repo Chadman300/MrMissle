@@ -927,6 +927,48 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case WIN:
+                // Handle equip prompt input FIRST (before SPACE check)
+                if (showEquipPrompt && itemUnlockAnimation && itemUnlockTimer == 0) {
+                    if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                        selectedEquipButton = 0; // Yes
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        return;
+                    } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                        selectedEquipButton = 1; // No
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        return;
+                    } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                        if (selectedEquipButton == 0) {
+                            // Yes - Equip the new item
+                            gameData.equipItem(newItemIndex);
+                            soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+                        } else {
+                            // No - Don't equip
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        }
+                        showEquipPrompt = false;
+                        itemUnlockDismissing = true;
+                        itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                        return;
+                    } else if (key == KeyEvent.VK_Y) {
+                        // Quick yes with Y key
+                        gameData.equipItem(newItemIndex);
+                        soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+                        showEquipPrompt = false;
+                        itemUnlockDismissing = true;
+                        itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                        return;
+                    } else if (key == KeyEvent.VK_N) {
+                        // Quick no with N key
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        showEquipPrompt = false;
+                        itemUnlockDismissing = true;
+                        itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                        return;
+                    }
+                    return; // Wait for valid input, don't process other keys
+                }
+                
                 if (key == KeyEvent.VK_SPACE) {
                     // If contract animation is playing, skip to reveal or start dismiss
                     if (contractUnlockAnimation && !contractUnlockDismissing) {
@@ -964,48 +1006,6 @@ public class Game extends JPanel implements Runnable {
                     // If already dismissing, wait for it to complete
                     if (itemUnlockDismissing) {
                         return;
-                    }
-                    
-                    // Handle Y/N input for equip prompt
-                    if (showEquipPrompt && itemUnlockAnimation && itemUnlockTimer == 0) {
-                        if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                            selectedEquipButton = 0; // Yes
-                            soundManager.playSound(SoundManager.Sound.MENU_MOVE);
-                            return;
-                        } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                            selectedEquipButton = 1; // No
-                            soundManager.playSound(SoundManager.Sound.MENU_MOVE);
-                            return;
-                        } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                            if (selectedEquipButton == 0) {
-                                // Yes - Equip the new item
-                                gameData.equipItem(newItemIndex);
-                                soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
-                            } else {
-                                // No - Don't equip
-                                soundManager.playSound(SoundManager.Sound.MENU_SELECT);
-                            }
-                            showEquipPrompt = false;
-                            itemUnlockDismissing = true;
-                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
-                            return;
-                        } else if (key == KeyEvent.VK_Y) {
-                            // Quick yes with Y key
-                            gameData.equipItem(newItemIndex);
-                            soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
-                            showEquipPrompt = false;
-                            itemUnlockDismissing = true;
-                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
-                            return;
-                        } else if (key == KeyEvent.VK_N) {
-                            // Quick no with N key
-                            soundManager.playSound(SoundManager.Sound.MENU_SELECT);
-                            showEquipPrompt = false;
-                            itemUnlockDismissing = true;
-                            itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
-                            return;
-                        }
-                        return; // Wait for input
                     }
                     
                     // Unlock next level
@@ -1220,6 +1220,8 @@ public class Game extends JPanel implements Runnable {
     
     private void handleMouseMove() {
         // Only handle mouse in menu states
+        if (renderer == null) return; // Guard against null renderer
+        
         if (gameState == GameState.MENU) {
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
@@ -1568,7 +1570,7 @@ public class Game extends JPanel implements Runnable {
                         soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
                     } else {
                         // No - Don't equip
-                        soundManager.playSound(SoundManager.Sound.MENU_SELECT);
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     }
                     showEquipPrompt = false;
                     itemUnlockDismissing = true;
@@ -2025,8 +2027,8 @@ public class Game extends JPanel implements Runnable {
             delta += (now - lastTime) / nsPerTick;
             lastTime = now;
             
-            if (delta >= 1) {
-                double deltaTime = delta; // Actual delta time for frame-independent updates
+            while (delta >= 1) {
+                double deltaTime = 1.0; // Normalized delta time (1.0 = one frame at target FPS)
                 update(deltaTime);
                 gradientTime += 0.02 * deltaTime; // Animate gradient with delta time
                 
@@ -2050,9 +2052,10 @@ public class Game extends JPanel implements Runnable {
                     lastFPSTime = currentTime;
                 }
                 
-                repaint();
                 delta--;
             }
+            
+            repaint();
             
             try {
                 Thread.sleep(1);
@@ -3117,17 +3120,21 @@ public class Game extends JPanel implements Runnable {
                     }
                     // Equip first item if this is the first unlock
                     if (unlockedItems.size() == 1) {
+                        System.out.println("DEBUG: First item unlocked, auto-equipping");
                         gameData.equipItem(0);
                         showEquipPrompt = false;
                     } else {
                         // Show equip prompt for subsequent items
+                        System.out.println("DEBUG: Item " + unlockedItems.size() + " unlocked, showing equip prompt");
                         showEquipPrompt = true;
                         newItemIndex = unlockedItems.size() - 1;
+                        selectedEquipButton = 0; // Default to "Yes"
                     }
                     // Trigger animation
                     soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
                     itemUnlockAnimation = true;
                     itemUnlockTimer = ITEM_UNLOCK_DURATION;
+                    System.out.println("DEBUG: Item unlock animation started, showEquipPrompt=" + showEquipPrompt);
                 }
                 
                 soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
@@ -4565,6 +4572,7 @@ public class Game extends JPanel implements Runnable {
             // "Press SPACE to continue" hint (or buttons for equip prompt)
             if (progress > 0.8f) {
                 if (showEquipPrompt && itemUnlockTimer == 0) {
+                    System.out.println("DEBUG: Drawing equip prompt buttons");
                     // Draw equip buttons
                     g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
                     String promptText = "Equip this item?";
@@ -4575,12 +4583,26 @@ public class Game extends JPanel implements Runnable {
                     g.setColor(new Color(200, 200, 200, (int)(220 * textAlpha)));
                     g.drawString(promptText, promptX, promptY);
                     
+                    // Position and draw buttons relative to animation box
+                    int buttonWidth = 200;
+                    int buttonHeight = 60;
+                    int buttonY = currentY + (int)(110 * scale);
+                    int spacing = 30;
+                    int totalWidth = (buttonWidth * 2) + spacing;
+                    int startX = centerX - totalWidth / 2;
+                    
+                    // Update button positions
+                    equipButtons[0].setPosition(startX, buttonY);
+                    equipButtons[1].setPosition(startX + buttonWidth + spacing, buttonY);
+                    
                     // Update and draw buttons
+                    long currentTime = System.currentTimeMillis();
                     for (int i = 0; i < equipButtons.length; i++) {
-                        equipButtons[i].update(i == selectedEquipButton, time);
-                        equipButtons[i].draw(g, time);
+                        equipButtons[i].update(i == selectedEquipButton, currentTime);
+                        equipButtons[i].draw(g, currentTime);
                     }
                 } else {
+                    System.out.println("DEBUG: Drawing continue hint - showEquipPrompt=" + showEquipPrompt + ", timer=" + itemUnlockTimer);
                     g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
                     String hintText = "Press SPACE to continue";
                     FontMetrics hintFm = g.getFontMetrics();
