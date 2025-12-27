@@ -6,14 +6,11 @@ import java.util.List;
 
 public class Renderer {
     private GameData gameData;
-    private ShopManager shopManager;
+    private SkillTree skillTree;
     private PassiveUpgradeManager passiveUpgradeManager;
     
     // Menu buttons
     private UIButton[] menuButtons;
-    private UIButton[] shopButtons;
-    private UIButton[] statsButtons;
-    private UIButton[] settingsButtons;
     private UIButton[] pauseButtons;
     
     // Parallax background layers (14 sets x 6 layers each)
@@ -65,9 +62,12 @@ public class Renderer {
     private double comboPulseScale = 1.0;
     private int lastComboCount = 0;
     
-    public Renderer(GameData gameData, ShopManager shopManager, PassiveUpgradeManager passiveUpgradeManager) {
+    // Settings buttons
+    private UIButton[] settingsButtons;
+    
+    public Renderer(GameData gameData, SkillTree skillTree, PassiveUpgradeManager passiveUpgradeManager) {
         this.gameData = gameData;
-        this.shopManager = shopManager;
+        this.skillTree = skillTree;
         this.passiveUpgradeManager = passiveUpgradeManager;
         
         // Load background layers
@@ -77,27 +77,12 @@ public class Renderer {
         loadOverlay();
         
         // Initialize menu buttons (positions will be updated in drawMenu)
-        menuButtons = new UIButton[6];
-        menuButtons[0] = new UIButton("Select Level", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[1] = new UIButton("Game Info", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[2] = new UIButton("Stats & Loadout", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[3] = new UIButton("Shop", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[4] = new UIButton("Achievements", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[5] = new UIButton("Settings", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        
-        // Initialize shop buttons (15 items: continue + 4 shop upgrades + 10 passive upgrades)
-        shopButtons = new UIButton[15];
-        for (int i = 0; i < 15; i++) {
-            shopButtons[i] = new UIButton("", 0, 0, 800, 50, new Color(76, 86, 106), new Color(180, 142, 173));
-        }
-        
-        // Initialize stats buttons (5 items: 4 upgrades + active item)
-        statsButtons = new UIButton[4];
-        String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Active Item"};
-        Color[] statColors = {new Color(143, 188, 187), new Color(136, 192, 208), new Color(180, 142, 173), new Color(235, 203, 139)};
-        for (int i = 0; i < 4; i++) {
-            statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
-        }
+        menuButtons = new UIButton[5];
+        menuButtons[0] = new UIButton("Play", 0, 0, 300, 50, new Color(163, 190, 140), new Color(180, 210, 160)); // Green
+        menuButtons[1] = new UIButton("Skill Tree", 0, 0, 300, 50, new Color(180, 142, 173), new Color(200, 165, 195)); // Purple
+        menuButtons[2] = new UIButton("Achievements", 0, 0, 300, 50, new Color(235, 203, 139), new Color(245, 218, 165)); // Gold
+        menuButtons[3] = new UIButton("Info", 0, 0, 300, 50, new Color(136, 192, 208), new Color(160, 210, 225)); // Blue
+        menuButtons[4] = new UIButton("Settings", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
         
         // Initialize settings buttons (11 options)
         settingsButtons = new UIButton[11];
@@ -409,11 +394,11 @@ public class Renderer {
         g.setColor(Color.WHITE);
         g.setFont(FONT_INFO);
         String[] rules = {
-            "Ã¢â‚¬Â¢ You have 1 HP - One hit = Game Over",
-            "Ã¢â‚¬Â¢ Boss has 1 HP - One hit during attack window = Victory",
-            "Ã¢â‚¬Â¢ Move with WASD or Arrow Keys",
-            "Ã¢â‚¬Â¢ Attack window opens periodically - look for the yellow ring!",
-            "Ã¢â‚¬Â¢ Beam attacks spawn at higher levels with WARNING indicators"
+            "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ You have 1 HP - One hit = Game Over",
+            "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Boss has 1 HP - One hit during attack window = Victory",
+            "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Move with WASD or Arrow Keys",
+            "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Attack window opens periodically - look for the yellow ring!",
+            "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Beam attacks spawn at higher levels with WARNING indicators"
         };
         
         int y = 155;
@@ -641,319 +626,8 @@ public class Renderer {
         fm = g.getFontMetrics();
         g.drawString(hint, (width - fm.stringWidth(hint)) / 2, height - 40);
     }
-    
-    public void drawStats(Graphics2D g, int width, int height, double time, PassiveUpgradeManager passiveManager) {
-        // Draw animated gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-        
-        // Holographic title
-        g.setFont(new Font("Arial", Font.BOLD, 60));
-        String title = "STATS & LOADOUT";
-        FontMetrics fm = g.getFontMetrics();
-        int titleX = (width - fm.stringWidth(title)) / 2;
-        int titleY = 80;
-        
-        // Shadow
-        g.setColor(new Color(0, 0, 0, 100));
-        g.drawString(title, titleX + 4, titleY + 4);
-        
-        // Gradient text
-        GradientPaint titleGrad = new GradientPaint(
-            titleX, titleY - 30, new Color(143, 188, 187),
-            titleX, titleY + 20, new Color(136, 192, 208)
-        );
-        g.setPaint(titleGrad);
-        g.drawString(title, titleX, titleY);
-        
-        // Holographic shine
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.setColor(Color.WHITE);
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-        
-        // Show total money with glow
-        g.setColor(new Color(163, 190, 140));
-        g.setFont(new Font("Arial", Font.BOLD, 28));
-        String money = "Money: $" + gameData.getTotalMoney();
-        fm = g.getFontMetrics();
-        int moneyX = (width - fm.stringWidth(money)) / 2;
-        g.drawString(money, moneyX, 120);
-        
-        // Instructions at top
-        g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
-        String inst = "UP/DOWN to select | LEFT/RIGHT to adjust | ESC to return";
-        fm = g.getFontMetrics();
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, 145);
-    }
-    
-    public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset) {
-        int baseY = 180;
-        int y = baseY - (int)scrollOffset;
-        int cardWidth = 900;
-        int cardHeight = 65;
-        int cardSpacing = 10;
-        int currentIndex = 0;
-        
-        // Section 1: Active Item (index 0)
-        g.setColor(new Color(163, 190, 140));
-        g.setFont(new Font("Arial", Font.BOLD, 20));
-        g.drawString("ACTIVE ITEM - Unlock from mega bosses", width / 2 - 400, y);
-        y += 30;
-        
-        boolean isSelected = currentIndex == selectedStatItem;
-        int itemX = width / 2 - cardWidth / 2;
-        
-        // Draw active item card
-        g.setColor(new Color(0, 0, 0, 120));
-        g.fillRoundRect(itemX + 3, y + 3, cardWidth, cardHeight + 30, 15, 15);
-        
-        Color cardColor = isSelected ? new Color(163, 190, 140, 230) : new Color(76, 86, 106, 200);
-        g.setColor(cardColor);
-        g.fillRoundRect(itemX, y, cardWidth, cardHeight + 30, 15, 15);
-        
-        if (isSelected) {
-            g.setColor(new Color(235, 203, 139, 180));
-            g.setStroke(new BasicStroke(3f));
-            g.drawRoundRect(itemX, y, cardWidth, cardHeight + 30, 15, 15);
-            g.setStroke(new BasicStroke(1f));
-        }
-        
-        // Icon
-        g.setFont(new Font("Arial", Font.BOLD, 32));
-        g.setColor(new Color(235, 203, 139));
-        g.drawString("I", itemX + 20, y + 40);
-        
-        if (gameData.hasActiveItems()) {
-            ActiveItem equippedItem = gameData.getEquippedItem();
-            if (equippedItem != null) {
-                // Item name
-                g.setFont(new Font("Arial", Font.BOLD, 22));
-                g.setColor(Color.WHITE);
-                g.drawString(equippedItem.getName(), itemX + 75, y + 30);
-                
-                // Item description
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
-                g.setColor(new Color(200, 200, 200));
-                g.drawString(equippedItem.getDescription(), itemX + 75, y + 50);
-                
-                // Switch indicator
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
-                g.setColor(new Color(180, 180, 180));
-                g.drawString("Ã¢â€ Â Ã¢â€ â€™ to switch", itemX + 75, y + 70);
-                
-                // Unlock count
-                g.setFont(new Font("Arial", Font.BOLD, 16));
-                g.setColor(new Color(136, 192, 208));
-                String unlockText = "Unlocked: " + gameData.getUnlockedItems().size() + "/10";
-                g.drawString(unlockText, itemX + 780, y + 45);
-            }
-        } else {
-            g.setFont(new Font("Arial", Font.ITALIC, 18));
-            g.setColor(new Color(150, 150, 150));
-            g.drawString("No active items unlocked - defeat mega bosses on levels 3, 6, 9...", itemX + 75, y + 45);
-        }
-        
-        y += cardHeight + 30 + cardSpacing;
-        currentIndex++;
-        
-        // Section 2: Shop Upgrades (indices 1-9) - includes all upgrades
-        y += 20;
-        g.setColor(new Color(180, 142, 173));
-        g.setFont(new Font("Arial", Font.BOLD, 20));
-        g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - 400, y);
-        y += 30;
-        
-        // Traditional shop upgrades (Speed, Bullet Slow, Lucky Dodge)
-        String[] upgradeNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge"};
-        String[] upgradeIcons = {"S", "T", "L", "W"};
-        
-        for (int i = 0; i < upgradeNames.length; i++) {
-            isSelected = currentIndex == selectedStatItem;
-            
-            int owned = 0;
-            int active = 0;
-            
-            switch (i) {
-                case 0: owned = gameData.getSpeedUpgradeLevel(); active = gameData.getActiveSpeedLevel(); break;
-                case 1: owned = gameData.getBulletSlowUpgradeLevel(); active = gameData.getActiveBulletSlowLevel(); break;
-                case 2: owned = gameData.getLuckyDodgeUpgradeLevel(); active = gameData.getActiveLuckyDodgeLevel(); break;
-                case 3: owned = gameData.getAttackWindowUpgradeLevel(); active = gameData.getActiveAttackWindowLevel(); break;
-            }
-            
-            drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight, 
-                           upgradeIcons[i], upgradeNames[i], active, owned, isSelected, true);
-            
-            y += cardHeight + cardSpacing;
-            currentIndex++;
-        }
-        
-        // Passive upgrades - adjustable section (now part of shop upgrades section)
-        if (passiveManager != null) {
-            java.util.List<PassiveUpgrade> passives = passiveManager.getAllUpgrades();
-            // Draw adjustable passive upgrades (all except Extra Hearts which is last)
-            for (int i = 0; i < passives.size() - 1; i++) {
-                PassiveUpgrade upgrade = passives.get(i);
-                isSelected = currentIndex == selectedStatItem;
-                
-                String icon = getPassiveIcon(upgrade.getType());
-                int owned = upgrade.getCurrentLevel();  // Purchased from shop
-                int active = upgrade.getActiveLevel();  // Allocated in stats & loadout
-                
-                drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight,
-                               icon, upgrade.getName(), active, owned, isSelected, true, false);
-                
-                y += cardHeight + cardSpacing;
-                currentIndex++;
-            }
-            
-            // Read-only section for Extra Lives
-            if (passives.size() > 0) {
-                y += 20;
-                g.setColor(new Color(163, 190, 140));
-                g.setFont(new Font("Arial", Font.BOLD, 20));
-                g.drawString("CONSUMABLE LIVES - Buy from shop, used on death", width / 2 - 400, y);
-                y += 30;
-                
-                // Draw Extra Lives (last item, read-only)
-                PassiveUpgrade upgrade = passives.get(passives.size() - 1);
-                isSelected = currentIndex == selectedStatItem;
-                
-                String icon = getPassiveIcon(upgrade.getType());
-                int livesOwned = gameData.getExtraLives();  // Current lives count
-                int livesPurchased = upgrade.getCurrentLevel();  // Total purchased
-                
-                drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight,
-                               icon, upgrade.getName(), livesOwned, livesPurchased, isSelected, true, true);
-                
-                y += cardHeight + cardSpacing;
-                currentIndex++;
-            }
-        }
-    }
-    
-    private void drawUpgradeCard(Graphics2D g, int x, int y, int width, int height, String icon, String name, int current, int max, boolean isSelected, boolean isShopUpgrade) {
-        drawUpgradeCard(g, x, y, width, height, icon, name, current, max, isSelected, isShopUpgrade, false);
-    }
-    
-    private void drawUpgradeCard(Graphics2D g, int x, int y, int width, int height, String icon, String name, int current, int max, boolean isSelected, boolean isShopUpgrade, boolean isReadOnly) {
-        // Shadow
-        g.setColor(new Color(0, 0, 0, 120));
-        g.fillRoundRect(x + 3, y + 3, width, height, 15, 15);
-        
-        // Card background
-        Color cardColor;
-        if (current >= max && max > 0) {
-            cardColor = new Color(235, 203, 139, 200); // Gold for maxed
-        } else if (isSelected && !isReadOnly) {
-            cardColor = new Color(180, 142, 173, 230);
-        } else {
-            cardColor = new Color(76, 86, 106, 200);
-        }
-        
-        g.setColor(cardColor);
-        g.fillRoundRect(x, y, width, height, 15, 15);
-        
-        // Border glow for selected
-        if (isSelected && !isReadOnly) {
-            g.setColor(new Color(235, 203, 139, 180));
-            g.setStroke(new BasicStroke(3f));
-            g.drawRoundRect(x, y, width, height, 15, 15);
-            g.setStroke(new BasicStroke(1f));
-        }
-        
-        // Draw icon
-        g.setFont(new Font("Arial", Font.BOLD, 32));
-        g.setColor(new Color(235, 203, 139));
-        g.drawString(icon, x + 20, y + 40);
-        
-        // Draw name
-        g.setFont(new Font("Arial", Font.BOLD, 20));
-        g.setColor(Color.WHITE);
-        g.drawString(name, x + 75, y + 30);
-        
-        // Draw level info
-        g.setFont(new Font("Arial", Font.PLAIN, 14));
-        g.setColor(new Color(200, 200, 200));
-        String levelInfo;
-        if (isReadOnly) {
-            levelInfo = "Count: " + current;
-        } else {
-            levelInfo = isShopUpgrade ? "Allocated: " + current + "/" + max + " owned" : "Level: " + current + "/" + max;
-        }
-        g.drawString(levelInfo, x + 75, y + 50);
-        
-        // Don't show progress bar or level text for read-only items
-        if (!isReadOnly) {
-            // Progress bar
-            int barX = x + 400;
-            int barY = y + 20;
-            int barWidth = 350;
-            int barHeight = 10;
-            
-            // Background
-            g.setColor(new Color(40, 40, 50, 180));
-            g.fillRoundRect(barX, barY, barWidth, barHeight, 5, 5);
-            
-            // Fill
-            if (max > 0 && current > 0) {
-                double progress = (double)current / max;
-                int fillWidth = (int)(barWidth * progress);
-                
-                GradientPaint grad = new GradientPaint(
-                    barX, 0, new Color(163, 190, 140),
-                    barX + fillWidth, 0, new Color(235, 203, 139)
-                );
-                g.setPaint(grad);
-                g.fillRoundRect(barX, barY, fillWidth, barHeight, 5, 5);
-            }
-            
-            // Level text
-            g.setFont(new Font("Arial", Font.BOLD, 14));
-            g.setColor(current >= max && max > 0 ? new Color(235, 203, 139) : Color.WHITE);
-            String levelText = current + "/" + max;
-            FontMetrics fm = g.getFontMetrics();
-            g.drawString(levelText, barX + barWidth + 10, barY + 10);
-        }
-        
-        // Show buttons only if not read-only
-        if (!isReadOnly) {
-            // Minus button
-            int btnSize = 35;
-            int minusX = x + 800;
-            int btnY = y + (height - btnSize) / 2;
-            
-            g.setColor(current > 0 ? new Color(191, 97, 106) : new Color(80, 80, 80));
-            g.fillRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
-            g.setColor(Color.WHITE);
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
-            g.setFont(new Font("Arial", Font.BOLD, 28));
-            g.drawString("-", minusX + 12, btnY + 26);
-            
-            // Plus button
-            int plusX = x + 845;
-            g.setColor(current < max ? new Color(163, 190, 140) : new Color(80, 80, 80));
-            g.fillRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
-            g.setColor(Color.WHITE);
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
-            g.setFont(new Font("Arial", Font.BOLD, 28));
-            g.drawString("+", plusX + 11, btnY + 26);
-        }
-    }
-    
-    private String getPassiveIcon(PassiveUpgrade.UpgradeType type) {
-        switch (type) {
-            case MAX_HEALTH: return "H";
-            case ITEM_COOLDOWN: return "C";
-            case BULLET_SIZE: return "B";
-            case MONEY_AND_SCORE: return "$";
-            case CRITICAL_HIT: return "*";
-            default: return "?";
-        }
-    }
+    // Stats methods removed - replaced by skill tree
+
     
     public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel) {
         int selectedLevel = gameData.getSelectedLevelView();
@@ -978,7 +652,7 @@ public class Renderer {
         // Show "RESUME AVAILABLE" indicator if there's a saved game
         if (hasSavedGame && selectedLevel == savedLevel) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
-            String resumeText = "Ã¢Å¸Â² RESUME AVAILABLE";
+            String resumeText = "ÃƒÂ¢Ã…Â¸Ã‚Â² RESUME AVAILABLE";
             float resumePulse = (float)(0.7 + 0.3 * Math.sin(time * 3));
             g.setColor(new Color(100, 255, 100, (int)(200 * resumePulse)));
             FontMetrics resumeFm = g.getFontMetrics();
@@ -1026,14 +700,14 @@ public class Renderer {
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("Ã¢â€”â€ž", 15, centerY + 18);
+            g.drawString("ÃƒÂ¢Ã¢â‚¬â€Ã¢â‚¬Å¾", 15, centerY + 18);
         }
         if (selectedLevel < 28) {
             // Right arrow
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("Ã¢â€“Âº", width - 55, centerY + 18);
+            g.drawString("ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº", width - 55, centerY + 18);
         }
         
         // Smooth carousel: use scrollOffset to position all levels
@@ -1463,7 +1137,7 @@ public class Renderer {
             
             // Multiplier
             g.setFont(new Font("Arial", Font.BOLD, 36));
-            String multiplier = i == 0 ? "Ã¢â‚¬â€" : String.format("%.2fx", contractMultipliers[i]);
+            String multiplier = i == 0 ? "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
@@ -1499,7 +1173,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -1507,7 +1181,7 @@ public class Renderer {
         if (selectedContract > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
-            String warning = "Ã¢Å¡Â  Higher risk = Higher reward!";
+            String warning = "ÃƒÂ¢Ã…Â¡Ã‚Â  Higher risk = Higher reward!";
             FontMetrics warnFm = g.getFontMetrics();
             g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
         }
@@ -1621,7 +1295,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
@@ -2248,12 +1922,12 @@ public class Renderer {
             
             if (comboSystem.getPerfectDodgeCount() > 0) {
                 g.setColor(new Color(255, 215, 0)); // Gold for perfect
-                g.drawString("Ã¢Å¡Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
+                g.drawString("ÃƒÂ¢Ã…Â¡Ã‚Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
                 indicatorY += 18;
             }
             if (comboSystem.getCloseCallCount() > 0) {
                 g.setColor(new Color(163, 190, 140)); // Green for close call
-                g.drawString("Ã¢Ëœâ€¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
+                g.drawString("ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
             }
         }
         
@@ -2445,7 +2119,7 @@ public class Renderer {
             float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
             g.setColor(new Color(255, 255, 255, (int) (255 * textPulse)));
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
-                                dangerLevel < 0.8 ? "Ã¢Å¡Â  MOVE NOW!" : "Ã¢Å¡Â Ã¢Å¡Â  MOVE! Ã¢Å¡Â Ã¢Å¡Â ";
+                                dangerLevel < 0.8 ? "ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE NOW!" : "ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE! ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â ";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(warningText, barX + (barWidth - fm.stringWidth(warningText)) / 2, barY + 26);
             
@@ -2673,231 +2347,8 @@ public class Renderer {
         }
     }
     
-    public void drawShop(Graphics2D g, int width, int height, double time, double scrollOffset) {
-        // Draw animated Balatro-style gradient
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-        
-        // Holographic title
-        g.setFont(new Font("Arial", Font.BOLD, 64));
-        String title = "UPGRADE SHOP";
-        FontMetrics fm = g.getFontMetrics();
-        int titleX = (width - fm.stringWidth(title)) / 2;
-        int titleY = 100;
-        
-        // Shadow
-        g.setColor(new Color(0, 0, 0, 100));
-        g.drawString(title, titleX + 4, titleY + 4);
-        
-        // Gradient text
-        GradientPaint titleGrad = new GradientPaint(
-            titleX, titleY - 30, new Color(180, 142, 173),
-            titleX, titleY + 20, new Color(235, 203, 139)
-        );
-        g.setPaint(titleGrad);
-        g.drawString(title, titleX, titleY);
-        
-        // Holographic shine
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.setColor(Color.WHITE);
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-        
-        // Show money with glowing effect
-        g.setColor(new Color(163, 190, 140)); // Green
-        g.setFont(new Font("Arial", Font.BOLD, 36));
-        String money = "Money: $" + gameData.getTotalMoney();
-        fm = g.getFontMetrics();
-        int moneyX = (width - fm.stringWidth(money)) / 2;
-        // Glow effect
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.fillRect(moneyX - 20, 140, fm.stringWidth(money) + 40, 50);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-        g.drawString(money, moneyX, 170);
-        
-        // Show earnings
-        g.setColor(new Color(235, 203, 139)); // Yellow
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
-        String earnings = "Earned this run: $" + gameData.getRunMoney();
-        fm = g.getFontMetrics();
-        g.drawString(earnings, (width - fm.stringWidth(earnings)) / 2, 210);
-        
-        // Shop items using buttons
-        String[] items = shopManager.getShopItems();
-        int y = 250;
-        int selectedItem = shopManager.getSelectedShopItem();
-        
-        // Create a clipping region for scrollable area
-        g.setClip(0, 220, width, height - 270);
-        
-        for (int i = 0; i < items.length; i++) {
-            int cost = shopManager.getItemCost(i);
-            boolean canAfford = gameData.getTotalMoney() >= cost || i == 0;
-            boolean isMaxed = shopManager.isUpgradeMaxed(i);
-            
-            // Apply scroll offset to Y position
-            int scrolledY = (int)(y - scrollOffset);
-            int itemX = (width - 900) / 2;
-            
-            // Update button bounds for mouse interaction
-            shopButtons[i].setPosition(itemX, scrolledY - 30);
-            shopButtons[i].setSize(900, 70);
-            
-            // Only draw if visible in the clipping region
-            if (scrolledY > 180 && scrolledY < height - 60) {
-                // Draw card background with shadow
-                g.setColor(new Color(0, 0, 0, 120));
-                g.fillRoundRect(itemX + 3, scrolledY - 27, 900, 70, 15, 15);
-                
-                // Card background color based on state
-                Color cardColor;
-                if (i == 0) {
-                    cardColor = new Color(163, 190, 140, 200); // Green for continue
-                } else if (!canAfford) {
-                    cardColor = new Color(40, 40, 50, 200);
-                } else if (isMaxed) {
-                    cardColor = new Color(235, 203, 139, 200); // Gold for maxed
-                } else if (i == selectedItem) {
-                    cardColor = new Color(180, 142, 173, 230);
-                } else {
-                    cardColor = new Color(76, 86, 106, 200);
-                }
-                
-                g.setColor(cardColor);
-                g.fillRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
-                
-                // Border glow for selected item
-                if (i == selectedItem) {
-                    g.setColor(new Color(235, 203, 139, 180));
-                    g.setStroke(new BasicStroke(3f));
-                    g.drawRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
-                    g.setStroke(new BasicStroke(1f));
-                }
-                
-                // Draw icon/symbol on the left
-                String icon = getItemIcon(i);
-                g.setFont(new Font("Arial", Font.BOLD, 36));
-                g.setColor(canAfford ? new Color(235, 203, 139) : new Color(100, 100, 100));
-                g.drawString(icon, itemX + 20, scrolledY + 10);
-                
-                // Draw item name and description
-                String[] itemParts = items[i].split(" - ", 2);
-                String itemName = itemParts[0];
-                String itemDesc = itemParts.length > 1 ? itemParts[1] : "";
-                
-                g.setFont(new Font("Arial", Font.BOLD, 20));
-                g.setColor(canAfford ? Color.WHITE : new Color(120, 120, 120));
-                g.drawString(itemName, itemX + 75, scrolledY - 5);
-                
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
-                g.setColor(canAfford ? new Color(200, 200, 200) : new Color(100, 100, 100));
-                g.drawString(itemDesc, itemX + 75, scrolledY + 15);
-                
-                // Draw progress bar for upgrades (not for Continue or maxed items)
-                if (i > 0 && i <= 4) {
-                    int currentLevel = getUpgradeLevel(i);
-                    int maxLevel = getUpgradeMaxLevel(i);
-                    
-                    int barX = itemX + 75;
-                    int barY = scrolledY + 30;
-                    int barWidth = 550;
-                    int barHeight = 8;
-                    
-                    // Level text above progress bar
-                    g.setFont(new Font("Arial", Font.BOLD, 11));
-                    g.setColor(isMaxed ? new Color(235, 203, 139) : new Color(200, 200, 200));
-                    String levelText = currentLevel + "/" + maxLevel;
-                    g.drawString(levelText, barX, barY - 3);
-                    
-                    // Progress bar background
-                    g.setColor(new Color(40, 40, 50, 180));
-                    g.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
-                    
-                    // Progress bar fill
-                    if (currentLevel > 0) {
-                        double progress = (double)currentLevel / maxLevel;
-                        int fillWidth = (int)(barWidth * progress);
-                        
-                        GradientPaint progressGrad = new GradientPaint(
-                            barX, 0, new Color(163, 190, 140),
-                            barX + fillWidth, 0, new Color(235, 203, 139)
-                        );
-                        g.setPaint(progressGrad);
-                        g.fillRoundRect(barX, barY, fillWidth, barHeight, 4, 4);
-                    }
-                }
-                
-                // Draw passive upgrade progress bar
-                if (i >= 5 && i <= 14 && passiveUpgradeManager != null) {
-                    int passiveIndex = i - 5;
-                    if (passiveIndex < passiveUpgradeManager.getAllUpgrades().size()) {
-                        PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
-                        int currentLevel = upgrade.getCurrentLevel();
-                        int maxLevel = upgrade.getMaxLevel();
-                        
-                        // Special handling for Extra Lives (last passive upgrade)
-                        boolean isExtraLives = (passiveIndex == passiveUpgradeManager.getAllUpgrades().size() - 1);
-                        if (isExtraLives) {
-                            currentLevel = gameData.getExtraLives(); // Show current lives owned
-                        }
-                        
-                        int barX = itemX + 75;
-                        int barY = scrolledY + 30;
-                        int barWidth = 550;
-                        int barHeight = 8;
-                        
-                        // Level text above progress bar
-                        g.setFont(new Font("Arial", Font.BOLD, 11));
-                        g.setColor(upgrade.isMaxed() ? new Color(235, 203, 139) : new Color(200, 200, 200));
-                        String levelText = isExtraLives ? currentLevel + "/3 lives" : currentLevel + "/" + maxLevel;
-                        g.drawString(levelText, barX, barY - 3);
-                        
-                        // Progress bar background
-                        g.setColor(new Color(40, 40, 50, 180));
-                        g.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
-                        
-                        // Progress bar fill
-                        if (currentLevel > 0) {
-                            double progress = (double)currentLevel / maxLevel;
-                            int fillWidth = (int)(barWidth * progress);
-                            
-                            GradientPaint progressGrad = new GradientPaint(
-                                barX, 0, new Color(136, 192, 208),
-                                barX + fillWidth, 0, new Color(180, 142, 173)
-                            );
-                            g.setPaint(progressGrad);
-                            g.fillRoundRect(barX, barY, fillWidth, barHeight, 4, 4);
-                        }
-                    }
-                }
-                
-                // Draw cost on the right
-                if (i != 0) {
-                    g.setFont(new Font("Arial", Font.BOLD, 24));
-                    if (isMaxed) {
-                        g.setColor(new Color(235, 203, 139));
-                        g.drawString("MAXED", itemX + 820, scrolledY + 10);
-                    } else {
-                        g.setColor(canAfford ? new Color(163, 190, 140) : new Color(191, 97, 106));
-                        g.drawString("$" + cost, itemX + 800, scrolledY + 10);
-                    }
-                }
-            }
-            
-            y += 80;
-        }
-        
-        // Reset clip
-        g.setClip(null);
-        
-        // Instructions
-        g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
-        String inst1 = "Use UP/DOWN or MOUSE to select | SPACE or CLICK to purchase | ESC to continue";
-        fm = g.getFontMetrics();
-        g.drawString(inst1, (width - fm.stringWidth(inst1)) / 2, height - 50);
-    }
-    
+    // Shop method removed - replaced by skill tree
+
     public void drawGameOver(Graphics2D g, int width, int height, double time) {
         // Draw animated gradient
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(67, 76, 94)});
@@ -3009,7 +2460,7 @@ public class Renderer {
         if (gameData.getExtraLives() > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
             g.setColor(new Color(255, 215, 0)); // Gold color
-            String livesText = "Ã¢Ëœâ€¦ Extra Lives: " + gameData.getExtraLives() + " Ã¢Ëœâ€¦";
+            String livesText = "ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ Extra Lives: " + gameData.getExtraLives() + " ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦";
             fm = g.getFontMetrics();
             g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
             statsY += 35;
@@ -3918,6 +3369,371 @@ public class Renderer {
     public UIButton[] getMenuButtons() { return menuButtons; }
     public UIButton[] getSettingsButtons() { return settingsButtons; }
     public UIButton[] getPauseButtons() { return pauseButtons; }
-    public UIButton[] getShopButtons() { return shopButtons; }
-    public UIButton[] getStatsButtons() { return statsButtons; }
+    
+    // === SKILL TREE DRAWING ===
+    
+    public void drawSkillTree(Graphics2D g, int width, int height, double time, SkillTree tree, GameData data, int selectedBranch, int selectedLevel, double cameraX, double cameraY) {
+        // Draw animated gradient background
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+        
+        // Apply camera transform for skill tree content
+        Graphics2D g2 = (Graphics2D)g.create();
+        g2.translate(width / 2 - cameraX, height / 2 - cameraY);
+        
+        List<Skill> skills = tree.getAllSkills();
+        int numSkills = skills.size();
+        int skillSpacing = 350; // Wide horizontal spacing
+        int levelSpacing = 130; // Vertical spacing for levels
+        
+        // Calculate total width for centering
+        int totalWidth = (numSkills - 1) * skillSpacing;
+        int startX = -totalWidth / 2;
+        
+        // Draw connecting lines first (behind everything)
+        g2.setStroke(new BasicStroke(3f));
+        for (int i = 0; i < numSkills; i++) {
+            int skillX = startX + i * skillSpacing;
+            Skill skill = skills.get(i);
+            boolean isSelected = i == selectedBranch;
+            
+            // Draw vertical line from skill box downward through levels
+            int purchasedLevel = skill.getPurchasedLevel();
+            int nodesToShow = Math.min(purchasedLevel + 1, skill.getMaxLevel());
+            if (nodesToShow == 0) nodesToShow = 1;
+            
+            if (nodesToShow > 0) {
+                int lineEndY = nodesToShow * levelSpacing;
+                g2.setColor(isSelected ? new Color(235, 203, 139, 150) : new Color(76, 86, 106, 100));
+                g2.drawLine(skillX, 60, skillX, lineEndY);
+            }
+        }
+        
+        // Draw horizontal connection line between all skill boxes
+        g2.setColor(new Color(76, 86, 106, 100));
+        g2.setStroke(new BasicStroke(2f));
+        g2.drawLine(startX, 0, startX + totalWidth, 0);
+        
+        // Draw skill boxes and their level nodes
+        for (int i = 0; i < numSkills; i++) {
+            int skillX = startX + i * skillSpacing;
+            Skill skill = skills.get(i);
+            boolean isSelected = i == selectedBranch;
+            
+            // Draw main skill box (centered at skillX, y=0)
+            drawSkillCard(g2, skillX, 0, skill, isSelected, selectedLevel, time, data);
+        }
+        
+        // Draw active item box at far right
+        boolean isActiveItemSelected = selectedBranch == numSkills;
+        int itemX = startX + totalWidth + skillSpacing;
+        drawActiveItemCard(g2, itemX, 0, isActiveItemSelected, time, data, tree);
+        
+        // Draw line to active item
+        g2.setColor(isActiveItemSelected ? new Color(235, 203, 139, 150) : new Color(76, 86, 106, 100));
+        g2.setStroke(new BasicStroke(2f));
+        g2.drawLine(startX + totalWidth, 0, itemX - 100, 0);
+        
+        g2.dispose();
+        
+        // Draw UI overlay (not affected by camera)
+        // Title
+        g.setFont(FONT_TITLE_MEDIUM);
+        String title = "SKILL TREE";
+        FontMetrics fm = g.getFontMetrics();
+        int titleX = (width - fm.stringWidth(title)) / 2;
+        int titleY = 50;
+        
+        g.setColor(new Color(0, 0, 0, 100));
+        g.drawString(title, titleX + 3, titleY + 3);
+        
+        GradientPaint titleGrad = new GradientPaint(titleX, titleY - 20, new Color(180, 142, 173), titleX, titleY + 15, new Color(235, 203, 139));
+        g.setPaint(titleGrad);
+        g.drawString(title, titleX, titleY);
+        
+        // Money display
+        g.setColor(new Color(235, 203, 139));
+        g.setFont(FONT_LARGE);
+        String money = "$" + data.getTotalMoney();
+        fm = g.getFontMetrics();
+        g.drawString(money, width - fm.stringWidth(money) - 30, 45);
+        
+        // Skill indicator (which skill is selected)
+        if (selectedBranch < numSkills) {
+            Skill skill = skills.get(selectedBranch);
+            g.setFont(FONT_MEDIUM);
+            fm = g.getFontMetrics();
+            String skillName = skill.getName();
+            g.setColor(skill.getCategoryColor());
+            g.drawString(skillName, 30, 45);
+        } else {
+            g.setFont(FONT_MEDIUM);
+            g.setColor(new Color(180, 142, 173));
+            g.drawString("Active Item", 30, 45);
+        }
+        
+        // Navigation hint
+        g.setColor(new Color(216, 222, 233, 200));
+        g.setFont(FONT_INFO);
+        String hint = "← →  Navigate Skills  |  ↑ ↓  Navigate Levels  |  SPACE  Purchase  |  ESC  Back";
+        fm = g.getFontMetrics();
+        g.drawString(hint, (width - fm.stringWidth(hint)) / 2, height - 25);
+        
+        // Draw skill navigation dots at bottom
+        int dotY = height - 60;
+        int dotSpacing = 25;
+        int dotsStartX = width / 2 - (numSkills * dotSpacing) / 2;
+        for (int i = 0; i <= numSkills; i++) {
+            boolean isActive = i == selectedBranch;
+            int dotX = dotsStartX + i * dotSpacing;
+            g.setColor(isActive ? new Color(235, 203, 139) : new Color(76, 86, 106));
+            g.fillOval(dotX - 5, dotY - 5, 10, 10);
+            if (isActive) {
+                g.setColor(new Color(235, 203, 139, 100));
+                g.fillOval(dotX - 8, dotY - 8, 16, 16);
+            }
+        }
+    }
+    
+    private void drawSkillCard(Graphics2D g, int centerX, int centerY, Skill skill, boolean isSelected, int selectedLevel, double time, GameData data) {
+        int cardWidth = 200;
+        int cardHeight = 100;
+        int x = centerX - cardWidth / 2;
+        int y = centerY - cardHeight / 2;
+        
+        Color skillColor = skill.getCategoryColor();
+        
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 60));
+        g.fillRoundRect(x + 4, y + 4, cardWidth, cardHeight, 16, 16);
+        
+        // Background gradient
+        Color bgTop = isSelected ? new Color(skillColor.getRed(), skillColor.getGreen(), skillColor.getBlue(), 220) 
+                                 : new Color(59, 66, 82, 230);
+        Color bgBottom = isSelected ? skillColor.darker() : new Color(46, 52, 64, 230);
+        GradientPaint bgGrad = new GradientPaint(x, y, bgTop, x, y + cardHeight, bgBottom);
+        g.setPaint(bgGrad);
+        g.fillRoundRect(x, y, cardWidth, cardHeight, 16, 16);
+        
+        // Glow effect if selected
+        if (isSelected) {
+            float pulse = (float)(0.5 + 0.5 * Math.sin(time * 3));
+            g.setColor(new Color(235, 203, 139, (int)(100 * pulse)));
+            g.setStroke(new BasicStroke(4f));
+            g.drawRoundRect(x - 4, y - 4, cardWidth + 8, cardHeight + 8, 20, 20);
+        }
+        
+        // Border
+        g.setColor(isSelected ? new Color(235, 203, 139) : new Color(90, 100, 115));
+        g.setStroke(new BasicStroke(2f));
+        g.drawRoundRect(x, y, cardWidth, cardHeight, 16, 16);
+        
+        // Category color bar at top
+        g.setColor(skillColor);
+        g.fillRoundRect(x + 10, y + 8, cardWidth - 20, 4, 2, 2);
+        
+        // Skill name
+        g.setColor(Color.WHITE);
+        g.setFont(FONT_MEDIUM_BOLD);
+        FontMetrics fm = g.getFontMetrics();
+        String name = skill.getShortName();
+        g.drawString(name, x + (cardWidth - fm.stringWidth(name)) / 2, y + 38);
+        
+        // Level progress bar
+        int barX = x + 20;
+        int barY = y + 50;
+        int barWidth = cardWidth - 40;
+        int barHeight = 12;
+        
+        // Bar background
+        g.setColor(new Color(30, 35, 45));
+        g.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
+        
+        // Bar fill
+        float progress = (float) skill.getPurchasedLevel() / skill.getMaxLevel();
+        int fillWidth = (int)(barWidth * progress);
+        if (fillWidth > 0) {
+            GradientPaint barGrad = new GradientPaint(barX, barY, skillColor.brighter(), barX, barY + barHeight, skillColor);
+            g.setPaint(barGrad);
+            g.fillRoundRect(barX, barY, fillWidth, barHeight, 6, 6);
+        }
+        
+        // Level text
+        g.setColor(skill.isMaxed() ? new Color(163, 190, 140) : new Color(200, 205, 215));
+        g.setFont(FONT_EXTRA_SMALL_16);
+        fm = g.getFontMetrics();
+        String levelText = skill.isMaxed() ? "MAX" : "Lv " + skill.getPurchasedLevel() + "/" + skill.getMaxLevel();
+        g.drawString(levelText, x + (cardWidth - fm.stringWidth(levelText)) / 2, y + 80);
+        
+        // Current bonus text
+        g.setFont(new Font("Arial", Font.PLAIN, 11));
+        fm = g.getFontMetrics();
+        String bonus = skill.getCurrentBonusText();
+        g.setColor(new Color(163, 190, 140));
+        g.drawString(bonus, x + (cardWidth - fm.stringWidth(bonus)) / 2, y + 95);
+        
+        // Draw level nodes below the card
+        drawSkillLevelCards(g, centerX, centerY + cardHeight / 2 + 30, skill, isSelected, selectedLevel, time, data);
+    }
+    
+    private void drawSkillLevelCards(Graphics2D g, int centerX, int startY, Skill skill, boolean isSelected, int selectedLevel, double time, GameData data) {
+        int purchasedLevel = skill.getPurchasedLevel();
+        int maxLevel = skill.getMaxLevel();
+        
+        int nodesToShow = Math.min(purchasedLevel + 1, maxLevel);
+        if (nodesToShow == 0) nodesToShow = 1;
+        
+        int nodeWidth = 70;
+        int nodeHeight = 50;
+        int nodeSpacing = 130;
+        
+        for (int level = 0; level < nodesToShow; level++) {
+            int nodeX = centerX - nodeWidth / 2;
+            int nodeY = startY + level * nodeSpacing;
+            
+            boolean isPurchased = level < purchasedLevel;
+            boolean isNextToBuy = level == purchasedLevel && !skill.isMaxed();
+            boolean isNodeSelected = isSelected && level == selectedLevel;
+            
+            Color nodeColor;
+            if (isPurchased) {
+                nodeColor = skill.getCategoryColor();
+            } else if (isNextToBuy) {
+                nodeColor = new Color(70, 80, 95);
+            } else {
+                nodeColor = new Color(50, 55, 65);
+            }
+            
+            // Shadow
+            g.setColor(new Color(0, 0, 0, 50));
+            g.fillRoundRect(nodeX + 3, nodeY + 3, nodeWidth, nodeHeight, 12, 12);
+            
+            // Background
+            g.setColor(nodeColor);
+            g.fillRoundRect(nodeX, nodeY, nodeWidth, nodeHeight, 12, 12);
+            
+            // Selection glow
+            if (isNodeSelected) {
+                float pulse = (float)(0.6 + 0.4 * Math.sin(time * 4));
+                g.setColor(new Color(235, 203, 139, (int)(200 * pulse)));
+                g.setStroke(new BasicStroke(3f));
+                g.drawRoundRect(nodeX - 4, nodeY - 4, nodeWidth + 8, nodeHeight + 8, 14, 14);
+            }
+            
+            // Border
+            g.setColor(isPurchased ? Color.WHITE : new Color(80, 90, 100));
+            g.setStroke(new BasicStroke(2f));
+            g.drawRoundRect(nodeX, nodeY, nodeWidth, nodeHeight, 12, 12);
+            
+            // Checkmark for purchased, Roman numeral otherwise
+            g.setFont(FONT_MEDIUM_BOLD);
+            FontMetrics fm = g.getFontMetrics();
+            String[] romans = {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+            String text;
+            if (isPurchased) {
+                text = "✓";
+                g.setColor(Color.WHITE);
+            } else {
+                text = level < romans.length ? romans[level] : String.valueOf(level + 1);
+                g.setColor(new Color(180, 185, 195));
+            }
+            g.drawString(text, nodeX + (nodeWidth - fm.stringWidth(text)) / 2, nodeY + nodeHeight / 2 + 8);
+            
+            // Cost for next purchasable
+            if (isNextToBuy) {
+                int cost = skill.getCost();
+                boolean canAfford = data.getTotalMoney() >= cost;
+                
+                // Cost badge below node
+                g.setFont(FONT_SMALL);
+                fm = g.getFontMetrics();
+                String costText = "$" + cost;
+                int costWidth = fm.stringWidth(costText) + 16;
+                int costX = nodeX + (nodeWidth - costWidth) / 2;
+                int costY = nodeY + nodeHeight + 8;
+                
+                // Badge background
+                g.setColor(canAfford ? new Color(163, 190, 140, 200) : new Color(191, 97, 106, 200));
+                g.fillRoundRect(costX, costY, costWidth, 22, 8, 8);
+                
+                // Cost text
+                g.setColor(Color.WHITE);
+                g.drawString(costText, costX + 8, costY + 16);
+            }
+        }
+    }
+    
+    private void drawActiveItemCard(Graphics2D g, int centerX, int centerY, boolean isSelected, double time, GameData data, SkillTree tree) {
+        int cardWidth = 200;
+        int cardHeight = 120;
+        int x = centerX - cardWidth / 2;
+        int y = centerY - cardHeight / 2;
+        
+        Color itemColor = new Color(180, 142, 173);
+        
+        // Shadow
+        g.setColor(new Color(0, 0, 0, 60));
+        g.fillRoundRect(x + 4, y + 4, cardWidth, cardHeight, 16, 16);
+        
+        // Background gradient
+        Color bgTop = isSelected ? new Color(itemColor.getRed(), itemColor.getGreen(), itemColor.getBlue(), 220) 
+                                 : new Color(59, 66, 82, 230);
+        Color bgBottom = isSelected ? itemColor.darker() : new Color(46, 52, 64, 230);
+        GradientPaint bgGrad = new GradientPaint(x, y, bgTop, x, y + cardHeight, bgBottom);
+        g.setPaint(bgGrad);
+        g.fillRoundRect(x, y, cardWidth, cardHeight, 16, 16);
+        
+        // Glow effect if selected
+        if (isSelected) {
+            float pulse = (float)(0.5 + 0.5 * Math.sin(time * 3));
+            g.setColor(new Color(235, 203, 139, (int)(100 * pulse)));
+            g.setStroke(new BasicStroke(4f));
+            g.drawRoundRect(x - 4, y - 4, cardWidth + 8, cardHeight + 8, 20, 20);
+        }
+        
+        // Border
+        g.setColor(isSelected ? new Color(235, 203, 139) : new Color(90, 100, 115));
+        g.setStroke(new BasicStroke(2f));
+        g.drawRoundRect(x, y, cardWidth, cardHeight, 16, 16);
+        
+        // Color bar
+        g.setColor(itemColor);
+        g.fillRoundRect(x + 10, y + 8, cardWidth - 20, 4, 2, 2);
+        
+        // Title
+        g.setColor(Color.WHITE);
+        g.setFont(FONT_MEDIUM_BOLD);
+        FontMetrics fm = g.getFontMetrics();
+        String title = "ACTIVE ITEM";
+        g.drawString(title, x + (cardWidth - fm.stringWidth(title)) / 2, y + 40);
+        
+        // Current item name
+        ActiveItem equipped = data.getEquippedItem();
+        String itemName = equipped != null ? equipped.getName() : "None Equipped";
+        g.setFont(FONT_MEDIUM);
+        fm = g.getFontMetrics();
+        g.setColor(isSelected ? new Color(235, 203, 139) : new Color(180, 185, 195));
+        g.drawString(itemName, x + (cardWidth - fm.stringWidth(itemName)) / 2, y + 65);
+        
+        // Item description
+        if (equipped != null) {
+            g.setFont(new Font("Arial", Font.PLAIN, 11));
+            fm = g.getFontMetrics();
+            String desc = equipped.getDescription();
+            // Truncate if too long
+            if (fm.stringWidth(desc) > cardWidth - 20) {
+                desc = desc.substring(0, 25) + "...";
+            }
+            g.setColor(new Color(150, 155, 165));
+            g.drawString(desc, x + (cardWidth - fm.stringWidth(desc)) / 2, y + 85);
+        }
+        
+        // Navigation hint
+        if (isSelected) {
+            g.setFont(new Font("Arial", Font.PLAIN, 12));
+            fm = g.getFontMetrics();
+            String hint = "← → to change";
+            g.setColor(new Color(200, 205, 215));
+            g.drawString(hint, x + (cardWidth - fm.stringWidth(hint)) / 2, y + 105);
+        }
+    }
 }

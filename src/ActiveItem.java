@@ -16,10 +16,11 @@ public class ActiveItem {
     private String name;
     private String description;
     private int cooldownFrames;
-    private int currentCooldown;
+    private double currentCooldown;
     private boolean active;
     private int activeDuration; // How long the effect lasts (0 for instant)
     private int activeTimer;
+    private double cooldownReduction = 0.0; // Cooldown reduction from skills (0.0 to 1.0)
     
     public ActiveItem(ItemType type) {
         this.type = type;
@@ -87,9 +88,12 @@ public class ActiveItem {
     }
     
     public void update() {
-        // Update cooldown
+        // Update cooldown (with cooldown reduction)
         if (currentCooldown > 0) {
-            currentCooldown--;
+            // Base reduction is 1 per frame, increased by cooldown reduction skill
+            double reductionRate = 1.0 + cooldownReduction;
+            currentCooldown -= reductionRate;
+            if (currentCooldown < 0) currentCooldown = 0;
         }
         
         // Update active duration
@@ -134,7 +138,7 @@ public class ActiveItem {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public int getCooldownFrames() { return cooldownFrames; }
-    public int getCurrentCooldown() { return currentCooldown; }
+    public int getCurrentCooldown() { return (int)currentCooldown; }
     public boolean isActive() { return active; }
     public int getActiveTimer() { return activeTimer; }
     public int getActiveDuration() { return activeDuration; }
@@ -146,4 +150,5 @@ public class ActiveItem {
     
     public void setActive(boolean active) { this.active = active; }
     public void setCurrentCooldown(int cooldown) { this.currentCooldown = cooldown; }
+    public void setCooldownReduction(double reduction) { this.cooldownReduction = Math.max(0, Math.min(0.75, reduction)); }
 }

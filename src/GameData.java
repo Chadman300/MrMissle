@@ -66,6 +66,22 @@ public class GameData {
     
     // Gameplay settings
     private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
+    
+    // Key bindings (using java.awt.event.KeyEvent constants)
+    private int keyUp = java.awt.event.KeyEvent.VK_W;
+    private int keyDown = java.awt.event.KeyEvent.VK_S;
+    private int keyLeft = java.awt.event.KeyEvent.VK_A;
+    private int keyRight = java.awt.event.KeyEvent.VK_D;
+    private int keyUp2 = java.awt.event.KeyEvent.VK_UP;
+    private int keyDown2 = java.awt.event.KeyEvent.VK_DOWN;
+    private int keyLeft2 = java.awt.event.KeyEvent.VK_LEFT;
+    private int keyRight2 = java.awt.event.KeyEvent.VK_RIGHT;
+    private int keyAction = java.awt.event.KeyEvent.VK_SPACE;
+    private int keyPause = java.awt.event.KeyEvent.VK_ESCAPE;
+    private int keyFocus = java.awt.event.KeyEvent.VK_SHIFT;
+    
+    // Skill Tree
+    private SkillTree skillTree;
 
     public GameData() {
         score = 0;
@@ -110,6 +126,9 @@ public class GameData {
         }
         currentLevelStats = new LevelStats();
         cumulativeRunStats = new LevelStats();
+        
+        // Initialize skill tree
+        skillTree = new SkillTree();
     }
     
     // Getters and setters
@@ -223,7 +242,12 @@ public class GameData {
         luckyDodgeUpgradeLevel = 10;
         unlockAllItems();
         unlockContracts();
+        // Give money for testing
+        addTotalMoney(10000);
     }
+    
+    // Skill Tree methods
+    public SkillTree getSkillTree() { return skillTree; }
     
     // Active Items methods
     public void unlockNextItem() {
@@ -427,4 +451,54 @@ public class GameData {
     // Gameplay settings methods
     public int getCountdownMode() { return countdownMode; }
     public void setCountdownMode(int mode) { this.countdownMode = Math.max(0, Math.min(2, mode)); }
+    
+    // Key binding methods
+    public int getKeyUp() { return keyUp; }
+    public void setKeyUp(int key) { this.keyUp = key; }
+    public int getKeyDown() { return keyDown; }
+    public void setKeyDown(int key) { this.keyDown = key; }
+    public int getKeyLeft() { return keyLeft; }
+    public void setKeyLeft(int key) { this.keyLeft = key; }
+    public int getKeyRight() { return keyRight; }
+    public void setKeyRight(int key) { this.keyRight = key; }
+    public int getKeyUp2() { return keyUp2; }
+    public void setKeyUp2(int key) { this.keyUp2 = key; }
+    public int getKeyDown2() { return keyDown2; }
+    public void setKeyDown2(int key) { this.keyDown2 = key; }
+    public int getKeyLeft2() { return keyLeft2; }
+    public void setKeyLeft2(int key) { this.keyLeft2 = key; }
+    public int getKeyRight2() { return keyRight2; }
+    public void setKeyRight2(int key) { this.keyRight2 = key; }
+    public int getKeyAction() { return keyAction; }
+    public void setKeyAction(int key) { this.keyAction = key; }
+    public int getKeyPause() { return keyPause; }
+    public void setKeyPause(int key) { this.keyPause = key; }
+    public int getKeyFocus() { return keyFocus; }
+    public void setKeyFocus(int key) { this.keyFocus = key; }
+    
+    // Helper method to check if a key matches any movement key
+    public boolean isUpKey(int key) { return key == keyUp || key == keyUp2; }
+    public boolean isDownKey(int key) { return key == keyDown || key == keyDown2; }
+    public boolean isLeftKey(int key) { return key == keyLeft || key == keyLeft2; }
+    public boolean isRightKey(int key) { return key == keyRight || key == keyRight2; }
+    
+    // Get key name for display
+    public static String getKeyName(int keyCode) {
+        return java.awt.event.KeyEvent.getKeyText(keyCode);
+    }
+    
+    // Reset keybindings to default
+    public void resetKeybindings() {
+        keyUp = java.awt.event.KeyEvent.VK_W;
+        keyDown = java.awt.event.KeyEvent.VK_S;
+        keyLeft = java.awt.event.KeyEvent.VK_A;
+        keyRight = java.awt.event.KeyEvent.VK_D;
+        keyUp2 = java.awt.event.KeyEvent.VK_UP;
+        keyDown2 = java.awt.event.KeyEvent.VK_DOWN;
+        keyLeft2 = java.awt.event.KeyEvent.VK_LEFT;
+        keyRight2 = java.awt.event.KeyEvent.VK_RIGHT;
+        keyAction = java.awt.event.KeyEvent.VK_SPACE;
+        keyPause = java.awt.event.KeyEvent.VK_ESCAPE;
+        keyFocus = java.awt.event.KeyEvent.VK_SHIFT;
+    }
 }

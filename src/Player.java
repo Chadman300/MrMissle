@@ -130,7 +130,7 @@ public class Player {
         }
         
         // Clamp velocity to max speed using cached speed calculation (higher limit during dash)
-        double maxSpeed = isDashing ? (DASH_MAX_SPEED * speedMultiplier) : (MAX_SPEED * speedMultiplier);
+        double maxSpeed = isDashing ? (DASH_MAX_SPEED * speedMultiplier * externalSpeedBoost) : (MAX_SPEED * speedMultiplier * externalSpeedBoost);
         
         // Only recalculate speed every few frames or when needed
         if (speedCacheAge > 3 || cachedSpeed == 0 || (ax != 0 || ay != 0)) {
@@ -308,6 +308,12 @@ public class Player {
     public int getSize() { return SIZE; }
     public double getVX() { return vx; }
     public double getVY() { return vy; }
+    
+    private double externalSpeedBoost = 1.0;
+    
+    public void setSpeedBoost(double boost) {
+        this.externalSpeedBoost = boost;
+    }
     
     // Get the angle the missile is facing based on velocity
     public double getAngle() {

@@ -1,4 +1,4 @@
-﻿import java.awt.*;
+import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -32,17 +32,23 @@ public class Game extends JPanel implements Runnable {
     private Cursor defaultCursor; // Normal cursor for menus
     private double levelSelectScroll; // Target scroll position for level select
     private double levelSelectScrollAnimated; // Animated (smooth) scroll position
-    private double shopScroll; // Target scroll position for shop
-    private double shopScrollAnimated; // Animated (smooth) scroll position
-    private double statsScroll; // Target scroll position for stats screen
-    private double statsScrollAnimated; // Animated (smooth) scroll position
+    private double skillTreeScroll; // Target scroll position for skill tree
+    private double skillTreeScrollAnimated; // Animated (smooth) scroll position
+    
+    // Skill tree navigation
+    private int selectedSkillBranch; // Which skill branch (0-8)
+    private int selectedSkillLevel;  // Which level within the branch
+    private double skillTreeCameraX; // Camera X position for panning
+    private double skillTreeCameraY; // Camera Y position for panning
+    private double skillTreeCameraTargetX; // Target camera X
+    private double skillTreeCameraTargetY; // Target camera Y
     private double settingsScroll; // Scroll offset for settings menu
     private double achievementsScroll; // Target scroll position for achievements
     private double achievementsScrollAnimated; // Animated (smooth) scroll position
     
     // Core systems
     private GameData gameData;
-    private ShopManager shopManager;
+    private SkillTree skillTree;
     private Renderer renderer;
     private AchievementManager achievementManager;
     private PassiveUpgradeManager passiveUpgradeManager;
@@ -362,10 +368,9 @@ public class Game extends JPanel implements Runnable {
         beamAttacks = new ArrayList<>();
         bulletGrid = new HashMap<>();
         gameData = new GameData();
-        shopManager = new ShopManager(gameData);
+        skillTree = new SkillTree();
         achievementManager = new AchievementManager();
         passiveUpgradeManager = new PassiveUpgradeManager();
-        shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
         pendingAchievements = new ArrayList<>();
         damageNumbers = new ArrayList<>();
@@ -411,10 +416,14 @@ public class Game extends JPanel implements Runnable {
         // Initialize scroll positions (ensure level select starts at level 1)
         levelSelectScroll = 1;
         levelSelectScrollAnimated = 1;
-        shopScroll = 0;
-        shopScrollAnimated = 0;
-        statsScroll = 0;
-        statsScrollAnimated = 0;
+        skillTreeScroll = 0;
+        skillTreeScrollAnimated = 0;
+        selectedSkillBranch = 0;
+        selectedSkillLevel = 0;
+        skillTreeCameraX = 0;
+        skillTreeCameraY = 0;
+        skillTreeCameraTargetX = 0;
+        skillTreeCameraTargetY = 0;
         achievementsScroll = 0;
         achievementsScrollAnimated = 0;
         
@@ -558,7 +567,7 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    selectedMenuItem = Math.min(5, selectedMenuItem + 1);
+                    selectedMenuItem = Math.min(4, selectedMenuItem + 1);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
@@ -567,11 +576,10 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 5;
                     switch (selectedMenuItem) {
                         case 0: transitionToState(GameState.LEVEL_SELECT); break;
-                        case 1: transitionToState(GameState.INFO); break;
-                        case 2: transitionToState(GameState.STATS); break;
-                        case 3: transitionToState(GameState.SHOP); break;
-                        case 4: transitionToState(GameState.ACHIEVEMENTS); break;
-                        case 5: transitionToState(GameState.SETTINGS); break;
+                        case 1: transitionToState(GameState.SKILL_TREE); break;
+                        case 2: transitionToState(GameState.ACHIEVEMENTS); break;
+                        case 3: transitionToState(GameState.INFO); break;
+                        case 4: transitionToState(GameState.SETTINGS); break;
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -587,7 +595,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 // Legacy hotkeys still work
                 else if (key == KeyEvent.VK_I) { transitionToState(GameState.INFO); screenShakeIntensity = 5; }
-                else if (key == KeyEvent.VK_P) { transitionToState(GameState.SHOP); screenShakeIntensity = 5; }
+                else if (key == KeyEvent.VK_P) { transitionToState(GameState.SKILL_TREE); screenShakeIntensity = 5; }
                 else if (key == KeyEvent.VK_O) { transitionToState(GameState.SETTINGS); screenShakeIntensity = 5; }
                 // Debug menu shortcut
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
@@ -595,66 +603,93 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_F11) { toggleFullscreen(); screenShakeIntensity = 3; }
                 break;
                 
-            case STATS:
-                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0); // active item + 4 shop upgrades + passives
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
-                    selectedStatItem = Math.max(0, selectedStatItem - 1);
-                    updateStatsScroll();
-                    screenShakeIntensity = 1; 
+            case SKILL_TREE:
+                List<Skill> skills = skillTree.getAllSkills();
+                int totalBranches = skills.size() + 1; // 8 skills + 1 active item branch
+                
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    // Move to previous branch
+                    selectedSkillBranch = (selectedSkillBranch - 1 + totalBranches) % totalBranches;
+                    // Reset to first available level in new branch
+                    if (selectedSkillBranch < skills.size()) {
+                        Skill skill = skills.get(selectedSkillBranch);
+                        selectedSkillLevel = Math.min(selectedSkillLevel, skill.getPurchasedLevel());
+                    } else {
+                        selectedSkillLevel = 0; // Active item has no levels
+                    }
+                    updateSkillTreeCamera();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
                 }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    selectedStatItem = Math.min(maxStatItems - 1, selectedStatItem + 1);
-                    updateStatsScroll();
-                    screenShakeIntensity = 1; 
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    // Move to next branch
+                    selectedSkillBranch = (selectedSkillBranch + 1) % totalBranches;
+                    // Reset to first available level in new branch
+                    if (selectedSkillBranch < skills.size()) {
+                        Skill skill = skills.get(selectedSkillBranch);
+                        selectedSkillLevel = Math.min(selectedSkillLevel, skill.getPurchasedLevel());
+                    } else {
+                        selectedSkillLevel = 0; // Active item has no levels
+                    }
+                    updateSkillTreeCamera();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
-                        // Active item selection (now at index 0)
-                        gameData.equipPreviousItem();
-                        screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
-                        // Shop upgrades (indices 1-4)
-                        gameData.adjustUpgrade(selectedStatItem - 1, -1);
-                        screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
-                        // Passive upgrades (index 5+) - allocate like shop upgrades
-                        int passiveIndex = selectedStatItem - 5;
-                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Hearts (last item) - it's read-only
-                        if (passiveIndex < numPassives - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
-                            if (upgrade.getActiveLevel() > 0) {
-                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() - 1);
-                                screenShakeIntensity = 2;
-                            }
+                    if (selectedSkillBranch < skills.size()) {
+                        // Navigate level nodes or adjust active level
+                        Skill skill = skills.get(selectedSkillBranch);
+                        if (selectedSkillLevel > 0) {
+                            selectedSkillLevel--;
+                            updateSkillTreeCamera();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
                         }
+                    } else {
+                        // Active item - select previous
+                        skillTree.selectPreviousActiveItem(gameData);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
                     }
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
-                        // Active item selection (now at index 0)
-                        gameData.equipNextItem();
+                    if (selectedSkillBranch < skills.size()) {
+                        // Navigate level nodes
+                        Skill skill = skills.get(selectedSkillBranch);
+                        int maxLevel = skill.getPurchasedLevel();
+                        // Can navigate to next available level (up to purchased + 1 for buying)
+                        if (selectedSkillLevel < maxLevel || (selectedSkillLevel == maxLevel && !skill.isMaxed())) {
+                            selectedSkillLevel = Math.min(selectedSkillLevel + 1, maxLevel + (skill.isMaxed() ? 0 : 1));
+                            updateSkillTreeCamera();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                    } else {
+                        // Active item - select next
+                        skillTree.selectNextActiveItem(gameData);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
-                        // Shop upgrades (indices 1-4)
-                        gameData.adjustUpgrade(selectedStatItem - 1, 1);
-                        screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
-                        // Passive upgrades (index 5+) - allocate like shop upgrades
-                        int passiveIndex = selectedStatItem - 5;
-                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Hearts (last item) - it's read-only
-                        if (passiveIndex < numPassives - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
-                            // Only allow increasing up to purchased level (not maxLevel)
-                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() + 1);
+                    }
+                }
+                else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    if (selectedSkillBranch < skills.size()) {
+                        Skill skill = skills.get(selectedSkillBranch);
+                        // If on next unpurchased level, try to buy
+                        if (selectedSkillLevel == skill.getPurchasedLevel() && !skill.isMaxed()) {
+                            if (skillTree.purchaseSkill(skill.getId(), gameData)) {
+                                soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                                screenShakeIntensity = 5;
+                            } else {
+                                soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
                                 screenShakeIntensity = 2;
                             }
                         }
                     }
                 }
-                else if (key == KeyEvent.VK_ESCAPE) { transitionToState(GameState.MENU); screenShakeIntensity = 3; }
+                else if (key == KeyEvent.VK_ESCAPE) {
+                    transitionToState(GameState.MENU);
+                    screenShakeIntensity = 3;
+                }
                 break;
                 
             case SETTINGS:
@@ -870,45 +905,6 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
                 
-            case SHOP:
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
-                    shopManager.selectPrevious();
-                    updateShopScroll();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1; 
-                }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    shopManager.selectNext();
-                    updateShopScroll();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1; 
-                }
-                else if (key == KeyEvent.VK_SPACE) {
-                    int selected = shopManager.getSelectedShopItem();
-                    if (selected == 0) {
-                        // Continue to level select
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        transitionToState(GameState.LEVEL_SELECT);
-                        screenShakeIntensity = 5;
-                    } else {
-                        System.out.println("DEBUG SHOP: Attempting purchase of item " + selected + ", money: " + gameData.getTotalMoney() + ", cost: " + shopManager.getItemCost(selected));
-                        boolean purchased = shopManager.purchaseItem(selected);
-                        System.out.println("DEBUG SHOP: Purchase result: " + purchased + ", money after: " + gameData.getTotalMoney());
-                        if (purchased) {
-                            soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
-                        } else {
-                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
-                        }
-                        screenShakeIntensity = purchased ? 4 : 2;
-                    }
-                }
-                else if (key == KeyEvent.VK_ESCAPE) { 
-                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    transitionToState(GameState.LEVEL_SELECT); 
-                    screenShakeIntensity = 3; 
-                }
-                break;
-                
             case GAME_OVER:
                 if (key == KeyEvent.VK_SPACE) {
                     // Roguelike: Give survival reward and start new run from level 1
@@ -1031,7 +1027,7 @@ public class Game extends JPanel implements Runnable {
                     System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
                     
                     gameData.setCurrentLevel(currentLevel + 1);
-                    gameState = GameState.SHOP;
+                    gameState = GameState.SKILL_TREE;
                 }
                 break;
                 
@@ -1271,19 +1267,6 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
-        } else if (gameState == GameState.SHOP) {
-            // Check if hovering over shop items
-            UIButton[] buttons = renderer.getShopButtons();
-            for (int i = 0; i < buttons.length; i++) {
-                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
-                    int currentSelected = shopManager.getSelectedShopItem();
-                    if (currentSelected != i) {
-                        shopManager.setSelectedShopItem(i);
-                        screenShakeIntensity = 1;
-                    }
-                    break;
-                }
-            }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if hovering over risk contract cards
             // Card dimensions (from drawRiskContract method)
@@ -1486,32 +1469,6 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
-        } else if (gameState == GameState.SHOP) {
-            // Check if clicking on shop items
-            UIButton[] buttons = renderer.getShopButtons();
-            for (int i = 0; i < buttons.length; i++) {
-                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
-                    shopManager.setSelectedShopItem(i);
-                    
-                    // Perform the purchase/continue action (same as SPACE key)
-                    if (i == 0) {
-                        // Continue button - go to level select
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        transitionToState(GameState.LEVEL_SELECT);
-                        screenShakeIntensity = 5;
-                    } else {
-                        // Try to purchase item
-                        boolean purchased = shopManager.purchaseItem(i);
-                        if (purchased) {
-                            soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
-                        } else {
-                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
-                        }
-                        screenShakeIntensity = purchased ? 10 : 3;
-                    }
-                    break;
-                }
-            }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if clicking on risk contract cards
             int cardWidth = 200;
@@ -1634,17 +1591,17 @@ public class Game extends JPanel implements Runnable {
         int rotation = e.getWheelRotation(); // Positive = scroll down, Negative = scroll up
         
         switch (gameState) {
-            case SHOP:
+            case SKILL_TREE:
+                List<Skill> wheelSkills = skillTree.getAllSkills();
+                int wheelTotalBranches = wheelSkills.size() + 1;
                 if (rotation > 0) {
-                    // Scroll down - select next item
-                    shopManager.selectNext();
-                    updateShopScroll();
+                    // Scroll down - next branch
+                    selectedSkillBranch = (selectedSkillBranch + 1) % wheelTotalBranches;
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 } else if (rotation < 0) {
-                    // Scroll up - select previous item
-                    shopManager.selectPrevious();
-                    updateShopScroll();
+                    // Scroll up - previous branch
+                    selectedSkillBranch = (selectedSkillBranch - 1 + wheelTotalBranches) % wheelTotalBranches;
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 }
@@ -1662,23 +1619,6 @@ public class Game extends JPanel implements Runnable {
                 } else if (rotation < 0) {
                     // Scroll up
                     achievementsScroll = Math.max(0, achievementsScroll - 100);
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1;
-                }
-                break;
-                
-            case STATS:
-                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0);
-                if (rotation > 0) {
-                    // Scroll down - select next item
-                    selectedStatItem = Math.min(maxStatItems - 1, selectedStatItem + 1);
-                    updateStatsScroll();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1;
-                } else if (rotation < 0) {
-                    // Scroll up - select previous item
-                    selectedStatItem = Math.max(0, selectedStatItem - 1);
-                    updateStatsScroll();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 }
@@ -1708,11 +1648,10 @@ public class Game extends JPanel implements Runnable {
         screenShakeIntensity = 5;
         switch (index) {
             case 0: gameState = GameState.LEVEL_SELECT; break;
-            case 1: gameState = GameState.INFO; break;
-            case 2: gameState = GameState.STATS; break;
-            case 3: gameState = GameState.SHOP; break;
-            case 4: gameState = GameState.ACHIEVEMENTS; break;
-            case 5: gameState = GameState.SETTINGS; break;
+            case 1: gameState = GameState.SKILL_TREE; break;
+            case 2: gameState = GameState.ACHIEVEMENTS; break;
+            case 3: gameState = GameState.INFO; break;
+            case 4: gameState = GameState.SETTINGS; break;
         }
     }
     
@@ -2201,21 +2140,12 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Smooth scroll animation for shop
-        if (gameState == GameState.SHOP) {
-            double shopScrollDiff = shopScroll - shopScrollAnimated;
-            shopScrollAnimated += shopScrollDiff * 0.15; // Smooth interpolation
-            if (Math.abs(shopScrollDiff) < 0.01) {
-                shopScrollAnimated = shopScroll;
-            }
-        }
-        
-        // Smooth scroll animation for stats screen
-        if (gameState == GameState.STATS) {
-            double statsScrollDiff = statsScroll - statsScrollAnimated;
-            statsScrollAnimated += statsScrollDiff * 0.15; // Smooth interpolation
-            if (Math.abs(statsScrollDiff) < 0.01) {
-                statsScrollAnimated = statsScroll;
+        // Smooth scroll animation for skill tree
+        if (gameState == GameState.SKILL_TREE) {
+            double skillTreeScrollDiff = skillTreeScroll - skillTreeScrollAnimated;
+            skillTreeScrollAnimated += skillTreeScrollDiff * 0.15; // Smooth interpolation
+            if (Math.abs(skillTreeScrollDiff) < 0.01) {
+                skillTreeScrollAnimated = skillTreeScroll;
             }
         }
         
@@ -3837,9 +3767,11 @@ public class Game extends JPanel implements Runnable {
             case ACHIEVEMENTS:
                 renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager, achievementsScrollAnimated);
                 break;
-            case STATS:
-                renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager);
-                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated);
+            case SKILL_TREE:
+                // Smooth camera interpolation
+                skillTreeCameraX += (skillTreeCameraTargetX - skillTreeCameraX) * 0.12;
+                skillTreeCameraY += (skillTreeCameraTargetY - skillTreeCameraY) * 0.12;
+                renderer.drawSkillTree(g2d, WIDTH, HEIGHT, gradientTime, skillTree, gameData, selectedSkillBranch, selectedSkillLevel, skillTreeCameraX, skillTreeCameraY);
                 break;
             case SETTINGS:
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
@@ -3877,9 +3809,6 @@ public class Game extends JPanel implements Runnable {
                     drawContractUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
                 break;
-            case SHOP:
-                renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
-                break;
             case DEBUG:
                 renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime);
                 break;
@@ -3911,17 +3840,11 @@ public class Game extends JPanel implements Runnable {
                 levelSelectScrollAnimated = selectedLevel;
             }
             
-            // Reset shop scroll when entering shop
-            if (newState == GameState.SHOP) {
-                shopScroll = 0;
-                shopScrollAnimated = 0;
-            }
-            
-            // Reset stats scroll when entering stats screen
-            if (newState == GameState.STATS) {
-                statsScroll = 0;
-                statsScrollAnimated = 0;
-                selectedStatItem = 0; // Start at top (active item)
+            // Reset skill tree scroll when entering
+            if (newState == GameState.SKILL_TREE) {
+                skillTreeScroll = 0;
+                skillTreeScrollAnimated = 0;
+                // Keep current selection or reset
             }
             
             // Reset achievements scroll when entering achievements screen
@@ -3939,41 +3862,31 @@ public class Game extends JPanel implements Runnable {
     // Public getters for InputHandler (if needed)
     public GameState getGameState() { return gameState; }
     public void setGameState(GameState state) { this.gameState = state; }
-    public void selectPreviousStat() { selectedStatItem = Math.max(0, selectedStatItem - 1); }
-    public void selectNextStat() { selectedStatItem = Math.min(3, selectedStatItem + 1); }
-    public void decreaseUpgrade() { gameData.adjustUpgrade(selectedStatItem, -1); }
-    public void increaseUpgrade() { gameData.adjustUpgrade(selectedStatItem, 1); }
-    public void selectPreviousShopItem() { shopManager.selectPrevious(); }
-    public void selectNextShopItem() { shopManager.selectNext(); }
-    public void purchaseSelectedItem() { 
-        int selected = shopManager.getSelectedShopItem();
-        if (selected == 0) startGame();
-        else shopManager.purchaseItem(selected);
-    }
+    public SkillTree getSkillTree() { return skillTree; }
     
-    private void updateShopScroll() {
-        // Calculate target scroll offset to keep selected item centered
-        int selectedItem = shopManager.getSelectedShopItem();
-        int itemsVisible = 7; // Number of items visible on screen
+    private void updateSkillTreeCamera() {
+        // Calculate camera target based on selected skill branch
+        // Skills are arranged in a wide horizontal layout
+        List<Skill> skills = skillTree.getAllSkills();
+        int numSkills = skills.size();
         
-        // Only scroll if selection is beyond visible area
-        if (selectedItem > itemsVisible - 3) {
-            shopScroll = (selectedItem - (itemsVisible - 3)) * 80; // 80 pixels per item
+        if (selectedSkillBranch < numSkills) {
+            // Calculate position for skill branches (spread across screen)
+            // Each skill is spaced 350 pixels apart
+            double skillX = (selectedSkillBranch - (numSkills - 1) / 2.0) * 350;
+            double skillY = -100 + selectedSkillLevel * 120; // Move up as you go deeper into levels
+            skillTreeCameraTargetX = skillX;
+            skillTreeCameraTargetY = skillY;
         } else {
-            shopScroll = 0;
+            // Active item at bottom center
+            skillTreeCameraTargetX = 0;
+            skillTreeCameraTargetY = 200;
         }
     }
     
-    private void updateStatsScroll() {
-        // Calculate target scroll offset to keep selected item centered
-        int itemsVisible = 6; // Number of items visible on screen
-        
-        // Only scroll if selection is beyond visible area
-        if (selectedStatItem > itemsVisible - 2) {
-            statsScroll = (selectedStatItem - (itemsVisible - 2)) * 90; // 90 pixels per item (card height + padding)
-        } else {
-            statsScroll = 0;
-        }
+    private void updateSkillTreeScroll() {
+        // Update scroll based on selected branch for smooth camera panning
+        skillTreeScroll = selectedSkillBranch * 100; // 100 pixels per branch
     }
     
     private void toggleSetting(int settingIndex) {
@@ -4119,7 +4032,7 @@ public class Game extends JPanel implements Runnable {
                 repaint();
                 
                 // Create renderer (this loads backgrounds and overlay)
-                renderer = new Renderer(gameData, shopManager, passiveUpgradeManager);
+                renderer = new Renderer(gameData, skillTree, passiveUpgradeManager);
                 targetLoadingProgress = 90;
                 repaint();
                 
