@@ -77,13 +77,14 @@ public class Renderer {
         loadOverlay();
         
         // Initialize menu buttons (positions will be updated in drawMenu)
+        // Order: Select Level, Shop, Stats, Achievements, Game Info, Settings
         menuButtons = new UIButton[6];
-        menuButtons[0] = new UIButton("Select Level", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[1] = new UIButton("Game Info", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[2] = new UIButton("Stats & Loadout", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[3] = new UIButton("Shop", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[4] = new UIButton("Achievements", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
-        menuButtons[5] = new UIButton("Settings", 0, 0, 300, 50, new Color(191, 97, 106), new Color(220, 120, 130)); // Red
+        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, 300, 55, new Color(163, 190, 140), new Color(180, 210, 160)); // Green - Play
+        menuButtons[1] = new UIButton("Shop", "shop", 0, 0, 300, 55, new Color(235, 203, 139), new Color(250, 220, 160)); // Gold
+        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, 300, 55, new Color(136, 192, 208), new Color(160, 210, 225)); // Cyan
+        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, 300, 55, new Color(180, 142, 173), new Color(200, 165, 195)); // Purple
+        menuButtons[4] = new UIButton("Game Info", "info", 0, 0, 300, 55, new Color(143, 188, 187), new Color(165, 205, 205)); // Teal
+        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, 300, 55, new Color(191, 97, 106), new Color(215, 120, 130)); // Red
         
         // Initialize shop buttons (15 items: continue + 4 shop upgrades + 10 passive upgrades)
         shopButtons = new UIButton[15];
@@ -308,6 +309,9 @@ public class Renderer {
         // Draw animated gradient background with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
+        // Draw cool geometric background effects
+        drawGeometricBackground(g, width, height, time);
+        
         g.setColor(Color.WHITE);
         g.setFont(FONT_TITLE);
         String title = "MR. MISSLE";
@@ -336,30 +340,17 @@ public class Renderer {
         g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
         g.setComposite(ALPHA_FULL);
         
-        // Draw buttons
-        int buttonY = 280;
-        int buttonSpacing = 70;
+        // Draw buttons with slight vertical offset
+        int buttonY = 240;
+        int buttonSpacing = 75;
         for (int i = 0; i < menuButtons.length; i++) {
             menuButtons[i].setPosition((width - 300) / 2, buttonY + i * buttonSpacing);
             menuButtons[i].update(i == selectedMenuItem, time);
             menuButtons[i].draw(g, time);
         }
         
-        // Show score and money
-        g.setFont(FONT_LARGE);
-        fm = g.getFontMetrics();
-        
-        // Score display
-        g.setColor(new Color(163, 190, 140)); // Green
-        String scoreText = "Score: " + gameData.getScore();
-        int scoreX = width / 2 - fm.stringWidth(scoreText) - 30;
-        g.drawString(scoreText, scoreX, height - 150);
-        
-        // Money display
-        g.setColor(new Color(235, 203, 139)); // Gold
-        String moneyText = "$" + gameData.getTotalMoney();
-        int moneyX = width / 2 + 30;
-        g.drawString(moneyText, moneyX, height - 150);
+        // Show score and money in a nice card
+        drawStatsCard(g, width, height, time);
         
         // Quit hint
         if (escapeTimer > 0) {
@@ -369,6 +360,233 @@ public class Renderer {
             fm = g.getFontMetrics();
             g.drawString(quitText, (width - fm.stringWidth(quitText)) / 2, height - 80);
         }
+    }
+    
+    private void drawGeometricBackground(Graphics2D g, int width, int height, double time) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Floating hexagons
+        drawFloatingShapes(g2, width, height, time);
+        
+        // Grid lines with perspective
+        drawPerspectiveGrid(g2, width, height, time);
+        
+        // Orbiting circles
+        drawOrbitingCircles(g2, width, height, time);
+        
+        // Corner decorations
+        drawCornerDecorations(g2, width, height, time);
+        
+        g2.dispose();
+    }
+    
+    private void drawFloatingShapes(Graphics2D g, int width, int height, double time) {
+        // Draw floating hexagons and triangles
+        int numShapes = 12;
+        for (int i = 0; i < numShapes; i++) {
+            double phase = (i * Math.PI * 2.0) / numShapes;
+            double x = width * (0.1 + 0.8 * ((Math.sin(time * 0.3 + phase) + 1) / 2));
+            double y = height * (0.1 + 0.8 * ((Math.cos(time * 0.2 + phase * 1.5) + 1) / 2));
+            double size = 20 + 30 * Math.sin(time * 0.5 + phase);
+            double rotation = time * 0.5 + phase;
+            int alpha = (int)(30 + 20 * Math.sin(time + phase));
+            
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.translate(x, y);
+            g2.rotate(rotation);
+            
+            if (i % 3 == 0) {
+                // Hexagon
+                g2.setColor(new Color(143, 188, 187, alpha)); // Teal
+                drawHexagon(g2, 0, 0, (int)size);
+            } else if (i % 3 == 1) {
+                // Triangle
+                g2.setColor(new Color(180, 142, 173, alpha)); // Purple
+                drawTriangle(g2, 0, 0, (int)size);
+            } else {
+                // Diamond
+                g2.setColor(new Color(235, 203, 139, alpha)); // Gold
+                drawDiamond(g2, 0, 0, (int)size);
+            }
+            
+            g2.dispose();
+        }
+    }
+    
+    private void drawPerspectiveGrid(Graphics2D g, int width, int height, double time) {
+        g.setStroke(new BasicStroke(1));
+        int gridSpacing = 60;
+        double waveOffset = time * 20;
+        
+        // Horizontal lines with wave effect
+        for (int y = 0; y < height; y += gridSpacing) {
+            int alpha = (int)(15 + 10 * Math.sin(y * 0.02 + time));
+            g.setColor(new Color(136, 192, 208, alpha));
+            
+            int prevX = 0;
+            int prevY = y + (int)(Math.sin(waveOffset * 0.01) * 5);
+            for (int x = 20; x <= width; x += 20) {
+                int newY = y + (int)(Math.sin((x + waveOffset) * 0.01) * 5);
+                g.drawLine(prevX, prevY, x, newY);
+                prevX = x;
+                prevY = newY;
+            }
+        }
+        
+        // Vertical lines with subtle movement
+        for (int x = 0; x < width; x += gridSpacing) {
+            int alpha = (int)(10 + 8 * Math.sin(x * 0.02 + time * 1.5));
+            g.setColor(new Color(180, 142, 173, alpha));
+            g.drawLine(x + (int)(Math.sin(time + x * 0.01) * 3), 0, 
+                       x + (int)(Math.sin(time + x * 0.01 + Math.PI) * 3), height);
+        }
+    }
+    
+    private void drawOrbitingCircles(Graphics2D g, int width, int height, double time) {
+        int centerX = width / 2;
+        int centerY = height / 2;
+        
+        // Multiple orbiting rings
+        int[] radii = {200, 320, 450};
+        Color[] colors = {
+            new Color(163, 190, 140, 40), // Green
+            new Color(191, 97, 106, 35),  // Red
+            new Color(136, 192, 208, 30)  // Cyan
+        };
+        
+        g.setStroke(new BasicStroke(2));
+        
+        for (int r = 0; r < radii.length; r++) {
+            int radius = radii[r];
+            g.setColor(colors[r]);
+            
+            // Draw orbit path (dashed)
+            float[] dash = {10, 15};
+            g.setStroke(new BasicStroke(1, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 0, dash, (float)(time * 20)));
+            g.drawOval(centerX - radius, centerY - radius, radius * 2, radius * 2);
+            
+            // Draw orbiting dots
+            int numDots = 3 + r;
+            for (int i = 0; i < numDots; i++) {
+                double angle = time * (0.5 + r * 0.2) + (i * Math.PI * 2 / numDots);
+                int dotX = centerX + (int)(radius * Math.cos(angle));
+                int dotY = centerY + (int)(radius * Math.sin(angle));
+                int dotSize = 6 + r * 2;
+                
+                // Glow
+                g.setColor(new Color(colors[r].getRed(), colors[r].getGreen(), colors[r].getBlue(), 60));
+                g.fillOval(dotX - dotSize, dotY - dotSize, dotSize * 2, dotSize * 2);
+                
+                // Core
+                g.setColor(new Color(colors[r].getRed(), colors[r].getGreen(), colors[r].getBlue(), 150));
+                g.fillOval(dotX - dotSize / 2, dotY - dotSize / 2, dotSize, dotSize);
+            }
+        }
+    }
+    
+    private void drawCornerDecorations(Graphics2D g, int width, int height, double time) {
+        int cornerSize = 80;
+        g.setStroke(new BasicStroke(2));
+        
+        // Top-left corner
+        drawCornerBracket(g, 20, 20, cornerSize, time, false, false);
+        
+        // Top-right corner
+        drawCornerBracket(g, width - 20, 20, cornerSize, time, true, false);
+        
+        // Bottom-left corner
+        drawCornerBracket(g, 20, height - 20, cornerSize, time, false, true);
+        
+        // Bottom-right corner
+        drawCornerBracket(g, width - 20, height - 20, cornerSize, time, true, true);
+    }
+    
+    private void drawCornerBracket(Graphics2D g, int x, int y, int size, double time, boolean flipX, boolean flipY) {
+        int alpha = (int)(100 + 50 * Math.sin(time * 2));
+        g.setColor(new Color(235, 203, 139, alpha));
+        
+        int dx = flipX ? -1 : 1;
+        int dy = flipY ? -1 : 1;
+        
+        // L-shaped bracket
+        g.drawLine(x, y, x + size * dx, y);
+        g.drawLine(x, y, x, y + size * dy);
+        
+        // Inner decoration
+        g.setColor(new Color(143, 188, 187, alpha / 2));
+        g.drawLine(x + 10 * dx, y + 10 * dy, x + (size - 20) * dx, y + 10 * dy);
+        g.drawLine(x + 10 * dx, y + 10 * dy, x + 10 * dx, y + (size - 20) * dy);
+        
+        // Diamond accent
+        int diamondX = x + 25 * dx;
+        int diamondY = y + 25 * dy;
+        int diamondSize = 8;
+        g.setColor(new Color(180, 142, 173, alpha));
+        int[] xPoints = {diamondX, diamondX + diamondSize, diamondX, diamondX - diamondSize};
+        int[] yPoints = {diamondY - diamondSize, diamondY, diamondY + diamondSize, diamondY};
+        g.fillPolygon(xPoints, yPoints, 4);
+    }
+    
+    private void drawHexagon(Graphics2D g, int x, int y, int size) {
+        int[] xPoints = new int[6];
+        int[] yPoints = new int[6];
+        for (int i = 0; i < 6; i++) {
+            double angle = Math.PI / 6 + i * Math.PI / 3;
+            xPoints[i] = x + (int)(size * Math.cos(angle));
+            yPoints[i] = y + (int)(size * Math.sin(angle));
+        }
+        g.drawPolygon(xPoints, yPoints, 6);
+    }
+    
+    private void drawTriangle(Graphics2D g, int x, int y, int size) {
+        int[] xPoints = {x, x + size / 2, x - size / 2};
+        int[] yPoints = {y - size / 2, y + size / 2, y + size / 2};
+        g.drawPolygon(xPoints, yPoints, 3);
+    }
+    
+    private void drawDiamond(Graphics2D g, int x, int y, int size) {
+        int halfSize = size / 2;
+        int[] xPoints = {x, x + halfSize, x, x - halfSize};
+        int[] yPoints = {y - halfSize, y, y + halfSize, y};
+        g.drawPolygon(xPoints, yPoints, 4);
+    }
+    
+    private void drawStatsCard(Graphics2D g, int width, int height, double time) {
+        int cardWidth = 350;
+        int cardHeight = 70;
+        int cardX = (width - cardWidth) / 2;
+        int cardY = height - 130;
+        
+        // Card background
+        g.setColor(new Color(46, 52, 64, 200));
+        g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+        
+        // Card border
+        int borderAlpha = (int)(150 + 50 * Math.sin(time * 2));
+        g.setColor(new Color(76, 86, 106, borderAlpha));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+        
+        // Divider line
+        g.setColor(new Color(76, 86, 106, 100));
+        g.drawLine(cardX + cardWidth / 2, cardY + 10, cardX + cardWidth / 2, cardY + cardHeight - 10);
+        
+        g.setFont(FONT_LARGE);
+        FontMetrics fm = g.getFontMetrics();
+        
+        // Score display (left side)
+        g.setColor(new Color(163, 190, 140)); // Green
+        String scoreText = "Score: " + gameData.getScore();
+        int scoreX = cardX + 25;
+        int textY = cardY + cardHeight / 2 + fm.getAscent() / 2 - 5;
+        g.drawString(scoreText, scoreX, textY);
+        
+        // Money display (right side)
+        g.setColor(new Color(235, 203, 139)); // Gold
+        String moneyText = "$" + gameData.getTotalMoney();
+        int moneyX = cardX + cardWidth / 2 + 25;
+        g.drawString(moneyText, moneyX, textY);
     }
     
     public void drawInfo(Graphics2D g, int width, int height, double time) {
@@ -648,7 +866,7 @@ public class Renderer {
         
         // Holographic title
         g.setFont(new Font("Arial", Font.BOLD, 60));
-        String title = "STATS & LOADOUT";
+        String title = "STATS";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
         int titleY = 80;
@@ -758,43 +976,20 @@ public class Renderer {
         y += cardHeight + 30 + cardSpacing;
         currentIndex++;
         
-        // Section 2: Shop Upgrades (indices 1-9) - includes all upgrades
+        // Section 2: All Upgrades (indices 1+) - from PassiveUpgradeManager
         y += 20;
         g.setColor(new Color(180, 142, 173));
         g.setFont(new Font("Arial", Font.BOLD, 20));
         g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - 400, y);
         y += 30;
         
-        // Traditional shop upgrades (Speed, Bullet Slow, Lucky Dodge)
-        String[] upgradeNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge"};
-        String[] upgradeIcons = {"S", "T", "L", "W"};
-        
-        for (int i = 0; i < upgradeNames.length; i++) {
-            isSelected = currentIndex == selectedStatItem;
-            
-            int owned = 0;
-            int active = 0;
-            
-            switch (i) {
-                case 0: owned = gameData.getSpeedUpgradeLevel(); active = gameData.getActiveSpeedLevel(); break;
-                case 1: owned = gameData.getBulletSlowUpgradeLevel(); active = gameData.getActiveBulletSlowLevel(); break;
-                case 2: owned = gameData.getLuckyDodgeUpgradeLevel(); active = gameData.getActiveLuckyDodgeLevel(); break;
-                case 3: owned = gameData.getAttackWindowUpgradeLevel(); active = gameData.getActiveAttackWindowLevel(); break;
-            }
-            
-            drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight, 
-                           upgradeIcons[i], upgradeNames[i], active, owned, isSelected, true);
-            
-            y += cardHeight + cardSpacing;
-            currentIndex++;
-        }
-        
-        // Passive upgrades - adjustable section (now part of shop upgrades section)
+        // All upgrades now come from PassiveUpgradeManager
         if (passiveManager != null) {
-            java.util.List<PassiveUpgrade> passives = passiveManager.getAllUpgrades();
-            // Draw adjustable passive upgrades (all except Extra Hearts which is last)
-            for (int i = 0; i < passives.size() - 1; i++) {
-                PassiveUpgrade upgrade = passives.get(i);
+            java.util.List<PassiveUpgrade> upgrades = passiveManager.getAllUpgrades();
+            
+            // Draw all adjustable upgrades (all except Extra Lives which is last)
+            for (int i = 0; i < upgrades.size() - 1; i++) {
+                PassiveUpgrade upgrade = upgrades.get(i);
                 isSelected = currentIndex == selectedStatItem;
                 
                 String icon = getPassiveIcon(upgrade.getType());
@@ -809,7 +1004,7 @@ public class Renderer {
             }
             
             // Read-only section for Extra Lives
-            if (passives.size() > 0) {
+            if (upgrades.size() > 0) {
                 y += 20;
                 g.setColor(new Color(163, 190, 140));
                 g.setFont(new Font("Arial", Font.BOLD, 20));
@@ -817,7 +1012,7 @@ public class Renderer {
                 y += 30;
                 
                 // Draw Extra Lives (last item, read-only)
-                PassiveUpgrade upgrade = passives.get(passives.size() - 1);
+                PassiveUpgrade upgrade = upgrades.get(upgrades.size() - 1);
                 isSelected = currentIndex == selectedStatItem;
                 
                 String icon = getPassiveIcon(upgrade.getType());
@@ -845,9 +1040,9 @@ public class Renderer {
         // Card background
         Color cardColor;
         if (current >= max && max > 0) {
-            cardColor = new Color(235, 203, 139, 200); // Gold for maxed
+            cardColor = new Color(160, 145, 100, 180); // Muted gold for maxed - easier on eyes
         } else if (isSelected && !isReadOnly) {
-            cardColor = new Color(180, 142, 173, 230);
+            cardColor = new Color(120, 110, 140, 200); // Softer purple for selected
         } else {
             cardColor = new Color(76, 86, 106, 200);
         }
@@ -857,8 +1052,8 @@ public class Renderer {
         
         // Border glow for selected
         if (isSelected && !isReadOnly) {
-            g.setColor(new Color(235, 203, 139, 180));
-            g.setStroke(new BasicStroke(3f));
+            g.setColor(new Color(180, 170, 130, 140)); // Softer border glow
+            g.setStroke(new BasicStroke(2f));
             g.drawRoundRect(x, y, width, height, 15, 15);
             g.setStroke(new BasicStroke(1f));
         }
@@ -951,6 +1146,9 @@ public class Renderer {
             case BULLET_SIZE: return "B";
             case MONEY_AND_SCORE: return "$";
             case CRITICAL_HIT: return "*";
+            case SPEED_BOOST: return "S";
+            case BULLET_SLOW: return "T";
+            case LUCKY_DODGE: return "L";
             default: return "?";
         }
     }
@@ -2753,12 +2951,12 @@ public class Renderer {
                 Color cardColor;
                 if (i == 0) {
                     cardColor = new Color(163, 190, 140, 200); // Green for continue
+                } else if (isMaxed) {
+                    cardColor = new Color(180, 160, 100, 200); // Muted gold for maxed - check before affordability
                 } else if (!canAfford) {
                     cardColor = new Color(40, 40, 50, 200);
-                } else if (isMaxed) {
-                    cardColor = new Color(235, 203, 139, 200); // Gold for maxed
                 } else if (i == selectedItem) {
-                    cardColor = new Color(180, 142, 173, 230);
+                    cardColor = new Color(140, 120, 150, 200); // Softer purple for selected
                 } else {
                     cardColor = new Color(76, 86, 106, 200);
                 }
@@ -2768,8 +2966,8 @@ public class Renderer {
                 
                 // Border glow for selected item
                 if (i == selectedItem) {
-                    g.setColor(new Color(235, 203, 139, 180));
-                    g.setStroke(new BasicStroke(3f));
+                    g.setColor(new Color(180, 170, 130, 140)); // Softer border glow
+                    g.setStroke(new BasicStroke(2f));
                     g.drawRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
                     g.setStroke(new BasicStroke(1f));
                 }
@@ -2793,50 +2991,17 @@ public class Renderer {
                 g.setColor(canAfford ? new Color(200, 200, 200) : new Color(100, 100, 100));
                 g.drawString(itemDesc, itemX + 75, scrolledY + 15);
                 
-                // Draw progress bar for upgrades (not for Continue or maxed items)
-                if (i > 0 && i <= 4) {
-                    int currentLevel = getUpgradeLevel(i);
-                    int maxLevel = getUpgradeMaxLevel(i);
-                    
-                    int barX = itemX + 75;
-                    int barY = scrolledY + 30;
-                    int barWidth = 550;
-                    int barHeight = 8;
-                    
-                    // Level text above progress bar
-                    g.setFont(new Font("Arial", Font.BOLD, 11));
-                    g.setColor(isMaxed ? new Color(235, 203, 139) : new Color(200, 200, 200));
-                    String levelText = currentLevel + "/" + maxLevel;
-                    g.drawString(levelText, barX, barY - 3);
-                    
-                    // Progress bar background
-                    g.setColor(new Color(40, 40, 50, 180));
-                    g.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
-                    
-                    // Progress bar fill
-                    if (currentLevel > 0) {
-                        double progress = (double)currentLevel / maxLevel;
-                        int fillWidth = (int)(barWidth * progress);
-                        
-                        GradientPaint progressGrad = new GradientPaint(
-                            barX, 0, new Color(163, 190, 140),
-                            barX + fillWidth, 0, new Color(235, 203, 139)
-                        );
-                        g.setPaint(progressGrad);
-                        g.fillRoundRect(barX, barY, fillWidth, barHeight, 4, 4);
-                    }
-                }
-                
-                // Draw passive upgrade progress bar
-                if (i >= 5 && i <= 14 && passiveUpgradeManager != null) {
-                    int passiveIndex = i - 5;
-                    if (passiveIndex < passiveUpgradeManager.getAllUpgrades().size()) {
-                        PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                // Draw progress bar for all upgrades (not for Continue)
+                // All upgrades now come from PassiveUpgradeManager (shop index 1 = upgrade index 0)
+                if (i > 0 && passiveUpgradeManager != null) {
+                    int upgradeIndex = i - 1;
+                    if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+                        PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                         int currentLevel = upgrade.getCurrentLevel();
                         int maxLevel = upgrade.getMaxLevel();
                         
-                        // Special handling for Extra Lives (last passive upgrade)
-                        boolean isExtraLives = (passiveIndex == passiveUpgradeManager.getAllUpgrades().size() - 1);
+                        // Special handling for Extra Lives (last upgrade)
+                        boolean isExtraLives = upgrade.getId().equals("health");
                         if (isExtraLives) {
                             currentLevel = gameData.getExtraLives(); // Show current lives owned
                         }
@@ -2848,7 +3013,7 @@ public class Renderer {
                         
                         // Level text above progress bar
                         g.setFont(new Font("Arial", Font.BOLD, 11));
-                        g.setColor(upgrade.isMaxed() ? new Color(235, 203, 139) : new Color(200, 200, 200));
+                        g.setColor(upgrade.isMaxed() || isMaxed ? new Color(235, 203, 139) : new Color(200, 200, 200));
                         String levelText = isExtraLives ? currentLevel + "/3 lives" : currentLevel + "/" + maxLevel;
                         g.drawString(levelText, barX, barY - 3);
                         
@@ -2862,8 +3027,8 @@ public class Renderer {
                             int fillWidth = (int)(barWidth * progress);
                             
                             GradientPaint progressGrad = new GradientPaint(
-                                barX, 0, new Color(136, 192, 208),
-                                barX + fillWidth, 0, new Color(180, 142, 173)
+                                barX, 0, new Color(163, 190, 140),
+                                barX + fillWidth, 0, new Color(235, 203, 139)
                             );
                             g.setPaint(progressGrad);
                             g.fillRoundRect(barX, barY, fillWidth, barHeight, 4, 4);
@@ -3735,29 +3900,31 @@ public class Renderer {
     }
     
     private String getItemIcon(int itemIndex) {
-        switch (itemIndex) {
-            case 0: return ">"; // Continue
-            case 1: return "S"; // Speed Boost
-            case 2: return "T"; // Bullet Slow (Time)
-            case 3: return "L"; // Lucky Dodge
-            case 4: return "W"; // Attack Window
-            case 5: return "H"; // Extra Hearts (Health)
-            case 6: return "C"; // Quick Charge
-            case 7: return "B"; // Small Bullets
-            case 8: return "$"; // Fortune & Glory
-            case 9: return "*"; // Critical Strike
-            default: return "?";
+        if (itemIndex == 0) return ">"; // Continue
+        
+        // All upgrades now use PassiveUpgradeManager
+        // Index 1 = Speed, 2 = Bullet Slow, 3 = Lucky Dodge, 4 = Quick Charge, etc.
+        if (passiveUpgradeManager != null && itemIndex >= 1) {
+            int upgradeIndex = itemIndex - 1;
+            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
+                return getPassiveIcon(upgrade.getType());
+            }
         }
+        return "?";
     }
     
     private int getUpgradeLevel(int itemIndex) {
-        switch (itemIndex) {
-            case 1: return gameData.getSpeedUpgradeLevel();
-            case 2: return gameData.getBulletSlowUpgradeLevel();
-            case 3: return gameData.getLuckyDodgeUpgradeLevel();
-            case 4: return gameData.getAttackWindowUpgradeLevel();
-            default: return 0;
+        if (itemIndex == 0) return 0;
+        
+        // All upgrades now use PassiveUpgradeManager
+        if (passiveUpgradeManager != null && itemIndex >= 1) {
+            int upgradeIndex = itemIndex - 1;
+            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+                return passiveUpgradeManager.getAllUpgrades().get(upgradeIndex).getCurrentLevel();
+            }
         }
+        return 0;
     }
     
     private int getUpgradeMaxLevel(int itemIndex) {

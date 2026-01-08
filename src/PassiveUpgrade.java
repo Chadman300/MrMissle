@@ -2,41 +2,70 @@ public class PassiveUpgrade {
     private String id;
     private String name;
     private String description;
-    private int cost;
+    private int baseCost;
+    private int costIncrement;
     private int currentLevel;  // How many purchased from shop
     private int activeLevel;   // How many allocated/active in stats & loadout
     private int maxLevel;
     private UpgradeType type;
+    private boolean useLinearCost; // true = base + level*increment, false = 1.5x multiplier
     
     public enum UpgradeType {
         MAX_HEALTH,         // Increase max health
         ITEM_COOLDOWN,      // Reduce item cooldown
         BULLET_SIZE,        // Reduce bullet size (easier to dodge)
         MONEY_AND_SCORE,    // Increase money and score earned
-        CRITICAL_HIT        // Chance to instantly kill boss
+        CRITICAL_HIT,       // Chance to instantly kill boss
+        SPEED_BOOST,        // Increase movement speed
+        BULLET_SLOW,        // Slow enemy bullets
+        LUCKY_DODGE         // Chance to phase through bullets
     }
     
+    // Constructor for exponential cost upgrades (1.5x multiplier)
     public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int maxLevel) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.type = type;
-        this.cost = baseCost;
+        this.baseCost = baseCost;
+        this.costIncrement = 0;
         this.maxLevel = maxLevel;
         this.currentLevel = 0;
         this.activeLevel = 0;
+        this.useLinearCost = false;
+    }
+    
+    // Constructor for linear cost upgrades (base + level * increment)
+    public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int costIncrement, int maxLevel) {
+        this.id = id;
+        this.name = name;
+        this.description = description;
+        this.type = type;
+        this.baseCost = baseCost;
+        this.costIncrement = costIncrement;
+        this.maxLevel = maxLevel;
+        this.currentLevel = 0;
+        this.activeLevel = 0;
+        this.useLinearCost = true;
     }
     
     public boolean canUpgrade(int money) {
-        return currentLevel < maxLevel && money >= cost;
+        return currentLevel < maxLevel && money >= getCost();
     }
     
     public void upgrade() {
         if (currentLevel < maxLevel) {
             currentLevel++;
             activeLevel = currentLevel; // Auto-activate when purchased
-            // Increase cost for next level (1.5x multiplier)
-            cost = (int)(cost * 1.5);
+        }
+    }
+    
+    public int getCost() {
+        if (useLinearCost) {
+            return baseCost + (currentLevel * costIncrement);
+        } else {
+            // Exponential cost: base * 1.5^level
+            return (int)(baseCost * Math.pow(1.5, currentLevel));
         }
     }
     
@@ -52,6 +81,12 @@ public class PassiveUpgrade {
                 return 1.0 + (activeLevel * 0.15); // +15% per level for both money and score
             case CRITICAL_HIT:
                 return activeLevel * 0.005; // 0.5% chance per level to instantly kill boss
+            case SPEED_BOOST:
+                return 1.0 + (activeLevel * 0.15); // +15% per level
+            case BULLET_SLOW:
+                return 1.0 - (activeLevel * 0.001); // -0.1% per level (0.001 per level)
+            case LUCKY_DODGE:
+                return activeLevel * 0.03; // 3% chance per level to phase through bullets
             default:
                 return 1.0;
         }
@@ -61,7 +96,6 @@ public class PassiveUpgrade {
     public String getId() { return id; }
     public String getName() { return name; }
     public String getDescription() { return description; }
-    public int getCost() { return cost; }
     public int getCurrentLevel() { return currentLevel; } // Purchased level
     public int getActiveLevel() { return activeLevel; }   // Allocated level
     public int getMaxLevel() { return maxLevel; }

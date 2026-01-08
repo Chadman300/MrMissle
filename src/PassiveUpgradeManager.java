@@ -14,6 +14,17 @@ public class PassiveUpgradeManager {
     }
     
     private void initializeUpgrades() {
+        // Original shop upgrades (linear cost: base + level * increment)
+        addUpgradeLinear("speed", "Speed Boost", "Increase movement speed by 15% per level", 
+                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 75, 35, 10);
+        
+        addUpgradeLinear("bullet_slow", "Bullet Slow", "Slow enemy bullets by 0.1% per level", 
+                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 100, 50, 50);
+        
+        addUpgradeLinear("lucky_dodge", "Lucky Dodge", "3% chance per level to phase through bullets", 
+                   PassiveUpgrade.UpgradeType.LUCKY_DODGE, 125, 100, 12);
+        
+        // Passive upgrades (exponential cost: base * 1.5^level)
         addUpgrade("cooldown", "Quick Charge", "Reduce item cooldown by 10% per level", 
                    PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 120, 5);
         
@@ -30,9 +41,18 @@ public class PassiveUpgradeManager {
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
     }
     
+    // For exponential cost upgrades
     private void addUpgrade(String id, String name, String description, 
                            PassiveUpgrade.UpgradeType type, int baseCost, int maxLevel) {
         PassiveUpgrade upgrade = new PassiveUpgrade(id, name, description, type, baseCost, maxLevel);
+        upgrades.add(upgrade);
+        upgradeMap.put(id, upgrade);
+    }
+    
+    // For linear cost upgrades
+    private void addUpgradeLinear(String id, String name, String description, 
+                           PassiveUpgrade.UpgradeType type, int baseCost, int costIncrement, int maxLevel) {
+        PassiveUpgrade upgrade = new PassiveUpgrade(id, name, description, type, baseCost, costIncrement, maxLevel);
         upgrades.add(upgrade);
         upgradeMap.put(id, upgrade);
     }

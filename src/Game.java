@@ -1,4 +1,4 @@
-﻿import java.awt.*;
+import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -39,6 +39,7 @@ public class Game extends JPanel implements Runnable {
     private double settingsScroll; // Scroll offset for settings menu
     private double achievementsScroll; // Target scroll position for achievements
     private double achievementsScrollAnimated; // Animated (smooth) scroll position
+    private GameState shopEnteredFrom; // Track where player came from when entering shop
     
     // Core systems
     private GameData gameData;
@@ -565,12 +566,13 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                     screenShakeIntensity = 5;
+                    // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings
                     switch (selectedMenuItem) {
                         case 0: transitionToState(GameState.LEVEL_SELECT); break;
-                        case 1: transitionToState(GameState.INFO); break;
+                        case 1: shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); break;
                         case 2: transitionToState(GameState.STATS); break;
-                        case 3: transitionToState(GameState.SHOP); break;
-                        case 4: transitionToState(GameState.ACHIEVEMENTS); break;
+                        case 3: transitionToState(GameState.ACHIEVEMENTS); break;
+                        case 4: transitionToState(GameState.INFO); break;
                         case 5: transitionToState(GameState.SETTINGS); break;
                     }
                 }
@@ -587,7 +589,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 // Legacy hotkeys still work
                 else if (key == KeyEvent.VK_I) { transitionToState(GameState.INFO); screenShakeIntensity = 5; }
-                else if (key == KeyEvent.VK_P) { transitionToState(GameState.SHOP); screenShakeIntensity = 5; }
+                else if (key == KeyEvent.VK_P) { shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); screenShakeIntensity = 5; }
                 else if (key == KeyEvent.VK_O) { transitionToState(GameState.SETTINGS); screenShakeIntensity = 5; }
                 // Debug menu shortcut
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
@@ -596,7 +598,8 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case STATS:
-                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0); // active item + 4 shop upgrades + passives
+                // All upgrades now come from PassiveUpgradeManager (1 active item + upgrades)
+                int maxStatItems = 1 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0);
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
                     selectedStatItem = Math.max(0, selectedStatItem - 1);
                     updateStatsScroll();
@@ -612,19 +615,15 @@ public class Game extends JPanel implements Runnable {
                         // Active item selection (now at index 0)
                         gameData.equipPreviousItem();
                         screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
-                        // Shop upgrades (indices 1-4)
-                        gameData.adjustUpgrade(selectedStatItem - 1, -1);
-                        screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
-                        // Passive upgrades (index 5+) - allocate like shop upgrades
-                        int passiveIndex = selectedStatItem - 5;
-                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Hearts (last item) - it's read-only
-                        if (passiveIndex < numPassives - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                    } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
+                        // All upgrades are now in PassiveUpgradeManager (index 1+)
+                        int upgradeIndex = selectedStatItem - 1;
+                        int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
+                        // Skip Extra Lives (last item) - it's read-only
+                        if (upgradeIndex < numUpgrades - 1) {
+                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                             if (upgrade.getActiveLevel() > 0) {
-                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() - 1);
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
                                 screenShakeIntensity = 2;
                             }
                         }
@@ -635,20 +634,16 @@ public class Game extends JPanel implements Runnable {
                         // Active item selection (now at index 0)
                         gameData.equipNextItem();
                         screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 1 && selectedStatItem <= 4) {
-                        // Shop upgrades (indices 1-4)
-                        gameData.adjustUpgrade(selectedStatItem - 1, 1);
-                        screenShakeIntensity = 2;
-                    } else if (selectedStatItem >= 5 && passiveUpgradeManager != null) {
-                        // Passive upgrades (index 5+) - allocate like shop upgrades
-                        int passiveIndex = selectedStatItem - 5;
-                        int numPassives = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Hearts (last item) - it's read-only
-                        if (passiveIndex < numPassives - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(passiveIndex);
+                    } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
+                        // All upgrades are now in PassiveUpgradeManager (index 1+)
+                        int upgradeIndex = selectedStatItem - 1;
+                        int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
+                        // Skip Extra Lives (last item) - it's read-only
+                        if (upgradeIndex < numUpgrades - 1) {
+                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                             // Only allow increasing up to purchased level (not maxLevel)
                             if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                passiveUpgradeManager.getAllUpgrades().get(passiveIndex).setActiveLevel(upgrade.getActiveLevel() + 1);
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
                                 screenShakeIntensity = 2;
                             }
                         }
@@ -904,7 +899,12 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    transitionToState(GameState.LEVEL_SELECT); 
+                    // Go back to where we came from: menu if from menu, level select if from gameplay
+                    if (shopEnteredFrom == GameState.MENU) {
+                        transitionToState(GameState.MENU);
+                    } else {
+                        transitionToState(GameState.LEVEL_SELECT);
+                    }
                     screenShakeIntensity = 3; 
                 }
                 break;
@@ -1031,6 +1031,7 @@ public class Game extends JPanel implements Runnable {
                     System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
                     
                     gameData.setCurrentLevel(currentLevel + 1);
+                    shopEnteredFrom = GameState.PLAYING; // Came from beating a boss
                     gameState = GameState.SHOP;
                 }
                 break;
@@ -1706,12 +1707,13 @@ public class Game extends JPanel implements Runnable {
     private void activateMenuItem(int index) {
         soundManager.playSound(SoundManager.Sound.MENU_OPEN);
         screenShakeIntensity = 5;
+        // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings
         switch (index) {
             case 0: gameState = GameState.LEVEL_SELECT; break;
-            case 1: gameState = GameState.INFO; break;
+            case 1: shopEnteredFrom = GameState.MENU; gameState = GameState.SHOP; break;
             case 2: gameState = GameState.STATS; break;
-            case 3: gameState = GameState.SHOP; break;
-            case 4: gameState = GameState.ACHIEVEMENTS; break;
+            case 3: gameState = GameState.ACHIEVEMENTS; break;
+            case 4: gameState = GameState.INFO; break;
             case 5: gameState = GameState.SETTINGS; break;
         }
     }
@@ -1921,7 +1923,8 @@ public class Game extends JPanel implements Runnable {
 
     private void startGame() {
         gameState = GameState.PLAYING;
-        player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
+        int speedLevel = getActiveSpeedLevel();
+        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
@@ -3249,7 +3252,8 @@ public class Game extends JPanel implements Runnable {
             if (respawnDelayTimer <= 0) {
                 // Respawn player at bottom with shield
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
-                player = new Player(WIDTH / 2, HEIGHT - 200, gameData.getActiveSpeedLevel());
+                int speedLevel = getActiveSpeedLevel();
+                player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
                 shieldActive = true;
                 shieldHits = 0; // Reset shield hit counter
                 playerInvincible = true;
@@ -3328,9 +3332,10 @@ public class Game extends JPanel implements Runnable {
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             
-            // Apply bullet slow upgrade (reduced to 0.1% per level)
-            if (gameData.getActiveBulletSlowLevel() > 0) {
-                bullet.applySlow(0.999 - (gameData.getActiveBulletSlowLevel() * 0.0001));
+            // Apply bullet slow upgrade (from PassiveUpgradeManager)
+            int bulletSlowLevel = getActiveBulletSlowLevel();
+            if (bulletSlowLevel > 0) {
+                bullet.applySlow(0.999 - (bulletSlowLevel * 0.0001));
             }
             
             // Apply time slow from active item
@@ -3463,10 +3468,10 @@ public class Game extends JPanel implements Runnable {
                         continue;
                     }
                     
-                    // Lucky Dodge chance - phase through bullets
-                    int luckyDodgeLevel = gameData.getActiveLuckyDodgeLevel();
+                    // Lucky Dodge chance - phase through bullets (from PassiveUpgradeManager)
+                    int luckyDodgeLevel = getActiveLuckyDodgeLevel();
                     if (luckyDodgeLevel > 0) {
-                        double dodgeChance = Math.min(luckyDodgeLevel * 0.03, 0.35); // 3% per level, capped at 35%
+                        double dodgeChance = Math.min(luckyDodgeLevel * 0.03, 0.36); // 3% per level, capped at 36%
                         if (Math.random() < dodgeChance) {
                             soundManager.playSound(SoundManager.Sound.DODGE, 1.0f + (dodgeCombo * 0.1f));
                             
@@ -4806,5 +4811,36 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(180, 180, 180, (int)(200 * hintPulse * hintAlpha)));
             g.drawString(hintText, hintX, hintY);
         }
+    }
+    
+    // Helper methods to get active upgrade levels from PassiveUpgradeManager
+    private int getActiveSpeedLevel() {
+        if (passiveUpgradeManager != null) {
+            PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("speed");
+            if (upgrade != null) {
+                return upgrade.getActiveLevel();
+            }
+        }
+        return 0;
+    }
+    
+    private int getActiveBulletSlowLevel() {
+        if (passiveUpgradeManager != null) {
+            PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("bullet_slow");
+            if (upgrade != null) {
+                return upgrade.getActiveLevel();
+            }
+        }
+        return 0;
+    }
+    
+    private int getActiveLuckyDodgeLevel() {
+        if (passiveUpgradeManager != null) {
+            PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("lucky_dodge");
+            if (upgrade != null) {
+                return upgrade.getActiveLevel();
+            }
+        }
+        return 0;
     }
 }
