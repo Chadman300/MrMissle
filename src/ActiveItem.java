@@ -1,4 +1,42 @@
+/**
+ * Represents an active item that the player can unlock and equip.
+ * Active items provide special abilities with cooldowns.
+ * 
+ * AI CONTEXT:
+ * - Items are unlocked by defeating bosses (level-based progression)
+ * - Only ONE item can be equipped at a time
+ * - Items have cooldowns measured in frames (60 FPS)
+ * - Some items are instant, others have duration
+ * - Lucky Charm is passive (always active, no activation needed)
+ * 
+ * UNLOCK PROGRESSION:
+ * - Level 3: Lucky Charm (+50% money/score)
+ * - Level 6: Shield (tank hits)
+ * - Level 9: Magnet (pull bullets)
+ * - Level 12: Shockwave (push bullets)
+ * - Level 15: Dash (invincibility frames)
+ * - Level 18: Bomb (clear screen)
+ * - Level 21: Time Slow (slow bullets)
+ * - Level 24: Laser Beam (damage boss)
+ * - Level 27: Invincibility (god mode)
+ * 
+ * BALANCING:
+ * - To change cooldowns: modify cooldownFrames in constructor
+ * - To change durations: modify activeDuration in constructor
+ * - To change unlock levels: see Game.java → checkItemUnlocks()
+ * 
+ * USAGE IN GAME:
+ * 1. Player equips item from unlocked list
+ * 2. Player presses E to activate (if ready)
+ * 3. Item goes on cooldown
+ * 4. Cooldown ticks down each frame
+ * 5. When cooldown reaches 0, item is ready again
+ */
 public class ActiveItem {
+    /**
+     * All available active item types.
+     * Ordered by power level (unlock progression).
+     */
     public enum ItemType {
         // Ordered by power level (weakest to strongest)
         LUCKY_CHARM,    // +50% money and score earned (passive) - Level 3

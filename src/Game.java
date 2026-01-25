@@ -1,5 +1,6 @@
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,14 +33,19 @@ public class Game extends JPanel implements Runnable {
     private Cursor defaultCursor; // Normal cursor for menus
     private double levelSelectScroll; // Target scroll position for level select
     private double levelSelectScrollAnimated; // Animated (smooth) scroll position
+    private boolean planeTakeoffAnimation; // True when plane is flying up
+    private int planeTakeoffTimer; // Animation timer
+    private static final int PLANE_TAKEOFF_DURATION = 60; // 1 second
     private double shopScroll; // Target scroll position for shop
     private double shopScrollAnimated; // Animated (smooth) scroll position
     private double statsScroll; // Target scroll position for stats screen
     private double statsScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
+    private int scrollCooldown; // Cooldown timer to prevent mouse selection while scrolling
     private double achievementsScroll; // Target scroll position for achievements
     private double achievementsScrollAnimated; // Animated (smooth) scroll position
     private GameState shopEnteredFrom; // Track where player came from when entering shop
+    private GameState settingsEnteredFrom; // Track where settings was accessed from (MENU or PLAYING when paused)
     
     // Core systems
     private GameData gameData;
@@ -319,6 +325,11 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableHitboxes = false; // Debug: show hitboxes for all objects
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
+    public static double cameraZoom = 1.0; // 0.75 to 1.5 - zoom level during gameplay
+    public static int resolutionPreset = 3; // 0=1280x720, 1=1366x768, 2=1600x900, 3=1920x1080, 4=2560x1440, 5=3840x2160
+    public static boolean enableVSync = true; // VSync enabled/disabled
+    public static int fpsLimit = 1; // 0=30 FPS, 1=60 FPS, 2=120 FPS, 3=144 FPS, 4=Unlimited
+    public static boolean enableAntiAliasing = true; // Anti-aliasing enabled/disabled
     
     // Sound Manager
     private SoundManager soundManager;
@@ -377,7 +388,7 @@ public class Game extends JPanel implements Runnable {
         selectedStatItem = 0;
         selectedMenuItem = 0;
         settingsScroll = 0;
-        selectedSettingsItem = 0;
+        selectedSettingsItem = -1; // Start with tabs selected
         selectedSettingsCategory = 0;
         gradientTime = 0;
         itemUnlockAnimation = false;
@@ -412,6 +423,8 @@ public class Game extends JPanel implements Runnable {
         // Initialize scroll positions (ensure level select starts at level 1)
         levelSelectScroll = 1;
         levelSelectScrollAnimated = 1;
+        planeTakeoffAnimation = false;
+        planeTakeoffTimer = 0;
         shopScroll = 0;
         shopScrollAnimated = 0;
         statsScroll = 0;
@@ -654,43 +667,118 @@ public class Game extends JPanel implements Runnable {
                 
             case SETTINGS:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
-                    selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); 
-                    ensureSettingsItemVisible();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1; 
+                    if (selectedSettingsItem == 0) {
+                        // Move from first item to tabs
+                        selectedSettingsItem = -1;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (selectedSettingsItem > 0) {
+                        selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); 
+                        ensureSettingsItemVisible();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
                 }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) { 
-                    int maxItems = getMaxSettingsItems();
-                    selectedSettingsItem = Math.min(maxItems, selectedSettingsItem + 1);
-                    ensureSettingsItemVisible();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1; 
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    if (selectedSettingsItem == -1) {
+                        // Move from tabs to first item
+                        selectedSettingsItem = 0;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else {
+                        int maxItems = getMaxSettingsItems();
+                        selectedSettingsItem = Math.min(maxItems, selectedSettingsItem + 1);
+                        ensureSettingsItemVisible();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
                 }
-                else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                    adjustSetting(selectedSettingsItem, -1);
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 2;
+                else if (key == KeyEvent.VK_LEFT) {
+                    if (selectedSettingsItem == -1) {
+                        // Tabs selected - switch to previous tab
+                        selectedSettingsCategory = (selectedSettingsCategory + 3) % 4;
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        screenShakeIntensity = 2;
+                    } else {
+                        // Try to adjust setting
+                        if (adjustSetting(selectedSettingsItem, -1)) {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 2;
+                        }
+                    }
                 }
-                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    adjustSetting(selectedSettingsItem, 1);
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 2;
+                else if (key == KeyEvent.VK_RIGHT) {
+                    if (selectedSettingsItem == -1) {
+                        // Tabs selected - switch to next tab
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        screenShakeIntensity = 2;
+                    } else {
+                        // Try to adjust setting
+                        if (adjustSetting(selectedSettingsItem, 1)) {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 2;
+                        }
+                    }
                 }
-                else if (key == KeyEvent.VK_SPACE) { 
-                    toggleSetting(selectedSettingsItem);
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 3; 
+                else if (key == KeyEvent.VK_A) {
+                    if (selectedSettingsItem == -1) {
+                        // Tabs selected - switch to previous tab
+                        selectedSettingsCategory = (selectedSettingsCategory + 3) % 4;
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        screenShakeIntensity = 2;
+                    } else {
+                        // Try to adjust setting
+                        if (adjustSetting(selectedSettingsItem, -1)) {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 2;
+                        }
+                    }
+                }
+                else if (key == KeyEvent.VK_D) {
+                    if (selectedSettingsItem == -1) {
+                        // Tabs selected - switch to next tab
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        screenShakeIntensity = 2;
+                    } else {
+                        // Try to adjust setting
+                        if (adjustSetting(selectedSettingsItem, 1)) {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 2;
+                        }
+                    }
+                }
+                else if (key == KeyEvent.VK_SPACE) {
+                    if (selectedSettingsItem >= 0) {
+                        toggleSetting(selectedSettingsItem);
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 3;
+                    }
                 }
                 else if (key == KeyEvent.VK_TAB) {
-                    // Switch category
+                    // Switch category and move to tabs
                     selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
-                    selectedSettingsItem = 0;
+                    selectedSettingsItem = -1;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                     screenShakeIntensity = 2;
                 }
+                else if (key == KeyEvent.VK_R) {
+                    // Reset settings to defaults
+                    resetSettingsToDefaults();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 5;
+                }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    transitionToState(GameState.MENU); 
+                    // Return to where we came from (pause menu or main menu)
+                    if (settingsEnteredFrom == GameState.PLAYING) {
+                        // Came from pause menu - return to paused game
+                        isPaused = true;
+                        gameState = GameState.PLAYING;
+                    } else {
+                        transitionToState(GameState.MENU);
+                    }
                     screenShakeIntensity = 3; 
                 }
                 else if (key == KeyEvent.VK_F11) {
@@ -728,7 +816,7 @@ public class Game extends JPanel implements Runnable {
                     selectedConfirmItem = 1 - selectedConfirmItem; // Toggle between 0 and 1
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
-                } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                } else if ((key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) && !planeTakeoffAnimation) {
                     confirmLevelStart();
                     screenShakeIntensity = 3;
                 } else if (key == KeyEvent.VK_ESCAPE) {
@@ -793,7 +881,7 @@ public class Game extends JPanel implements Runnable {
                         selectedPauseItem = Math.max(0, selectedPauseItem - 1);
                         screenShakeIntensity = 1;
                     } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                        selectedPauseItem = Math.min(2, selectedPauseItem + 1);
+                        selectedPauseItem = Math.min(3, selectedPauseItem + 1);
                         screenShakeIntensity = 1;
                     } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                         screenShakeIntensity = 3;
@@ -1117,6 +1205,12 @@ public class Game extends JPanel implements Runnable {
     
     private void ensureSettingsItemVisible() {
         // Auto-scroll to keep selected setting visible
+        if (selectedSettingsItem < 0) {
+            // Tabs selected - scroll to top
+            settingsScroll = 0;
+            return;
+        }
+        
         int itemY = 200 + selectedSettingsItem * 150 - (int)settingsScroll;
         
         // If item is above visible area, scroll up
@@ -1166,29 +1260,10 @@ public class Game extends JPanel implements Runnable {
     
     private void confirmLevelStart() {
         if (selectedConfirmItem == 0) {
-            // Yes - either resume or start new level
+            // Yes - start plane takeoff animation
             soundManager.playSound(SoundManager.Sound.LEVEL_START);
-            
-            if (isConfirmingResume) {
-                // Resume saved game
-                restoreGameState();
-            } else {
-                // Start new level
-                gameData.setCurrentLevel(selectedLevelToStart);
-                
-                // Clear any saved game state since starting a new level
-                hasSavedGame = false;
-                
-                if (gameData.areContractsUnlocked()) {
-                    selectedRiskContract = 0;
-                    transitionToState(GameState.RISK_CONTRACT);
-                } else {
-                    riskContractType = 0;
-                    riskContractActive = false;
-                    riskContractMultiplier = 1.0;
-                    startGame();
-                }
-            }
+            planeTakeoffAnimation = true;
+            planeTakeoffTimer = 0;
         } else {
             // No - go back to level select
             soundManager.playSound(SoundManager.Sound.UI_SELECT);
@@ -1223,6 +1298,9 @@ public class Game extends JPanel implements Runnable {
         // Only handle mouse in menu states
         if (renderer == null) return; // Guard against null renderer
         
+        // Don't allow mouse selection during scroll cooldown
+        if (scrollCooldown > 0) return;
+        
         if (gameState == GameState.MENU) {
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
@@ -1236,29 +1314,55 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if hovering over category tabs
-            String[] categories = {"GRAPHICS", "AUDIO", "DEBUG"};
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
             int tabWidth = 200;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
             
+            boolean hoveringTab = false;
             for (int i = 0; i < categories.length; i++) {
                 int tabX = tabStartX + i * tabWidth;
                 if (mouseX >= tabX && mouseX <= tabX + tabWidth - 10 &&
                     mouseY >= tabY && mouseY <= tabY + 40) {
-                    // Hovering over tab - we'll handle click separately
+                    // Hovering over tabs - select tabs (-1)
+                    if (selectedSettingsItem != -1) {
+                        selectedSettingsItem = -1;
+                        screenShakeIntensity = 1;
+                    }
+                    hoveringTab = true;
                     break;
                 }
             }
             
             // Check if hovering over settings items
-            UIButton[] buttons = renderer.getSettingsButtons();
-            for (int i = 0; i < buttons.length; i++) {
-                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
-                    if (selectedSettingsItem != i) {
-                        selectedSettingsItem = i;
-                        screenShakeIntensity = 1;
+            if (!hoveringTab) {
+                // Calculate item positions based on current category
+                int maxItems = getMaxSettingsItems();
+                int boxX = (WIDTH - 700) / 2;
+                int boxWidth = 700;
+                int itemHeight = 120;
+                int startY = 240 - (int)settingsScroll;
+                
+                boolean foundHover = false;
+                for (int i = 0; i <= maxItems; i++) {
+                    int boxY = startY + i * itemHeight - 20;
+                    int boxHeight = 70;
+                    
+                    // Skip if outside visible area (200 to HEIGHT - 60)
+                    if (boxY + boxHeight < 200 || boxY > HEIGHT - 90) {
+                        continue;
                     }
-                    break;
+                    
+                    // Check if mouse is over this item
+                    if (mouseX >= boxX && mouseX <= boxX + boxWidth &&
+                        mouseY >= boxY && mouseY <= boxY + boxHeight) {
+                        if (selectedSettingsItem != i) {
+                            selectedSettingsItem = i;
+                            screenShakeIntensity = 1;
+                        }
+                        foundHover = true;
+                        break;
+                    }
                 }
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
@@ -1406,7 +1510,7 @@ public class Game extends JPanel implements Runnable {
                     mouseY >= tabY && mouseY <= tabY + 40) {
                     if (selectedSettingsCategory != i) {
                         selectedSettingsCategory = i;
-                        selectedSettingsItem = 0;
+                        selectedSettingsItem = -1; // Select tabs when switching
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     }
@@ -1688,15 +1792,15 @@ public class Game extends JPanel implements Runnable {
             case SETTINGS:
                 int maxSettingsItems = getMaxSettingsItems();
                 if (rotation > 0) {
-                    // Scroll down - select next item
-                    selectedSettingsItem = Math.min(maxSettingsItems, selectedSettingsItem + 1);
-                    ensureSettingsItemVisible();
+                    // Scroll down - scroll by 3 items for faster scrolling
+                    settingsScroll += 360; // 120px per item * 3
+                    scrollCooldown = 20; // 1/3 second cooldown
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 } else if (rotation < 0) {
-                    // Scroll up - select previous item
-                    selectedSettingsItem = Math.max(0, selectedSettingsItem - 1);
-                    ensureSettingsItemVisible();
+                    // Scroll up - scroll by 3 items for faster scrolling
+                    settingsScroll = Math.max(0, settingsScroll - 360);
+                    scrollCooldown = 20; // 1/3 second cooldown
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 }
@@ -1714,7 +1818,7 @@ public class Game extends JPanel implements Runnable {
             case 2: gameState = GameState.STATS; break;
             case 3: gameState = GameState.ACHIEVEMENTS; break;
             case 4: gameState = GameState.INFO; break;
-            case 5: gameState = GameState.SETTINGS; break;
+            case 5: settingsEnteredFrom = GameState.MENU; gameState = GameState.SETTINGS; break;
         }
     }
     
@@ -1730,12 +1834,17 @@ public class Game extends JPanel implements Runnable {
                     System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
                 }
                 break;
-            case 1: // Restart
+            case 1: // Settings
+                soundManager.playSound(SoundManager.Sound.MENU_OPEN);
+                settingsEnteredFrom = GameState.PLAYING; // Track that we came from pause menu
+                gameState = GameState.SETTINGS;
+                break;
+            case 2: // Restart
                 isPaused = false;
                 hasSavedGame = false; // Clear saved game when restarting
                 startGame();
                 break;
-            case 2: // Main Menu
+            case 3: // Main Menu
                 System.out.println("DEBUG: Going to main menu from pause - saving game state");
                 isPaused = false;
                 saveGameState(); // Save the game state before going to menu
@@ -2022,11 +2131,20 @@ public class Game extends JPanel implements Runnable {
     @Override
     public void run() {
         long lastTime = System.nanoTime();
-        double nsPerTick = 1000000000.0 / FPS;
+        double targetFPS = getTargetFPS();
+        double nsPerTick = 1000000000.0 / targetFPS;
         double delta = 0;
         
         while (running) {
             long now = System.nanoTime();
+            
+            // Update target FPS if it changed
+            double newTargetFPS = getTargetFPS();
+            if (newTargetFPS != targetFPS) {
+                targetFPS = newTargetFPS;
+                nsPerTick = 1000000000.0 / targetFPS;
+            }
+            
             delta += (now - lastTime) / nsPerTick;
             lastTime = now;
             
@@ -2039,6 +2157,11 @@ public class Game extends JPanel implements Runnable {
                 if (escapeTimer > 0) {
                     escapeTimer -= deltaTime;
                     if (escapeTimer < 0) escapeTimer = 0;
+                }
+                
+                // Update scroll cooldown
+                if (scrollCooldown > 0) {
+                    scrollCooldown--;
                 }
                 
                 // Update game timer (only during gameplay)
@@ -2061,10 +2184,23 @@ public class Game extends JPanel implements Runnable {
             repaint();
             
             try {
-                Thread.sleep(1);
+                // Sleep time based on target FPS
+                long sleepTime = fpsLimit == 4 ? 1 : Math.max(1, (long)(1000.0 / targetFPS / 2));
+                Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+    }
+    
+    private double getTargetFPS() {
+        switch (fpsLimit) {
+            case 0: return 30;
+            case 1: return 60;
+            case 2: return 120;
+            case 3: return 144;
+            case 4: return 1000; // Unlimited (cap at 1000 for safety)
+            default: return 60;
         }
     }
     
@@ -2196,11 +2332,42 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Smooth scroll animation for level select carousel
-        if (gameState == GameState.LEVEL_SELECT) {
+        if (gameState == GameState.LEVEL_SELECT || gameState == GameState.LEVEL_CONFIRM) {
             double scrollDiff = levelSelectScroll - levelSelectScrollAnimated;
             levelSelectScrollAnimated += scrollDiff * 0.15; // Smooth interpolation
             if (Math.abs(scrollDiff) < 0.01) {
                 levelSelectScrollAnimated = levelSelectScroll;
+            }
+            
+            // Handle plane takeoff animation
+            if (planeTakeoffAnimation) {
+                planeTakeoffTimer++;
+                if (planeTakeoffTimer >= PLANE_TAKEOFF_DURATION) {
+                    // Animation complete - now actually start the level
+                    planeTakeoffAnimation = false;
+                    planeTakeoffTimer = 0;
+                    
+                    if (isConfirmingResume) {
+                        // Resume saved game
+                        restoreGameState();
+                    } else {
+                        // Start new level
+                        gameData.setCurrentLevel(selectedLevelToStart);
+                        
+                        // Clear any saved game state since starting a new level
+                        hasSavedGame = false;
+                        
+                        if (gameData.areContractsUnlocked()) {
+                            selectedRiskContract = 0;
+                            transitionToState(GameState.RISK_CONTRACT);
+                        } else {
+                            riskContractType = 0;
+                            riskContractActive = false;
+                            riskContractMultiplier = 1.0;
+                            startGame();
+                        }
+                    }
+                }
             }
         }
         
@@ -2600,12 +2767,15 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 // Smoothly interpolate camera position (slower than before)
-                cameraX += (targetCameraX - cameraX) * CAMERA_SMOOTHING;
-                cameraY += (targetCameraY - cameraY) * CAMERA_SMOOTHING;
+                // Scale camera movement inversely with zoom - more zoom = less camera movement
+                double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom;
+                cameraX += (targetCameraX - cameraX) * zoomAdjustedSmoothing;
+                cameraY += (targetCameraY - cameraY) * zoomAdjustedSmoothing;
                 
-                // Clamp camera to max offset from center
-                cameraX = Math.max(-CAMERA_MAX_OFFSET, Math.min(CAMERA_MAX_OFFSET, cameraX));
-                cameraY = Math.max(-CAMERA_MAX_OFFSET, Math.min(CAMERA_MAX_OFFSET, cameraY));
+                // Clamp camera to max offset from center (also scaled by zoom)
+                double zoomAdjustedMaxOffset = CAMERA_MAX_OFFSET / cameraZoom;
+                cameraX = Math.max(-zoomAdjustedMaxOffset, Math.min(zoomAdjustedMaxOffset, cameraX));
+                cameraY = Math.max(-zoomAdjustedMaxOffset, Math.min(zoomAdjustedMaxOffset, cameraY));
             }
             
             // Update boss intro cinematic
@@ -3800,12 +3970,21 @@ public class Game extends JPanel implements Runnable {
         g2d.translate(offsetX, offsetY);
         g2d.scale(scale, scale);
         
-        // Use faster rendering during intense gameplay, better quality for menus
-        if (gameState == GameState.PLAYING && bullets.size() > 100) {
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
-            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+        // Apply rendering hints based on settings
+        if (enableAntiAliasing) {
+            // Use faster rendering during intense gameplay, better quality for menus
+            if (gameState == GameState.PLAYING && bullets.size() > 100) {
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+            } else {
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            }
         } else {
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
         }
         
         // Draw previous state if transitioning
@@ -3850,19 +4029,27 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
                 break;
             case LEVEL_SELECT:
-                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScrollAnimated, hasSavedGame, savedLevel);
+                renderer.drawLevelSelect(g2d, WIDTH, HEIGHT, gameData.getCurrentLevel(), gameData.getMaxUnlockedLevel(), gradientTime, levelSelectScrollAnimated, hasSavedGame, savedLevel, planeTakeoffAnimation, planeTakeoffTimer);
                 break;
             case LEVEL_CONFIRM:
-                renderer.drawLevelConfirm(g2d, WIDTH, HEIGHT, selectedLevelToStart, selectedConfirmItem, isConfirmingResume, gradientTime);
+                renderer.drawLevelConfirm(g2d, WIDTH, HEIGHT, selectedLevelToStart, selectedConfirmItem, isConfirmingResume, gradientTime, planeTakeoffAnimation, planeTakeoffTimer, levelSelectScrollAnimated, hasSavedGame, savedLevel);
                 break;
             case RISK_CONTRACT:
                 renderer.drawRiskContract(g2d, WIDTH, HEIGHT, selectedRiskContract, RISK_CONTRACT_NAMES, RISK_CONTRACT_DESCRIPTIONS, RISK_CONTRACT_MULTIPLIERS, gradientTime, gameData.getCurrentLevel());
                 break;
             case PLAYING:
+                // Apply camera zoom
+                AffineTransform originalTransform = g2d.getTransform();
+                g2d.translate(WIDTH / 2, HEIGHT / 2);
+                g2d.scale(cameraZoom, cameraZoom);
+                g2d.translate(-WIDTH / 2, -HEIGHT / 2);
+                
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
                 renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer);
-                g2d.translate(-screenShakeX, -screenShakeY);
+                
+                // Restore original transform (removes both shake and zoom)
+                g2d.setTransform(originalTransform);
                 break;
             case LOADING:
                 // Draw loading screen directly (renderer not yet created)
@@ -3990,17 +4177,22 @@ public class Game extends JPanel implements Runnable {
         if (selectedSettingsCategory == 0) {
             // Graphics settings
             switch (settingIndex) {
-                case 0: backgroundMode = (backgroundMode + 1) % 3; break;
-                case 1: enableGradientAnimation = !enableGradientAnimation; break;
-                case 2: gradientQuality = (gradientQuality + 1) % 3; break;
-                case 3: enableGrainEffect = !enableGrainEffect; break;
-                case 4: enableParticles = !enableParticles; break;
-                case 5: enableShadows = !enableShadows; break;
-                case 6: enableBloom = !enableBloom; break;
-                case 7: enableMotionBlur = !enableMotionBlur; break;
-                case 8: enableChromaticAberration = !enableChromaticAberration; break;
-                case 9: enableVignette = !enableVignette; break;
-                case 10: toggleFullscreen(); break;
+                case 0: resolutionPreset = (resolutionPreset + 1) % 6; break;
+                case 1: enableVSync = !enableVSync; break;
+                case 2: fpsLimit = (fpsLimit + 1) % 5; updateFPSLimit(); break;
+                case 3: enableAntiAliasing = !enableAntiAliasing; break;
+                case 4: backgroundMode = (backgroundMode + 1) % 3; break;
+                case 5: enableGradientAnimation = !enableGradientAnimation; break;
+                case 6: gradientQuality = (gradientQuality + 1) % 3; break;
+                case 7: enableGrainEffect = !enableGrainEffect; break;
+                case 8: enableParticles = !enableParticles; break;
+                case 9: enableShadows = !enableShadows; break;
+                case 10: enableBloom = !enableBloom; break;
+                case 11: enableMotionBlur = !enableMotionBlur; break;
+                case 12: enableChromaticAberration = !enableChromaticAberration; break;
+                case 13: enableVignette = !enableVignette; break;
+                case 14: /* Camera Zoom - handled by adjustSetting */ break;
+                case 15: toggleFullscreen(); break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -4022,40 +4214,154 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
-    private void adjustSetting(int settingIndex, int direction) {
-        // Only audio sliders respond to left/right
-        if (selectedSettingsCategory == 1) {
+    private boolean adjustSetting(int settingIndex, int direction) {
+        // Graphics sliders for zoom
+        if (selectedSettingsCategory == 0) {
+            if (settingIndex == 0) { // Resolution Preset
+                resolutionPreset = Math.max(0, Math.min(5, resolutionPreset + direction));
+                return true;
+            } else if (settingIndex == 1) { // VSync (toggle)
+                enableVSync = !enableVSync;
+                return true;
+            } else if (settingIndex == 2) { // FPS Limit
+                fpsLimit = Math.max(0, Math.min(4, fpsLimit + direction));
+                updateFPSLimit();
+                return true;
+            } else if (settingIndex == 3) { // Anti-Aliasing (toggle)
+                enableAntiAliasing = !enableAntiAliasing;
+                return true;
+            } else if (settingIndex == 4) { // Background Mode
+                backgroundMode = (backgroundMode + direction + 3) % 3;
+                return true;
+            } else if (settingIndex == 5) { // Gradient Animation (toggle)
+                enableGradientAnimation = !enableGradientAnimation;
+                return true;
+            } else if (settingIndex == 6) { // Gradient Quality
+                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
+                return true;
+            } else if (settingIndex == 7) { // Grain Effect (toggle)
+                enableGrainEffect = !enableGrainEffect;
+                return true;
+            } else if (settingIndex == 8) { // Particle Effects (toggle)
+                enableParticles = !enableParticles;
+                return true;
+            } else if (settingIndex == 9) { // Shadows (toggle)
+                enableShadows = !enableShadows;
+                return true;
+            } else if (settingIndex == 10) { // Bloom (toggle)
+                enableBloom = !enableBloom;
+                return true;
+            } else if (settingIndex == 11) { // Motion Blur (toggle)
+                enableMotionBlur = !enableMotionBlur;
+                return true;
+            } else if (settingIndex == 12) { // Chromatic Aberration (toggle)
+                enableChromaticAberration = !enableChromaticAberration;
+                return true;
+            } else if (settingIndex == 13) { // Vignette (toggle)
+                enableVignette = !enableVignette;
+                return true;
+            } else if (settingIndex == 14) { // Camera Zoom
+                double step = 0.05 * direction;
+                cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
+                return true;
+            } else if (settingIndex == 15) { // Fullscreen (toggle)
+                toggleFullscreen();
+                return true;
+            }
+        }
+        // Audio sliders
+        else if (selectedSettingsCategory == 1) {
+            if (settingIndex == 0) { // Sound Enabled (toggle)
+                gameData.setSoundEnabled(!gameData.isSoundEnabled());
+                soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                return true;
+            }
             float step = 0.05f * direction;
             switch (settingIndex) {
                 case 1: // Master Volume
                     gameData.setMasterVolume(gameData.getMasterVolume() + step);
                     soundManager.setMasterVolume(gameData.getMasterVolume());
-                    break;
+                    return true;
                 case 2: // SFX Volume
                     gameData.setSfxVolume(gameData.getSfxVolume() + step);
                     soundManager.setSfxVolume(gameData.getSfxVolume());
-                    break;
+                    return true;
                 case 3: // UI Volume
                     gameData.setUiVolume(gameData.getUiVolume() + step);
                     soundManager.setUiVolume(gameData.getUiVolume());
-                    break;
+                    return true;
                 case 4: // Music Volume
                     gameData.setMusicVolume(gameData.getMusicVolume() + step);
                     soundManager.setMusicVolume(gameData.getMusicVolume());
-                    break;
+                    return true;
             }
-        } else {
-            // Other categories toggle on left/right
-            toggleSetting(settingIndex);
+        } else if (selectedSettingsCategory == 2) {
+            // Gameplay settings
+            if (settingIndex == 0) { // Resume Countdown
+                int newMode = gameData.getCountdownMode() + direction;
+                if (newMode < 0) newMode = 2;
+                if (newMode > 2) newMode = 0;
+                gameData.setCountdownMode(newMode);
+                return true;
+            }
+        } else if (selectedSettingsCategory == 3) {
+            // Debug settings
+            if (settingIndex == 0) { // Show Hitboxes (toggle)
+                enableHitboxes = !enableHitboxes;
+                return true;
+            }
         }
+        // Setting not adjustable with left/right
+        return false;
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 10; // Graphics: 11 items (0-10)
+        if (selectedSettingsCategory == 0) return 15; // Graphics: 16 items (0-15)
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 0; // Debug: 1 item (0)
         return 0;
+    }
+    
+    private void resetSettingsToDefaults() {
+        // Reset all graphics settings to defaults
+        resolutionPreset = 3; // 1920x1080
+        enableVSync = true;
+        fpsLimit = 1; // 60 FPS
+        updateFPSLimit();
+        enableAntiAliasing = true;
+        backgroundMode = 0; // Gradient
+        enableGradientAnimation = true;
+        gradientQuality = 1; // Medium
+        enableGrainEffect = false;
+        enableParticles = true;
+        enableShadows = true;
+        enableBloom = true;
+        enableMotionBlur = false;
+        enableChromaticAberration = true;
+        enableVignette = true;
+        cameraZoom = 1.0;
+        // Don't reset fullscreen - that's a user preference
+        
+        // Reset all audio settings to defaults
+        gameData.setSoundEnabled(true);
+        soundManager.setSoundEnabled(true);
+        gameData.setMasterVolume(1.0f);
+        soundManager.setMasterVolume(1.0f);
+        gameData.setSfxVolume(1.0f);
+        soundManager.setSfxVolume(1.0f);
+        gameData.setUiVolume(1.0f);
+        soundManager.setUiVolume(1.0f);
+        gameData.setMusicVolume(1.0f);
+        soundManager.setMusicVolume(1.0f);
+        
+        // Reset gameplay settings to defaults
+        gameData.setCountdownMode(0); // None
+        
+        // Reset debug settings to defaults
+        enableHitboxes = false;
+        
+        System.out.println("All settings reset to defaults");
     }
     
     private void toggleFullscreen() {
@@ -4091,6 +4397,16 @@ public class Game extends JPanel implements Runnable {
             // Request focus back to game
             this.requestFocusInWindow();
         }
+    }
+    
+    private void updateFPSLimit() {
+        // This method is called when FPS limit changes
+        // The actual FPS limiting happens in the game loop
+        System.out.println("FPS limit updated to: " + 
+            (fpsLimit == 0 ? "30 FPS" : 
+             fpsLimit == 1 ? "60 FPS" : 
+             fpsLimit == 2 ? "120 FPS" : 
+             fpsLimit == 3 ? "144 FPS" : "Unlimited"));
     }
     
     private boolean hasNoUpgradesPurchased() {

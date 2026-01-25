@@ -380,30 +380,30 @@ public class GameData {
         if (level % 2 == 1) {
             // Odd levels: Fighter planes
             switch ((level - 1) / 2 % 10) {
-                case 0: return "MIG-15";
-                case 1: return "MIG-21";
-                case 2: return "MIG-29";
-                case 3: return "SU-27";
-                case 4: return "SU-57";
-                case 5: return "F-86 SABRE";
-                case 6: return "F-4 PHANTOM";
-                case 7: return "F-15 EAGLE";
-                case 8: return "F-22 RAPTOR";
-                default: return "F-35 LIGHTNING";
+                case 0: return "SKY VIPER";
+                case 1: return "CRIMSON PHANTOM";
+                case 2: return "STORM HAWK";
+                case 3: return "THUNDER FALCON";
+                case 4: return "NIGHT RAPTOR";
+                case 5: return "STEEL EAGLE";
+                case 6: return "DELTA STRIKER";
+                case 7: return "IRON PHOENIX";
+                case 8: return "LIGHTNING FURY";
+                default: return "SHADOW TALON";
             }
         } else {
             // Even levels: Helicopters
             switch ((level / 2 - 1) % 10) {
-                case 0: return "UH-1 HUEY";
-                case 1: return "AH-64 APACHE";
-                case 2: return "MI-24 HIND";
-                case 3: return "CH-47 CHINOOK";
-                case 4: return "MI-28 HAVOC";
-                case 5: return "AH-1 COBRA";
-                case 6: return "KA-52 ALLIGATOR";
-                case 7: return "UH-60 BLACK HAWK";
-                case 8: return "MI-26 HALO";
-                default: return "AH-64E GUARDIAN";
+                case 0: return "ROTOR BEAST";
+                case 1: return "BLADE HUNTER";
+                case 2: return "IRON HORNET";
+                case 3: return "SKY TITAN";
+                case 4: return "VENOM BLADE";
+                case 5: return "COBRA WING";
+                case 6: return "GATOR CHOPPER";
+                case 7: return "DARK EAGLE";
+                case 8: return "HALO DESTROYER";
+                default: return "GUARDIAN PRIME";
             }
         }
     }

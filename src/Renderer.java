@@ -1,4 +1,4 @@
-import java.awt.*;
+﻿import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
@@ -107,9 +107,9 @@ public class Renderer {
         }
         
         // Initialize pause buttons
-        pauseButtons = new UIButton[3];
-        String[] pauseLabels = {"Resume", "Restart", "Main Menu"};
-        for (int i = 0; i < 3; i++) {
+        pauseButtons = new UIButton[4];
+        String[] pauseLabels = {"Resume", "Settings", "Restart", "Main Menu"};
+        for (int i = 0; i < 4; i++) {
             pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, 300, 60, new Color(76, 86, 106), new Color(235, 203, 139));
         }
     }
@@ -595,10 +595,10 @@ public class Renderer {
         
         // Holographic title
         g.setFont(FONT_TITLE_MEDIUM);
-        String title = "GAME INFO";
+        String title = "GAME GUIDE";
         FontMetrics fm = g.getFontMetrics();
         int titleX = (width - fm.stringWidth(title)) / 2;
-        int titleY = 80;
+        int titleY = 60;
         
         // Shadow
         g.setColor(new Color(0, 0, 0, 100));
@@ -619,82 +619,155 @@ public class Renderer {
         g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         
-        // Game Rules section
-        g.setColor(new Color(143, 188, 187)); // Palette teal
-        g.setFont(FONT_LARGE);
-        g.drawString("CORE RULES:", 70, 120);
+        int leftX = 60;
+        int rightX = width / 2 + 40;
+        int columnWidth = width / 2 - 80;
+        
+        // LEFT COLUMN
+        int y = 105;
+        
+        // Core Mechanics section
+        g.setColor(new Color(143, 188, 187));
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("CORE MECHANICS", leftX, y);
+        y += 25;
         
         g.setColor(Color.WHITE);
-        g.setFont(FONT_INFO);
-        String[] rules = {
-            "Ã¢â‚¬Â¢ You have 1 HP - One hit = Game Over",
-            "Ã¢â‚¬Â¢ Boss has 1 HP - One hit during attack window = Victory",
-            "Ã¢â‚¬Â¢ Move with WASD or Arrow Keys",
-            "Ã¢â‚¬Â¢ Attack window opens periodically - look for the yellow ring!",
-            "Ã¢â‚¬Â¢ Beam attacks spawn at higher levels with WARNING indicators"
-        };
-        
-        int y = 155;
-        for (String line : rules) {
-            g.drawString(line, 90, y);
-            y += 30;
-        }
-        
-        // Boss types section
-        y += 20;
-        g.setColor(new Color(235, 203, 139)); // Palette yellow
-        g.setFont(new Font("Arial", Font.BOLD, 28));
-        g.drawString("BOSS TYPES:", 70, y);
-        y += 35;
-        
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-        String[] bossInfo = {
-            "Level 1-3: Triangle, Square, Pentagon - Basic patterns",
-            "Level 4-6: Hexagon, Heptagon, Octagon - Mixed attacks",
-            "Level 7-9: Nonagon, Decagon, 11-gon - Advanced patterns",
-            "Level 10+: 12+ sided polygons - All attack types + Beams",
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        String[] mechanics = {
+            "VULNERABILITY SYSTEM:",
+            "  â€¢ Boss invulnerable for 20 seconds",
+            "  â€¢ Watch for GOLDEN GLOW = Attack Window!",
+            "  â€¢ Window lasts 20 seconds (longer with upgrades)",
+            "  â€¢ Hit boss 3 times to win",
             "",
-            "Each boss gains 1 side per level with increasingly complex patterns!"
+            "GRAZE SYSTEM:",
+            "  â€¢ 25px from bullet = Graze (+score, +combo)",
+            "  â€¢ 15px = Close Call (bonus points)",
+            "  â€¢ 8px = Perfect Dodge (grants i-frames!)",
+            "  â€¢ Build combos: Chain dodges within 3s",
+            "",
+            "DEATH & RESPAWN:",
+            "  â€¢ One hit = death (unless Lucky Dodge procs)",
+            "  â€¢ Boss hit (non-fatal) = 1.5s respawn delay",
+            "  â€¢ Use extra lives for second chances",
+            "  â€¢ Lucky Dodge upgrade = revival chance"
         };
         
-        for (String line : bossInfo) {
-            g.drawString(line, 90, y);
-            y += 28;
+        for (String line : mechanics) {
+            g.drawString(line, leftX + 10, y);
+            y += 20;
         }
         
-        // Projectile types section
-        y += 20;
-        g.setColor(new Color(136, 192, 208)); // Palette cyan
-        g.setFont(new Font("Arial", Font.BOLD, 28));
-        g.drawString("PROJECTILE TYPES:", 70, y);
-        y += 35;
+        // Passive Upgrades section
+        y += 10;
+        g.setColor(new Color(235, 203, 139));
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("PASSIVE UPGRADES", leftX, y);
+        y += 25;
         
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-        String[] projectileInfo = {
-            "1. NORMAL - Standard red bullets",
-            "2. FAST - Orange bullets with higher speed",
-            "3. LARGE - Big blue bullets, easier to see",
-            "4. HOMING - Purple bullets that track you",
-            "5. BOUNCING - Green bullets that bounce off walls",
-            "6. SPIRAL - Pink bullets that rotate as they move",
-            "7. SPLITTING - Yellow bullets that split into 3",
-            "8. ACCELERATING - Cyan bullets that speed up",
-            "9. WAVE - Magenta bullets moving in wave patterns",
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        String[] upgrades = {
+            "SPEED BOOST (Max Lv 10):",
+            "  â€¢ +10% movement speed per level",
+            "  â€¢ Essential for dodging dense patterns",
             "",
-            "All special projectiles show 45-frame warning indicators!"
+            "BULLET SLOW (Max Lv 50):",
+            "  â€¢ Slows enemy bullets by 2% per level",
+            "  â€¢ More time to react and plan dodges",
+            "",
+            "LUCKY DODGE (Max Lv 12):",
+            "  â€¢ 8% chance per level to survive hits",
+            "  â€¢ Flicker effect on successful dodge",
+            "  â€¢ Stacks with extra lives",
+            "",
+            "ATTACK WINDOW (Max Lv 10):",
+            "  â€¢ +1 second vulnerability per level",
+            "  â€¢ Max: 30 seconds to hit boss",
+            "  â€¢ More forgiving timing"
         };
         
-        for (String line : projectileInfo) {
-            g.drawString(line, 90, y);
-            y += 28;
+        for (String line : upgrades) {
+            g.drawString(line, leftX + 10, y);
+            y += 20;
         }
         
-        // Controls hint
+        // RIGHT COLUMN
+        y = 105;
+        
+        // Active Items section
+        g.setColor(new Color(136, 192, 208));
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("ACTIVE ITEMS", rightX, y);
+        y += 25;
+        
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        String[] items = {
+            "LUCKY CHARM (Lv 3) - Passive",
+            "  +50% money & score always active",
+            "",
+            "SHIELD (Lv 6) - 7.5s cooldown",
+            "  Tank 3 hits, active for 1 second",
+            "",
+            "MAGNET (Lv 9) - 4s cooldown",
+            "  Pull dodged bullets for bonus score",
+            "",
+            "SHOCKWAVE (Lv 12) - 5s cooldown",
+            "  Push all bullets away instantly",
+            "",
+            "DASH (Lv 15) - 2s cooldown",
+            "  Quick dash with invincibility frames",
+            "",
+            "BOMB (Lv 18) - 12s cooldown",
+            "  Clear ALL bullets on screen",
+            "",
+            "TIME SLOW (Lv 21) - 15s cooldown",
+            "  Slow bullets for 3 seconds",
+            "",
+            "LASER BEAM (Lv 24) - 8s cooldown",
+            "  Fire beam to damage boss instantly",
+            "",
+            "INVINCIBILITY (Lv 27) - 20s cooldown",
+            "  Brief god mode, ignore all bullets"
+        };
+        
+        for (String line : items) {
+            g.drawString(line, rightX + 10, y);
+            y += 19;
+        }
+        
+        // Risk Contracts section
+        y += 10;
+        g.setColor(new Color(191, 97, 106));
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("RISK CONTRACTS", rightX, y);
+        y += 25;
+        
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        String[] contracts = {
+            "Unlock at Level 6 for bonus rewards:",
+            "",
+            "BULLET STORM - 2x bullets (2x money)",
+            "SPEED DEMON - 50% faster bullets (1.75x)",
+            "SHIELDLESS - No shield item (1.5x)",
+            "CAN'T STOP - Must keep moving (2.5x)",
+            "",
+            "Higher risk = Higher reward!"
+        };
+        
+        for (String line : contracts) {
+            g.drawString(line, rightX + 10, y);
+            y += 20;
+        }
+        
+        // Controls hint at bottom
         g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
-        g.drawString("Press ESC to return to menu | Press R to restart during gameplay | Press P to visit shop", 70, height - 50);
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.drawString("CONTROLS: WASD/Arrows = Move  |  E = Use Item  |  ESC = Pause  |  Mouse = Navigate Menus", width / 2 - 450, height - 30);
+        g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - 420, height - 10);
     }
     
     public void drawAchievements(Graphics2D g, int width, int height, double time, AchievementManager achievementManager, double scrollOffset) {
@@ -959,7 +1032,7 @@ public class Renderer {
                 // Switch indicator
                 g.setFont(new Font("Arial", Font.PLAIN, 14));
                 g.setColor(new Color(180, 180, 180));
-                g.drawString("Ã¢â€ Â Ã¢â€ â€™ to switch", itemX + 75, y + 70);
+                g.drawString("ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ to switch", itemX + 75, y + 70);
                 
                 // Unlock count
                 g.setFont(new Font("Arial", Font.BOLD, 16));
@@ -1153,7 +1226,7 @@ public class Renderer {
         }
     }
     
-    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel) {
+    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel, boolean planeTakeoffAnimation, int planeTakeoffTimer) {
         int selectedLevel = gameData.getSelectedLevelView();
         
         // Draw animated gradient background
@@ -1176,7 +1249,7 @@ public class Renderer {
         // Show "RESUME AVAILABLE" indicator if there's a saved game
         if (hasSavedGame && selectedLevel == savedLevel) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
-            String resumeText = "Ã¢Å¸Â² RESUME AVAILABLE";
+            String resumeText = "* RESUME AVAILABLE";
             float resumePulse = (float)(0.7 + 0.3 * Math.sin(time * 3));
             g.setColor(new Color(100, 255, 100, (int)(200 * resumePulse)));
             FontMetrics resumeFm = g.getFontMetrics();
@@ -1209,8 +1282,8 @@ public class Renderer {
             g.fillOval(dotX - dotSize / 2, dotY - dotSize / 2, dotSize, dotSize);
         }
         
-        // Center Y for the level carousel
-        int centerY = height / 2 - 40;
+        // Center Y for the level carousel - moved to lower third for plane sprite visibility
+        int centerY = (int)(height * 0.67); // Lower third of screen
         int centerX = width / 2;
         
         // Draw the horizontal path line behind the nodes
@@ -1224,14 +1297,14 @@ public class Renderer {
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("Ã¢â€”â€ž", 15, centerY + 18);
+            g.drawString("<", 15, centerY + 18);
         }
         if (selectedLevel < 28) {
             // Right arrow
             g.setFont(new Font("Arial", Font.BOLD, 50));
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
-            g.drawString("Ã¢â€“Âº", width - 55, centerY + 18);
+            g.drawString(">", width - 55, centerY + 18);
         }
         
         // Smooth carousel: use scrollOffset to position all levels
@@ -1326,6 +1399,113 @@ public class Renderer {
                 g.setStroke(new BasicStroke(2));
             }
             g.drawOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
+            
+            // Draw plane sprite above the node (rotated tip up with cool effects)
+            try {
+                BufferedImage planeSprite = Boss.getSpriteForLevel(level);
+                if (planeSprite != null) {
+                    int spriteWidth = (int)(planeSprite.getWidth() * 0.4 * scale);
+                    int spriteHeight = (int)(planeSprite.getHeight() * 0.4 * scale);
+                    int spriteX = x;
+                    
+                    // Move sprite higher up and add bounce animation for selected
+                    float bounceOffset = 0;
+                    if (isSelected && distFromCenter < 0.3 && !planeTakeoffAnimation) {
+                        bounceOffset = (float)(Math.sin(time * 5) * 8); // Gentle hovering
+                    }
+                    
+                    // Apply takeoff animation - plane flies straight up
+                    int takeoffOffset = 0;
+                    if (planeTakeoffAnimation && isSelected && distFromCenter < 0.3) {
+                        // Easing function: starts slow, speeds up
+                        float progress = planeTakeoffTimer / 60.0f;
+                        float easedProgress = progress * progress; // Quadratic ease-in
+                        takeoffOffset = (int)(easedProgress * height * 1.5); // Fly off screen
+                    }
+                    
+                    int spriteY = centerY - nodeRadius - spriteHeight - 110 - (int)bounceOffset - takeoffOffset;
+                    
+                    // Glow effect for unlocked planes using radial gradient
+                    if (!isLocked) {
+                        float glowIntensity = (float)(0.5 + 0.3 * Math.sin(time * 0.8));
+                        
+                        Color glowColor;
+                        if (isMegaBoss) {
+                            glowColor = new Color(200, 150, 255); // Purple glow for mega bosses
+                        } else if (isCompleted) {
+                            glowColor = new Color(100, 255, 150); // Green glow for completed
+                        } else if (isCurrent) {
+                            glowColor = new Color(100, 200, 255); // Blue glow for current
+                        } else {
+                            glowColor = new Color(255, 255, 200); // Yellow glow for available
+                        }
+                        
+                        // Draw smooth radial gradient glow (fixed position, doesn't bounce)
+                        AffineTransform glowTransform = g.getTransform();
+                        int fixedGlowY = centerY - nodeRadius - spriteHeight - 110; // Fixed position without bounce
+                        g.translate(spriteX, fixedGlowY + spriteHeight / 2);
+                        
+                        float glowRadius = Math.max(spriteWidth, spriteHeight) * 0.7f;
+                        Color transparent = new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 0);
+                        Color center = new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), (int)(180 * glowIntensity * alpha));
+                        
+                        RadialGradientPaint gradient = new RadialGradientPaint(
+                            0, 0, glowRadius,
+                            new float[]{0.0f, 0.6f, 1.0f},
+                            new Color[]{center, new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), (int)(100 * glowIntensity * alpha)), transparent}
+                        );
+                        g.setPaint(gradient);
+                        g.fillOval((int)(-glowRadius), (int)(-glowRadius), (int)(glowRadius * 2), (int)(glowRadius * 2));
+                        
+                        g.setTransform(glowTransform);
+                    }
+                    
+                    // Set alpha - dim for locked levels
+                    float spriteAlpha = isLocked ? 0.3f : 1.0f;
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, spriteAlpha * alpha));
+                    
+                    // Enable smooth rendering for sprite
+                    Object oldInterpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+                    Object oldAntialiasing = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    
+                    // Create transform for rotation (rotate 180 degrees to point tip up, plus Z-axis spin)
+                    AffineTransform oldTransform = g.getTransform();
+                    g.translate(spriteX, spriteY + spriteHeight / 2);
+                    g.rotate(Math.PI); // 180 degrees to point tip up
+                    
+                    // Simulate Z-axis rotation by scaling width with sine wave (full 360)
+                    double zRotation = Math.sin(time * 2 + level * 0.5);
+                    double scaleX = zRotation; // Scale between -1.0 and 1.0 for full rotation
+                    g.scale(scaleX, 1.0);
+                    
+                    g.drawImage(planeSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight, null);
+                    g.setTransform(oldTransform);
+                    
+                    // Sparkle effects for completed levels
+                    if (isCompleted && !isLocked && distFromCenter < 0.5) {
+                        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        float sparkle = (float)(Math.sin(time * 7 + level) * 0.5 + 0.5);
+                        g.setColor(new Color(255, 255, 255, (int)(200 * sparkle)));
+                        int sparkleSize = 4;
+                        // Star sparkles around the plane
+                        for (int s = 0; s < 4; s++) {
+                            double angle = time * 2 + s * Math.PI / 2;
+                            int sx = spriteX + (int)(Math.cos(angle) * spriteWidth * 0.6);
+                            int sy = spriteY + (int)(Math.sin(angle) * spriteHeight * 0.6);
+                            g.fillOval(sx - sparkleSize / 2, sy - sparkleSize / 2, sparkleSize, sparkleSize);
+                        }
+                    }
+                    
+                    // Restore rendering hints and alpha
+                    if (oldInterpolation != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterpolation);
+                    if (oldAntialiasing != null) g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntialiasing);
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                }
+            } catch (Exception e) {
+                // If sprite fails to load, skip it
+            }
             
             // Level number - scale font with node size
             int fontSize = (int)(48 * scale);
@@ -1661,7 +1841,7 @@ public class Renderer {
             
             // Multiplier
             g.setFont(new Font("Arial", Font.BOLD, 36));
-            String multiplier = i == 0 ? "Ã¢â‚¬â€" : String.format("%.2fx", contractMultipliers[i]);
+            String multiplier = i == 0 ? "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
@@ -1697,7 +1877,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -1705,13 +1885,25 @@ public class Renderer {
         if (selectedContract > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
-            String warning = "Ã¢Å¡Â  Higher risk = Higher reward!";
+            String warning = "ÃƒÂ¢Ã…Â¡Ã‚Â  Higher risk = Higher reward!";
             FontMetrics warnFm = g.getFontMetrics();
             g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
         }
     }
     
-    public void drawLevelConfirm(Graphics2D g, int width, int height, int level, int selectedConfirmItem, boolean isResume, double time) {
+    public void drawLevelConfirm(Graphics2D g, int width, int height, int level, int selectedConfirmItem, boolean isResume, double time, boolean planeTakeoffAnimation, int planeTakeoffTimer, double scrollOffset, boolean hasSavedGame, int savedLevel) {
+        // If plane takeoff animation is active, show the level select screen with flying plane
+        if (planeTakeoffAnimation) {
+            // Draw level select screen in background
+            drawLevelSelect(g, width, height, level, level, time, scrollOffset, hasSavedGame, savedLevel, true, planeTakeoffTimer);
+            
+            // Fade to white as plane flies up
+            float fadeProgress = planeTakeoffTimer / 60.0f;
+            g.setColor(new Color(255, 255, 255, (int)(255 * fadeProgress * fadeProgress)));
+            g.fillRect(0, 0, width, height);
+            return;
+        }
+        
         // Draw animated background
         Color[] colors = getLevelGradientColors(level);
         drawAnimatedGradient(g, width, height, time, colors);
@@ -1819,7 +2011,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
@@ -2204,6 +2396,14 @@ public class Renderer {
             applyBloom(g, player, boss, bullets, particles, bossVulnerable);
         }
         
+        // Restore original transform and apply inverse zoom for UI elements
+        // This makes UI stay the same size regardless of game zoom
+        g.setTransform(originalTransform);
+        double inverseZoom = 1.0 / Game.cameraZoom;
+        g.translate(width / 2, height / 2);
+        g.scale(inverseZoom, inverseZoom);
+        g.translate(-width / 2, -height / 2);
+        
         // Draw boss health bar at bottom
         if (boss != null) {
             int barWidth = 600;
@@ -2332,8 +2532,8 @@ public class Renderer {
             g.drawRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
         }
         
-        // Restore original transform for UI elements (they should not be affected by camera)
-        g.setTransform(originalTransform);
+        // Restore to identity transform for remaining UI elements (no zoom, no camera offset)
+        g.setTransform(new AffineTransform());
         
         // Update smooth UI animations
         double targetScore = gameData.getScore();
@@ -2446,12 +2646,12 @@ public class Renderer {
             
             if (comboSystem.getPerfectDodgeCount() > 0) {
                 g.setColor(new Color(255, 215, 0)); // Gold for perfect
-                g.drawString("Ã¢Å¡Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
+                g.drawString("ÃƒÂ¢Ã…Â¡Ã‚Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
                 indicatorY += 18;
             }
             if (comboSystem.getCloseCallCount() > 0) {
                 g.setColor(new Color(163, 190, 140)); // Green for close call
-                g.drawString("Ã¢Ëœâ€¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
+                g.drawString("ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
             }
         }
         
@@ -2643,7 +2843,7 @@ public class Renderer {
             float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
             g.setColor(new Color(255, 255, 255, (int) (255 * textPulse)));
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
-                                dangerLevel < 0.8 ? "Ã¢Å¡Â  MOVE NOW!" : "Ã¢Å¡Â Ã¢Å¡Â  MOVE! Ã¢Å¡Â Ã¢Å¡Â ";
+                                dangerLevel < 0.8 ? "ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE NOW!" : "ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE! ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â ";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(warningText, barX + (barWidth - fm.stringWidth(warningText)) / 2, barY + 26);
             
@@ -3174,7 +3374,7 @@ public class Renderer {
         if (gameData.getExtraLives() > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
             g.setColor(new Color(255, 215, 0)); // Gold color
-            String livesText = "Ã¢Ëœâ€¦ Extra Lives: " + gameData.getExtraLives() + " Ã¢Ëœâ€¦";
+            String livesText = "ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ Extra Lives: " + gameData.getExtraLives() + " ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦";
             fm = g.getFontMetrics();
             g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
             statsY += 35;
@@ -3375,6 +3575,7 @@ public class Renderer {
         for (int i = 0; i < categories.length; i++) {
             int tabX = tabStartX + i * tabWidth;
             boolean isSelected = i == selectedCategory;
+            boolean tabsFocused = selectedItem == -1; // Tabs are focused
             
             // Tab background
             if (isSelected) {
@@ -3386,6 +3587,12 @@ public class Renderer {
             
             // Tab border
             if (isSelected) {
+                // Double border if tabs are focused
+                if (tabsFocused) {
+                    g.setColor(new Color(163, 190, 140, 200)); // Green glow when focused
+                    g.setStroke(new BasicStroke(4));
+                    g.drawRoundRect(tabX - 1, tabY - 1, tabWidth - 8, 42, 10, 10);
+                }
                 g.setColor(new Color(235, 203, 139));
                 g.setStroke(new BasicStroke(2));
                 g.drawRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
@@ -3399,7 +3606,7 @@ public class Renderer {
         
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(new Color(216, 222, 233));
-        String subtitle = "TAB to switch category | Arrow keys to adjust | Mouse wheel to scroll";
+        String subtitle = "W/S to navigate | TAB / A-D / Arrows to switch tabs when selected | R to reset | ESC to exit";
         fm = g.getFontMetrics();
         g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 185);
         
@@ -3430,8 +3637,12 @@ public class Renderer {
     }
     
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
-        String[] settingNames = {"Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Fullscreen Mode"};
+        String[] settingNames = {"Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Camera Zoom", "Fullscreen Mode"};
         String[] settingValues = {
+            Game.resolutionPreset == 0 ? "1280x720" : Game.resolutionPreset == 1 ? "1366x768" : Game.resolutionPreset == 2 ? "1600x900" : Game.resolutionPreset == 3 ? "1920x1080" : Game.resolutionPreset == 4 ? "2560x1440" : "3840x2160",
+            Game.enableVSync ? "ON" : "OFF",
+            Game.fpsLimit == 0 ? "30 FPS" : Game.fpsLimit == 1 ? "60 FPS" : Game.fpsLimit == 2 ? "120 FPS" : Game.fpsLimit == 3 ? "144 FPS" : "Unlimited",
+            Game.enableAntiAliasing ? "ON" : "OFF",
             Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
             Game.enableGradientAnimation ? "ON" : "OFF",
             Game.gradientQuality == 0 ? "Low" : Game.gradientQuality == 1 ? "Medium" : "High",
@@ -3442,10 +3653,15 @@ public class Renderer {
             Game.enableMotionBlur ? "ON" : "OFF",
             Game.enableChromaticAberration ? "ON" : "OFF",
             Game.enableVignette ? "ON" : "OFF",
+            String.format("%.0f%%", Game.cameraZoom * 100),
             Game.isFullscreen ? "Fullscreen" : "Windowed"
         };
         
         String[] descriptions = {
+            "Display resolution (restart required for changes to take effect)",
+            "Synchronize frame rate with monitor refresh (smoother, less tearing)",
+            "Maximum frames per second (lower = better performance)",
+            "Smooth edges of graphics (better quality, slight performance impact)",
             "Choose between gradient, parallax images, or static image background",
             "Animate gradient backgrounds (may affect performance)",
             "Number of gradient layers (higher = better but slower)",
@@ -3456,10 +3672,38 @@ public class Renderer {
             "Blur effect on fast moving objects (performance impact)",
             "Color fringing on screen edges (cinematic effect)",
             "Darken screen edges (focuses attention on center)",
+            "How zoomed in the camera is during gameplay (75% - 150%)",
             "Toggle between fullscreen and windowed mode (F11)"
         };
         
-        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
+        // Create slider info: [hasSlider, min, max, current]
+        float[][] sliders = new float[settingNames.length][4];
+        sliders[0] = new float[]{1, 0, 5, Game.resolutionPreset}; // Resolution
+        sliders[1] = new float[]{0, 0, 0, 0}; // VSync (toggle)
+        sliders[2] = new float[]{1, 0, 4, Game.fpsLimit}; // FPS Limit
+        sliders[3] = new float[]{0, 0, 0, 0}; // Anti-aliasing (toggle)
+        sliders[4] = new float[]{1, 0, 2, Game.backgroundMode}; // Background Mode
+        sliders[5] = new float[]{0, 0, 0, 0}; // Gradient Animation (toggle)
+        sliders[6] = new float[]{1, 0, 2, Game.gradientQuality}; // Gradient Quality
+        sliders[7] = new float[]{0, 0, 0, 0}; // Grain (toggle)
+        sliders[8] = new float[]{0, 0, 0, 0}; // Particles (toggle)
+        sliders[9] = new float[]{0, 0, 0, 0}; // Shadows (toggle)
+        sliders[10] = new float[]{0, 0, 0, 0}; // Bloom (toggle)
+        sliders[11] = new float[]{0, 0, 0, 0}; // Motion Blur (toggle)
+        sliders[12] = new float[]{0, 0, 0, 0}; // Chromatic Aberration (toggle)
+        sliders[13] = new float[]{0, 0, 0, 0}; // Vignette (toggle)
+        sliders[14] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom}; // Camera Zoom
+        sliders[15] = new float[]{0, 0, 0, 0}; // Fullscreen (toggle)
+        
+        boolean[] toggles = {
+            false, Game.enableVSync, false, Game.enableAntiAliasing, false,
+            Game.enableGradientAnimation, false, Game.enableGrainEffect,
+            Game.enableParticles, Game.enableShadows, Game.enableBloom,
+            Game.enableMotionBlur, Game.enableChromaticAberration,
+            Game.enableVignette, false, Game.isFullscreen
+        };
+        
+        drawSettingsListWithSliders(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, sliders, toggles);
     }
     
     private void drawAudioSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, GameData gameData) {
@@ -3500,6 +3744,133 @@ public class Renderer {
         String[] descriptions = {"Debug: Show collision hitboxes for player, boss, and bullets"};
         
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
+    }
+    
+    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders) {
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, showSliders, null);
+    }
+    
+    private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles) {
+        int y = 240 - (int)scrollOffset;
+        FontMetrics fm;
+        
+        for (int i = 0; i < names.length; i++) {
+            // Skip rendering if outside visible area
+            if (y < 180 || y > height - 90) {
+                y += 120;
+                continue;
+            }
+            
+            boolean isSelected = i == selectedItem;
+            
+            // Background box
+            int boxX = (width - 700) / 2;
+            int boxY = y - 20;
+            int boxWidth = 700;
+            int boxHeight = 70;
+            
+            if (isSelected) {
+                g.setColor(new Color(88, 91, 112, 200));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                
+                g.setColor(new Color(235, 203, 139));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+            } else {
+                g.setColor(new Color(67, 76, 94, 150));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+            }
+            
+            // Setting name
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.drawString(names[i], boxX + 20, boxY + 28);
+            
+            // Check if this setting has a slider
+            if (sliders[i][0] == 1) {
+                // Draw slider
+                int sliderX = boxX + 20;
+                int sliderY = boxY + 40;
+                int sliderWidth = boxWidth - 40;
+                int sliderHeight = 10;
+                
+                float min = sliders[i][1];
+                float max = sliders[i][2];
+                float current = sliders[i][3];
+                float progress = (current - min) / (max - min);
+                
+                // Slider background
+                g.setColor(new Color(46, 52, 64));
+                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
+                
+                // Slider fill
+                int fillWidth = (int)(sliderWidth * progress);
+                g.setColor(new Color(163, 190, 140));
+                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
+                
+                // Slider handle
+                int handleX = sliderX + fillWidth - 8;
+                int handleY = sliderY - 6;
+                g.setColor(new Color(235, 203, 139));
+                g.fillOval(handleX, handleY, 16, 22);
+                g.setColor(new Color(216, 222, 233));
+                g.setStroke(new BasicStroke(2));
+                g.drawOval(handleX, handleY, 16, 22);
+                
+                // Value text
+                g.setFont(new Font("Arial", Font.PLAIN, 16));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            } else if (toggles[i] || (values[i].equals("ON") || values[i].equals("OFF"))) {
+                // Draw toggle switch
+                int toggleX = boxX + boxWidth - 80;
+                int toggleY = boxY + 10;
+                int toggleWidth = 60;
+                int toggleHeight = 30;
+                
+                boolean isOn = toggles[i];
+                
+                // Toggle background
+                if (isOn) {
+                    g.setColor(new Color(163, 190, 140, 200));
+                } else {
+                    g.setColor(new Color(76, 86, 106, 200));
+                }
+                g.fillRoundRect(toggleX, toggleY, toggleWidth, toggleHeight, 15, 15);
+                
+                // Toggle circle
+                int circleX = isOn ? toggleX + toggleWidth - 28 : toggleX + 2;
+                int circleY = toggleY + 2;
+                g.setColor(new Color(236, 239, 244));
+                g.fillOval(circleX, circleY, 26, 26);
+                g.setColor(new Color(216, 222, 233));
+                g.setStroke(new BasicStroke(2));
+                g.drawOval(circleX, circleY, 26, 26);
+                
+                // ON/OFF text
+                g.setFont(new Font("Arial", Font.BOLD, 14));
+                g.setColor(new Color(216, 222, 233));
+                String toggleText = isOn ? "ON" : "OFF";
+                fm = g.getFontMetrics();
+                g.drawString(toggleText, toggleX - fm.stringWidth(toggleText) - 10, toggleY + 21);
+            } else {
+                // Regular value text
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            }
+            
+            // Draw description below if selected
+            if (isSelected) {
+                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+            }
+            
+            y += 120;
+        }
     }
     
     private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders) {
@@ -4088,3 +4459,4 @@ public class Renderer {
     public UIButton[] getShopButtons() { return shopButtons; }
     public UIButton[] getStatsButtons() { return statsButtons; }
 }
+

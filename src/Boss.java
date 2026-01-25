@@ -46,6 +46,30 @@ public class Boss {
     private static BufferedImage finalBossShadow;
     private static boolean spritesLoaded = false;
     
+    /**
+     * Get the sprite for a specific level (for use in level select preview).
+     * This method ensures sprites are loaded and returns the appropriate sprite.
+     */
+    public static BufferedImage getSpriteForLevel(int level) {
+        // Ensure sprites are loaded (create temporary boss to trigger loading)
+        if (!spritesLoaded) {
+            Boss temp = new Boss(0, 0, 1, null);
+        }
+        
+        if (level == 28) {
+            return finalBossSprite;
+        }
+        
+        boolean isMegaBoss = (level % 3 == 0);
+        if (isMegaBoss) {
+            int megaIndex = ((level / 3) - 1) % 9;
+            return megaBossPlaneSprites[megaIndex];
+        } else {
+            int miniIndex = (level - 1) % 17;
+            return miniBossPlaneSprites[miniIndex];
+        }
+    }
+    
     // Animation for helicopter blades
     private double bladeRotation = 0;
     private static final double BLADE_ROTATION_SPEED = 0.2; // Radians per frame (reduced from 0.5)
@@ -1186,30 +1210,30 @@ public class Boss {
         if (lvl % 2 == 1) {
             // Odd levels: Fighter planes
             switch ((lvl - 1) / 2 % 10) {
-                case 0: return "[PLANE] MIG-15";
-                case 1: return "[PLANE] MIG-21";
-                case 2: return "[PLANE] MIG-29";
-                case 3: return "[PLANE] SU-27";
-                case 4: return "[PLANE] SU-57";
-                case 5: return "[PLANE] F-86 SABRE";
-                case 6: return "[PLANE] F-4 PHANTOM";
-                case 7: return "[PLANE] F-15 EAGLE";
-                case 8: return "[PLANE] F-22 RAPTOR";
-                default: return "[PLANE] F-35 LIGHTNING";
+                case 0: return "SKY VIPER";
+                case 1: return "CRIMSON PHANTOM";
+                case 2: return "STORM HAWK";
+                case 3: return "THUNDER FALCON";
+                case 4: return "NIGHT RAPTOR";
+                case 5: return "STEEL EAGLE";
+                case 6: return "DELTA STRIKER";
+                case 7: return "IRON PHOENIX";
+                case 8: return "LIGHTNING FURY";
+                default: return "SHADOW TALON";
             }
         } else {
             // Even levels: Helicopters
             switch ((lvl / 2 - 1) % 10) {
-                case 0: return "[HELI] UH-1 HUEY";
-                case 1: return "[HELI] AH-64 APACHE";
-                case 2: return "[HELI] MI-24 HIND";
-                case 3: return "[HELI] CH-47 CHINOOK";
-                case 4: return "[HELI] MI-28 HAVOC";
-                case 5: return "[HELI] AH-1 COBRA";
-                case 6: return "[HELI] KA-52 ALLIGATOR";
-                case 7: return "[HELI] UH-60 BLACK HAWK";
-                case 8: return "[HELI] MI-26 HALO";
-                default: return "[HELI] AH-64E GUARDIAN";
+                case 0: return "ROTOR BEAST";
+                case 1: return "BLADE HUNTER";
+                case 2: return "IRON HORNET";
+                case 3: return "SKY TITAN";
+                case 4: return "VENOM BLADE";
+                case 5: return "COBRA WING";
+                case 6: return "GATOR CHOPPER";
+                case 7: return "DARK EAGLE";
+                case 8: return "HALO DESTROYER";
+                default: return "GUARDIAN PRIME";
             }
         }
     }
