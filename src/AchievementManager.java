@@ -115,4 +115,8 @@ public class AchievementManager {
     public Achievement getAchievement(String id) {
         return achievementMap.get(id);
     }
+    
+    public Achievement getAchievementById(String id) {
+        return achievementMap.get(id);
+    }
 }

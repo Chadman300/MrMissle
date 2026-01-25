@@ -98,4 +98,8 @@ public class PassiveUpgradeManager {
     public PassiveUpgrade getUpgrade(String id) {
         return upgradeMap.get(id);
     }
+    
+    public PassiveUpgrade getUpgradeById(String id) {
+        return upgradeMap.get(id);
+    }
 }

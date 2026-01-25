@@ -27,6 +27,9 @@ public enum GameState {
     /** Loading screen - shown during asset initialization */
     LOADING,
     
+    /** Save slot selection - choose which save file to load */
+    SAVE_SELECT,
+    
     /** Main menu - first screen shown on launch */
     MENU,
     

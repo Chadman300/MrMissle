@@ -304,9 +304,16 @@ public class GameData {
     }
     
     public int getRunHighestLevel() { return runHighestLevel; }
+    public void setRunHighestLevel(int level) { this.runHighestLevel = level; }
+    
     public int getTotalRunsCompleted() { return totalRunsCompleted; }
+    public void setTotalRunsCompleted(int runs) { this.totalRunsCompleted = runs; }
+    
     public int getBestRunLevel() { return bestRunLevel; }
+    public void setBestRunLevel(int level) { this.bestRunLevel = level; }
+    
     public int getTotalBossesDefeated() { return totalBossesDefeated; }
+    public void setTotalBossesDefeated(int bosses) { this.totalBossesDefeated = bosses; }
     
     // Extra lives methods
     public int getExtraLives() { return extraLives; }

@@ -54,6 +54,7 @@ public class Game extends JPanel implements Runnable {
     private AchievementManager achievementManager;
     private PassiveUpgradeManager passiveUpgradeManager;
     private ComboSystem comboSystem;
+    private SaveManager saveManager;
     
     // Game objects
     private Player player;
@@ -352,6 +353,16 @@ public class Game extends JPanel implements Runnable {
     private double displayedLoadingProgress = 0.0;
     private volatile boolean loadingComplete = false;
     
+    // Save system
+    private int selectedSaveSlot = 0; // Currently selected save slot (0, 1, or 2 for slots 1-3)
+    private SaveManager.SaveMetadata[] saveMetadataCache; // Cached save metadata
+    private boolean deletingSlot = false; // True when delete key is being held
+    private int deleteConfirmTimer = 0; // Timer for delete confirmation
+    private boolean deleteModeActive = false; // True when accessing save screen from Delete Save menu
+    private boolean showAutoSaveIndicator = false; // Show auto-save icon
+    private int autoSaveIndicatorTimer = 0; // Timer for auto-save indicator fade
+    private static final int AUTO_SAVE_INDICATOR_DURATION = 120; // 2 seconds
+    
     public Game() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
@@ -379,6 +390,8 @@ public class Game extends JPanel implements Runnable {
         passiveUpgradeManager = new PassiveUpgradeManager();
         shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
+        saveManager = new SaveManager(); // Initialize save manager
+        saveMetadataCache = new SaveManager.SaveMetadata[3]; // Cache for 3 save slots
         pendingAchievements = new ArrayList<>();
         damageNumbers = new ArrayList<>();
         soundManager = SoundManager.getInstance();
@@ -498,6 +511,11 @@ public class Game extends JPanel implements Runnable {
                 if (e.getKeyCode() == KeyEvent.VK_SPACE) {
                     eKeyPressed = false;
                 }
+                // Reset delete hold when DELETE key is released
+                if ((e.getKeyCode() == KeyEvent.VK_DELETE || e.getKeyCode() == KeyEvent.VK_BACK_SPACE) && gameState == GameState.SAVE_SELECT) {
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                }
             }
         });
         
@@ -547,6 +565,15 @@ public class Game extends JPanel implements Runnable {
                     handleMouseClick(e);
                 }
             }
+            
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                // Stop delete hold when mouse is released in save select
+                if (e.getButton() == java.awt.event.MouseEvent.BUTTON1 && gameState == GameState.SAVE_SELECT) {
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                }
+            }
         });
         
         // Add mouse wheel listener for scrolling in menus
@@ -565,6 +592,74 @@ public class Game extends JPanel implements Runnable {
         int key = e.getKeyCode();
         
         switch (gameState) {
+            case SAVE_SELECT:
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    selectedSaveSlot = Math.max(0, selectedSaveSlot - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    selectedSaveSlot = Math.min(2, selectedSaveSlot + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                }
+                else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    int slot = selectedSaveSlot + 1; // Convert to 1-indexed
+                    
+                    // Normal mode - load or create save
+                    if (saveManager.saveExists(slot)) {
+                        // Load existing save
+                        SaveData saveData = saveManager.load(slot);
+                        if (saveData != null) {
+                            saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                            screenShakeIntensity = 5;
+                            transitionToState(GameState.MENU);
+                        }
+                    } else {
+                        // Create new save
+                        SaveData newSave = new SaveData();
+                        newSave.saveName = "Save " + slot;
+                        if (saveManager.save(slot, newSave)) {
+                            // Load the new save into GameData
+                            newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                            screenShakeIntensity = 5;
+                            transitionToState(GameState.MENU);
+                        }
+                    }
+                }
+                else if (key == KeyEvent.VK_DELETE || key == KeyEvent.VK_BACK_SPACE) {
+                    int slot = selectedSaveSlot + 1;
+                    if (saveManager.saveExists(slot)) {
+                        if (!deletingSlot) {
+                            deletingSlot = true;
+                            deleteConfirmTimer = 0;
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        } else if (deleteConfirmTimer >= 60) { // Hold for 1 second
+                            saveManager.delete(slot);
+                            saveMetadataCache[selectedSaveSlot] = null;
+                            deletingSlot = false;
+                            deleteConfirmTimer = 0;
+                            soundManager.playSound(SoundManager.Sound.BOSS_HIT);
+                            screenShakeIntensity = 5;
+                        }
+                    }
+                }
+                else if (key == KeyEvent.VK_ESCAPE) {
+                    if (escapeTimer > 0) {
+                        System.exit(0);
+                    } else {
+                        escapeTimer = ESCAPE_TIMEOUT;
+                        screenShakeIntensity = 3;
+                    }
+                }
+                break;
+                
             case MENU:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
                     selectedMenuItem = Math.max(0, selectedMenuItem - 1);
@@ -572,21 +667,22 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    selectedMenuItem = Math.min(5, selectedMenuItem + 1);
+                    selectedMenuItem = Math.min(6, selectedMenuItem + 1); // Updated to 6 for new menu item
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                     screenShakeIntensity = 5;
-                    // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings
+                    // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
                     switch (selectedMenuItem) {
                         case 0: transitionToState(GameState.LEVEL_SELECT); break;
                         case 1: shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); break;
                         case 2: transitionToState(GameState.STATS); break;
                         case 3: transitionToState(GameState.ACHIEVEMENTS); break;
                         case 4: transitionToState(GameState.INFO); break;
-                        case 5: transitionToState(GameState.SETTINGS); break;
+                        case 5: settingsEnteredFrom = GameState.MENU; transitionToState(GameState.SETTINGS); break;
+                        case 6: transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -979,6 +1075,8 @@ public class Game extends JPanel implements Runnable {
                         System.out.println("DEBUG SHOP: Purchase result: " + purchased + ", money after: " + gameData.getTotalMoney());
                         if (purchased) {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                            // Auto-save after successful purchase
+                            performAutoSave();
                         } else {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
                         }
@@ -987,6 +1085,10 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    
+                    // Auto-save when exiting shop
+                    performAutoSave();
+                    
                     // Go back to where we came from: menu if from menu, level select if from gameplay
                     if (shopEnteredFrom == GameState.MENU) {
                         transitionToState(GameState.MENU);
@@ -1487,7 +1589,68 @@ public class Game extends JPanel implements Runnable {
     private void handleMouseClick(java.awt.event.MouseEvent e) {
         if (e.getButton() != java.awt.event.MouseEvent.BUTTON1) return;
         
-        if (gameState == GameState.MENU) {
+        if (gameState == GameState.SAVE_SELECT) {
+            // Check if clicking on save slots
+            int slotWidth = 800;
+            int slotHeight = 160;
+            int slotX = (WIDTH - slotWidth) / 2;
+            int startY = 200;
+            int slotSpacing = 180;
+            
+            for (int i = 0; i < 3; i++) {
+                int slotY = startY + i * slotSpacing;
+                
+                // Check if clicking on delete button
+                if (saveMetadataCache[i] != null) {
+                    int btnX = slotX + slotWidth - 120;
+                    int btnY = slotY + 10;
+                    int btnWidth = 100;
+                    int btnHeight = 35;
+                    
+                    if (mouseX >= btnX && mouseX <= btnX + btnWidth &&
+                        mouseY >= btnY && mouseY <= btnY + btnHeight) {
+                        // Start delete hold for this slot
+                        selectedSaveSlot = i;
+                        deletingSlot = true;
+                        deleteConfirmTimer = 0;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
+                        return;
+                    }
+                }
+                
+                // Check if clicking on save slot itself
+                if (mouseX >= slotX && mouseX <= slotX + slotWidth &&
+                    mouseY >= slotY && mouseY <= slotY + slotHeight) {
+                    selectedSaveSlot = i;
+                    
+                    // Activate slot (load or create)
+                    int slot = selectedSaveSlot + 1;
+                    
+                    // Normal mode - load or create save
+                    if (saveManager.saveExists(slot)) {
+                        SaveData saveData = saveManager.load(slot);
+                        if (saveData != null) {
+                            saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                            screenShakeIntensity = 5;
+                            transitionToState(GameState.MENU);
+                        }
+                    } else {
+                        SaveData newSave = new SaveData();
+                        newSave.saveName = "Save " + slot;
+                        if (saveManager.save(slot, newSave)) {
+                            // Load the new save into GameData
+                            newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                            screenShakeIntensity = 5;
+                            transitionToState(GameState.MENU);
+                        }
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.MENU) {
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
                 if (buttons[i].contains(mouseX, mouseY)) {
@@ -1811,7 +1974,7 @@ public class Game extends JPanel implements Runnable {
     private void activateMenuItem(int index) {
         soundManager.playSound(SoundManager.Sound.MENU_OPEN);
         screenShakeIntensity = 5;
-        // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings
+        // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
         switch (index) {
             case 0: gameState = GameState.LEVEL_SELECT; break;
             case 1: shopEnteredFrom = GameState.MENU; gameState = GameState.SHOP; break;
@@ -1819,6 +1982,7 @@ public class Game extends JPanel implements Runnable {
             case 3: gameState = GameState.ACHIEVEMENTS; break;
             case 4: gameState = GameState.INFO; break;
             case 5: settingsEnteredFrom = GameState.MENU; gameState = GameState.SETTINGS; break;
+            case 6: gameState = GameState.SAVE_SELECT; break; // Save Files
         }
     }
     
@@ -1919,6 +2083,9 @@ public class Game extends JPanel implements Runnable {
         tookDamageThisBoss = true;
         hasSavedGame = false; // Clear saved game on game over
         gameState = GameState.GAME_OVER;
+        
+        // Auto-save on game over
+        performAutoSave();
     }
     
     private void saveGameState() {
@@ -2028,6 +2195,30 @@ public class Game extends JPanel implements Runnable {
         int[] themes = {1, 5, 6, 7, 8};
         int theme = themes[(int)(Math.random() * themes.length)];
         soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+    }
+    
+    /**
+     * Auto-save the current game state to the active save slot
+     */
+    private void performAutoSave() {
+        if (saveManager.getCurrentSaveSlot() == -1) {
+            // No active save slot
+            return;
+        }
+        
+        try {
+            SaveData saveData = SaveData.fromGameData(gameData, achievementManager, 
+                passiveUpgradeManager, "Save " + saveManager.getCurrentSaveSlot());
+            saveManager.autoSave(saveData);
+            System.out.println("Auto-saved to slot " + saveManager.getCurrentSaveSlot());
+            
+            // Show auto-save indicator
+            showAutoSaveIndicator = true;
+            autoSaveIndicatorTimer = AUTO_SAVE_INDICATOR_DURATION;
+        } catch (Exception e) {
+            System.err.println("Auto-save failed: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     private void startGame() {
@@ -2329,6 +2520,41 @@ public class Game extends JPanel implements Runnable {
         // Update state transitions
         if (stateTransitionProgress < 1.0f) {
             stateTransitionProgress = Math.min(1.0f, stateTransitionProgress + TRANSITION_SPEED);
+        }
+        
+        // Update save selection state
+        if (gameState == GameState.SAVE_SELECT) {
+            // Update delete confirmation timer only when mouse button is held (deletingSlot flag)
+            // No need to check keys - the mouse handler manages deletingSlot
+            if (deletingSlot) {
+                deleteConfirmTimer++;
+                
+                // Auto-delete when timer reaches threshold
+                if (deleteConfirmTimer >= 60) {
+                    int slot = selectedSaveSlot + 1;
+                    if (saveManager.saveExists(slot)) {
+                        saveManager.delete(slot);
+                        saveMetadataCache[selectedSaveSlot] = null;
+                        deletingSlot = false;
+                        deleteConfirmTimer = 0;
+                        soundManager.playSound(SoundManager.Sound.BOSS_HIT);
+                        screenShakeIntensity = 8;
+                    }
+                }
+            }
+            
+            // Refresh save metadata cache periodically
+            for (int i = 0; i < 3; i++) {
+                saveMetadataCache[i] = saveManager.getSaveMetadata(i + 1);
+            }
+        }
+        
+        // Update auto-save indicator
+        if (autoSaveIndicatorTimer > 0) {
+            autoSaveIndicatorTimer--;
+            if (autoSaveIndicatorTimer <= 0) {
+                showAutoSaveIndicator = false;
+            }
         }
         
         // Smooth scroll animation for level select carousel
@@ -3316,6 +3542,9 @@ public class Game extends JPanel implements Runnable {
                 bossDeathAnimation = false;
                 hasSavedGame = false; // Clear saved game on win so purchases persist
                 
+                // Auto-save on level completion
+                performAutoSave();
+                
                 // If level 7 was defeated and contracts were unlocked, trigger animation (only once)
                 if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation && !gameData.hasSeenContractUnlock()) {
                     soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
@@ -4002,6 +4231,11 @@ public class Game extends JPanel implements Runnable {
         } else {
             drawState(g2d, gameState);
         }
+        
+        // Draw auto-save indicator overlay (on top of everything)
+        if (showAutoSaveIndicator) {
+            drawAutoSaveIndicator(g2d, WIDTH, HEIGHT);
+        }
     }
     
     private void drawState(Graphics2D g2d, GameState state) {
@@ -4012,6 +4246,10 @@ public class Game extends JPanel implements Runnable {
         }
         
         switch (state) {
+            case SAVE_SELECT:
+                renderer.drawSaveSelection(g2d, WIDTH, HEIGHT, gradientTime, selectedSaveSlot, 
+                    saveMetadataCache, deletingSlot, deleteConfirmTimer, escapeTimer);
+                break;
             case MENU:
                 renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem);
                 break;
@@ -4449,17 +4687,17 @@ public class Game extends JPanel implements Runnable {
                 targetLoadingProgress = 100;
                 repaint();
                 
-                // Wait a moment then switch to menu
+                // Wait a moment then switch to save selection
                 Thread.sleep(300);
                 loadingComplete = true;
-                transitionToState(GameState.MENU);
+                transitionToState(GameState.SAVE_SELECT);
                 repaint();
                 
             } catch (Exception e) {
                 e.printStackTrace();
-                // On error, still go to menu
+                // On error, still go to save selection
                 loadingComplete = true;
-                transitionToState(GameState.MENU);
+                transitionToState(GameState.SAVE_SELECT);
                 repaint();
             }
         });
@@ -4740,6 +4978,53 @@ public class Game extends JPanel implements Runnable {
             default:
                 break;
         }
+    }
+    
+    private void drawAutoSaveIndicator(Graphics2D g, int width, int height) {
+        // Calculate fade-in/fade-out alpha
+        float progress = Math.min(1.0f, (float)autoSaveIndicatorTimer / 30.0f); // Fade in over 0.5 seconds
+        float alpha = 1.0f;
+        if (autoSaveIndicatorTimer < 30) {
+            alpha = progress; // Fade out in last 0.5 seconds
+        }
+        
+        // Position in top-right corner
+        int x = width - 220;
+        int y = 30;
+        int boxWidth = 200;
+        int boxHeight = 50;
+        
+        // Draw background box with transparency
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.9f));
+        g.setColor(new Color(46, 52, 64));
+        g.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
+        
+        // Draw border
+        g.setColor(new Color(136, 192, 208));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(x, y, boxWidth, boxHeight, 10, 10);
+        
+        // Draw save icon (floppy disk shape)
+        int iconX = x + 15;
+        int iconY = y + 10;
+        int iconSize = 30;
+        g.setColor(new Color(136, 192, 208));
+        g.fillRect(iconX, iconY, iconSize, iconSize);
+        g.setColor(new Color(46, 52, 64));
+        g.fillRect(iconX + 8, iconY + 3, iconSize - 16, 8); // Label area
+        g.fillRect(iconX + 5, iconY + iconSize - 12, iconSize - 10, 8); // Bottom slot
+        
+        // Draw "Saving..." text
+        g.setColor(new Color(216, 222, 233));
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        String saveText = "Saving...";
+        FontMetrics fm = g.getFontMetrics();
+        int textX = iconX + iconSize + 10;
+        int textY = y + (boxHeight + fm.getAscent()) / 2 - 2;
+        g.drawString(saveText, textX, textY);
+        
+        // Reset composite
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
     }
     
     private void drawItemUnlockAnimation(Graphics2D g, int width, int height) {

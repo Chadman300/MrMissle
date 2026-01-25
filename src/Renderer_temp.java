@@ -85,7 +85,7 @@ public class Renderer {
         menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, 300, 55, new Color(180, 142, 173), new Color(200, 165, 195)); // Purple
         menuButtons[4] = new UIButton("Game Info", "info", 0, 0, 300, 55, new Color(143, 188, 187), new Color(165, 205, 205)); // Teal
         menuButtons[5] = new UIButton("Settings", "settings", 0, 0, 300, 55, new Color(191, 97, 106), new Color(215, 120, 130)); // Red
-        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, 300, 55, new Color(208, 135, 112), new Color(225, 155, 135)); // Orange
+        menuButtons[6] = new UIButton("Save Files", "save", 0, 0, 300, 55, new Color(208, 135, 112), new Color(225, 155, 135)); // Orange
         
         // Initialize shop buttons (15 items: continue + 4 shop upgrades + 10 passive upgrades)
         shopButtons = new UIButton[15];
@@ -399,11 +399,11 @@ public class Renderer {
         g.setComposite(ALPHA_FULL);
         
         // Draw save slots
-        int slotWidth = 800;
-        int slotHeight = 160;
+        int slotWidth = 500;
+        int slotHeight = 140;
         int slotX = (width - slotWidth) / 2;
         int startY = 200;
-        int slotSpacing = 180;
+        int slotSpacing = 160;
         
         for (int i = 0; i < 3; i++) {
             int slotY = startY + i * slotSpacing;
@@ -473,46 +473,21 @@ public class Renderer {
                 String dateText = "Last Saved: " + meta.getFormattedDate();
                 g2.drawString(dateText, slotX + 20, slotY + 128);
                 
-                // Delete button
-                int btnX = slotX + slotWidth - 120;
-                int btnY = slotY + 10;
-                int btnWidth = 100;
-                int btnHeight = 35;
-                
-                // Button background
-                Color btnColor = isSelected && deletingSlot ? new Color(191, 97, 106) : new Color(191, 97, 106, 150);
-                g2.setColor(btnColor);
-                g2.fillRoundRect(btnX, btnY, btnWidth, btnHeight, 8, 8);
-                
-                // Button border
-                g2.setStroke(new BasicStroke(2));
-                g2.setColor(new Color(215, 120, 130));
-                g2.drawRoundRect(btnX, btnY, btnWidth, btnHeight, 8, 8);
-                
-                // Button text
-                g2.setFont(FONT_TINY);
-                g2.setColor(Color.WHITE);
-                String btnText = "DELETE";
-                fm = g2.getFontMetrics();
-                int textX = btnX + (btnWidth - fm.stringWidth(btnText)) / 2;
-                int textY = btnY + (btnHeight + fm.getAscent()) / 2 - 2;
-                g2.drawString(btnText, textX, textY);
-                
                 // Delete confirmation if deleting this slot
                 if (isSelected && deletingSlot) {
                     float progress = Math.min(1.0f, deleteConfirmTimer / 60.0f);
                     
-                    // Delete progress bar - positioned below the delete button
-                    int barX = slotX + 20;
-                    int barY = slotY + slotHeight - 25;
-                    int barWidth = slotWidth - 40;
-                    int barHeight = 12;
+                    // Delete progress bar
+                    int barX = slotX + slotWidth - 160;
+                    int barY = slotY + 25;
+                    int barWidth = 140;
+                    int barHeight = 8;
                     
                     g2.setColor(new Color(191, 97, 106, 100));
-                    g2.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
+                    g2.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
                     
                     g2.setColor(new Color(191, 97, 106));
-                    g2.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 6, 6);
+                    g2.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 4, 4);
                     
                     // Delete text
                     g2.setFont(FONT_TINY);
@@ -528,7 +503,7 @@ public class Renderer {
         // Instructions
         g.setFont(FONT_MEDIUM);
         g.setColor(new Color(216, 222, 233, 200));
-        String instructions = "↑/↓: Navigate  |  ENTER: Select/Create  |  DELETE: Hold to Delete Save";
+        String instructions = "?/?: Navigate  |  ENTER: Select/Create  |  DELETE: Hold to Delete Save";
         fm = g.getFontMetrics();
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 100);
         
@@ -816,22 +791,22 @@ public class Renderer {
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         String[] mechanics = {
             "VULNERABILITY SYSTEM:",
-            "  â€¢ Boss invulnerable for 20 seconds",
-            "  â€¢ Watch for GOLDEN GLOW = Attack Window!",
-            "  â€¢ Window lasts 20 seconds (longer with upgrades)",
-            "  â€¢ Hit boss 3 times to win",
+            "  • Boss invulnerable for 20 seconds",
+            "  • Watch for GOLDEN GLOW = Attack Window!",
+            "  • Window lasts 20 seconds (longer with upgrades)",
+            "  • Hit boss 3 times to win",
             "",
             "GRAZE SYSTEM:",
-            "  â€¢ 25px from bullet = Graze (+score, +combo)",
-            "  â€¢ 15px = Close Call (bonus points)",
-            "  â€¢ 8px = Perfect Dodge (grants i-frames!)",
-            "  â€¢ Build combos: Chain dodges within 3s",
+            "  • 25px from bullet = Graze (+score, +combo)",
+            "  • 15px = Close Call (bonus points)",
+            "  • 8px = Perfect Dodge (grants i-frames!)",
+            "  • Build combos: Chain dodges within 3s",
             "",
             "DEATH & RESPAWN:",
-            "  â€¢ One hit = death (unless Lucky Dodge procs)",
-            "  â€¢ Boss hit (non-fatal) = 1.5s respawn delay",
-            "  â€¢ Use extra lives for second chances",
-            "  â€¢ Lucky Dodge upgrade = revival chance"
+            "  • One hit = death (unless Lucky Dodge procs)",
+            "  • Boss hit (non-fatal) = 1.5s respawn delay",
+            "  • Use extra lives for second chances",
+            "  • Lucky Dodge upgrade = revival chance"
         };
         
         for (String line : mechanics) {
@@ -850,22 +825,22 @@ public class Renderer {
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         String[] upgrades = {
             "SPEED BOOST (Max Lv 10):",
-            "  â€¢ +10% movement speed per level",
-            "  â€¢ Essential for dodging dense patterns",
+            "  • +10% movement speed per level",
+            "  • Essential for dodging dense patterns",
             "",
             "BULLET SLOW (Max Lv 50):",
-            "  â€¢ Slows enemy bullets by 2% per level",
-            "  â€¢ More time to react and plan dodges",
+            "  • Slows enemy bullets by 2% per level",
+            "  • More time to react and plan dodges",
             "",
             "LUCKY DODGE (Max Lv 12):",
-            "  â€¢ 8% chance per level to survive hits",
-            "  â€¢ Flicker effect on successful dodge",
-            "  â€¢ Stacks with extra lives",
+            "  • 8% chance per level to survive hits",
+            "  • Flicker effect on successful dodge",
+            "  • Stacks with extra lives",
             "",
             "ATTACK WINDOW (Max Lv 10):",
-            "  â€¢ +1 second vulnerability per level",
-            "  â€¢ Max: 30 seconds to hit boss",
-            "  â€¢ More forgiving timing"
+            "  • +1 second vulnerability per level",
+            "  • Max: 30 seconds to hit boss",
+            "  • More forgiving timing"
         };
         
         for (String line : upgrades) {
@@ -1212,7 +1187,7 @@ public class Renderer {
                 // Switch indicator
                 g.setFont(new Font("Arial", Font.PLAIN, 14));
                 g.setColor(new Color(180, 180, 180));
-                g.drawString("ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ to switch", itemX + 75, y + 70);
+                g.drawString("Ã¢â€ Â Ã¢â€ â€™ to switch", itemX + 75, y + 70);
                 
                 // Unlock count
                 g.setFont(new Font("Arial", Font.BOLD, 16));
@@ -2021,7 +1996,7 @@ public class Renderer {
             
             // Multiplier
             g.setFont(new Font("Arial", Font.BOLD, 36));
-            String multiplier = i == 0 ? "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" : String.format("%.2fx", contractMultipliers[i]);
+            String multiplier = i == 0 ? "Ã¢â‚¬â€" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
@@ -2057,7 +2032,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -2065,7 +2040,7 @@ public class Renderer {
         if (selectedContract > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
-            String warning = "ÃƒÂ¢Ã…Â¡Ã‚Â  Higher risk = Higher reward!";
+            String warning = "Ã¢Å¡Â  Higher risk = Higher reward!";
             FontMetrics warnFm = g.getFontMetrics();
             g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
         }
@@ -2191,7 +2166,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "Ã¢â€ Â Ã¢â€ â€™ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
@@ -2826,12 +2801,12 @@ public class Renderer {
             
             if (comboSystem.getPerfectDodgeCount() > 0) {
                 g.setColor(new Color(255, 215, 0)); // Gold for perfect
-                g.drawString("ÃƒÂ¢Ã…Â¡Ã‚Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
+                g.drawString("Ã¢Å¡Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
                 indicatorY += 18;
             }
             if (comboSystem.getCloseCallCount() > 0) {
                 g.setColor(new Color(163, 190, 140)); // Green for close call
-                g.drawString("ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
+                g.drawString("Ã¢Ëœâ€¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
             }
         }
         
@@ -3023,7 +2998,7 @@ public class Renderer {
             float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
             g.setColor(new Color(255, 255, 255, (int) (255 * textPulse)));
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
-                                dangerLevel < 0.8 ? "ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE NOW!" : "ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE! ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â ";
+                                dangerLevel < 0.8 ? "Ã¢Å¡Â  MOVE NOW!" : "Ã¢Å¡Â Ã¢Å¡Â  MOVE! Ã¢Å¡Â Ã¢Å¡Â ";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(warningText, barX + (barWidth - fm.stringWidth(warningText)) / 2, barY + 26);
             
@@ -3554,7 +3529,7 @@ public class Renderer {
         if (gameData.getExtraLives() > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 24));
             g.setColor(new Color(255, 215, 0)); // Gold color
-            String livesText = "ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ Extra Lives: " + gameData.getExtraLives() + " ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦";
+            String livesText = "Ã¢Ëœâ€¦ Extra Lives: " + gameData.getExtraLives() + " Ã¢Ëœâ€¦";
             fm = g.getFontMetrics();
             g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
             statsY += 35;
@@ -3930,83 +3905,6 @@ public class Renderer {
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, showSliders, null);
     }
     
-    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders, float[] sliderValues) {
-        int y = 240 - (int)scrollOffset;
-        FontMetrics fm;
-        
-        for (int i = 0; i < names.length; i++) {
-            // Skip rendering if outside visible area
-            if (y < 180 || y > height - 90) {
-                y += 120;
-                continue;
-            }
-            
-            boolean isSelected = i == selectedItem;
-            
-            // Background box
-            int boxX = (width - 700) / 2;
-            int boxY = y - 20;
-            int boxWidth = 700;
-            int boxHeight = 70;
-            
-            if (isSelected) {
-                g.setColor(new Color(88, 91, 112, 200));
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
-                
-                g.setColor(new Color(235, 203, 139));
-                g.setStroke(new BasicStroke(2));
-                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
-            } else {
-                g.setColor(new Color(67, 76, 94, 150));
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
-            }
-            
-            // Setting name
-            g.setFont(new Font("Arial", Font.BOLD, 20));
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
-            g.drawString(names[i], boxX + 20, boxY + 28);
-            
-            // Value or slider
-            if (showSliders && sliderValues != null && i > 0) {
-                // Draw volume slider
-                int sliderX = boxX + 20;
-                int sliderY = boxY + 40;
-                int sliderWidth = boxWidth - 40;
-                int sliderHeight = 10;
-                
-                // Slider background
-                g.setColor(new Color(46, 52, 64));
-                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
-                
-                // Slider fill
-                int fillWidth = (int)(sliderWidth * sliderValues[i]);
-                g.setColor(new Color(163, 190, 140));
-                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
-                
-                // Value text
-                g.setFont(new Font("Arial", Font.PLAIN, 16));
-                g.setColor(new Color(216, 222, 233));
-                fm = g.getFontMetrics();
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
-            } else {
-                // Regular value text
-                g.setFont(new Font("Arial", Font.BOLD, 20));
-                fm = g.getFontMetrics();
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
-            }
-            
-            // Draw description below if selected
-            if (isSelected) {
-                g.setFont(new Font("Arial", Font.ITALIC, 14));
-                g.setColor(new Color(216, 222, 233));
-                fm = g.getFontMetrics();
-                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
-            }
-            
-            y += 120;
-        }
-    }
-    
     private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles) {
         int y = 240 - (int)scrollOffset;
         FontMetrics fm;
@@ -4111,6 +4009,87 @@ public class Renderer {
                 String toggleText = isOn ? "ON" : "OFF";
                 fm = g.getFontMetrics();
                 g.drawString(toggleText, toggleX - fm.stringWidth(toggleText) - 10, toggleY + 21);
+            } else {
+                // Regular value text
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            }
+            
+            // Draw description below if selected
+            if (isSelected) {
+                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+            }
+            
+            y += 120;
+        }
+    }
+    
+    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders) {
+        drawSettingsList(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, showSliders, null);
+    }
+    
+    private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders, float[] sliderValues) {
+        int y = 240 - (int)scrollOffset;
+        FontMetrics fm;
+        
+        for (int i = 0; i < names.length; i++) {
+            // Skip rendering if outside visible area
+            if (y < 180 || y > height - 90) {
+                y += 120;
+                continue;
+            }
+            
+            boolean isSelected = i == selectedItem;
+            
+            // Background box
+            int boxX = (width - 700) / 2;
+            int boxY = y - 20;
+            int boxWidth = 700;
+            int boxHeight = 70;
+            
+            if (isSelected) {
+                g.setColor(new Color(88, 91, 112, 200));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                
+                g.setColor(new Color(235, 203, 139));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+            } else {
+                g.setColor(new Color(67, 76, 94, 150));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+            }
+            
+            // Setting name
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.drawString(names[i], boxX + 20, boxY + 28);
+            
+            // Value or slider
+            if (showSliders && sliderValues != null && i > 0) {
+                // Draw volume slider
+                int sliderX = boxX + 20;
+                int sliderY = boxY + 40;
+                int sliderWidth = boxWidth - 40;
+                int sliderHeight = 10;
+                
+                // Slider background
+                g.setColor(new Color(46, 52, 64));
+                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
+                
+                // Slider fill
+                int fillWidth = (int)(sliderWidth * sliderValues[i]);
+                g.setColor(new Color(163, 190, 140));
+                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
+                
+                // Value text
+                g.setFont(new Font("Arial", Font.PLAIN, 16));
+                g.setColor(new Color(216, 222, 233));
+                fm = g.getFontMetrics();
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
             } else {
                 // Regular value text
                 g.setFont(new Font("Arial", Font.BOLD, 20));
