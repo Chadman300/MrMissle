@@ -616,6 +616,7 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            hasSavedGame = false; // Clear in-game save flag when loading from file
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -627,6 +628,7 @@ public class Game extends JPanel implements Runnable {
                         if (saveManager.save(slot, newSave)) {
                             // Load the new save into GameData
                             newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            hasSavedGame = false; // Clear in-game save flag for new save
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -1024,6 +1026,18 @@ public class Game extends JPanel implements Runnable {
                             if (item.getActiveDuration() == 0) {
                                 handleActiveItemEffects(item, 1.0);
                             }
+                        }
+                    } else if (key == KeyEvent.VK_K) {
+                        // Debug: Trigger boss wobble
+                        if (currentBoss != null) {
+                            currentBoss.triggerWobble();
+                            System.out.println("DEBUG: K pressed - triggering boss wobble");
+                        }
+                    } else if (key == KeyEvent.VK_L) {
+                        // Debug: Trigger boss twirl (360 rotation)
+                        if (currentBoss != null) {
+                            currentBoss.triggerTwirl();
+                            System.out.println("DEBUG: L pressed - triggering boss twirl");
                         }
                     } else if (key == KeyEvent.VK_T) {
                         // Debug: Skip level instantly
@@ -3117,6 +3131,9 @@ public class Game extends JPanel implements Runnable {
         // Check if player hit boss (only vulnerable during special window)
         if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation) {
             if (bossVulnerable) {
+                // Trigger wobble effect immediately on hit
+                currentBoss.triggerWobble();
+                
                 soundManager.playSound(SoundManager.Sound.BOSS_HIT);
                 
                 // Check for critical strike (instant kill)
@@ -3126,7 +3143,7 @@ public class Game extends JPanel implements Runnable {
                 if (isCritical) {
                     // Instant kill the boss
                     while (currentBoss.getCurrentHealth() > 0) {
-                        currentBoss.takeDamage();
+                        currentBoss.takeDamage(true); // Hit by player missile
                     }
                     
                     // Show critical hit message
@@ -3135,7 +3152,7 @@ public class Game extends JPanel implements Runnable {
                         new Color(255, 215, 0), 48));
                 } else {
                     // Deal normal damage to boss using new health system
-                    currentBoss.takeDamage();
+                    currentBoss.takeDamage(true); // Hit by player missile
                 }
                 
                 int remainingHealth = currentBoss.getCurrentHealth();

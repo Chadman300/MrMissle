@@ -11,6 +11,27 @@ public class Boss {
     private double rotation; // Current rotation angle
     private double targetRotation; // Target rotation angle
     private double angularVelocity; // Current rotation speed
+    
+    // Wobble effect when hit by player missile
+    private double wobbleRotation; // Z-axis rotation wobble angle
+    private double wobbleVelocity; // Wobble rotation velocity
+    private static final double WOBBLE_STRENGTH = 0.3; // Initial wobble angle - smaller
+    private static final double WOBBLE_DAMPING = 0.95; // Damping factor - very high for long wobble duration
+    private static final double WOBBLE_SPRING = 0.015; // Spring force - very low for slower oscillation
+    
+    // Twirl effect (360-degree rotation)
+    private double twirlRotation; // Current twirl rotation (0 to 2*PI)
+    private boolean twirlActive; // Whether twirl is currently happening
+    private static final double TWIRL_SPEED = 0.05; // Rotation speed per frame - slower
+    
+    // Twirl attack pattern (assault phase)
+    private boolean twirlAttackActive = false; // Whether doing a twirl attack sequence
+    private int twirlAttackCount = 0; // Number of twirls completed in current attack
+    private int twirlAttackMaxCount = 2; // Number of twirls per attack
+    private double twirlAttackSpeedBoost = 2.5; // Speed multiplier during twirl attack
+    private double twirlAttackTimer = 0; // Timer between individual twirls
+    private double twirlAttackAngle = 0; // Current angle for circular movement around screen
+    
     private int level;
     private boolean isMegaBoss; // Every 3rd boss is a mega boss
     private int size; // Dynamic size based on boss type
@@ -119,6 +140,14 @@ public class Boss {
         this.rotation = Math.PI / 2; // Start facing down
         this.targetRotation = Math.PI / 2;
         this.angularVelocity = 0;
+        this.wobbleRotation = 0;
+        this.wobbleVelocity = 0;
+        this.twirlRotation = 0;
+        this.twirlActive = false;
+        this.twirlAttackActive = false;
+        this.twirlAttackCount = 0;
+        this.twirlAttackTimer = 0;
+        this.twirlAttackAngle = Math.random() * Math.PI * 2; // Random starting angle
         this.level = level;
         
         // Pattern: mini, mini, mega, mini, mini, mega...
@@ -292,7 +321,8 @@ public class Boss {
         moveTimer += deltaTime;
         
         // Pick a new target every 120-180 frames (2-3 seconds) for longer paths
-        if (moveTimer >= 120 + Math.random() * 60) {
+        // Skip normal movement during twirl attack
+        if (!twirlAttackActive && moveTimer >= 120 + Math.random() * 60) {
             moveTimer = 0;
             
             // Calculate vector away from player
@@ -335,6 +365,12 @@ public class Boss {
         if (distance > 10) { // Dead zone to prevent jittering
             // Calculate desired acceleration direction (reduced scaling)
             double accelStrength = ACCELERATION * (1.0 + level * 0.025);
+            
+            // Apply speed boost during twirl attack
+            if (twirlAttackActive) {
+                accelStrength *= twirlAttackSpeedBoost;
+            }
+            
             ax = (dx / distance) * accelStrength * deltaTime;
             ay = (dy / distance) * accelStrength * deltaTime;
             
@@ -357,6 +393,12 @@ public class Boss {
         // Limit max speed (reduced scaling)
         double speed = Math.sqrt(vx * vx + vy * vy);
         double maxSpeed = MAX_SPEED * (1.0 + level * 0.05);
+        
+        // Boost max speed during twirl attack
+        if (twirlAttackActive) {
+            maxSpeed *= twirlAttackSpeedBoost;
+        }
+        
         if (speed > maxSpeed) {
             vx = (vx / speed) * maxSpeed;
             vy = (vy / speed) * maxSpeed;
@@ -382,6 +424,31 @@ public class Boss {
         // Apply angular velocity to rotation
         rotation += angularVelocity * deltaTime;
         
+        // Update wobble effect (z-axis rotation)
+        // Apply spring force to return to zero
+        wobbleVelocity += -wobbleRotation * WOBBLE_SPRING * deltaTime;
+        // Apply damping
+        wobbleVelocity *= Math.pow(WOBBLE_DAMPING, deltaTime);
+        // Apply velocity
+        wobbleRotation += wobbleVelocity * deltaTime;
+        
+        // Clamp wobble to prevent extreme values
+        if (Math.abs(wobbleRotation) < 0.001 && Math.abs(wobbleVelocity) < 0.001) {
+            wobbleRotation = 0;
+            wobbleVelocity = 0;
+        }
+        
+        // Update twirl effect
+        if (twirlActive) {
+            twirlRotation += TWIRL_SPEED * deltaTime;
+            System.out.println("TWIRL: rotation=" + twirlRotation + " / " + (Math.PI * 2) + " deltaTime=" + deltaTime);
+            if (twirlRotation >= Math.PI * 2) {
+                twirlRotation = 0;
+                twirlActive = false;
+                System.out.println("DEBUG TWIRL: Completed 360-degree rotation");
+            }
+        }
+        
         // Generate wing tip trails for all boss types (planes and helicopters)
         if (particles != null) {
             // Get current sprite dimensions for accurate wing positioning
@@ -402,16 +469,27 @@ public class Boss {
                 wingSpan = actualSpriteWidth * 0.5;
             }
             
+            // Apply wobble/twirl scale to wing span
+            double currentScale = 1.0;
+            if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
+                currentScale = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
+            } else if (twirlActive) {
+                currentScale = Math.sin(twirlRotation + Math.PI / 2);
+            } else if (Math.abs(wobbleRotation) > 0.001) {
+                currentScale = 0.65 + 0.35 * Math.cos(wobbleRotation);
+            }
+            double scaledWingSpan = wingSpan * Math.abs(currentScale);
+            
             // Calculate wing tip positions (perpendicular to rotation)
             double perpAngle = rotation + Math.PI / 2; // Perpendicular to facing direction
             
             // Left wing tip
-            double leftWingX = x + Math.cos(perpAngle) * wingSpan;
-            double leftWingY = y + Math.sin(perpAngle) * wingSpan;
+            double leftWingX = x + Math.cos(perpAngle) * scaledWingSpan;
+            double leftWingY = y + Math.sin(perpAngle) * scaledWingSpan;
             
             // Right wing tip
-            double rightWingX = x - Math.cos(perpAngle) * wingSpan;
-            double rightWingY = y - Math.sin(perpAngle) * wingSpan;
+            double rightWingX = x - Math.cos(perpAngle) * scaledWingSpan;
+            double rightWingY = y - Math.sin(perpAngle) * scaledWingSpan;
             
             // Larger trails for mega bosses
             int trailSize = isMegaBoss ? 8 : 4;
@@ -497,6 +575,14 @@ public class Boss {
             // When entering assault phase, immediately switch to a new pattern
             if (isAssaultPhase) {
                 patternType = (int)(Math.random() * maxPatterns);
+                
+                // 30% chance to start a twirl attack sequence during assault
+                if (Math.random() < 0.3 && level >= 3) {
+                    twirlAttackActive = true;
+                    twirlAttackCount = 0;
+                    twirlAttackTimer = 0;
+                    triggerTwirl(); // Start first twirl
+                }
             }
         }
         
@@ -508,6 +594,41 @@ public class Boss {
             shockwaveRadius += shockwaveSpeed * deltaTime;
             if (shockwaveRadius >= shockwaveMaxRadius) {
                 shockwaveActive = false;
+            }
+        }
+        
+        // Update twirl attack sequence
+        if (twirlAttackActive && isAssaultPhase) {
+            twirlAttackTimer += deltaTime;
+            
+            // Continuously move along circular arc while attack is active
+            twirlAttackAngle += 0.03 * deltaTime; // Constant angular velocity
+            
+            // Calculate position on circular arc around screen edge
+            double centerX = screenWidth / 2.0;
+            double centerY = screenHeight / 3.0;
+            double arcRadius = Math.min(screenWidth, screenHeight) * 0.4; // Large arc
+            
+            targetX = centerX + Math.cos(twirlAttackAngle) * arcRadius;
+            targetY = centerY + Math.sin(twirlAttackAngle) * arcRadius;
+            
+            // Clamp to screen bounds
+            targetX = Math.max(size, Math.min(screenWidth - size, targetX));
+            targetY = Math.max(size, Math.min(screenHeight / 1.8 - size, targetY));
+            
+            // Check if current twirl finished and we need another
+            if (!twirlActive && twirlAttackTimer > 30) { // Delay between twirls
+                twirlAttackCount++;
+                
+                if (twirlAttackCount < twirlAttackMaxCount) {
+                    // Start next twirl
+                    triggerTwirl();
+                    twirlAttackTimer = 0;
+                } else {
+                    // Finished all twirls
+                    twirlAttackActive = false;
+                    twirlAttackCount = 0;
+                }
             }
         }
         
@@ -1145,6 +1266,22 @@ public class Boss {
                 int shadowWidth = (int)(spriteWidth * SHADOW_SCALE);
                 int shadowHeight = (int)(spriteHeight * SHADOW_SCALE);
                 
+                // Apply z-axis rotation to shadow
+                double shadowScaleX;
+                if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
+                    shadowScaleX = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
+                } else if (twirlActive) {
+                    shadowScaleX = Math.sin(twirlRotation + Math.PI / 2);
+                } else if (Math.abs(wobbleRotation) > 0.001) {
+                    shadowScaleX = 0.65 + 0.35 * Math.cos(wobbleRotation);
+                } else {
+                    shadowScaleX = 1.0;
+                }
+                
+                if (Math.abs(shadowScaleX - 1.0) > 0.001) {
+                    shadowWidth = (int)(shadowWidth * Math.abs(shadowScaleX));
+                }
+                
                 // Rotate to match object orientation
                 g2d.rotate(rotation - Math.PI / 2);
                 
@@ -1162,7 +1299,26 @@ public class Boss {
             // Now rotate for the sprite itself
             g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
-            // Draw sprite
+            // Apply z-axis rotation (wobble and/or twirl)
+            double spriteScaleX;
+            if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
+                // Both twirl and wobble: combine them
+                spriteScaleX = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
+            } else if (twirlActive) {
+                // Twirl only: offset by PI/2 so it starts and ends at scale 1.0
+                spriteScaleX = Math.sin(twirlRotation + Math.PI / 2);
+            } else if (Math.abs(wobbleRotation) > 0.001) {
+                // Wobble only: keep positive range
+                spriteScaleX = 0.65 + 0.35 * Math.cos(wobbleRotation);
+            } else {
+                // No effect
+                spriteScaleX = 1.0;
+            }
+            
+            if (Math.abs(spriteScaleX - 1.0) > 0.001) {
+                g2d.scale(spriteScaleX, 1.0);
+            }
+            
             g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
             
             // Draw spinning helicopter blades if this is a helicopter
@@ -1240,8 +1396,29 @@ public class Boss {
     
     // Health and phase management
     public void takeDamage() {
+        takeDamage(false);
+    }
+    
+    // Debug method to trigger wobble without damaging
+    public void triggerWobble() {
+        wobbleVelocity = WOBBLE_STRENGTH * (Math.random() > 0.5 ? 1 : -1);
+        System.out.println("DEBUG WOBBLE: wobbleVelocity=" + wobbleVelocity);
+    }
+    
+    // Trigger a 360-degree twirl on z-axis
+    public void triggerTwirl() {
+        if (!twirlActive) {
+            twirlActive = true;
+            twirlRotation = 0;
+            System.out.println("DEBUG TWIRL: Starting 360-degree rotation");
+        }
+    }
+    
+    public void takeDamage(boolean hitByPlayer) {
         if (currentHealth > 0) {
             currentHealth--;
+            
+            // Wobble is now triggered externally during hit animation, not here
             
             // Calculate new phase based on health percentage
             int newPhase = maxHealth - currentHealth;
