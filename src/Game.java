@@ -304,6 +304,13 @@ public class Game extends JPanel implements Runnable {
     private List<String> pendingAttackIntros = new ArrayList<>(); // Queue of intros to show
     private BufferedImage attackIntroImage = null; // Placeholder image for now
     
+    // Debug Attack Showcase Mode (for taking screenshots)
+    private boolean debugShowcaseMode = false;
+    private int debugShowcaseIndex = 0; // Current attack being showcased
+    private int debugShowcaseTimer = 0; // Timer for cycling attacks
+    private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing intro
+    private static final int DEBUG_SHOWCASE_INTERVAL = 900; // 15 seconds at 60fps
+    
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
     private double slowMotionFactor = 1.0; // Slow-motion multiplier (1.0 = normal)
@@ -745,6 +752,8 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
                 // Fullscreen toggle
                 else if (key == KeyEvent.VK_F11) { toggleFullscreen(); screenShakeIntensity = 3; }
+                // Debug attack showcase mode (F10)
+                else if (key == KeyEvent.VK_F10) { startDebugShowcase(); screenShakeIntensity = 5; }
                 break;
                 
             case STATS:
@@ -949,8 +958,25 @@ public class Game extends JPanel implements Runnable {
                 
             case ATTACK_INTRO:
                 // Press any key to continue from attack intro
-                if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER || key == KeyEvent.VK_ESCAPE) {
-                    dismissAttackIntro();
+                if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    if (debugShowcaseMode) {
+                        // In showcase mode, start gameplay to show this attack in action
+                        startDebugShowcaseGameplay();
+                    } else {
+                        dismissAttackIntro();
+                    }
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    if (debugShowcaseMode) {
+                        // Exit showcase mode
+                        debugShowcaseMode = false;
+                        debugShowcaseInGameplay = false;
+                        transitionToState(GameState.MENU);
+                        System.out.println("DEBUG SHOWCASE: Cancelled by user");
+                    } else {
+                        dismissAttackIntro();
+                    }
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
                 }
@@ -1112,6 +1138,11 @@ public class Game extends JPanel implements Runnable {
                             screenShakeIntensity = 15;
                             System.out.println("DEBUG: Level skipped via T key - direct to WIN");
                         }
+                    } else if (key == KeyEvent.VK_N && debugShowcaseMode) {
+                        // Debug showcase: Skip to next attack
+                        debugShowcaseIndex++;
+                        showDebugShowcaseAttack(debugShowcaseIndex);
+                        System.out.println("DEBUG SHOWCASE: Skipping to next attack via N key");
                     }
                 }
                 break;
@@ -2411,6 +2442,169 @@ public class Game extends JPanel implements Runnable {
         }
     }
 
+    /**
+     * Start the debug attack showcase mode for taking screenshots.
+     * Shows intro, then starts gameplay with that attack for 15 seconds each.
+     */
+    private void startDebugShowcase() {
+        debugShowcaseMode = true;
+        debugShowcaseIndex = 0;
+        debugShowcaseTimer = 0;
+        debugShowcaseInGameplay = false;
+        
+        // Start with the first attack's level
+        int firstLevel = Integer.parseInt(ATTACK_INTROS[0][1]);
+        gameData.setCurrentLevel(firstLevel);
+        
+        // Show the first attack intro
+        showDebugShowcaseAttack(0);
+        
+        System.out.println("DEBUG SHOWCASE: Started - Press ESC to exit, SPACE to skip to next");
+        System.out.println("DEBUG SHOWCASE: Flow = Intro Screen -> Gameplay (15s) -> Next Attack");
+    }
+    
+    /**
+     * Show a specific attack in the debug showcase (intro screen first)
+     */
+    private void showDebugShowcaseAttack(int index) {
+        if (index >= ATTACK_INTROS.length) {
+            // All attacks shown, stop showcase
+            debugShowcaseMode = false;
+            debugShowcaseInGameplay = false;
+            transitionToState(GameState.MENU);
+            System.out.println("DEBUG SHOWCASE: Complete!");
+            return;
+        }
+        
+        String[] intro = ATTACK_INTROS[index];
+        String attackId = intro[0];
+        int attackLevel = Integer.parseInt(intro[1]);
+        String attackName = intro[2];
+        String attackDescription = intro[3];
+        
+        // Set the level to match this attack (changes boss sprite and background)
+        gameData.setCurrentLevel(attackLevel);
+        
+        // Set up the attack intro display
+        currentAttackIntroId = attackId;
+        currentAttackIntroName = attackName;
+        currentAttackIntroDescription = attackDescription;
+        attackIntroImage = createPlaceholderAttackImage(attackId);
+        
+        debugShowcaseInGameplay = false;
+        debugShowcaseTimer = 0;
+        transitionToState(GameState.ATTACK_INTRO);
+        
+        System.out.println("DEBUG SHOWCASE: Showing intro " + (index + 1) + "/" + ATTACK_INTROS.length + 
+                          " - " + attackName + " (Level " + attackLevel + ")");
+    }
+    
+    /**
+     * Start gameplay for the current showcase attack
+     */
+    private void startDebugShowcaseGameplay() {
+        debugShowcaseInGameplay = true;
+        debugShowcaseTimer = 0;
+        
+        // Get the level for this attack from ATTACK_INTROS
+        int attackLevel = Integer.parseInt(ATTACK_INTROS[debugShowcaseIndex][1]);
+        gameData.setCurrentLevel(attackLevel);
+        
+        // Start the game with current level settings
+        riskContractType = 0;
+        riskContractActive = false;
+        riskContractMultiplier = 1.0;
+        startGame();
+        
+        // Skip intro animations for faster showcase
+        introPanActive = false;
+        bossIntroActive = false;
+        invulnerabilityTimer = 0; // Make boss vulnerable immediately
+        
+        // Configure boss to use the specific attack being showcased
+        if (currentBoss != null && currentAttackIntroId != null) {
+            configureBossForShowcase(currentAttackIntroId);
+            // Enable slow shooting mode for better screenshots
+            currentBoss.setDebugSlowMode(true);
+        }
+        
+        System.out.println("DEBUG SHOWCASE: Gameplay started - " + currentAttackIntroName + 
+                          " (Level " + attackLevel + ") - 15 seconds to take screenshots");
+    }
+    
+    /**
+     * Configure the boss to use a specific attack for the showcase
+     */
+    private void configureBossForShowcase(String attackId) {
+        if (currentBoss == null) return;
+        
+        // Reset all forced modes
+        currentBoss.setForcedPatternType(-1);
+        currentBoss.setForceBeamAttack(false);
+        currentBoss.setForceShockwave(false);
+        currentBoss.setForceTwirlAttack(false);
+        
+        // Map attack IDs to boss behavior
+        // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
+        //                7=Mixed, 8=SpiralBullets, 9=Splitting, 10=Accelerating, 11=WaveBullets,
+        //                12=Bombs, 13=Grenades, 14=Nukes
+        switch (attackId) {
+            case "basic_bullets":
+                currentBoss.setForcedPatternType(1); // Circle pattern
+                break;
+            case "spiral_bullets":
+                currentBoss.setForcedPatternType(0); // Spiral pattern
+                break;
+            case "aimed_shots":
+                currentBoss.setForcedPatternType(2); // Aimed at player
+                break;
+            case "bouncing_bullets":
+                currentBoss.setForcedPatternType(3); // Wave pattern
+                break;
+            case "beam_attack":
+                currentBoss.setForceBeamAttack(true);
+                break;
+            case "shockwave":
+                currentBoss.setForceShockwave(true);
+                break;
+            case "grenades":
+                currentBoss.setForcedPatternType(13); // Grenades
+                break;
+            case "twirl_attack":
+                currentBoss.setForceTwirlAttack(true);
+                break;
+            case "splitting_bullets":
+                currentBoss.setForcedPatternType(9); // Splitting
+                break;
+            case "accelerating_bullets":
+                currentBoss.setForcedPatternType(10); // Accelerating
+                break;
+            case "nuke_bombs":
+                currentBoss.setForcedPatternType(14); // Nukes
+                break;
+        }
+        
+        System.out.println("DEBUG SHOWCASE: Boss configured for attack: " + attackId);
+    }
+    
+    /**
+     * Update the debug showcase timer (called from main update loop)
+     * Only tracks time during gameplay phase, not intro screens
+     */
+    private void updateDebugShowcase() {
+        if (!debugShowcaseMode) return;
+        
+        // Only count timer during gameplay phase
+        if (debugShowcaseInGameplay && gameState == GameState.PLAYING) {
+            debugShowcaseTimer++;
+            if (debugShowcaseTimer >= DEBUG_SHOWCASE_INTERVAL) {
+                // Time's up, move to next attack
+                debugShowcaseIndex++;
+                showDebugShowcaseAttack(debugShowcaseIndex);
+            }
+        }
+    }
+
     private void startGame() {
         gameState = GameState.PLAYING;
         int speedLevel = getActiveSpeedLevel();
@@ -2586,6 +2780,11 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
+        // Update debug showcase mode timer
+        if (debugShowcaseMode && gameState == GameState.ATTACK_INTRO) {
+            updateDebugShowcase();
+        }
+        
         // Update bullet size multiplier from passive upgrades
         if (passiveUpgradeManager != null) {
             double bulletSizeMultiplier = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.BULLET_SIZE);

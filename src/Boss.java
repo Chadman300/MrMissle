@@ -51,6 +51,12 @@ public class Boss {
     private int shootInterval;
     private int patternType;
     private int maxPatterns; // Maximum attack patterns unlocked
+    private int forcedPatternType = -1; // For debug showcase mode: -1 = normal, 0-14 = forced pattern
+    private boolean forceBeamAttack = false; // Force beam attacks for showcase
+    private boolean forceShockwave = false; // Force shockwave for showcase
+    private boolean forceTwirlAttack = false; // Force twirl attack for showcase
+    private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
+    private static final int DEBUG_SLOW_SHOOT_INTERVAL = 300; // 5 seconds between shots in debug mode
     private double targetX, targetY; // Target position for smooth movement
     private int moveTimer; // Timer to pick new target
     private int beamAttackTimer; // Timer for beam attacks
@@ -563,8 +569,11 @@ public class Boss {
             justChangedPhase = true;
             
             // When entering recovery phase, randomly spawn shockwave (only if boss has been hit at least once)
-            // Shockwave attack only available from level 5 onwards
-            if (!isAssaultPhase && currentHealth < maxHealth && level >= 5 && Math.random() < 0.4) { // 40% chance
+            // Shockwave attack only available from level 5 onwards (or forced for debug showcase)
+            boolean shouldShockwave = (level >= 5 || forceShockwave) && 
+                                      (!isAssaultPhase) && 
+                                      (forceShockwave || (currentHealth < maxHealth && Math.random() < 0.4));
+            if (shouldShockwave && !shockwaveActive) {
                 shockwaveActive = true;
                 shockwaveRadius = 0;
                 shockwaveHasHitPlayer = false; // Reset hit tracking
@@ -582,8 +591,10 @@ public class Boss {
                 patternType = (int)(Math.random() * maxPatterns);
                 
                 // 30% chance to start a twirl attack sequence during assault
-                // Twirl/spin attack only available from level 7 onwards
-                if (Math.random() < 0.3 && level >= 7) {
+                // Twirl/spin attack only available from level 7 onwards (or forced for debug showcase)
+                boolean shouldTwirl = (level >= 7 || forceTwirlAttack) && 
+                                      (forceTwirlAttack || Math.random() < 0.3);
+                if (shouldTwirl && !twirlAttackActive) {
                     twirlAttackActive = true;
                     twirlAttackCount = 0;
                     twirlAttackTimer = 0;
@@ -646,10 +657,12 @@ public class Boss {
             shoot(bullets, player);
         }
         
-        // Beam attacks (at higher levels - starting at level 4)
-        if (level >= 4) {
+        // Beam attacks (at higher levels - starting at level 4, or forced for debug showcase)
+        if (level >= 4 || forceBeamAttack) {
             beamAttackTimer += deltaTime;
-            if (beamAttackTimer >= beamAttackInterval) {
+            // Use faster interval when forced for debug showcase
+            int effectiveInterval = forceBeamAttack ? Math.min(120, beamAttackInterval) : beamAttackInterval;
+            if (beamAttackTimer >= effectiveInterval) {
                 beamAttackTimer = 0;
                 spawnBeamAttack(screenWidth, screenHeight);
             }
@@ -691,10 +704,16 @@ public class Boss {
             }
         }
         
-        // Cycle through unlocked patterns only
-        patternType = (patternType + 1) % maxPatterns;
+        // Cycle through unlocked patterns only (or use forced pattern for debug showcase)
+        int currentPattern;
+        if (forcedPatternType >= 0 && forcedPatternType < 15) {
+            currentPattern = forcedPatternType; // Use forced pattern
+        } else {
+            patternType = (patternType + 1) % maxPatterns;
+            currentPattern = patternType;
+        }
         
-        switch (patternType % 15) {
+        switch (currentPattern % 15) {
             case 0: // Spiral pattern
                 shootSpiral(bullets);
                 break;
@@ -1497,6 +1516,49 @@ public class Boss {
     public boolean hasShockwaveHitPlayer() { return shockwaveHasHitPlayer; }
     public void setShockwaveHitPlayer() { shockwaveHasHitPlayer = true; }
     public double getShockwaveKnockback() { return SHOCKWAVE_KNOCKBACK; }
+    
+    // Debug showcase mode methods
+    /**
+     * Force the boss to use only a specific attack pattern.
+     * @param patternId The pattern ID (0-14), or -1 for normal behavior
+     */
+    public void setForcedPatternType(int patternId) {
+        this.forcedPatternType = patternId;
+    }
+    
+    /**
+     * Force beam attack mode for debug showcase
+     */
+    public void setForceBeamAttack(boolean force) {
+        this.forceBeamAttack = force;
+        if (force) {
+            this.beamAttackTimer = 0; // Attack immediately
+        }
+    }
+    
+    /**
+     * Force shockwave attack mode for debug showcase
+     */
+    public void setForceShockwave(boolean force) {
+        this.forceShockwave = force;
+    }
+    
+    /**
+     * Force twirl attack mode for debug showcase
+     */
+    public void setForceTwirlAttack(boolean force) {
+        this.forceTwirlAttack = force;
+    }
+    
+    /**
+     * Enable debug slow mode for screenshot taking
+     */
+    public void setDebugSlowMode(boolean slow) {
+        this.debugSlowMode = slow;
+        if (slow) {
+            this.shootInterval = DEBUG_SLOW_SHOOT_INTERVAL;
+        }
+    }
     
     // Get money reward based on boss type
     public int getMoneyReward() {
