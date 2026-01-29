@@ -67,5 +67,8 @@ public enum GameState {
     DEBUG,
     
     /** Achievements screen - detailed achievement progress */
-    ACHIEVEMENTS
+    ACHIEVEMENTS,
+    
+    /** Attack introduction screen - shows new attack types when first encountered */
+    ATTACK_INTRO
 }

@@ -86,7 +86,9 @@ public class UIButton {
     public void draw(Graphics2D g, double time) {
         // Create graphics context for button
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (Game.enableAntiAliasing) {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         
         // Calculate center
         int centerX = x + width / 2;
@@ -145,7 +147,9 @@ public class UIButton {
         // Reset transform for text so it doesn't scale
         g2.dispose();
         g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (Game.enableAntiAliasing) {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         g2.translate(swayOffset, 0); // Only apply sway to text, not scale
         
         // Calculate text position (adjusted for icon if present)
@@ -190,7 +194,9 @@ public class UIButton {
     
     private void drawIcon(Graphics2D g, String iconType, int x, int y, int size, Color color, Color shadow, double time) {
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (Game.enableAntiAliasing) {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         
         // Slight rotation animation for selected icons
         if (isSelected) {

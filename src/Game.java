@@ -66,7 +66,9 @@ public class Game extends JPanel implements Runnable {
     private List<BeamAttack> beamAttacks;
     
     // Particle limits for performance
-    private static final int MAX_PARTICLES = 300; // Reduced for better performance
+    private static final int MAX_PARTICLES = 200; // Reduced for better performance
+    private static final int MAX_BULLETS = 500; // Cap bullets for performance
+    private int particleSpawnThrottle = 0; // Throttle particle spawns during high load
     
     // Cached colors for performance
     private static final Color IMPACT_WHITE = new Color(255, 255, 255);
@@ -82,6 +84,19 @@ public class Game extends JPanel implements Runnable {
     private static final Color WARNING_RED = new Color(191, 97, 106);
     private static final Color PLAYER_DEATH_RED = new Color(191, 97, 106);
     private static final Color DODGE_GREEN = new Color(163, 190, 140);
+    private static final Color JET_TRAIL_COLOR = new Color(255, 150, 0, 200);
+    private static final Color ENGINE_GLOW_BLUE = new Color(100, 150, 255, 180);
+    private static final Color EXPLOSION_WARM = new Color(255, 200, 100, 200);
+    private static final Color SHIELD_BLUE = new Color(136, 192, 208);
+    private static final Color GRAZE_BLUE = new Color(100, 200, 255, 200);
+    private static final Color GRAZE_GOLD = new Color(255, 215, 0, 255);
+    private static final Color GRAZE_GREEN = new Color(150, 255, 150, 220);
+    private static final Color SPAWN_CYAN = new Color(100, 200, 255, 220);
+    private static final Color METAL_DEBRIS = new Color(160, 160, 170, 200);
+    private static final Color SPARK_YELLOW = new Color(255, 220, 100, 220);
+    private static final Color LUCKY_CHARM_GOLD = new Color(255, 215, 0, 200);
+    private static final Color CRITICAL_HIT_GOLD = new Color(255, 215, 0);
+    private static final Color BOSS_HIT_RED = new Color(255, 80, 80);
     
     // Cached math constants
     private static final double TWO_PI = Math.PI * 2;
@@ -246,7 +261,7 @@ public class Game extends JPanel implements Runnable {
     
     // Risk Contract system
     private boolean riskContractActive = false;
-    private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no shield, 4 = can't stop
+    private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no active items, 4 = can't stop
     private double riskContractMultiplier = 1.0; // Money multiplier from contract
     private int selectedRiskContract = 0; // Currently selected contract in menu
     private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Shieldless", "Can't Stop"};
@@ -264,6 +279,30 @@ public class Game extends JPanel implements Runnable {
     private boolean hasMovedOnce = false; // Track if player has moved at least once
     private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
+    
+    // Attack Introduction System
+    // Each attack intro has: ID, Level it appears, Name, Description
+    private static final String[][] ATTACK_INTROS = {
+        // {attackId, level, name, description}
+        {"basic_bullets", "1", "Basic Bullets", "The boss fires bullets in various patterns.\nDodge them by moving with WASD or Arrow keys!"},
+        {"spiral_bullets", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!"},
+        {"aimed_shots", "2", "Aimed Shots", "The boss aims directly at you!\nKeep moving to avoid being hit."},
+        {"bouncing_bullets", "3", "Bouncing Bullets", "These bullets bounce off walls!\nWatch out for unexpected rebounds."},
+        {"beam_attack", "4", "Beam Attack", "A powerful beam sweeps across the arena.\nMove to the safe zone before it fires!"},
+        {"shockwave", "5", "Shockwave", "A damaging wave expands from the boss.\nJump over it or get knocked back!"},
+        {"grenades", "6", "Grenades", "Explosive projectiles that detonate on impact.\nStay clear of the blast radius!"},
+        {"twirl_attack", "7", "Twirl Attack", "The boss spins while circling the arena.\nStay mobile and watch its path!"},
+        {"splitting_bullets", "8", "Splitting Bullets", "Bullets that split into smaller ones.\nMore bullets to dodge - stay alert!"},
+        {"accelerating_bullets", "9", "Accelerating Bullets", "Bullets that speed up over time.\nDodge early before they become too fast!"},
+        {"nuke_bombs", "10", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!"}
+    };
+    
+    // Current attack intro being displayed
+    private String currentAttackIntroId = null;
+    private String currentAttackIntroName = null;
+    private String currentAttackIntroDescription = null;
+    private List<String> pendingAttackIntros = new ArrayList<>(); // Queue of intros to show
+    private BufferedImage attackIntroImage = null; // Placeholder image for now
     
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
@@ -330,7 +369,7 @@ public class Game extends JPanel implements Runnable {
     public static int resolutionPreset = 3; // 0=1280x720, 1=1366x768, 2=1600x900, 3=1920x1080, 4=2560x1440, 5=3840x2160
     public static boolean enableVSync = true; // VSync enabled/disabled
     public static int fpsLimit = 1; // 0=30 FPS, 1=60 FPS, 2=120 FPS, 3=144 FPS, 4=Unlimited
-    public static boolean enableAntiAliasing = true; // Anti-aliasing enabled/disabled
+    public static boolean enableAntiAliasing = false; // Anti-aliasing disabled by default for performance
     
     // Sound Manager
     private SoundManager soundManager;
@@ -908,6 +947,15 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
                 
+            case ATTACK_INTRO:
+                // Press any key to continue from attack intro
+                if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER || key == KeyEvent.VK_ESCAPE) {
+                    dismissAttackIntro();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                }
+                break;
+                
             case LEVEL_CONFIRM:
                 // Confirmation dialog for level start
                 if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
@@ -1017,14 +1065,19 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 5;
                     } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
-                        eKeyPressed = true;
-                        ActiveItem item = gameData.getEquippedItem();
-                        if (item != null && item.canActivate()) {
-                            item.activate();
-                            screenShakeIntensity = 3;
-                            // Handle instant effects immediately (before update() deactivates them)
-                            if (item.getActiveDuration() == 0) {
-                                handleActiveItemEffects(item, 1.0);
+                        // Shieldless contract (type 3) disables ALL active items
+                        if (riskContractType == 3) {
+                            damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
+                        } else {
+                            eKeyPressed = true;
+                            ActiveItem item = gameData.getEquippedItem();
+                            if (item != null && item.canActivate()) {
+                                item.activate();
+                                screenShakeIntensity = 3;
+                                // Handle instant effects immediately (before update() deactivates them)
+                                if (item.getActiveDuration() == 0) {
+                                    handleActiveItemEffects(item, 1.0);
+                                }
                             }
                         }
                     } else if (key == KeyEvent.VK_K) {
@@ -1119,6 +1172,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
+                    performAutoSave(); // Save progress after death
                     // Force players to go through level select again
                     transitionToState(GameState.LEVEL_SELECT);
                 } else if (key == KeyEvent.VK_ESCAPE) {
@@ -1126,6 +1180,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun();
+                    performAutoSave(); // Save progress after death
                     transitionToState(GameState.MENU);
                 }
                 break;
@@ -1399,7 +1454,16 @@ public class Game extends JPanel implements Runnable {
             riskContractType = 0;
             riskContractActive = false;
             riskContractMultiplier = 1.0;
-            startGame();
+            
+            // Check for new attack introductions at this level
+            checkForNewAttackIntros();
+            
+            // If there are pending intros, show them first; otherwise start game
+            if (!pendingAttackIntros.isEmpty()) {
+                showNextAttackIntro();
+            } else {
+                startGame();
+            }
         }
     }
     
@@ -1407,7 +1471,119 @@ public class Game extends JPanel implements Runnable {
         riskContractType = selectedRiskContract;
         riskContractActive = selectedRiskContract > 0;
         riskContractMultiplier = RISK_CONTRACT_MULTIPLIERS[selectedRiskContract];
-        startGame();
+        
+        // Check for new attack introductions at this level
+        checkForNewAttackIntros();
+        
+        // If there are pending intros, show them first; otherwise start game
+        if (!pendingAttackIntros.isEmpty()) {
+            showNextAttackIntro();
+        } else {
+            startGame();
+        }
+    }
+    
+    /**
+     * Check which attacks are introduced at the current level and haven't been seen yet
+     */
+    private void checkForNewAttackIntros() {
+        pendingAttackIntros.clear();
+        int level = gameData.getCurrentLevel();
+        System.out.println("DEBUG ATTACK INTRO: Checking for new attack intros at level " + level);
+        
+        for (String[] intro : ATTACK_INTROS) {
+            String attackId = intro[0];
+            int introLevel = Integer.parseInt(intro[1]);
+            
+            // Check if this attack is introduced at current level and hasn't been seen
+            if (introLevel == level && !gameData.hasSeenAttackIntro(attackId)) {
+                System.out.println("DEBUG ATTACK INTRO: Found new attack - " + attackId);
+                pendingAttackIntros.add(attackId);
+            }
+        }
+        System.out.println("DEBUG ATTACK INTRO: Total pending intros: " + pendingAttackIntros.size());
+    }
+    
+    /**
+     * Show the next attack introduction from the pending queue
+     */
+    private void showNextAttackIntro() {
+        if (pendingAttackIntros.isEmpty()) {
+            startGame();
+            return;
+        }
+        
+        String attackId = pendingAttackIntros.remove(0);
+        
+        // Find the attack data
+        for (String[] intro : ATTACK_INTROS) {
+            if (intro[0].equals(attackId)) {
+                currentAttackIntroId = attackId;
+                currentAttackIntroName = intro[2];
+                currentAttackIntroDescription = intro[3];
+                
+                // TODO: Load actual image when available
+                // For now, create a placeholder image
+                attackIntroImage = createPlaceholderAttackImage(attackId);
+                
+                transitionToState(GameState.ATTACK_INTRO);
+                break;
+            }
+        }
+    }
+    
+    /**
+     * Create a placeholder image for attack introductions (temporary)
+     */
+    private BufferedImage createPlaceholderAttackImage(String attackId) {
+        int size = 200;
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        
+        // Draw placeholder rectangle with attack name
+        g.setColor(new Color(60, 60, 80));
+        g.fillRoundRect(0, 0, size, size, 20, 20);
+        g.setColor(new Color(100, 150, 200));
+        g.setStroke(new BasicStroke(3));
+        g.drawRoundRect(2, 2, size - 4, size - 4, 20, 20);
+        
+        // Draw question mark or icon based on attack type
+        g.setColor(new Color(200, 200, 220));
+        g.setFont(new Font("Arial", Font.BOLD, 60));
+        FontMetrics fm = g.getFontMetrics();
+        String symbol = "?";
+        
+        // Choose symbol based on attack type
+        if (attackId.contains("bullet")) symbol = "•";
+        else if (attackId.contains("beam")) symbol = "═";
+        else if (attackId.contains("shock")) symbol = "◯";
+        else if (attackId.contains("grenade") || attackId.contains("nuke") || attackId.contains("bomb")) symbol = "💣";
+        else if (attackId.contains("twirl")) symbol = "↻";
+        else if (attackId.contains("spiral")) symbol = "🌀";
+        
+        int textX = (size - fm.stringWidth(symbol)) / 2;
+        int textY = (size + fm.getAscent() - fm.getDescent()) / 2;
+        g.drawString(symbol, textX, textY);
+        
+        g.dispose();
+        return img;
+    }
+    
+    /**
+     * Dismiss the current attack intro and continue
+     */
+    private void dismissAttackIntro() {
+        // Mark as seen
+        if (currentAttackIntroId != null) {
+            gameData.markAttackIntroSeen(currentAttackIntroId);
+        }
+        
+        // Show next intro or start game
+        if (!pendingAttackIntros.isEmpty()) {
+            showNextAttackIntro();
+        } else {
+            startGame();
+        }
     }
     
     private void handleMouseMove() {
@@ -2434,13 +2610,9 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            if (unpauseCountdownTimer % 60 == 0) {
-                System.out.println("DEBUG: Countdown active - timer: " + unpauseCountdownTimer);
-            }
             if (unpauseCountdownTimer <= 0) {
                 unpauseCountdownActive = false;
                 lastCountdownSecond = -1;
-                System.out.println("DEBUG: Countdown finished");
             }
         }
         
@@ -2604,7 +2776,16 @@ public class Game extends JPanel implements Runnable {
                             riskContractType = 0;
                             riskContractActive = false;
                             riskContractMultiplier = 1.0;
-                            startGame();
+                            
+                            // Check for new attack introductions at this level
+                            checkForNewAttackIntros();
+                            
+                            // If there are pending intros, show them first; otherwise start game
+                            if (!pendingAttackIntros.isEmpty()) {
+                                showNextAttackIntro();
+                            } else {
+                                startGame();
+                            }
                         }
                     }
                 }
@@ -2903,8 +3084,8 @@ public class Game extends JPanel implements Runnable {
                             screenShakeIntensity = Math.max(screenShakeIntensity, 8 + easeProgress * 4);
                         }
                         
-                        // Add jet trail particles during descent
-                        if (progress > 0.1 && Math.random() < 0.4) {
+                        // Add jet trail particles during descent - throttled for performance
+                        if (progress > 0.1 && particles.size() < MAX_PARTICLES && Math.random() < 0.25) {
                             double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Point upward (thrusters push down)
                             double speed = 1 + Math.random() * 2;
                             particles.add(new Particle(
@@ -2912,7 +3093,7 @@ public class Game extends JPanel implements Runnable {
                                 currentBoss.getY() + currentBoss.getSize() / 2,
                                 Math.cos(angle) * speed,
                                 Math.sin(angle) * speed,
-                                new Color(255, 150, 0, 200),
+                                JET_TRAIL_COLOR,
                                 60 + (int)(Math.random() * 30),
                                 8.0 + Math.random() * 8.0,
                                 Particle.ParticleType.TRAIL
@@ -2948,14 +3129,14 @@ public class Game extends JPanel implements Runnable {
                     double startY = 30.0; // Camera's max Y during boss viewing
                     cameraY = startY * (1 - easeProgress);
                     
-                    // Add engine glow particles as boss settles
-                    if (currentBoss != null && Math.random() < 0.15) {
+                    // Add engine glow particles as boss settles - throttled
+                    if (currentBoss != null && particles.size() < MAX_PARTICLES && Math.random() < 0.1) {
                         particles.add(new Particle(
                             currentBoss.getX() + (Math.random() - 0.5) * 40,
                             currentBoss.getY() + currentBoss.getSize() / 2,
                             (Math.random() - 0.5) * 0.5,
                             1 + Math.random() * 1.5,
-                            new Color(100, 150, 255, 180),
+                            ENGINE_GLOW_BLUE,
                             40 + (int)(Math.random() * 20),
                             6.0 + Math.random() * 6.0,
                             Particle.ParticleType.SPARK
@@ -2965,10 +3146,10 @@ public class Game extends JPanel implements Runnable {
                 } else {
                     // Entrance complete - add final burst of particles
                     if (introPanTimer - deltaTime < INTRO_PAN_DURATION) {
-                        // Just finished - add dramatic particle burst
+                        // Just finished - add dramatic particle burst (reduced count)
                         screenShakeIntensity = 15; // Massive shake at the end
                         if (currentBoss != null) {
-                            for (int i = 0; i < 20; i++) {
+                            for (int i = 0; i < 12 && particles.size() < MAX_PARTICLES; i++) {
                                 double angle = Math.random() * Math.PI * 2;
                                 double speed = 1 + Math.random() * 3;
                                 particles.add(new Particle(
@@ -2976,7 +3157,7 @@ public class Game extends JPanel implements Runnable {
                                     currentBoss.getY(),
                                     Math.cos(angle) * speed,
                                     Math.sin(angle) * speed,
-                                    new Color(255, 200, 100, 200),
+                                    EXPLOSION_WARM,
                                     30 + (int)(Math.random() * 30),
                                     10.0 + Math.random() * 10.0,
                                     Particle.ParticleType.EXPLOSION
@@ -3065,7 +3246,8 @@ public class Game extends JPanel implements Runnable {
                     double trailX = player.getX() - Math.cos(angle) * backDistance;
                     double trailY = player.getY() - Math.sin(angle) * backDistance;
                     
-                    for (int i = 0; i < 2; i++) {
+                    // Only spawn 1 particle per update (was 2) for performance
+                    if (particles.size() < MAX_PARTICLES) {
                         // Add spread perpendicular to movement direction
                         double perpAngle = angle + Math.PI / 2;
                         double spread = (Math.random() - 0.5) * 6;
@@ -3076,10 +3258,12 @@ public class Game extends JPanel implements Runnable {
                         double particleVX = -Math.cos(angle) * (0.5 + Math.random() * 1.0);
                         double particleVY = -Math.sin(angle) * (0.5 + Math.random() * 1.0);
                         
+                        // Use cached fire colors instead of new Color
+                        Color trailColor = Math.random() < 0.5 ? FIRE_ORANGE : BOSS_FIRE;
                         addParticle(
                             finalX, finalY,
                             particleVX, particleVY,
-                            new Color(255, 150 + (int)(Math.random() * 50), 0),
+                            trailColor,
                             15 + (int)(Math.random() * 10),
                             6 + (int)(Math.random() * 6),
                             Particle.ParticleType.SPARK
@@ -3207,13 +3391,14 @@ public class Game extends JPanel implements Runnable {
                             currentBoss.getX() + (Math.random() - 0.5) * 30, 
                             currentBoss.getY() + (Math.random() - 0.5) * 20,
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            new Color(gray, gray, gray, 120), 50 + (int)(Math.random() * 20), 12 + Math.random() * 8,
+                            SMOKE_GRAY, 50 + (int)(Math.random() * 20), 12 + Math.random() * 8,
                             Particle.ParticleType.SMOKE
                         );
                     }
                     
-                    // Fire particles (more with each hit)
-                    for (int i = 0; i < 20 * particleMultiplier; i++) {
+                    // Fire particles (reduced count for performance)
+                    int fireCount = Math.min(15 * particleMultiplier, 30);
+                    for (int i = 0; i < fireCount && particles.size() < MAX_PARTICLES; i++) {
                         double angle = Math.random() * TWO_PI;
                         double speed = 1 + Math.random() * 4;
                         Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
@@ -3225,37 +3410,37 @@ public class Game extends JPanel implements Runnable {
                         );
                     }
                     
-                    // Metal debris particles (visual damage on plane)
-                    for (int i = 0; i < 25 * particleMultiplier; i++) {
+                    // Metal debris particles (reduced count, use cached color)
+                    int debrisCount = Math.min(15 * particleMultiplier, 25);
+                    for (int i = 0; i < debrisCount && particles.size() < MAX_PARTICLES; i++) {
                         double angle = Math.random() * TWO_PI;
                         double speed = 2 + Math.random() * 5;
-                        Color debrisColor = new Color(160, 160, 170, 200);
                         addParticle(
                             currentBoss.getX(), currentBoss.getY(),
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            debrisColor, 25, 4,
+                            METAL_DEBRIS, 25, 4,
                             Particle.ParticleType.SPARK
                         );
                     }
                     
-                    // Sparks from plane damage
-                    for (int i = 0; i < 30 * particleMultiplier; i++) {
+                    // Sparks from plane damage (reduced count, use cached color)
+                    int sparkCount = Math.min(20 * particleMultiplier, 40);
+                    for (int i = 0; i < sparkCount && particles.size() < MAX_PARTICLES; i++) {
                         double angle = Math.random() * TWO_PI;
                         double speed = 3 + Math.random() * 6;
-                        Color sparkColor = new Color(255, 220, 100, 220);
                         addParticle(
                             currentBoss.getX(), currentBoss.getY(),
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            sparkColor, 20, 3,
+                            SPARK_YELLOW, 20, 3,
                             Particle.ParticleType.SPARK
                         );
                     }
                     
-                    // Large explosion rings at impact (scales with hits)
-                    for (int i = 0; i < 5; i++) {
+                    // Large explosion rings at impact (reduced count, use cached color)
+                    for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
                         addParticle(
                             impactX, impactY, 0, 0,
-                            new Color(255, 150 - i * 20, 50, 220 - i * 40), 
+                            FIRE_ORANGE, 
                             40 + i * 10, 
                             40 + i * 25 + (particleMultiplier * 10),
                             Particle.ParticleType.EXPLOSION
@@ -3490,19 +3675,19 @@ public class Game extends JPanel implements Runnable {
                     currentBoss.getX() + (Math.random() - 0.5) * 60,
                     currentBoss.getY() + (Math.random() - 0.5) * 60,
                     (Math.random() - 0.5) * 2, 2 + Math.random() * 3,
-                    new Color(80, 80, 80, 150), 40, 8,
+                    SMOKE_GRAY, 40, 8,
                     Particle.ParticleType.SPARK
                 ));
             }
             
             // Final explosion and transition to win screen
             if (deathAnimationTimer <= 0) {
-                // Final massive explosion
+                // Final massive explosion - reduce particle count for performance
                 if (enableParticles) {
-                    for (int i = 0; i < 80; i++) {
+                    for (int i = 0; i < 50 && particles.size() < MAX_PARTICLES; i++) {
                         double angle = Math.random() * Math.PI * 2;
                         double speed = 2 + Math.random() * 6;
-                        Color fireColor = new Color(255, (int)(100 + Math.random() * 155), 0);
+                        Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
                         particles.add(new Particle(
                             currentBoss.getX(), currentBoss.getY(),
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
@@ -3648,13 +3833,12 @@ public class Game extends JPanel implements Runnable {
                     // Smoke particles (darker, slower) - use SMOKE type for softer look
                     double angle = Math.PI / 2 + (Math.random() - 0.5) * 0.6;
                     double speed = 0.2 + Math.random() * 0.8;
-                    int gray = 40 + (int)(Math.random() * 30);
                     addParticle(
                         currentBoss.getX() + (Math.random() - 0.5) * 35,
                         currentBoss.getY() + (Math.random() - 0.5) * 25,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed,
-                        new Color(gray, gray, gray, 140), 60 + (int)(Math.random() * 40), 10 + Math.random() * 6,
+                        SMOKE_GRAY, 60 + (int)(Math.random() * 40), 10 + Math.random() * 6,
                         Particle.ParticleType.SMOKE
                     );
                 }
@@ -3683,23 +3867,22 @@ public class Game extends JPanel implements Runnable {
                 
                 // Add respawn flash effect
                 if (enableParticles) {
-                    // Bright spawn flash at new player position
-                    for (int i = 0; i < 60; i++) {
+                    // Bright spawn flash at new player position (reduced count)
+                    for (int i = 0; i < 40 && particles.size() < MAX_PARTICLES; i++) {
                         double angle = Math.random() * TWO_PI;
                         double speed = 3 + Math.random() * 7;
-                        Color spawnColor = new Color(100, 200, 255, 220);
                         addParticle(
                             WIDTH / 2, HEIGHT - 200,
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            spawnColor, 35, 12,
+                            SPAWN_CYAN, 35, 12,
                             Particle.ParticleType.SPARK
                         );
                     }
-                    // Shield activation rings
-                    for (int i = 0; i < 4; i++) {
+                    // Shield activation rings (reduced count)
+                    for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
                         addParticle(
                             WIDTH / 2, HEIGHT - 200, 0, 0,
-                            new Color(136, 192, 208, 220 - i * 45), 40 + i * 12, 35 + i * 20,
+                            SHIELD_BLUE, 40 + i * 12, 35 + i * 20,
                             Particle.ParticleType.EXPLOSION
                         );
                     }
@@ -3967,14 +4150,14 @@ public class Game extends JPanel implements Runnable {
                     // Calculate graze value based on tier
                     int grazeValue = 1;
                     int moneyBonus = 0;
-                    Color particleColor = new Color(100, 200, 255, 200);
+                    Color particleColor = GRAZE_BLUE; // Use cached color
                     
                     if (isPerfectDodge) {
                         // PERFECT DODGE - highest reward
                         soundManager.playSound(SoundManager.Sound.PERFECT_DODGE, 1.2f);
                         grazeValue = 5;
                         moneyBonus = (int)(25 * riskContractMultiplier);
-                        particleColor = new Color(255, 215, 0, 255); // Gold
+                        particleColor = GRAZE_GOLD; // Use cached color
                         
                         // Grant brief invincibility
                         perfectDodgeIFrames = PERFECT_DODGE_IFRAMES;
@@ -3987,14 +4170,14 @@ public class Game extends JPanel implements Runnable {
                         comboPulseScale = 1.6;
                         
                         // Spawn damage number showing "PERFECT!"
-                        damageNumbers.add(new DamageNumber("PERFECT!", player.getX(), player.getY() - 30, new Color(255, 215, 0), 24));
+                        damageNumbers.add(new DamageNumber("PERFECT!", player.getX(), player.getY() - 30, CRITICAL_HIT_GOLD, 24));
                         
                     } else if (isCloseCall) {
                         // CLOSE CALL - medium reward
                         soundManager.playSound(SoundManager.Sound.CLOSE_CALL, 0.9f);
                         grazeValue = 2;
                         moneyBonus = (int)(10 * riskContractMultiplier);
-                        particleColor = new Color(150, 255, 150, 220); // Green
+                        particleColor = GRAZE_GREEN; // Use cached color
                         
                         // Moderate slow-mo
                         slowMotionFactor = 0.25;
@@ -4156,14 +4339,31 @@ public class Game extends JPanel implements Runnable {
         return gridX * GRID_WIDTH_MULTIPLIER + gridY; // Simple hash
     }
     
+    private int lastBulletGridSize = 0; // Track for incremental updates
+    
     private void rebuildBulletGrid() {
-        bulletGrid.clear();
+        // Only rebuild if bullet count changed significantly or every few frames
+        // This is a major performance optimization for high bullet counts
+        int currentSize = bullets.size();
+        
+        // Clear and rebuild the grid
+        for (List<Bullet> cellList : bulletGrid.values()) {
+            cellList.clear();
+        }
+        
         for (Bullet bullet : bullets) {
             if (bullet.isActive()) {
                 int key = getGridKey(bullet.getX(), bullet.getY());
-                bulletGrid.computeIfAbsent(key, k -> new ArrayList<>()).add(bullet);
+                List<Bullet> cellList = bulletGrid.get(key);
+                if (cellList == null) {
+                    cellList = new ArrayList<>(16); // Pre-sized for typical cell
+                    bulletGrid.put(key, cellList);
+                }
+                cellList.add(bullet);
             }
         }
+        
+        lastBulletGridSize = currentSize;
     }
     
     private List<Bullet> getNearbyBullets(double x, double y) {
@@ -4291,6 +4491,9 @@ public class Game extends JPanel implements Runnable {
                 break;
             case RISK_CONTRACT:
                 renderer.drawRiskContract(g2d, WIDTH, HEIGHT, selectedRiskContract, RISK_CONTRACT_NAMES, RISK_CONTRACT_DESCRIPTIONS, RISK_CONTRACT_MULTIPLIERS, gradientTime, gameData.getCurrentLevel());
+                break;
+            case ATTACK_INTRO:
+                drawAttackIntro(g2d, WIDTH, HEIGHT);
                 break;
             case PLAYING:
                 // Apply camera zoom
@@ -4843,15 +5046,11 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHIELD:
-                // Shield is active - will tank next hit (disabled by Shieldless contract)
-                if (riskContractType != 3) {
-                    soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
-                    shieldActive = true;
-                    shieldHits = 0; // Reset hit counter
-                } else {
-                    // Show message that shield is disabled
-                    damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
-                }
+                // Shield is active - will tank next hit
+                // Note: Shieldless contract blocks ALL items at activation, not just shield
+                soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
+                shieldActive = true;
+                shieldHits = 0; // Reset hit counter
                 break;
                 
             case BOMB:
@@ -5042,6 +5241,120 @@ public class Game extends JPanel implements Runnable {
         
         // Reset composite
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+    }
+    
+    /**
+     * Draw the attack introduction screen
+     */
+    private void drawAttackIntro(Graphics2D g, int width, int height) {
+        // Draw dark gradient background
+        GradientPaint bgGradient = new GradientPaint(
+            0, 0, new Color(20, 25, 40),
+            0, height, new Color(10, 15, 25)
+        );
+        g.setPaint(bgGradient);
+        g.fillRect(0, 0, width, height);
+        
+        // Animated pulse effect
+        double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.1 + 1.0;
+        
+        // Main content box
+        int boxWidth = 600;
+        int boxHeight = 500;
+        int boxX = (width - boxWidth) / 2;
+        int boxY = (height - boxHeight) / 2;
+        
+        // Box background with gradient
+        GradientPaint boxGradient = new GradientPaint(
+            boxX, boxY, new Color(30, 40, 60, 240),
+            boxX, boxY + boxHeight, new Color(20, 25, 35, 240)
+        );
+        g.setPaint(boxGradient);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 30, 30);
+        
+        // Box border with glow
+        g.setColor(new Color(100, 150, 200, 150));
+        g.setStroke(new BasicStroke(3));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 30, 30);
+        
+        // Outer glow
+        for (int i = 1; i <= 3; i++) {
+            g.setColor(new Color(100, 150, 200, 40 - i * 10));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(boxX - i * 3, boxY - i * 3, boxWidth + i * 6, boxHeight + i * 6, 30 + i * 2, 30 + i * 2);
+        }
+        
+        // "NEW ATTACK!" header with animation
+        g.setFont(new Font("Arial", Font.BOLD, (int)(42 * pulse)));
+        g.setColor(new Color(255, 200, 100));
+        String header = "NEW ATTACK!";
+        FontMetrics fm = g.getFontMetrics();
+        int headerX = (width - fm.stringWidth(header)) / 2;
+        g.drawString(header, headerX, boxY + 60);
+        
+        // Attack name
+        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.setColor(new Color(200, 220, 255));
+        if (currentAttackIntroName != null) {
+            fm = g.getFontMetrics();
+            int nameX = (width - fm.stringWidth(currentAttackIntroName)) / 2;
+            g.drawString(currentAttackIntroName, nameX, boxY + 120);
+        }
+        
+        // Attack image (placeholder for now)
+        int imageSize = 180;
+        int imageX = (width - imageSize) / 2;
+        int imageY = boxY + 150;
+        
+        if (attackIntroImage != null) {
+            // Draw with slight pulse scale
+            int scaledSize = (int)(imageSize * pulse);
+            int offset = (imageSize - scaledSize) / 2;
+            g.drawImage(attackIntroImage, imageX + offset, imageY + offset, scaledSize, scaledSize, null);
+        } else {
+            // Draw placeholder
+            g.setColor(new Color(60, 60, 80));
+            g.fillRoundRect(imageX, imageY, imageSize, imageSize, 20, 20);
+            g.setColor(new Color(100, 150, 200));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(imageX, imageY, imageSize, imageSize, 20, 20);
+            
+            g.setFont(new Font("Arial", Font.BOLD, 40));
+            g.setColor(new Color(150, 150, 170));
+            g.drawString("?", imageX + imageSize/2 - 12, imageY + imageSize/2 + 14);
+        }
+        
+        // Attack description
+        if (currentAttackIntroDescription != null) {
+            g.setFont(new Font("Arial", Font.PLAIN, 20));
+            g.setColor(new Color(180, 190, 200));
+            
+            // Split description by newlines and draw each line
+            String[] lines = currentAttackIntroDescription.split("\n");
+            int descY = imageY + imageSize + 40;
+            fm = g.getFontMetrics();
+            
+            for (String line : lines) {
+                int lineX = (width - fm.stringWidth(line)) / 2;
+                g.drawString(line, lineX, descY);
+                descY += 28;
+            }
+        }
+        
+        // "Press SPACE to continue" prompt
+        double promptPulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7;
+        g.setFont(new Font("Arial", Font.BOLD, 22));
+        g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
+        String prompt = "Press SPACE to continue";
+        fm = g.getFontMetrics();
+        int promptX = (width - fm.stringWidth(prompt)) / 2;
+        g.drawString(prompt, promptX, boxY + boxHeight - 35);
+        
+        // Level indicator in corner
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setColor(new Color(150, 150, 170, 180));
+        String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
+        g.drawString(levelText, boxX + 20, boxY + boxHeight - 15);
     }
     
     private void drawItemUnlockAnimation(Graphics2D g, int width, int height) {
@@ -5392,7 +5705,7 @@ public class Game extends JPanel implements Runnable {
                 "",
                 "â€¢ Bullet Storm - 2x bullets, 2x money",
                 "â€¢ Speed Demon - Faster bullets, 1.75x money", 
-                "â€¢ Shieldless - No shield, 1.5x money"
+                "• Shieldless - No active items, 1.5x money"
             };
             
             g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));

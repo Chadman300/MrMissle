@@ -66,6 +66,9 @@ public class GameData {
     
     // Gameplay settings
     private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
+    
+    // Attack introductions that have been seen
+    private java.util.List<String> seenAttackIntros;
 
     public GameData() {
         score = 0;
@@ -110,6 +113,9 @@ public class GameData {
         }
         currentLevelStats = new LevelStats();
         cumulativeRunStats = new LevelStats();
+        
+        // Initialize seen attack intros
+        seenAttackIntros = new java.util.ArrayList<>();
     }
     
     // Getters and setters
@@ -434,4 +440,13 @@ public class GameData {
     // Gameplay settings methods
     public int getCountdownMode() { return countdownMode; }
     public void setCountdownMode(int mode) { this.countdownMode = Math.max(0, Math.min(2, mode)); }
+    
+    // Seen attack introductions methods
+    public java.util.List<String> getSeenAttackIntros() { return seenAttackIntros; }
+    public boolean hasSeenAttackIntro(String attackId) { return seenAttackIntros.contains(attackId); }
+    public void markAttackIntroSeen(String attackId) { 
+        if (!seenAttackIntros.contains(attackId)) {
+            seenAttackIntros.add(attackId);
+        }
+    }
 }

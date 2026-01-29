@@ -412,7 +412,9 @@ public class Renderer {
             
             // Draw slot background
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            if (Game.enableAntiAliasing) {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            }
             
             // Selection glow
             if (isSelected) {
@@ -544,7 +546,9 @@ public class Renderer {
     
     private void drawGeometricBackground(Graphics2D g, int width, int height, double time) {
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        if (Game.enableAntiAliasing) {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         
         // Floating hexagons
         drawFloatingShapes(g2, width, height, time);
@@ -932,7 +936,7 @@ public class Renderer {
             "",
             "BULLET STORM - 2x bullets (2x money)",
             "SPEED DEMON - 50% faster bullets (1.75x)",
-            "SHIELDLESS - No shield item (1.5x)",
+            "SHIELDLESS - No active items (1.5x)",
             "CAN'T STOP - Must keep moving (2.5x)",
             "",
             "Higher risk = Higher reward!"
@@ -1648,7 +1652,9 @@ public class Renderer {
                     Object oldInterpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
                     Object oldAntialiasing = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
                     g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    if (Game.enableAntiAliasing) {
+                        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    }
                     
                     // Create transform for rotation (rotate 180 degrees to point tip up, plus Z-axis spin)
                     AffineTransform oldTransform = g.getTransform();
@@ -2391,6 +2397,7 @@ public class Renderer {
         }
         
         // Draw boss with special handling during death animation
+        if (boss != null) {
         if (bossDeathAnimation) {
             // Save original transform
             Graphics2D g2d = (Graphics2D) g.create();
@@ -2507,6 +2514,7 @@ public class Renderer {
                 g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
             }
         }
+        } // End boss != null check
         
         // Draw bullets (including warnings for inactive bullets)
         for (int i = 0; i < bullets.size(); i++) {

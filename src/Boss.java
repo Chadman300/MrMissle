@@ -95,6 +95,12 @@ public class Boss {
     private double bladeRotation = 0;
     private static final double BLADE_ROTATION_SPEED = 0.2; // Radians per frame (reduced from 0.5)
     
+    // Cached colors for performance (avoid allocations in hot paths)
+    private static final Color WING_TRAIL_COLOR = new Color(200, 220, 255, 180);
+    private static final Color ENGINE_GLOW_COLOR = new Color(100, 150, 255, 180);
+    private static final Color JET_TRAIL_COLOR = new Color(255, 150, 0, 200);
+    private static final Color EXPLOSION_COLOR = new Color(255, 200, 100, 200);
+    
     // Sound manager for effects
     private SoundManager soundManager;
     
@@ -441,11 +447,9 @@ public class Boss {
         // Update twirl effect
         if (twirlActive) {
             twirlRotation += TWIRL_SPEED * deltaTime;
-            System.out.println("TWIRL: rotation=" + twirlRotation + " / " + (Math.PI * 2) + " deltaTime=" + deltaTime);
             if (twirlRotation >= Math.PI * 2) {
                 twirlRotation = 0;
                 twirlActive = false;
-                System.out.println("DEBUG TWIRL: Completed 360-degree rotation");
             }
         }
         
@@ -495,15 +499,15 @@ public class Boss {
             int trailSize = isMegaBoss ? 8 : 4;
             int trailSizeVariation = isMegaBoss ? 6 : 3;
             
-            // Spawn trail particles at wing tips (every few frames)
-            if (Math.random() < 0.3 * deltaTime) {
+            // Spawn trail particles at wing tips (every few frames) - throttled for performance
+            if (particles.size() < 200 && Math.random() < 0.2 * deltaTime) {
                 // Left wing trail
                 particles.add(new Particle(
                     leftWingX,
                     leftWingY,
                     -vx * 0.3 + (Math.random() - 0.5) * 0.5,
                     -vy * 0.3 + (Math.random() - 0.5) * 0.5,
-                    new Color(200, 220, 255, 180), // Light blue/white
+                    WING_TRAIL_COLOR,
                     20 + (int)(Math.random() * 15),
                     trailSize + (int)(Math.random() * trailSizeVariation),
                     Particle.ParticleType.TRAIL
@@ -515,7 +519,7 @@ public class Boss {
                     rightWingY,
                     -vx * 0.3 + (Math.random() - 0.5) * 0.5,
                     -vy * 0.3 + (Math.random() - 0.5) * 0.5,
-                    new Color(200, 220, 255, 180), // Light blue/white
+                    WING_TRAIL_COLOR,
                     20 + (int)(Math.random() * 15),
                     trailSize + (int)(Math.random() * trailSizeVariation),
                     Particle.ParticleType.TRAIL
@@ -559,7 +563,8 @@ public class Boss {
             justChangedPhase = true;
             
             // When entering recovery phase, randomly spawn shockwave (only if boss has been hit at least once)
-            if (!isAssaultPhase && currentHealth < maxHealth && Math.random() < 0.4) { // 40% chance
+            // Shockwave attack only available from level 5 onwards
+            if (!isAssaultPhase && currentHealth < maxHealth && level >= 5 && Math.random() < 0.4) { // 40% chance
                 shockwaveActive = true;
                 shockwaveRadius = 0;
                 shockwaveHasHitPlayer = false; // Reset hit tracking
@@ -577,7 +582,8 @@ public class Boss {
                 patternType = (int)(Math.random() * maxPatterns);
                 
                 // 30% chance to start a twirl attack sequence during assault
-                if (Math.random() < 0.3 && level >= 3) {
+                // Twirl/spin attack only available from level 7 onwards
+                if (Math.random() < 0.3 && level >= 7) {
                     twirlAttackActive = true;
                     twirlAttackCount = 0;
                     twirlAttackTimer = 0;
@@ -1212,7 +1218,10 @@ public class Boss {
     
     public void draw(Graphics2D g) {
         Graphics2D g2d = (Graphics2D) g.create();
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // Respect global anti-aliasing setting for performance
+        if (Game.enableAntiAliasing) {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        }
         
         // Get appropriate sprite and shadow
         BufferedImage sprite;

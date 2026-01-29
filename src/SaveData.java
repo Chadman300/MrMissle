@@ -79,6 +79,9 @@ public class SaveData implements Serializable {
     // Passive upgrades data
     public List<String> unlockedPassiveUpgrades;
     
+    // Attack introductions that have been seen
+    public List<String> seenAttackIntros;
+    
     /**
      * Inner class to hold level stats data in a serializable format
      */
@@ -147,6 +150,7 @@ public class SaveData implements Serializable {
         this.unlockedItems = new ArrayList<>();
         this.unlockedAchievements = new ArrayList<>();
         this.unlockedPassiveUpgrades = new ArrayList<>();
+        this.seenAttackIntros = new ArrayList<>();
         
         // Roguelike stats - start at level 1
         this.runHighestLevel = 1;
@@ -180,6 +184,7 @@ public class SaveData implements Serializable {
         
         data.currentLevel = gameData.getCurrentLevel();
         data.maxUnlockedLevel = gameData.getMaxUnlockedLevel();
+        System.out.println("DEBUG SAVE: Saving - currentLevel=" + data.currentLevel + ", maxUnlockedLevel=" + data.maxUnlockedLevel);
         data.defeatedBosses = gameData.getDefeatedBosses().clone();
         
         data.speedUpgradeLevel = gameData.getSpeedUpgradeLevel();
@@ -246,6 +251,9 @@ public class SaveData implements Serializable {
             }
         }
         
+        // Seen attack introductions
+        data.seenAttackIntros = new ArrayList<>(gameData.getSeenAttackIntros());
+        
         return data;
     }
     
@@ -254,6 +262,7 @@ public class SaveData implements Serializable {
      */
     public void loadIntoGameData(GameData gameData, AchievementManager achievementManager,
                                 PassiveUpgradeManager passiveUpgradeManager) {
+        System.out.println("DEBUG LOAD: Loading save - currentLevel=" + currentLevel + ", maxUnlockedLevel=" + maxUnlockedLevel);
         gameData.setScore(score);
         gameData.setTotalMoney(totalMoney);
         gameData.setRunMoney(runMoney);
@@ -346,6 +355,12 @@ public class SaveData implements Serializable {
                     }
                 }
             }
+        }
+        
+        // Seen attack introductions
+        if (seenAttackIntros != null) {
+            gameData.getSeenAttackIntros().clear();
+            gameData.getSeenAttackIntros().addAll(seenAttackIntros);
         }
     }
     
