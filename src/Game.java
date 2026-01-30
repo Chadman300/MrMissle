@@ -284,17 +284,40 @@ public class Game extends JPanel implements Runnable {
     // Each attack intro has: ID, Level it appears, Name, Description
     private static final String[][] ATTACK_INTROS = {
         // {attackId, level, name, description}
-        {"basic_bullets", "1", "Basic Bullets", "The boss fires bullets in various patterns.\nDodge them by moving with WASD or Arrow keys!"},
-        {"spiral_bullets", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!"},
+        // Level 1 attacks (patterns 0-1)
+        {"spiral_attack", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!"},
+        {"circle_attack", "1", "Circle Attack", "Bullets fire in all directions!\nDodge them by moving with WASD or Arrow keys!"},
+        // Level 2 attacks (patterns 2-3)
         {"aimed_shots", "2", "Aimed Shots", "The boss aims directly at you!\nKeep moving to avoid being hit."},
-        {"bouncing_bullets", "3", "Bouncing Bullets", "These bullets bounce off walls!\nWatch out for unexpected rebounds."},
-        {"beam_attack", "4", "Beam Attack", "A powerful beam sweeps across the arena.\nMove to the safe zone before it fires!"},
-        {"shockwave", "5", "Shockwave", "A damaging wave expands from the boss.\nJump over it or get knocked back!"},
-        {"grenades", "6", "Grenades", "Explosive projectiles that detonate on impact.\nStay clear of the blast radius!"},
+        {"wave_attack", "3", "Wave Attack", "Bullets fire in a wave pattern.\nWatch the rhythm and dodge through!"},
+        // Level 3-4 attacks (patterns 4-6)
+        {"random_spray", "3", "Random Spray", "Bullets scatter randomly!\nStay alert and react quickly."},
+        {"bouncing_bullets", "4", "Bouncing Bullets", "Bullets that bounce off walls!\nWatch out for unexpected rebounds!"},
+        {"fast_bullets", "4", "Fast Bullets", "High-speed bullets aimed at you!\nDodge early before they reach you!"},
+        {"large_bullets", "4", "Large Bullets", "Massive bullets that are hard to avoid.\nGive them plenty of room!"},
+        // Level 5 attacks (pattern 7 + beam + homing)
+        {"homing_bullets", "5", "Homing Bullets", "Bullets that track your position!\nKeep moving to outrun them!"},
+        {"mixed_attack", "5", "Mixed Attack", "A combo of homing and bouncing bullets!\nStay on your toes!"},
+        {"beam_attack", "5", "Beam Attack", "A powerful beam sweeps across the arena.\nMove to the safe zone before it fires!"},
+        // Level 6 attacks (patterns 8, shockwave)
+        {"spiral_bullets", "6", "Spiral Bullets", "Bullets that curve as they fly!\nPredict their paths!"},
+        {"shockwave", "6", "Shockwave", "A damaging wave expands from the boss.\nMove away to avoid knockback!"},
+        // Level 7 attacks (patterns 9, twirl)
+        {"splitting_bullets", "7", "Splitting Bullets", "Bullets that split into smaller ones.\nMore bullets to dodge - stay alert!"},
         {"twirl_attack", "7", "Twirl Attack", "The boss spins while circling the arena.\nStay mobile and watch its path!"},
-        {"splitting_bullets", "8", "Splitting Bullets", "Bullets that split into smaller ones.\nMore bullets to dodge - stay alert!"},
-        {"accelerating_bullets", "9", "Accelerating Bullets", "Bullets that speed up over time.\nDodge early before they become too fast!"},
-        {"nuke_bombs", "10", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!"}
+        // Level 8 attacks (patterns 10-11)
+        {"accelerating_bullets", "8", "Accelerating Bullets", "Bullets that speed up over time.\nDodge early before they become too fast!"},
+        {"wave_bullets", "8", "Wave Bullets", "Bullets that move in a wavy pattern!\nPredict their sine wave motion!"},
+        // Level 9 attacks (patterns 12-13)
+        {"bombs", "9", "Bombs", "Large explosive projectiles!\nThey explode into smaller bullets on impact!"},
+        {"grenades", "9", "Grenades", "Explosive projectiles that detonate on impact.\nStay clear of the blast radius!"},
+        // Level 10 attacks (pattern 14)
+        {"nuke_bombs", "10", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!"},
+        // Mega Boss attacks (every 3rd level)
+        {"mega_burst", "3", "Mega Burst", "Mega bosses unleash massive bursts!\n360 degrees of danger!"},
+        {"mega_cross", "6", "Mega Cross", "A deadly cross pattern of bullets!\nStand between the arms to survive!"},
+        {"mega_star", "9", "Mega Star", "Star-shaped bullet patterns!\nFind the gaps in the points!"},
+        {"mega_hex", "12", "Mega Hex", "Hexagonal bullet formations!\nPrecision dodging required!"}
     };
     
     // Current attack intro being displayed
@@ -308,8 +331,11 @@ public class Game extends JPanel implements Runnable {
     private boolean debugShowcaseMode = false;
     private int debugShowcaseIndex = 0; // Current attack being showcased
     private int debugShowcaseTimer = 0; // Timer for cycling attacks
-    private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing intro
+    private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing selection
     private static final int DEBUG_SHOWCASE_INTERVAL = 900; // 15 seconds at 60fps
+    
+    // Attack showcase UI
+    private int showcaseHoveredButton = -1; // 0 = left arrow, 1 = right arrow, 2 = start button
     
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
@@ -959,26 +985,44 @@ public class Game extends JPanel implements Runnable {
             case ATTACK_INTRO:
                 // Press any key to continue from attack intro
                 if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                    if (debugShowcaseMode) {
-                        // In showcase mode, start gameplay to show this attack in action
-                        startDebugShowcaseGameplay();
-                    } else {
-                        dismissAttackIntro();
-                    }
+                    dismissAttackIntro();
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
                 } else if (key == KeyEvent.VK_ESCAPE) {
-                    if (debugShowcaseMode) {
-                        // Exit showcase mode
-                        debugShowcaseMode = false;
-                        debugShowcaseInGameplay = false;
-                        transitionToState(GameState.MENU);
-                        System.out.println("DEBUG SHOWCASE: Cancelled by user");
-                    } else {
-                        dismissAttackIntro();
-                    }
+                    dismissAttackIntro();
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
+                }
+                break;
+            
+            case ATTACK_SHOWCASE:
+                // Attack showcase selection screen
+                if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
+                    // Previous attack
+                    debugShowcaseIndex--;
+                    if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
+                    updateShowcaseAttackInfo();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_D || key == KeyEvent.VK_RIGHT) {
+                    // Next attack
+                    debugShowcaseIndex++;
+                    if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
+                    updateShowcaseAttackInfo();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    // Start test
+                    startShowcaseTest();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    // Exit showcase
+                    debugShowcaseMode = false;
+                    debugShowcaseInGameplay = false;
+                    transitionToState(GameState.MENU);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    System.out.println("DEBUG SHOWCASE: Exited");
                 }
                 break;
                 
@@ -1138,11 +1182,13 @@ public class Game extends JPanel implements Runnable {
                             screenShakeIntensity = 15;
                             System.out.println("DEBUG: Level skipped via T key - direct to WIN");
                         }
-                    } else if (key == KeyEvent.VK_N && debugShowcaseMode) {
-                        // Debug showcase: Skip to next attack
-                        debugShowcaseIndex++;
-                        showDebugShowcaseAttack(debugShowcaseIndex);
-                        System.out.println("DEBUG SHOWCASE: Skipping to next attack via N key");
+                    } else if ((key == KeyEvent.VK_N || key == KeyEvent.VK_ESCAPE) && debugShowcaseMode) {
+                        // Debug showcase: Return to selection screen
+                        debugShowcaseInGameplay = false;
+                        bullets.clear();
+                        beamAttacks.clear();
+                        transitionToState(GameState.ATTACK_SHOWCASE);
+                        System.out.println("DEBUG SHOWCASE: Returning to selection");
                     }
                 }
                 break;
@@ -2241,6 +2287,11 @@ public class Game extends JPanel implements Runnable {
     
     // Handle player death - check for extra life first
     private void handlePlayerDeath() {
+        // In debug showcase mode, player is invincible
+        if (debugShowcaseMode) {
+            return; // Ignore death in showcase mode
+        }
+        
         // Check if player has extra lives
         if (gameData.useExtraLife()) {
             // Track lives used stat
@@ -2444,92 +2495,90 @@ public class Game extends JPanel implements Runnable {
 
     /**
      * Start the debug attack showcase mode for taking screenshots.
-     * Shows intro, then starts gameplay with that attack for 15 seconds each.
+     * Shows a selection screen where user can browse attacks and start tests.
      */
     private void startDebugShowcase() {
         debugShowcaseMode = true;
         debugShowcaseIndex = 0;
         debugShowcaseTimer = 0;
         debugShowcaseInGameplay = false;
+        showcaseHoveredButton = -1;
         
-        // Start with the first attack's level
-        int firstLevel = Integer.parseInt(ATTACK_INTROS[0][1]);
-        gameData.setCurrentLevel(firstLevel);
+        // Update the current attack display
+        updateShowcaseAttackInfo();
         
-        // Show the first attack intro
-        showDebugShowcaseAttack(0);
+        // Go to showcase selection screen
+        transitionToState(GameState.ATTACK_SHOWCASE);
         
-        System.out.println("DEBUG SHOWCASE: Started - Press ESC to exit, SPACE to skip to next");
-        System.out.println("DEBUG SHOWCASE: Flow = Intro Screen -> Gameplay (15s) -> Next Attack");
+        System.out.println("DEBUG SHOWCASE: Started - Use A/D to browse, SPACE to test attack, ESC to exit");
     }
     
     /**
-     * Show a specific attack in the debug showcase (intro screen first)
+     * Update the attack info display for the current showcase index
      */
-    private void showDebugShowcaseAttack(int index) {
-        if (index >= ATTACK_INTROS.length) {
-            // All attacks shown, stop showcase
-            debugShowcaseMode = false;
-            debugShowcaseInGameplay = false;
-            transitionToState(GameState.MENU);
-            System.out.println("DEBUG SHOWCASE: Complete!");
-            return;
-        }
+    private void updateShowcaseAttackInfo() {
+        if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
+        if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
         
-        String[] intro = ATTACK_INTROS[index];
-        String attackId = intro[0];
+        String[] intro = ATTACK_INTROS[debugShowcaseIndex];
+        currentAttackIntroId = intro[0];
         int attackLevel = Integer.parseInt(intro[1]);
-        String attackName = intro[2];
-        String attackDescription = intro[3];
+        currentAttackIntroName = intro[2];
+        currentAttackIntroDescription = intro[3];
+        attackIntroImage = createPlaceholderAttackImage(currentAttackIntroId);
         
         // Set the level to match this attack (changes boss sprite and background)
         gameData.setCurrentLevel(attackLevel);
-        
-        // Set up the attack intro display
-        currentAttackIntroId = attackId;
-        currentAttackIntroName = attackName;
-        currentAttackIntroDescription = attackDescription;
-        attackIntroImage = createPlaceholderAttackImage(attackId);
-        
-        debugShowcaseInGameplay = false;
-        debugShowcaseTimer = 0;
-        transitionToState(GameState.ATTACK_INTRO);
-        
-        System.out.println("DEBUG SHOWCASE: Showing intro " + (index + 1) + "/" + ATTACK_INTROS.length + 
-                          " - " + attackName + " (Level " + attackLevel + ")");
     }
     
     /**
-     * Start gameplay for the current showcase attack
+     * Start the gameplay test for the currently selected attack
      */
-    private void startDebugShowcaseGameplay() {
+    private void startShowcaseTest() {
         debugShowcaseInGameplay = true;
         debugShowcaseTimer = 0;
         
-        // Get the level for this attack from ATTACK_INTROS
+        // Get the level for this attack
         int attackLevel = Integer.parseInt(ATTACK_INTROS[debugShowcaseIndex][1]);
         gameData.setCurrentLevel(attackLevel);
         
-        // Start the game with current level settings
+        // Start the game
         riskContractType = 0;
         riskContractActive = false;
         riskContractMultiplier = 1.0;
         startGame();
         
-        // Skip intro animations for faster showcase
+        // Skip intro animations
         introPanActive = false;
         bossIntroActive = false;
-        invulnerabilityTimer = 0; // Make boss vulnerable immediately
+        invulnerabilityTimer = 0;
         
-        // Configure boss to use the specific attack being showcased
+        // Configure boss
         if (currentBoss != null && currentAttackIntroId != null) {
             configureBossForShowcase(currentAttackIntroId);
-            // Enable slow shooting mode for better screenshots
             currentBoss.setDebugSlowMode(true);
+            currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+            currentBoss.setStayStationary(true);
         }
         
-        System.out.println("DEBUG SHOWCASE: Gameplay started - " + currentAttackIntroName + 
-                          " (Level " + attackLevel + ") - 15 seconds to take screenshots");
+        System.out.println("DEBUG SHOWCASE: Testing " + currentAttackIntroName + 
+                          " - Press N or ESC to return to selection");
+    }
+    
+    /**
+     * Show a specific attack in the debug showcase (legacy method for compatibility)
+     */
+    private void showDebugShowcaseAttack(int index) {
+        debugShowcaseIndex = index;
+        if (index < 0 || index >= ATTACK_INTROS.length) {
+            debugShowcaseIndex = 0;
+        }
+        updateShowcaseAttackInfo();
+        debugShowcaseInGameplay = false;
+        transitionToState(GameState.ATTACK_SHOWCASE);
+        
+        System.out.println("DEBUG SHOWCASE: Showing " + (debugShowcaseIndex + 1) + "/" + ATTACK_INTROS.length + 
+                          " - " + currentAttackIntroName);
     }
     
     /**
@@ -2543,44 +2592,85 @@ public class Game extends JPanel implements Runnable {
         currentBoss.setForceBeamAttack(false);
         currentBoss.setForceShockwave(false);
         currentBoss.setForceTwirlAttack(false);
+        currentBoss.setForceMegaAttack(-1);
         
         // Map attack IDs to boss behavior
         // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
         //                7=Mixed, 8=SpiralBullets, 9=Splitting, 10=Accelerating, 11=WaveBullets,
         //                12=Bombs, 13=Grenades, 14=Nukes
+        // Mega patterns: 0=MegaBurst, 1=MegaRing, 2=MegaCross, 3=MegaStar, 4=MegaHex
         switch (attackId) {
-            case "basic_bullets":
-                currentBoss.setForcedPatternType(1); // Circle pattern
-                break;
-            case "spiral_bullets":
+            case "spiral_attack":
                 currentBoss.setForcedPatternType(0); // Spiral pattern
+                break;
+            case "circle_attack":
+                currentBoss.setForcedPatternType(1); // Circle pattern
                 break;
             case "aimed_shots":
                 currentBoss.setForcedPatternType(2); // Aimed at player
                 break;
-            case "bouncing_bullets":
+            case "wave_attack":
                 currentBoss.setForcedPatternType(3); // Wave pattern
+                break;
+            case "random_spray":
+                currentBoss.setForcedPatternType(4); // Random spray
+                break;
+            case "fast_bullets":
+                currentBoss.setForcedPatternType(5); // Fast bullets
+                break;
+            case "large_bullets":
+                currentBoss.setForcedPatternType(6); // Large bullets
+                break;
+            case "mixed_attack":
+                currentBoss.setForcedPatternType(7); // Mixed attack
                 break;
             case "beam_attack":
                 currentBoss.setForceBeamAttack(true);
                 break;
+            case "spiral_bullets":
+                currentBoss.setForcedPatternType(8); // Spiral bullets
+                break;
             case "shockwave":
                 currentBoss.setForceShockwave(true);
-                break;
-            case "grenades":
-                currentBoss.setForcedPatternType(13); // Grenades
-                break;
-            case "twirl_attack":
-                currentBoss.setForceTwirlAttack(true);
                 break;
             case "splitting_bullets":
                 currentBoss.setForcedPatternType(9); // Splitting
                 break;
+            case "twirl_attack":
+                currentBoss.setForceTwirlAttack(true);
+                break;
             case "accelerating_bullets":
                 currentBoss.setForcedPatternType(10); // Accelerating
                 break;
+            case "wave_bullets":
+                currentBoss.setForcedPatternType(11); // Wave bullets
+                break;
+            case "bombs":
+                currentBoss.setForcedPatternType(12); // Bombs
+                break;
+            case "grenades":
+                currentBoss.setForcedPatternType(13); // Grenades
+                break;
             case "nuke_bombs":
                 currentBoss.setForcedPatternType(14); // Nukes
+                break;
+            case "homing_bullets":
+                currentBoss.setForcedPatternType(15); // Homing
+                break;
+            case "bouncing_bullets":
+                currentBoss.setForcedPatternType(16); // Bouncing
+                break;
+            case "mega_burst":
+                currentBoss.setForceMegaAttack(0); // Mega burst
+                break;
+            case "mega_cross":
+                currentBoss.setForceMegaAttack(2); // Mega cross
+                break;
+            case "mega_star":
+                currentBoss.setForceMegaAttack(3); // Mega star
+                break;
+            case "mega_hex":
+                currentBoss.setForceMegaAttack(4); // Mega hex
                 break;
         }
         

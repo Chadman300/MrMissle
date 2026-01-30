@@ -70,5 +70,8 @@ public enum GameState {
     ACHIEVEMENTS,
     
     /** Attack introduction screen - shows new attack types when first encountered */
-    ATTACK_INTRO
+    ATTACK_INTRO,
+    
+    /** Attack showcase selection - debug tool to browse and test all attack types */
+    ATTACK_SHOWCASE
 }

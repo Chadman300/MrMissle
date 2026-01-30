@@ -52,10 +52,12 @@ public class Boss {
     private int patternType;
     private int maxPatterns; // Maximum attack patterns unlocked
     private int forcedPatternType = -1; // For debug showcase mode: -1 = normal, 0-14 = forced pattern
+    private int forcedMegaAttack = -1; // For debug showcase mode: -1 = normal, 0-4 = forced mega attack
     private boolean forceBeamAttack = false; // Force beam attacks for showcase
     private boolean forceShockwave = false; // Force shockwave for showcase
     private boolean forceTwirlAttack = false; // Force twirl attack for showcase
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
+    private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 300; // 5 seconds between shots in debug mode
     private double targetX, targetY; // Target position for smooth movement
     private int moveTimer; // Timer to pick new target
@@ -373,8 +375,13 @@ public class Boss {
         double dy = targetY - y;
         double distance = Math.sqrt(dx * dx + dy * dy);
         
-        // Acceleration-based movement
-        if (distance > 10) { // Dead zone to prevent jittering
+        // Skip movement if stationary mode is enabled (for debug showcase)
+        if (stayStationary) {
+            vx = 0;
+            vy = 0;
+            ax = 0;
+            ay = 0;
+        } else if (distance > 10) { // Dead zone to prevent jittering
             // Calculate desired acceleration direction (reduced scaling)
             double accelStrength = ACCELERATION * (1.0 + level * 0.025);
             
@@ -658,7 +665,9 @@ public class Boss {
         }
         
         // Beam attacks (at higher levels - starting at level 4, or forced for debug showcase)
-        if (level >= 4 || forceBeamAttack) {
+        // Don't fire beams if a specific non-beam pattern is forced
+        boolean shouldFireBeams = forceBeamAttack || (level >= 4 && forcedPatternType < 0 && forcedMegaAttack < 0);
+        if (shouldFireBeams) {
             beamAttackTimer += deltaTime;
             // Use faster interval when forced for debug showcase
             int effectiveInterval = forceBeamAttack ? Math.min(120, beamAttackInterval) : beamAttackInterval;
@@ -681,8 +690,34 @@ public class Boss {
     private void shoot(List<Bullet> bullets, Player player) {
         int bulletCountBefore = bullets.size();
         
-        // Mega bosses have special attack patterns
-        if (isMegaBoss && Math.random() < 0.15) {
+        // If a mega attack is forced (for debug showcase), use only that
+        if (forcedMegaAttack >= 0 && forcedMegaAttack <= 4) {
+            switch (forcedMegaAttack) {
+                case 0:
+                    shootMegaBarrage(bullets, player);
+                    break;
+                case 1:
+                    shootMegaSpiral(bullets);
+                    break;
+                case 2:
+                    shootMegaCross(bullets, player);
+                    break;
+                case 3:
+                    shootMegaStar(bullets);
+                    break;
+                case 4:
+                    shootMegaHex(bullets, player);
+                    break;
+            }
+            // Play boss shoot sound
+            if (soundManager != null && bullets.size() > bulletCountBefore) {
+                soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
+            }
+            return;
+        }
+        
+        // Mega bosses have special attack patterns (only if not in forced pattern mode)
+        if (isMegaBoss && forcedPatternType < 0 && Math.random() < 0.15) {
             // 15% chance to use mega boss special attacks (reduced from 25%)
             int specialPattern = (int)(Math.random() * 5);
             switch (specialPattern) {
@@ -758,6 +793,12 @@ public class Boss {
                 break;
             case 14: // Mini nukes
                 shootNukes(bullets);
+                break;
+            case 15: // Homing bullets
+                shootHoming(bullets, player);
+                break;
+            case 16: // Bouncing bullets
+                shootBouncing(bullets);
                 break;
         }
         
@@ -842,6 +883,31 @@ public class Boss {
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.LARGE));
+        }
+    }
+    
+    private void shootHoming(List<Bullet> bullets, Player player) {
+        // Dedicated homing bullet attack
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15));
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        int numBullets = 5 + level / 2;
+        for (int i = 0; i < numBullets; i++) {
+            double angle = angleToPlayer + (i - numBullets/2) * 0.25;
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
+        }
+    }
+    
+    private void shootBouncing(List<Bullet> bullets) {
+        // Dedicated bouncing bullet attack
+        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15));
+        int numBullets = 8 + level / 2;
+        for (int i = 0; i < numBullets; i++) {
+            double angle = Math.PI * 2 * i / numBullets;
+            double spawnX = x + Math.cos(angle) * size * 1.5;
+            double spawnY = y + Math.sin(angle) * size * 1.5;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
         }
     }
     
@@ -1558,6 +1624,21 @@ public class Boss {
         if (slow) {
             this.shootInterval = DEBUG_SLOW_SHOOT_INTERVAL;
         }
+    }
+    
+    /**
+     * Make the boss stay in place (no movement)
+     */
+    public void setStayStationary(boolean stationary) {
+        this.stayStationary = stationary;
+    }
+    
+    /**
+     * Force a specific mega attack for debug showcase
+     * @param megaAttackId 0=MegaBurst, 1=MegaSpiral, 2=MegaCross, 3=MegaStar, 4=MegaHex, -1=normal
+     */
+    public void setForceMegaAttack(int megaAttackId) {
+        this.forcedMegaAttack = megaAttackId;
     }
     
     // Get money reward based on boss type
