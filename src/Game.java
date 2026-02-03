@@ -280,50 +280,108 @@ public class Game extends JPanel implements Runnable {
     private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
     
+    // Game version
+    public static final String GAME_VERSION = "v0.1.0";
+    
     // Attack Introduction System
-    // Each attack intro has: ID, Level it appears, Name, Description
+    // Each attack intro has: ID, Level it appears, Name, Description, Category
+    // Attacks unlock on 1st and 3rd levels (regular + mega boss) of each set
+    // Bullet difficulty ranking (easiest to hardest):
+    // NORMAL(1), LARGE(3), FAST(4), SPIRAL(6), BOUNCING(7), ACCELERATING(9), 
+    // GRENADE(10), WAVE(12), HOMING(13), BOMB(15), NUKE(18)
     private static final String[][] ATTACK_INTROS = {
-        // {attackId, level, name, description}
-        // Level 1 attacks (patterns 0-1)
-        {"spiral_attack", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!"},
-        {"circle_attack", "1", "Circle Attack", "Bullets fire in all directions!\nDodge them by moving with WASD or Arrow keys!"},
-        // Level 2 attacks (patterns 2-3)
-        {"aimed_shots", "2", "Aimed Shots", "The boss aims directly at you!\nKeep moving to avoid being hit."},
-        {"wave_attack", "3", "Wave Attack", "Bullets fire in a wave pattern.\nWatch the rhythm and dodge through!"},
-        // Level 3-4 attacks (patterns 4-6)
-        {"random_spray", "3", "Random Spray", "Bullets scatter randomly!\nStay alert and react quickly."},
-        {"bouncing_bullets", "4", "Bouncing Bullets", "Bullets that bounce off walls!\nWatch out for unexpected rebounds!"},
-        {"fast_bullets", "4", "Fast Bullets", "High-speed bullets aimed at you!\nDodge early before they reach you!"},
-        {"large_bullets", "4", "Large Bullets", "Massive bullets that are hard to avoid.\nGive them plenty of room!"},
-        // Level 5 attacks (pattern 7 + beam + homing)
-        {"homing_bullets", "5", "Homing Bullets", "Bullets that track your position!\nKeep moving to outrun them!"},
-        {"mixed_attack", "5", "Mixed Attack", "A combo of homing and bouncing bullets!\nStay on your toes!"},
-        {"beam_attack", "5", "Beam Attack", "A powerful beam sweeps across the arena.\nMove to the safe zone before it fires!"},
-        // Level 6 attacks (patterns 8, shockwave)
-        {"spiral_bullets", "6", "Spiral Bullets", "Bullets that curve as they fly!\nPredict their paths!"},
-        {"shockwave", "6", "Shockwave", "A damaging wave expands from the boss.\nMove away to avoid knockback!"},
-        // Level 7 attacks (patterns 9, twirl)
-        {"splitting_bullets", "7", "Splitting Bullets", "Bullets that split into smaller ones.\nMore bullets to dodge - stay alert!"},
-        {"twirl_attack", "7", "Twirl Attack", "The boss spins while circling the arena.\nStay mobile and watch its path!"},
-        // Level 8 attacks (patterns 10-11)
-        {"accelerating_bullets", "8", "Accelerating Bullets", "Bullets that speed up over time.\nDodge early before they become too fast!"},
-        {"wave_bullets", "8", "Wave Bullets", "Bullets that move in a wavy pattern!\nPredict their sine wave motion!"},
-        // Level 9 attacks (patterns 12-13)
-        {"bombs", "9", "Bombs", "Large explosive projectiles!\nThey explode into smaller bullets on impact!"},
-        {"grenades", "9", "Grenades", "Explosive projectiles that detonate on impact.\nStay clear of the blast radius!"},
-        // Level 10 attacks (pattern 14)
-        {"nuke_bombs", "10", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!"},
-        // Mega Boss attacks (every 3rd level)
-        {"mega_burst", "3", "Mega Burst", "Mega bosses unleash massive bursts!\n360 degrees of danger!"},
-        {"mega_cross", "6", "Mega Cross", "A deadly cross pattern of bullets!\nStand between the arms to survive!"},
-        {"mega_star", "9", "Mega Star", "Star-shaped bullet patterns!\nFind the gaps in the points!"},
-        {"mega_hex", "12", "Mega Hex", "Hexagonal bullet formations!\nPrecision dodging required!"}
+        // {attackId, level, name, description, category}
+        // Level 1 - NORMAL bullets (basic patterns only)
+        {"basic_bullets", "1", "Basic Bullets", "Simple bullets fired at you.\nDodge them by moving with WASD or Arrow keys!", "Pattern"},
+        {"spiral_attack", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!", "Pattern"},
+        {"circle_attack", "1", "Circle Attack", "Bullets fire in all directions!\nDodge them by moving with WASD or Arrow keys!", "Pattern"},
+        // Level 2 - Targeted pattern (still NORMAL bullets)
+        {"aimed_shots", "2", "Aimed Shots", "The boss aims directly at you!\nKeep moving to avoid being hit.", "Targeted"},
+        // Level 3 - LARGE bullets + First Mega
+        {"large_bullets", "3", "Large Bullets", "Massive bullets that are hard to avoid.\nGive them plenty of room!", "Special"},
+        {"mega_burst", "3", "Mega Burst", "Mega bosses unleash massive bursts!\nA cone of danger!", "Mega"},
+        // Level 4 - FAST bullets + Wave pattern
+        {"fast_bullets", "4", "Fast Bullets", "High-speed bullets aimed at you!\nDodge early before they reach you!", "Targeted"},
+        {"wave_attack", "4", "Wave Attack", "Bullets fire in a wave pattern.\nWatch the rhythm and dodge through!", "Pattern"},
+        // Level 5 - Random pattern (still using unlocked bullets)
+        {"random_spray", "5", "Random Spray", "Bullets scatter randomly!\nStay alert and react quickly.", "Pattern"},
+        // Level 6 - SPIRAL bullets + Second Mega
+        {"spiral_bullets", "6", "Spiral Bullets", "Bullets that curve as they fly!\nPredict their paths!", "Pattern"},
+        {"mega_cross", "6", "Mega Cross", "A deadly cross pattern of bullets!\nStand between the arms to survive!", "Mega"},
+        // Level 7 - BOUNCING bullets + Mixed attack
+        {"bouncing_bullets", "7", "Bouncing Bullets", "Bullets that bounce off walls!\nWatch out for unexpected rebounds!", "Special"},
+        {"mixed_attack", "7", "Mixed Attack", "A combo of spiral and bouncing bullets!\nStay on your toes!", "Mixed"},
+        // Level 9 - ACCELERATING bullets + Third Mega
+        {"accelerating_bullets", "9", "Accelerating Bullets", "Bullets that speed up over time.\nDodge early before they become too fast!", "Special"},
+        {"mega_star", "9", "Mega Star", "Star-shaped bullet patterns!\nFind the gaps in the points!", "Mega"},
+        // Level 10 - GRENADE bullets + Beam
+        {"grenades", "10", "Grenades", "Explosive projectiles that arc and detonate.\nStay clear of the blast radius!", "Explosive"},
+        {"beam_attack", "10", "Beam Attack", "A powerful beam sweeps across the arena.\nMove to the safe zone before it fires!", "Beam"},
+        // Level 12 - WAVE bullets + Fourth Mega + Shockwave
+        {"wave_bullets", "12", "Wave Bullets", "Bullets that move in a wavy pattern!\nPredict their sine wave motion!", "Pattern"},
+        {"shockwave", "12", "Shockwave", "A damaging wave expands from the boss.\nMove away to avoid knockback!", "AOE"},
+        {"mega_hex", "12", "Mega Hex", "Hexagonal bullet formations!\nPrecision dodging required!", "Mega"},
+        // Level 13 - HOMING bullets + Twirl
+        {"homing_bullets", "13", "Homing Bullets", "Bullets that track your position!\nKeep moving to outrun them!", "Special"},
+        {"twirl_attack", "13", "Twirl Attack", "The boss spins while circling the arena.\nStay mobile and watch its path!", "Movement"},
+        // Level 15 - BOMB bullets + Fifth Mega
+        {"bombs", "15", "Bombs", "Large explosive projectiles!\nThey explode into smaller bullets on impact!", "Explosive"},
+        {"mega_spiral", "15", "Mega Spiral", "Layered spirals at different speeds!\nNavigate the expanding rings!", "Mega"},
+        // Level 18 - NUKE bullets + Sixth Mega
+        {"nuke_bombs", "18", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!", "Explosive"}
     };
+    
+    // Map attack IDs to boss pattern types
+    // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
+    //                7=Mixed, 8=SpiralBullets, 10=Accelerating, 11=WaveBullets,
+    //                12=Bombs, 13=Grenades, 14=Nukes, 15=Homing, 16=Bouncing
+    private static int getPatternTypeForAttack(String attackId) {
+        switch (attackId) {
+            case "basic_bullets": return 2;   // Aimed shots (simple version)
+            case "spiral_attack": return 0;
+            case "circle_attack": return 1;
+            case "aimed_shots": return 2;
+            case "wave_attack": return 3;
+            case "random_spray": return 4;
+            case "fast_bullets": return 5;
+            case "large_bullets": return 6;
+            case "mixed_attack": return 7;
+            case "spiral_bullets": return 8;
+            case "accelerating_bullets": return 10;
+            case "wave_bullets": return 11;
+            case "bombs": return 12;
+            case "grenades": return 13;
+            case "nuke_bombs": return 14;
+            case "homing_bullets": return 15;
+            case "bouncing_bullets": return 16;
+            // Special attacks (beam, shockwave, twirl, mega) don't use pattern types
+            default: return -1;
+        }
+    }
+    
+    /**
+     * Get allowed pattern types for a given level based on ATTACK_INTROS.
+     * Only returns bullet pattern types, not special attacks (beam, shockwave, etc.)
+     */
+    private static java.util.Set<Integer> getAllowedPatternsForLevel(int level) {
+        java.util.Set<Integer> patterns = new java.util.HashSet<>();
+        for (String[] intro : ATTACK_INTROS) {
+            int unlockLevel = Integer.parseInt(intro[1]);
+            if (unlockLevel <= level) {
+                int patternType = getPatternTypeForAttack(intro[0]);
+                if (patternType >= 0) {
+                    patterns.add(patternType);
+                }
+            }
+        }
+        return patterns;
+    }
     
     // Current attack intro being displayed
     private String currentAttackIntroId = null;
     private String currentAttackIntroName = null;
     private String currentAttackIntroDescription = null;
+    private String currentAttackIntroCategory = null; // Pattern type/category
     private List<String> pendingAttackIntros = new ArrayList<>(); // Queue of intros to show
     private BufferedImage attackIntroImage = null; // Placeholder image for now
     
@@ -1121,8 +1179,18 @@ public class Game extends JPanel implements Runnable {
                         selectedPauseItem = 0;
                         screenShakeIntensity = 3;
                     } else if (key == KeyEvent.VK_R) {
-                        // Restart current level
-                        startGame();
+                        // Reset: in showcase mode just clear bullets and reset boss, otherwise restart level
+                        if (debugShowcaseInGameplay) {
+                            resetShowcase();
+                        } else {
+                            startGame();
+                        }
+                    } else if (key == KeyEvent.VK_F && debugShowcaseInGameplay) {
+                        // Force boss to shoot immediately in showcase mode
+                        if (currentBoss != null) {
+                            currentBoss.forceShoot(bullets, player);
+                            soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
+                        }
                     } else if (key == KeyEvent.VK_SPACE && introPanActive) {
                         // Skip intro animation
                         introPanActive = false;
@@ -2162,6 +2230,45 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
+        } else if (gameState == GameState.ATTACK_SHOWCASE) {
+            // Showcase selection screen button clicks
+            // Button layout: Left arrow (100, HEIGHT/2 - 50), Right arrow (WIDTH - 200, HEIGHT/2 - 50), Start button (center bottom)
+            int arrowWidth = 80;
+            int arrowHeight = 100;
+            int leftArrowX = 50;
+            int rightArrowX = WIDTH - 130;
+            int arrowY = HEIGHT / 2 - 50;
+            
+            int startButtonWidth = 200;
+            int startButtonHeight = 60;
+            int startButtonX = (WIDTH - startButtonWidth) / 2;
+            int startButtonY = HEIGHT - 120;
+            
+            // Check left arrow click (previous attack)
+            if (mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
+                mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
+                debugShowcaseIndex--;
+                if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
+                updateShowcaseAttackInfo();
+                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                screenShakeIntensity = 2;
+            }
+            // Check right arrow click (next attack)
+            else if (mouseX >= rightArrowX && mouseX <= rightArrowX + arrowWidth &&
+                     mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
+                debugShowcaseIndex++;
+                if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
+                updateShowcaseAttackInfo();
+                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                screenShakeIntensity = 2;
+            }
+            // Check start button click
+            else if (mouseX >= startButtonX && mouseX <= startButtonX + startButtonWidth &&
+                     mouseY >= startButtonY && mouseY <= startButtonY + startButtonHeight) {
+                startShowcaseTest();
+                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                screenShakeIntensity = 5;
+            }
         }
     }
     
@@ -2525,6 +2632,7 @@ public class Game extends JPanel implements Runnable {
         int attackLevel = Integer.parseInt(intro[1]);
         currentAttackIntroName = intro[2];
         currentAttackIntroDescription = intro[3];
+        currentAttackIntroCategory = intro[4]; // Category type
         attackIntroImage = createPlaceholderAttackImage(currentAttackIntroId);
         
         // Set the level to match this attack (changes boss sprite and background)
@@ -2562,7 +2670,36 @@ public class Game extends JPanel implements Runnable {
         }
         
         System.out.println("DEBUG SHOWCASE: Testing " + currentAttackIntroName + 
-                          " - Press N or ESC to return to selection");
+                          " - Press N or ESC to return to selection, R to reset");
+    }
+    
+    /**
+     * Reset the showcase: clear bullets, reset boss position, but stay in gameplay
+     */
+    private void resetShowcase() {
+        // Clear all bullets and effects
+        bullets.clear();
+        beamAttacks.clear();
+        particles.clear();
+        damageNumbers.clear();
+        
+        // Reset boss position and state
+        if (currentBoss != null) {
+            currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+            currentBoss.clearBeamAttacks();
+            // Re-configure for the showcase attack
+            if (currentAttackIntroId != null) {
+                configureBossForShowcase(currentAttackIntroId);
+            }
+        }
+        
+        // Reset player position
+        player.setPosition(WIDTH / 2, HEIGHT - 100);
+        
+        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+        screenShakeIntensity = 5;
+        
+        System.out.println("DEBUG SHOWCASE: Reset - bullets cleared, boss reset");
     }
     
     /**
@@ -2596,10 +2733,13 @@ public class Game extends JPanel implements Runnable {
         
         // Map attack IDs to boss behavior
         // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
-        //                7=Mixed, 8=SpiralBullets, 9=Splitting, 10=Accelerating, 11=WaveBullets,
+        //                7=Mixed, 8=SpiralBullets, 10=Accelerating, 11=WaveBullets,
         //                12=Bombs, 13=Grenades, 14=Nukes
         // Mega patterns: 0=MegaBurst, 1=MegaRing, 2=MegaCross, 3=MegaStar, 4=MegaHex
         switch (attackId) {
+            case "basic_bullets":
+                currentBoss.setForcedPatternType(2); // Aimed at player (simple shots)
+                break;
             case "spiral_attack":
                 currentBoss.setForcedPatternType(0); // Spiral pattern
                 break;
@@ -2632,9 +2772,6 @@ public class Game extends JPanel implements Runnable {
                 break;
             case "shockwave":
                 currentBoss.setForceShockwave(true);
-                break;
-            case "splitting_bullets":
-                currentBoss.setForcedPatternType(9); // Splitting
                 break;
             case "twirl_attack":
                 currentBoss.setForceTwirlAttack(true);
@@ -2672,6 +2809,9 @@ public class Game extends JPanel implements Runnable {
             case "mega_hex":
                 currentBoss.setForceMegaAttack(4); // Mega hex
                 break;
+            case "mega_spiral":
+                currentBoss.setForceMegaAttack(1); // Mega spiral
+                break;
         }
         
         System.out.println("DEBUG SHOWCASE: Boss configured for attack: " + attackId);
@@ -2704,6 +2844,7 @@ public class Game extends JPanel implements Runnable {
         damageNumbers.clear();
         beamAttacks.clear();
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
+        currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
         stoppedMovingTimer = 0; // Reset Can't Stop timer
@@ -4277,21 +4418,6 @@ public class Game extends JPanel implements Runnable {
                 continue;
             }
             
-            // Check if splitting bullet should split
-            if (bullet.shouldSplit()) {
-                bullet.markAsSplit();
-                double baseAngle = Math.atan2(bullet.getVY(), bullet.getVX());
-                for (int j = 0; j < 4; j++) {
-                    double angle = baseAngle + (Math.PI / 2 * j);
-                    // Use pooled bullet if available
-                    Bullet newBullet = getBulletFromPool();
-                    newBullet.reset(bullet.getX(), bullet.getY(), 
-                                   Math.cos(angle) * 3, Math.sin(angle) * 3, 
-                                   Bullet.BulletType.FAST);
-                    bullets.add(newBullet);
-                }
-            }
-            
             // Remove off-screen bullets and return to pool
             if (bullet.isOffScreen(WIDTH, HEIGHT)) {
                 bullets.remove(i);
@@ -4757,7 +4883,7 @@ public class Game extends JPanel implements Runnable {
                     saveMetadataCache, deletingSlot, deleteConfirmTimer, escapeTimer);
                 break;
             case MENU:
-                renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem);
+                renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem, saveManager.getCurrentSaveSlot());
                 break;
             case INFO:
                 renderer.drawInfo(g2d, WIDTH, HEIGHT, gradientTime);
@@ -4783,6 +4909,9 @@ public class Game extends JPanel implements Runnable {
                 break;
             case ATTACK_INTRO:
                 drawAttackIntro(g2d, WIDTH, HEIGHT);
+                break;
+            case ATTACK_SHOWCASE:
+                drawAttackShowcase(g2d, WIDTH, HEIGHT);
                 break;
             case PLAYING:
                 // Apply camera zoom
@@ -5644,6 +5773,223 @@ public class Game extends JPanel implements Runnable {
         g.setColor(new Color(150, 150, 170, 180));
         String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
         g.drawString(levelText, boxX + 20, boxY + boxHeight - 15);
+    }
+    
+    /**
+     * Draw the attack showcase selection screen for debugging/screenshots
+     */
+    private void drawAttackShowcase(Graphics2D g, int width, int height) {
+        // Draw dark gradient background
+        GradientPaint bgGradient = new GradientPaint(
+            0, 0, new Color(15, 20, 35),
+            0, height, new Color(8, 12, 20)
+        );
+        g.setPaint(bgGradient);
+        g.fillRect(0, 0, width, height);
+        
+        // Animated pulse effect
+        double pulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.05 + 1.0;
+        
+        // Header
+        g.setFont(new Font("Arial", Font.BOLD, 48));
+        g.setColor(new Color(255, 180, 80));
+        String header = "ATTACK SHOWCASE";
+        FontMetrics fm = g.getFontMetrics();
+        int headerX = (width - fm.stringWidth(header)) / 2;
+        g.drawString(header, headerX, 80);
+        
+        // Attack counter
+        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setColor(new Color(150, 170, 200));
+        String counter = (debugShowcaseIndex + 1) + " / " + ATTACK_INTROS.length;
+        fm = g.getFontMetrics();
+        g.drawString(counter, (width - fm.stringWidth(counter)) / 2, 115);
+        
+        // Main content card
+        int cardWidth = 500;
+        int cardHeight = 350;
+        int cardX = (width - cardWidth) / 2;
+        int cardY = 150;
+        
+        // Card background
+        GradientPaint cardGradient = new GradientPaint(
+            cardX, cardY, new Color(35, 45, 65, 240),
+            cardX, cardY + cardHeight, new Color(25, 30, 45, 240)
+        );
+        g.setPaint(cardGradient);
+        g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 25, 25);
+        
+        // Card border
+        g.setColor(new Color(100, 150, 200, 180));
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 25, 25);
+        
+        // Attack name
+        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setColor(new Color(200, 220, 255));
+        if (currentAttackIntroName != null) {
+            fm = g.getFontMetrics();
+            int nameX = (width - fm.stringWidth(currentAttackIntroName)) / 2;
+            g.drawString(currentAttackIntroName, nameX, cardY + 50);
+        }
+        
+        // Attack image (placeholder)
+        int imageSize = 140;
+        int imageX = (width - imageSize) / 2;
+        int imageY = cardY + 70;
+        
+        if (attackIntroImage != null) {
+            int scaledSize = (int)(imageSize * pulse);
+            int offset = (imageSize - scaledSize) / 2;
+            g.drawImage(attackIntroImage, imageX + offset, imageY + offset, scaledSize, scaledSize, null);
+        } else {
+            g.setColor(new Color(50, 55, 70));
+            g.fillRoundRect(imageX, imageY, imageSize, imageSize, 15, 15);
+            g.setColor(new Color(100, 150, 200));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(imageX, imageY, imageSize, imageSize, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 36));
+            g.setColor(new Color(130, 140, 160));
+            g.drawString("?", imageX + imageSize/2 - 10, imageY + imageSize/2 + 12);
+        }
+        
+        // Attack description
+        if (currentAttackIntroDescription != null) {
+            g.setFont(new Font("Arial", Font.PLAIN, 18));
+            g.setColor(new Color(170, 180, 195));
+            String[] lines = currentAttackIntroDescription.split("\n");
+            int descY = imageY + imageSize + 35;
+            fm = g.getFontMetrics();
+            for (String line : lines) {
+                int lineX = (width - fm.stringWidth(line)) / 2;
+                g.drawString(line, lineX, descY);
+                descY += 24;
+            }
+        }
+        
+        // Level indicator (left side)
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setColor(new Color(200, 150, 100));
+        String levelText = "Level " + (ATTACK_INTROS[debugShowcaseIndex][1]);
+        g.drawString(levelText, cardX + 20, cardY + cardHeight - 15);
+        
+        // Category indicator (right side)
+        if (currentAttackIntroCategory != null) {
+            // Category color based on type
+            Color categoryColor = getCategoryColor(currentAttackIntroCategory);
+            g.setColor(categoryColor);
+            fm = g.getFontMetrics();
+            String categoryText = currentAttackIntroCategory;
+            int categoryX = cardX + cardWidth - fm.stringWidth(categoryText) - 20;
+            g.drawString(categoryText, categoryX, cardY + cardHeight - 15);
+        }
+        
+        // Left arrow button
+        int arrowWidth = 80;
+        int arrowHeight = 100;
+        int leftArrowX = 50;
+        int rightArrowX = width - 130;
+        int arrowY = height / 2 - 50;
+        
+        // Left arrow hover check
+        boolean leftHover = mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
+                           mouseY >= arrowY && mouseY <= arrowY + arrowHeight;
+        drawShowcaseArrow(g, leftArrowX, arrowY, arrowWidth, arrowHeight, true, leftHover);
+        
+        // Right arrow hover check
+        boolean rightHover = mouseX >= rightArrowX && mouseX <= rightArrowX + arrowWidth &&
+                            mouseY >= arrowY && mouseY <= arrowY + arrowHeight;
+        drawShowcaseArrow(g, rightArrowX, arrowY, arrowWidth, arrowHeight, false, rightHover);
+        
+        // Start button
+        int startButtonWidth = 200;
+        int startButtonHeight = 60;
+        int startButtonX = (width - startButtonWidth) / 2;
+        int startButtonY = height - 120;
+        
+        boolean startHover = mouseX >= startButtonX && mouseX <= startButtonX + startButtonWidth &&
+                            mouseY >= startButtonY && mouseY <= startButtonY + startButtonHeight;
+        
+        // Start button background
+        if (startHover) {
+            g.setColor(new Color(80, 160, 80));
+        } else {
+            g.setColor(new Color(60, 120, 60));
+        }
+        g.fillRoundRect(startButtonX, startButtonY, startButtonWidth, startButtonHeight, 15, 15);
+        
+        // Start button border
+        g.setColor(new Color(120, 200, 120));
+        g.setStroke(new BasicStroke(startHover ? 3 : 2));
+        g.drawRoundRect(startButtonX, startButtonY, startButtonWidth, startButtonHeight, 15, 15);
+        
+        // Start button text
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setColor(Color.WHITE);
+        String startText = "START TEST";
+        fm = g.getFontMetrics();
+        int textX = startButtonX + (startButtonWidth - fm.stringWidth(startText)) / 2;
+        int textY = startButtonY + startButtonHeight / 2 + 8;
+        g.drawString(startText, textX, textY);
+        
+        // Instructions at bottom
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setColor(new Color(130, 140, 160));
+        String instructions = "A/D or Arrow Keys to browse  |  SPACE to test  |  ESC to exit";
+        fm = g.getFontMetrics();
+        g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
+    }
+    
+    /**
+     * Draw an arrow button for the showcase screen
+     */
+    private void drawShowcaseArrow(Graphics2D g, int x, int y, int width, int height, boolean leftArrow, boolean hovered) {
+        // Arrow button background
+        if (hovered) {
+            g.setColor(new Color(70, 90, 130));
+        } else {
+            g.setColor(new Color(50, 65, 95));
+        }
+        g.fillRoundRect(x, y, width, height, 15, 15);
+        
+        // Arrow button border
+        g.setColor(new Color(100, 140, 200));
+        g.setStroke(new BasicStroke(hovered ? 3 : 2));
+        g.drawRoundRect(x, y, width, height, 15, 15);
+        
+        // Arrow symbol
+        g.setColor(Color.WHITE);
+        int centerX = x + width / 2;
+        int centerY = y + height / 2;
+        int arrowSize = 25;
+        
+        int[] xPoints, yPoints;
+        if (leftArrow) {
+            xPoints = new int[]{centerX + arrowSize/2, centerX - arrowSize/2, centerX + arrowSize/2};
+            yPoints = new int[]{centerY - arrowSize/2, centerY, centerY + arrowSize/2};
+        } else {
+            xPoints = new int[]{centerX - arrowSize/2, centerX + arrowSize/2, centerX - arrowSize/2};
+            yPoints = new int[]{centerY - arrowSize/2, centerY, centerY + arrowSize/2};
+        }
+        g.fillPolygon(xPoints, yPoints, 3);
+    }
+    
+    /**
+     * Get color for attack category
+     */
+    private Color getCategoryColor(String category) {
+        switch (category) {
+            case "Pattern": return new Color(100, 180, 255);   // Blue
+            case "Targeted": return new Color(255, 150, 100);  // Orange
+            case "Special": return new Color(180, 100, 255);   // Purple
+            case "Beam": return new Color(255, 255, 100);      // Yellow
+            case "AOE": return new Color(255, 100, 100);       // Red
+            case "Mega": return new Color(255, 80, 200);       // Pink/Magenta
+            case "Mixed": return new Color(100, 255, 180);     // Teal
+            case "Movement": return new Color(150, 255, 150);  // Green
+            case "Explosive": return new Color(255, 120, 50);  // Dark Orange
+            default: return new Color(180, 180, 180);          // Gray
+        }
     }
     
     private void drawItemUnlockAnimation(Graphics2D g, int width, int height) {

@@ -16,8 +16,11 @@ public class Renderer {
     private UIButton[] settingsButtons;
     private UIButton[] pauseButtons;
     
-    // Parallax background layers (14 sets x 6 layers each)
-    private static BufferedImage[][] backgroundLayers = new BufferedImage[14][6];
+    // Number of background sets available
+    private static final int BACKGROUND_SET_COUNT = 8;
+    
+    // Parallax background layers (BACKGROUND_SET_COUNT sets x 6 layers each)
+    private static BufferedImage[][] backgroundLayers = new BufferedImage[BACKGROUND_SET_COUNT][6];
     private static boolean backgroundsLoaded = false;
     private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
     
@@ -119,7 +122,7 @@ public class Renderer {
         if (backgroundsLoaded) return;
         try {
             int totalLoaded = 0;
-            for (int set = 0; set < 10; set++) {
+            for (int set = 0; set < BACKGROUND_SET_COUNT; set++) {
                 for (int layer = 0; layer < 6; layer++) {
                     String path = String.format("sprites/Backgrounds/background (%d)/%d.png", set + 1, layer + 1);
                     
@@ -168,8 +171,8 @@ public class Renderer {
     private void drawParallaxBackground(Graphics2D g, int width, int height, int level, double time) {
         if (!backgroundsLoaded) return;
         
-        // Select background set based on level (cycle through 14 sets)
-        int bgSet = (level - 1) % 14;
+        // Select background set based on level (cycle through available sets)
+        int bgSet = (level - 1) % BACKGROUND_SET_COUNT;
         
         // Parallax speeds for each layer (furthest to closest)
         double[] speeds = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
@@ -306,7 +309,7 @@ public class Renderer {
         g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
     }
     
-    public void drawMenu(Graphics2D g, int width, int height, double time, int escapeTimer, int selectedMenuItem) {
+    public void drawMenu(Graphics2D g, int width, int height, double time, int escapeTimer, int selectedMenuItem, int currentSaveSlot) {
         // Draw animated gradient background with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -352,6 +355,17 @@ public class Renderer {
         
         // Show score and money in a nice card
         drawStatsCard(g, width, height, time);
+        
+        // Version and save slot info (bottom left)
+        g.setFont(FONT_TINY);
+        g.setColor(new Color(120, 130, 150, 180));
+        String versionText = Game.GAME_VERSION;
+        g.drawString(versionText, 20, height - 40);
+        
+        if (currentSaveSlot > 0) {
+            String saveText = "Save Slot " + currentSaveSlot;
+            g.drawString(saveText, 20, height - 20);
+        }
         
         // Quit hint
         if (escapeTimer > 0) {

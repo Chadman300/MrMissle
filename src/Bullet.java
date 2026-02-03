@@ -41,7 +41,6 @@ public class Bullet {
     private static final int WARNING_DURATION = 120; // Frames before bullet activates
     private double age; // Frames since activation
     private double spiralAngle; // For spiral bullets
-    private boolean hasSplit; // For splitting bullets
     private double explosionTimer; // Time until explosion for bombs
     private static final double EXPLOSION_TIME = 120; // Frames until explosion
     private static final double FLICKER_START = 30; // Start flickering 30 frames before explosion
@@ -58,7 +57,6 @@ public class Bullet {
         HOMING,      // Slightly tracks player
         BOUNCING,    // Bounces off walls
         SPIRAL,      // Spirals as it moves
-        SPLITTING,   // Splits into smaller bullets
         ACCELERATING,// Speeds up over time
         WAVE,        // Moves in a wave pattern
         BOMB,        // Slows down then explodes into fragments
@@ -80,7 +78,6 @@ public class Bullet {
         this.warningTime = WARNING_DURATION;
         this.age = 0;
         this.spiralAngle = 0;
-        this.hasSplit = false;
         this.explosionTimer = EXPLOSION_TIME;
         this.spriteVariant = (int)(Math.random() * 3); // Random variant 0-2
         this.bounceCount = 0;
@@ -165,7 +162,6 @@ public class Bullet {
         this.warningTime = WARNING_DURATION;
         this.age = 0;
         this.spiralAngle = 0;
-        this.hasSplit = false;
         this.explosionTimer = EXPLOSION_TIME;
         this.spriteVariant = (int)(Math.random() * 3);
         this.bounceCount = 0;
@@ -425,13 +421,12 @@ public class Bullet {
                 spriteIndex = 5;
                 spriteSize = SIZE * 4;
                 break;
-            case SPLITTING:
-                spriteIndex = 6;
-                spriteSize = SIZE * 5;
-                break;
             case ACCELERATING:
-            case WAVE:
                 spriteIndex = 7;
+                spriteSize = SIZE * 4;
+                break;
+            case WAVE:
+                spriteIndex = 1; // Proj 1 Purple
                 spriteSize = SIZE * 4;
                 break;
             case BOMB:
@@ -557,15 +552,11 @@ public class Bullet {
                 case SPIRAL:
                     color = new Color(0, 255, 255); // Bright cyan
                     break;
-                case SPLITTING:
-                    size = SIZE + 4;
-                    color = new Color(255, 100, 0); // Bright orange
-                    break;
                 case ACCELERATING:
                     color = new Color(200, 50, 255); // Bright purple
                     break;
                 case WAVE:
-                    color = new Color(0, 255, 200); // Bright teal
+                    color = new Color(180, 0, 255); // Purple for wave
                     break;
                 default:
                     color = new Color(255, 50, 50); // Bright red
@@ -619,14 +610,6 @@ public class Bullet {
         actualSize = (int)(actualSize * bulletSizeMultiplier);
         double threshold = (actualSize * 0.5) + (player.getSize() * 0.3);
         return distanceSquared < threshold * threshold;
-    }
-    
-    public boolean shouldSplit() {
-        return type == BulletType.SPLITTING && !hasSplit && age > 60;
-    }
-    
-    public void markAsSplit() {
-        hasSplit = true;
     }
     
     public double getX() { return x; }

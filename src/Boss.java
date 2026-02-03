@@ -51,6 +51,17 @@ public class Boss {
     private int shootInterval;
     private int patternType;
     private int maxPatterns; // Maximum attack patterns unlocked
+    private java.util.Set<Integer> allowedPatterns = null; // Which pattern types are allowed (null = use maxPatterns)
+    private double spiralRotation = 0; // Continuous rotation for spiral patterns
+    
+    // Spiral attack sequence state (spawns bullets one at a time)
+    private boolean spiralAttackActive = false;
+    private int spiralBulletsToSpawn = 0; // Total bullets in this spiral
+    private int spiralBulletsSpawned = 0; // How many spawned so far
+    private double spiralSpawnTimer = 0; // Timer for delay between bullets
+    private static final double SPIRAL_SPAWN_DELAY = 5; // Frames between each bullet spawn
+    private double spiralSpeed = 2.5; // Speed for all bullets in spiral
+    
     private int forcedPatternType = -1; // For debug showcase mode: -1 = normal, 0-14 = forced pattern
     private int forcedMegaAttack = -1; // For debug showcase mode: -1 = normal, 0-4 = forced mega attack
     private boolean forceBeamAttack = false; // Force beam attacks for showcase
@@ -58,7 +69,7 @@ public class Boss {
     private boolean forceTwirlAttack = false; // Force twirl attack for showcase
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
     private boolean stayStationary = false; // Stay in place for debug showcase
-    private static final int DEBUG_SLOW_SHOOT_INTERVAL = 300; // 5 seconds between shots in debug mode
+    private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
     private double targetX, targetY; // Target position for smooth movement
     private int moveTimer; // Timer to pick new target
     private int beamAttackTimer; // Timer for beam attacks
@@ -271,9 +282,9 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5.png", megaBossPlaneSprites, 4);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png", megaBossPlaneSprites, 5);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png", megaBossPlaneSprites, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 7);
-            // Helicopter 1 for mega bosses
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", megaBossPlaneSprites, 8);
+            // Helicopter 1 for mega bosses (swapped with Boss Plane 8 for level 24/27)
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", megaBossPlaneSprites, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 8);
             
             // Load mega boss shadows
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png", megaBossPlaneShadows, 0);
@@ -283,8 +294,8 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png", megaBossPlaneShadows, 4);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png", megaBossPlaneShadows, 5);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png", megaBossPlaneShadows, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 7);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", megaBossPlaneShadows, 8);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", megaBossPlaneShadows, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 8);
             
             // Load helicopter blade sprites
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png", helicopterBlades, 0);
@@ -595,7 +606,7 @@ public class Boss {
             
             // When entering assault phase, immediately switch to a new pattern
             if (isAssaultPhase) {
-                patternType = (int)(Math.random() * maxPatterns);
+                patternType = getRandomAllowedPattern();
                 
                 // 30% chance to start a twirl attack sequence during assault
                 // Twirl/spin attack only available from level 7 onwards (or forced for debug showcase)
@@ -663,6 +674,9 @@ public class Boss {
             shootTimer = 0;
             shoot(bullets, player);
         }
+        
+        // Update spiral attack sequence (spawns bullets one at a time)
+        updateSpiralAttack(bullets, deltaTime);
         
         // Beam attacks (at higher levels - starting at level 4, or forced for debug showcase)
         // Don't fire beams if a specific non-beam pattern is forced
@@ -741,14 +755,15 @@ public class Boss {
         
         // Cycle through unlocked patterns only (or use forced pattern for debug showcase)
         int currentPattern;
-        if (forcedPatternType >= 0 && forcedPatternType < 15) {
+        if (forcedPatternType >= 0 && forcedPatternType < 17) {
             currentPattern = forcedPatternType; // Use forced pattern
         } else {
-            patternType = (patternType + 1) % maxPatterns;
+            // Use allowed patterns if set, otherwise use maxPatterns
+            patternType = getNextAllowedPattern();
             currentPattern = patternType;
         }
         
-        switch (currentPattern % 15) {
+        switch (currentPattern) {
             case 0: // Spiral pattern
                 shootSpiral(bullets);
                 break;
@@ -775,9 +790,6 @@ public class Boss {
                 break;
             case 8: // Spiral bullets
                 shootSpiralBullets(bullets);
-                break;
-            case 9: // Splitting bullets
-                shootSplittingBullets(bullets);
                 break;
             case 10: // Accelerating bullets
                 shootAcceleratingBullets(bullets, player);
@@ -809,14 +821,46 @@ public class Boss {
     }
     
     private void shootSpiral(List<Bullet> bullets) {
-        int numBullets = 12 + level * 2; // Increased from 8 + level
-        double angleOffset = shootTimer * 0.1;
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12)); // Starts at 40%, reaches 100% at level 5
-        for (int i = 0; i < numBullets; i++) {
-            double angle = (Math.PI * 2 * i / numBullets) + angleOffset;
+        // Spiral: initiate a sequence that spawns bullets one at a time
+        // This creates a true spiral pattern as each bullet is released at a different angle
+        if (!spiralAttackActive) {
+            spiralAttackActive = true;
+            spiralBulletsToSpawn = 20 + level * 3; // More bullets for better spiral
+            spiralBulletsSpawned = 0;
+            spiralSpawnTimer = 0;
+            spiralSpeed = Math.min(3.0, 1.5 + (level * 0.1)); // All bullets same speed
+        }
+        // Actual spawning happens in updateSpiralAttack()
+    }
+    
+    // Update spiral attack - spawns one bullet at a time with delay
+    private void updateSpiralAttack(List<Bullet> bullets, double deltaTime) {
+        if (!spiralAttackActive) return;
+        
+        spiralSpawnTimer += deltaTime;
+        
+        // Spawn a bullet when timer is ready
+        while (spiralSpawnTimer >= SPIRAL_SPAWN_DELAY && spiralBulletsSpawned < spiralBulletsToSpawn) {
+            spiralSpawnTimer -= SPIRAL_SPAWN_DELAY;
+            
+            // Each bullet gets spawned at progressively rotating angle
+            double angle = spiralRotation;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier));
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * spiralSpeed, Math.sin(angle) * spiralSpeed));
+            
+            spiralBulletsSpawned++;
+            spiralRotation += 0.3; // Rotate for next bullet (creates the spiral)
+            
+            // Play sound for each bullet spawn (quieter)
+            if (soundManager != null && spiralBulletsSpawned % 3 == 1) {
+                soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.1f);
+            }
+        }
+        
+        // Check if spiral is complete
+        if (spiralBulletsSpawned >= spiralBulletsToSpawn) {
+            spiralAttackActive = false;
         }
     }
     
@@ -946,17 +990,6 @@ public class Boss {
         }
     }
     
-    private void shootSplittingBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 4 + level / 2; // Slower increase
-        for (int i = 0; i < numBullets; i++) {
-            double angle = Math.PI * 2 * i / numBullets;
-            double spawnX = x + Math.cos(angle) * size * 1.5;
-            double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.SPLITTING));
-        }
-    }
-    
     private void shootAcceleratingBullets(List<Bullet> bullets, Player player) {
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
@@ -1030,32 +1063,37 @@ public class Boss {
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             
-            // Mix of bullet types for chaos
-            Bullet.BulletType type;
+            // Only use bullet types that are unlocked at current level
+            // FAST = level 3, HOMING = level 6, ACCELERATING = level 12
+            Bullet.BulletType type = Bullet.BulletType.NORMAL;
             double rand = Math.random();
-            if (rand < 0.3) {
-                type = Bullet.BulletType.FAST;
-            } else if (rand < 0.5) {
-                type = Bullet.BulletType.HOMING;
-            } else if (rand < 0.7) {
+            if (level >= 12 && rand < 0.2) {
                 type = Bullet.BulletType.ACCELERATING;
-            } else {
-                type = Bullet.BulletType.NORMAL;
+            } else if (level >= 6 && rand < 0.35) {
+                type = Bullet.BulletType.HOMING;
+            } else if (level >= 3 && rand < 0.5) {
+                type = Bullet.BulletType.FAST;
             }
+            // At level 3, just fast and normal bullets
             
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
         }
     }
     
     private void shootMegaSpiral(List<Bullet> bullets) {
-        // Layered spiral with multiple speeds and types
+        // Layered spiral with multiple speeds and level-appropriate types
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleOffset = shootTimer * 0.15;
         
         // Three layers of spirals at different speeds
         int[] layers = {8, 12, 16};
         double[] speeds = {2.0, 3.0, 4.0};
-        Bullet.BulletType[] types = {Bullet.BulletType.NORMAL, Bullet.BulletType.SPIRAL, Bullet.BulletType.WAVE};
+        // Spiral bullets unlock at 6, Wave bullets at 12
+        Bullet.BulletType[] types = {
+            Bullet.BulletType.NORMAL, 
+            level >= 6 ? Bullet.BulletType.SPIRAL : Bullet.BulletType.NORMAL, 
+            level >= 12 ? Bullet.BulletType.WAVE : Bullet.BulletType.NORMAL
+        };
         
         for (int layer = 0; layer < 3; layer++) {
             int numBullets = layers[layer] + level;
@@ -1072,7 +1110,8 @@ public class Boss {
     }
     
     private void shootMegaCross(List<Bullet> bullets, Player player) {
-        // Cross pattern with rotating arms + homing center
+        // Cross pattern with rotating arms + center bullets
+        // Unlocks at level 6
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
@@ -1088,22 +1127,26 @@ public class Boss {
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
                 
-                Bullet.BulletType type = (i % 3 == 0) ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
+                // Large bullets only if level >= 3
+                Bullet.BulletType type = (level >= 3 && i % 3 == 0) ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
                 bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
-        // Center cluster of homing bullets
+        // Center cluster - homing only if level >= 13, otherwise fast if >= 4, else normal
         for (int i = 0; i < 3 + level / 3; i++) {
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.8;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
+            Bullet.BulletType type = level >= 13 ? Bullet.BulletType.HOMING : 
+                                     (level >= 4 ? Bullet.BulletType.FAST : Bullet.BulletType.NORMAL);
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, type));
         }
     }
     
     private void shootMegaStar(List<Bullet> bullets) {
-        // Star burst with splitting bullets
+        // Star burst with level-appropriate bullets
+        // Unlocks at level 9
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         int numPoints = 6 + level / 3; // 6-9 points
         
@@ -1118,23 +1161,30 @@ public class Boss {
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
                 
-                // Outer bullets split, inner bullets are large
-                Bullet.BulletType type = (i <= 1 || i >= 3) ? Bullet.BulletType.SPLITTING : Bullet.BulletType.LARGE;
+                // Bouncing bullets only if level >= 7, Large only if level >= 3
+                Bullet.BulletType type = Bullet.BulletType.NORMAL;
+                if (i <= 1 || i >= 3) {
+                    type = level >= 7 ? Bullet.BulletType.BOUNCING : Bullet.BulletType.NORMAL;
+                } else {
+                    type = level >= 3 ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
+                }
                 bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
-        // Center ring of bombs
+        // Center ring - bombs only if level >= 15, otherwise normal
         for (int i = 0; i < 3 + level / 4; i++) {
             double angle = Math.PI * 2 * i / (4 + level / 3);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.BOMB));
+            Bullet.BulletType type = level >= 15 ? Bullet.BulletType.BOMB : Bullet.BulletType.NORMAL;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, type));
         }
     }
     
     private void shootMegaHex(List<Bullet> bullets, Player player) {
-        // Hexagonal formation with wave bullets + grenades
+        // Hexagonal formation with level-appropriate bullets
+        // Unlocks at level 12
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
@@ -1148,24 +1198,28 @@ public class Boss {
                 double speed = (2.5 + Math.sin(i * 0.5)) * speedMultiplier;
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, Bullet.BulletType.WAVE));
+                // Wave bullets only if level >= 12
+                Bullet.BulletType type = level >= 12 ? Bullet.BulletType.WAVE : Bullet.BulletType.NORMAL;
+                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
-        // Grenades aimed at player
+        // Center bullets aimed at player - grenades only if level >= 10
         for (int i = 0; i < 1 + level / 5; i++) {
             double angle = angleToPlayer + (i - 1) * 0.4;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.GRENADE));
+            Bullet.BulletType type = level >= 10 ? Bullet.BulletType.GRENADE : Bullet.BulletType.NORMAL;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, type));
         }
         
-        // Ring of accelerating bullets
+        // Ring of bullets - accelerating only if level >= 9
         for (int i = 0; i < 6 + level / 2; i++) {
             double angle = Math.PI * 2 * i / (10 + level);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.8 * speedMultiplier, Math.sin(angle) * 1.8 * speedMultiplier, Bullet.BulletType.ACCELERATING));
+            Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.8 * speedMultiplier, Math.sin(angle) * 1.8 * speedMultiplier, type));
         }
     }
     
@@ -1255,6 +1309,76 @@ public class Boss {
     
     public List<BeamAttack> getBeamAttacks() {
         return beamAttacks;
+    }
+    
+    public void clearBeamAttacks() {
+        beamAttacks.clear();
+        // Also reset spiral attack state
+        spiralAttackActive = false;
+        spiralBulletsSpawned = 0;
+        spiralBulletsToSpawn = 0;
+        shockwaveActive = false;
+    }
+    
+    /**
+     * Force the boss to shoot immediately (for debug showcase).
+     */
+    public void forceShoot(List<Bullet> bullets, Player player) {
+        shoot(bullets, player);
+        shootTimer = 0; // Reset timer so next shot follows normal interval
+    }
+    
+    /**
+     * Set which pattern types are allowed for this boss.
+     * If null, uses the default maxPatterns logic.
+     */
+    public void setAllowedPatterns(java.util.Set<Integer> patterns) {
+        this.allowedPatterns = patterns;
+        if (patterns != null && !patterns.isEmpty()) {
+            // Pick a random starting pattern from allowed ones
+            Integer[] arr = patterns.toArray(new Integer[0]);
+            this.patternType = arr[(int)(Math.random() * arr.length)];
+        }
+    }
+    
+    /**
+     * Check if a pattern type is allowed.
+     */
+    private boolean isPatternAllowed(int pattern) {
+        if (allowedPatterns == null) {
+            return pattern < maxPatterns;
+        }
+        return allowedPatterns.contains(pattern);
+    }
+    
+    /**
+     * Get a random allowed pattern type.
+     */
+    private int getRandomAllowedPattern() {
+        if (allowedPatterns == null || allowedPatterns.isEmpty()) {
+            return (int)(Math.random() * maxPatterns);
+        }
+        Integer[] arr = allowedPatterns.toArray(new Integer[0]);
+        return arr[(int)(Math.random() * arr.length)];
+    }
+    
+    /**
+     * Get the next allowed pattern in sequence.
+     */
+    private int getNextAllowedPattern() {
+        if (allowedPatterns == null || allowedPatterns.isEmpty()) {
+            return (patternType + 1) % maxPatterns;
+        }
+        // Find patterns greater than current, or wrap to smallest
+        int next = -1;
+        int smallest = Integer.MAX_VALUE;
+        for (int p : allowedPatterns) {
+            if (p > patternType && (next == -1 || p < next)) {
+                next = p;
+            }
+            if (p < smallest) smallest = p;
+        }
+        return next != -1 ? next : smallest;
     }
     
     private BufferedImage getCurrentSprite() {
