@@ -1064,17 +1064,18 @@ public class Boss {
             double spawnY = y + Math.sin(angle) * size * 1.5;
             
             // Only use bullet types that are unlocked at current level
-            // FAST = level 3, HOMING = level 6, ACCELERATING = level 12
+            // mega_burst unlocks at level 3. Bullet unlock levels:
+            // LARGE=3, FAST=4, SPIRAL=6, BOUNCING=7, ACCELERATING=9, GRENADE=10, WAVE=12, HOMING=13, BOMB=15
             Bullet.BulletType type = Bullet.BulletType.NORMAL;
             double rand = Math.random();
-            if (level >= 12 && rand < 0.2) {
+            if (level >= 9 && rand < 0.2) {
                 type = Bullet.BulletType.ACCELERATING;
-            } else if (level >= 6 && rand < 0.35) {
-                type = Bullet.BulletType.HOMING;
-            } else if (level >= 3 && rand < 0.5) {
+            } else if (level >= 4 && rand < 0.35) {
                 type = Bullet.BulletType.FAST;
+            } else if (level >= 3 && rand < 0.5) {
+                type = Bullet.BulletType.LARGE;
             }
-            // At level 3, just fast and normal bullets
+            // At level 3, just large and normal bullets
             
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
         }
@@ -1082,17 +1083,18 @@ public class Boss {
     
     private void shootMegaSpiral(List<Bullet> bullets) {
         // Layered spiral with multiple speeds and level-appropriate types
+        // Unlocks at level 15. Can use: all except NUKE(18)
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         double angleOffset = shootTimer * 0.15;
         
         // Three layers of spirals at different speeds
         int[] layers = {8, 12, 16};
         double[] speeds = {2.0, 3.0, 4.0};
-        // Spiral bullets unlock at 6, Wave bullets at 12
+        // Spiral bullets unlock at 6, Bomb bullets at 15
         Bullet.BulletType[] types = {
             Bullet.BulletType.NORMAL, 
             level >= 6 ? Bullet.BulletType.SPIRAL : Bullet.BulletType.NORMAL, 
-            level >= 12 ? Bullet.BulletType.WAVE : Bullet.BulletType.NORMAL
+            level >= 15 ? Bullet.BulletType.BOMB : Bullet.BulletType.NORMAL
         };
         
         for (int layer = 0; layer < 3; layer++) {
@@ -1133,20 +1135,21 @@ public class Boss {
             }
         }
         
-        // Center cluster - homing only if level >= 13, otherwise fast if >= 4, else normal
+        // Center cluster - spiral only if level >= 6, otherwise fast if >= 4, large if >= 3
         for (int i = 0; i < 3 + level / 3; i++) {
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.8;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            Bullet.BulletType type = level >= 13 ? Bullet.BulletType.HOMING : 
-                                     (level >= 4 ? Bullet.BulletType.FAST : Bullet.BulletType.NORMAL);
+            Bullet.BulletType type = level >= 6 ? Bullet.BulletType.SPIRAL : 
+                                     (level >= 4 ? Bullet.BulletType.FAST : 
+                                     (level >= 3 ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL));
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, type));
         }
     }
     
     private void shootMegaStar(List<Bullet> bullets) {
         // Star burst with level-appropriate bullets
-        // Unlocks at level 9
+        // Unlocks at level 9. Can use: NORMAL, LARGE(3), FAST(4), SPIRAL(6), BOUNCING(7), ACCELERATING(9)
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
         int numPoints = 6 + level / 3; // 6-9 points
         
@@ -1172,19 +1175,19 @@ public class Boss {
             }
         }
         
-        // Center ring - bombs only if level >= 15, otherwise normal
+        // Center ring - accelerating at level 9 (when this mega unlocks)
         for (int i = 0; i < 3 + level / 4; i++) {
             double angle = Math.PI * 2 * i / (4 + level / 3);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            Bullet.BulletType type = level >= 15 ? Bullet.BulletType.BOMB : Bullet.BulletType.NORMAL;
+            Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
             bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, type));
         }
     }
     
     private void shootMegaHex(List<Bullet> bullets, Player player) {
         // Hexagonal formation with level-appropriate bullets
-        // Unlocks at level 12
+        // Unlocks at level 12. Can use: all except HOMING(13), BOMB(15), NUKE(18)
         double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
