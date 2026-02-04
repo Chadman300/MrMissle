@@ -673,6 +673,11 @@ public class Bullet {
     public double getVX() { return vx; }
     public double getVY() { return vy; }
     public BulletType getType() { return type; }
+    public double getAge() { return age; }
+    public int getWarningTime() { return warningTime; }
+    
+    public void setAge(double age) { this.age = age; }
+    public void setWarningTime(int time) { this.warningTime = time; }
     
     public void multiplySpeed(double factor) {
         vx *= factor;

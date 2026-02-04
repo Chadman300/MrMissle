@@ -175,6 +175,7 @@ public class Game extends JPanel implements Runnable {
     
     // Saved game state for resume feature
     private boolean hasSavedGame = false;
+    private ResumeState savedResumeState; // Serializable state for cross-session resume
     private Player savedPlayer;
     private Boss savedBoss;
     private List<Bullet> savedBullets;
@@ -750,14 +751,15 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                            // Note: hasSavedGame from disk is ignored - resume only works within same session
-                            // because actual game objects (player, boss, bullets) aren't serialized to disk
-                            hasSavedGame = false;
+                            // Cross-session resume: restore saved game state from disk
+                            hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
+                            savedResumeState = saveData.getResumeState(); // Get full resume state
                             // Update level select scroll to match loaded position
                             levelSelectScroll = gameData.getSelectedLevelView();
                             levelSelectScrollAnimated = gameData.getSelectedLevelView();
-                            System.out.println("DEBUG LOAD: Loaded - savedLevel=" + savedLevel + " (resume disabled - new session)");
+                            System.out.println("DEBUG LOAD: Loaded - hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + 
+                                ", hasResumeState=" + (savedResumeState != null && savedResumeState.isValid));
                             System.out.println("DEBUG LOAD: Set level select scroll to " + gameData.getSelectedLevelView());
                             // Apply loaded audio settings to sound manager
                             soundManager.setMasterVolume(gameData.getMasterVolume());
@@ -2030,14 +2032,15 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                            // Note: hasSavedGame from disk is ignored - resume only works within same session
-                            // because actual game objects (player, boss, bullets) aren't serialized to disk
-                            hasSavedGame = false;
+                            // Cross-session resume: restore saved game state from disk
+                            hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
+                            savedResumeState = saveData.getResumeState(); // Get full resume state
                             // Update level select scroll to match loaded position
                             levelSelectScroll = gameData.getSelectedLevelView();
                             levelSelectScrollAnimated = gameData.getSelectedLevelView();
-                            System.out.println("DEBUG LOAD: Loaded - savedLevel=" + savedLevel + " (resume disabled - new session)");
+                            System.out.println("DEBUG LOAD: Loaded - hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + 
+                                ", hasResumeState=" + (savedResumeState != null && savedResumeState.isValid));
                             System.out.println("DEBUG LOAD: Set level select scroll to " + gameData.getSelectedLevelView());
                             // Apply loaded audio settings to sound manager
                             soundManager.setMasterVolume(gameData.getMasterVolume());
@@ -2563,7 +2566,34 @@ public class Game extends JPanel implements Runnable {
         System.out.println("DEBUG SAVE STATE: Saving game state - Level: " + savedLevel + ", hasSavedGame: " + hasSavedGame);
         System.out.println("DEBUG SAVE STATE: player=" + (player != null) + ", boss=" + (currentBoss != null));
         
-        // Save references (shallow copy is fine for our use case)
+        // Create serializable resume state for cross-session resume
+        savedResumeState = new ResumeState();
+        savedResumeState.isValid = true;
+        savedResumeState.level = savedLevel;
+        savedResumeState.survivalTime = gameData.getSurvivalTime();
+        savedResumeState.score = gameData.getScore();
+        savedResumeState.runMoney = gameData.getRunMoney();
+        savedResumeState.capturePlayer(player);
+        savedResumeState.captureBoss(currentBoss, bossHitCount);
+        savedResumeState.captureBullets(bullets);
+        savedResumeState.bossVulnerable = bossVulnerable;
+        savedResumeState.vulnerabilityTimer = vulnerabilityTimer;
+        savedResumeState.invulnerabilityTimer = invulnerabilityTimer;
+        savedResumeState.tookDamageThisBoss = tookDamageThisBoss;
+        savedResumeState.dodgeCombo = dodgeCombo;
+        savedResumeState.shieldActive = shieldActive;
+        savedResumeState.shieldHits = shieldHits;
+        savedResumeState.comboTimer = comboTimer;
+        savedResumeState.extraLives = gameData.getExtraLives();
+        savedResumeState.riskContractType = riskContractType;
+        savedResumeState.riskContractActive = riskContractActive;
+        savedResumeState.riskContractMultiplier = riskContractMultiplier;
+        if (comboSystem != null) {
+            savedResumeState.comboCount = comboSystem.getCombo();
+            savedResumeState.comboMultiplier = (int)comboSystem.getMultiplier();
+        }
+        
+        // Save references for in-session resume (shallow copy is fine for our use case)
         savedPlayer = player;
         savedBoss = currentBoss;
         savedBullets = new ArrayList<>(bullets);
@@ -2608,17 +2638,21 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Check if we have valid in-memory saved objects
-        // If savedPlayer or savedBoss is null, the saved state is from a previous session
-        // and the actual objects weren't persisted - start a fresh game instead
+        // If savedPlayer or savedBoss is null, try to restore from serialized ResumeState
         if (savedPlayer == null || savedBoss == null) {
-            System.out.println("DEBUG: Saved game state invalid (objects not in memory) - starting fresh");
+            if (savedResumeState != null && savedResumeState.isValid) {
+                System.out.println("DEBUG: Restoring from serialized ResumeState (cross-session resume)");
+                restoreFromResumeState();
+                return;
+            }
+            System.out.println("DEBUG: Saved game state invalid (no objects or ResumeState) - starting fresh");
             hasSavedGame = false;
             gameData.setCurrentLevel(savedLevel);
             startGame();
             return;
         }
         
-        // Restore game state
+        // Restore game state from in-memory objects (same session)
         gameState = GameState.PLAYING;
         isPaused = false;
         
@@ -2684,6 +2718,87 @@ public class Game extends JPanel implements Runnable {
     }
     
     /**
+     * Restore game state from serialized ResumeState (cross-session resume)
+     * Creates new game objects from saved primitive data
+     */
+    private void restoreFromResumeState() {
+        ResumeState rs = savedResumeState;
+        
+        // Set level and game data
+        gameData.setCurrentLevel(rs.level);
+        gameData.setSurvivalTime(rs.survivalTime);
+        gameData.setScore(rs.score);
+        gameData.setRunMoney(rs.runMoney);
+        gameData.setExtraLives(rs.extraLives);
+        
+        // Create new player at saved position
+        player = new Player(rs.playerX, rs.playerY, gameData.getActiveSpeedLevel());
+        
+        // Create new boss at saved position with saved state
+        currentBoss = new Boss(rs.bossX, rs.bossY, rs.bossLevel, soundManager);
+        currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(rs.bossLevel));
+        currentBoss.setPosition(rs.bossX, rs.bossY);
+        currentBoss.setVelocity(rs.bossVX, rs.bossVY);
+        currentBoss.setShootTimer(rs.bossShootTimer);
+        currentBoss.setSpiralRotation(rs.bossSpiralRotation);
+        
+        // Restore bullets
+        bullets.clear();
+        bullets.addAll(rs.restoreBullets());
+        
+        // Clear particles and beams (they're transient visual effects)
+        particles.clear();
+        beamAttacks.clear();
+        damageNumbers.clear();
+        
+        // Restore game state
+        bossHitCount = rs.bossHitCount;
+        bossVulnerable = rs.bossVulnerable;
+        vulnerabilityTimer = rs.vulnerabilityTimer;
+        invulnerabilityTimer = rs.invulnerabilityTimer;
+        tookDamageThisBoss = rs.tookDamageThisBoss;
+        dodgeCombo = rs.dodgeCombo;
+        shieldActive = rs.shieldActive;
+        shieldHits = rs.shieldHits;
+        comboTimer = rs.comboTimer;
+        riskContractType = rs.riskContractType;
+        riskContractActive = rs.riskContractActive;
+        riskContractMultiplier = rs.riskContractMultiplier;
+        
+        // Reset non-restored state
+        bossIntroActive = false;
+        waitingForRespawn = false;
+        bossDeathAnimation = false;
+        stoppedMovingTimer = 0;
+        
+        // Set game state to playing with countdown
+        gameState = GameState.PLAYING;
+        isPaused = false;
+        
+        if (gameData.getCountdownMode() >= 1) {
+            unpauseCountdownActive = true;
+            unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+            System.out.println("DEBUG: Starting cross-session resume countdown");
+        }
+        
+        // Clear saved game after restoring
+        hasSavedGame = false;
+        savedResumeState = null;
+        
+        // Persist that we've resumed
+        performAutoSave();
+        
+        // Start ambient background sound and music
+        soundManager.startAmbientSound();
+        int[] themes = {1, 5, 6, 7, 8};
+        int theme = themes[(int)(Math.random() * themes.length)];
+        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+        
+        System.out.println("DEBUG: Cross-session resume complete - Level " + rs.level + 
+            ", Boss HP: " + (int)(rs.bossHealth * 100) + "%, Bullets: " + bullets.size());
+    }
+    
+    /**
      * Auto-save the current game state to the active save slot
      */
     private void performAutoSave() {
@@ -2696,12 +2811,13 @@ public class Game extends JPanel implements Runnable {
             SaveData saveData = SaveData.fromGameData(gameData, achievementManager, 
                 passiveUpgradeManager, "Save " + saveManager.getCurrentSaveSlot());
             
-            // Include resume state in save
-            saveData.setResumeState(hasSavedGame, savedLevel);
+            // Include full resume state in save for cross-session resume
+            saveData.setResumeState(hasSavedGame, savedLevel, savedResumeState);
             
             saveManager.autoSave(saveData);
             System.out.println("Auto-saved to slot " + saveManager.getCurrentSaveSlot() + 
-                " (hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + ")");
+                " (hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + 
+                ", hasResumeState=" + (savedResumeState != null && savedResumeState.isValid) + ")");
             
             // Show auto-save indicator
             showAutoSaveIndicator = true;

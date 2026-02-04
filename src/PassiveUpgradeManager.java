@@ -103,6 +103,17 @@ public class PassiveUpgradeManager {
         }
     }
     
+    /**
+     * Reset all upgrades to level 0. Used when loading a new save file
+     * to prevent upgrades from previous save leaking into the new one.
+     */
+    public void resetAllUpgrades() {
+        for (PassiveUpgrade upgrade : upgrades) {
+            upgrade.setCurrentLevel(0);
+            upgrade.setActiveLevel(0);
+        }
+    }
+    
     public List<PassiveUpgrade> getAllUpgrades() {
         return upgrades;
     }

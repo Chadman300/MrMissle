@@ -119,4 +119,15 @@ public class AchievementManager {
     public Achievement getAchievementById(String id) {
         return achievementMap.get(id);
     }
+    
+    /**
+     * Reset all achievements to locked state with zero progress.
+     * Used when loading a different save file to prevent leaking.
+     */
+    public void resetAllAchievements() {
+        for (Achievement achievement : achievements) {
+            achievement.reset();
+        }
+        recentlyUnlocked.clear();
+    }
 }

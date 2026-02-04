@@ -50,6 +50,7 @@ public class SaveData implements Serializable {
     // Resume/saved game state (for continuing where player left off)
     public boolean hasSavedGame;
     public int savedLevel;
+    public ResumeState resumeState; // Full game state for cross-session resume
     
     // Roguelike run tracking
     public int runHighestLevel;
@@ -367,6 +368,22 @@ public class SaveData implements Serializable {
     }
     
     /**
+     * Set the full resume state including all game objects
+     */
+    public void setResumeState(boolean hasSavedGame, int savedLevel, ResumeState state) {
+        this.hasSavedGame = hasSavedGame;
+        this.savedLevel = savedLevel;
+        this.resumeState = state;
+    }
+    
+    /**
+     * Get the resume state for restoring game objects
+     */
+    public ResumeState getResumeState() {
+        return resumeState;
+    }
+    
+    /**
      * Load this SaveData into a GameData object
      */
     public void loadIntoGameData(GameData gameData, AchievementManager achievementManager,
@@ -455,33 +472,41 @@ public class SaveData implements Serializable {
         Game.enableAntiAliasing = enableAntiAliasing;
         Game.enableHitboxes = enableHitboxes;
         
-        // Achievements
-        if (achievementManager != null && unlockedAchievements != null) {
-            for (String achievementId : unlockedAchievements) {
-                Achievement achievement = achievementManager.getAchievementById(achievementId);
-                if (achievement != null && !achievement.isUnlocked()) {
-                    achievement.unlock();
+        // Achievements - reset all first to prevent leaking from previous save
+        if (achievementManager != null) {
+            achievementManager.resetAllAchievements();
+            
+            if (unlockedAchievements != null) {
+                for (String achievementId : unlockedAchievements) {
+                    Achievement achievement = achievementManager.getAchievementById(achievementId);
+                    if (achievement != null) {
+                        achievement.unlock();
+                    }
                 }
             }
         }
         
-        // Passive upgrades
-        if (passiveUpgradeManager != null && unlockedPassiveUpgrades != null) {
-            for (String upgradeData : unlockedPassiveUpgrades) {
-                // Parse "id:currentLevel:activeLevel"
-                String[] parts = upgradeData.split(":");
-                if (parts.length == 3) {
-                    String id = parts[0];
-                    int currentLevel = Integer.parseInt(parts[1]);
-                    int activeLevel = Integer.parseInt(parts[2]);
-                    PassiveUpgrade upgrade = passiveUpgradeManager.getUpgradeById(id);
-                    if (upgrade != null) {
-                        upgrade.setCurrentLevel(currentLevel);
-                        upgrade.setActiveLevel(activeLevel);
-                        
-                        // Restore extra lives from health upgrade
-                        if (id.equals("health")) {
-                            gameData.setExtraLives(currentLevel);
+        // Passive upgrades - reset all first to prevent leaking from previous save
+        if (passiveUpgradeManager != null) {
+            passiveUpgradeManager.resetAllUpgrades();
+            
+            if (unlockedPassiveUpgrades != null) {
+                for (String upgradeData : unlockedPassiveUpgrades) {
+                    // Parse "id:currentLevel:activeLevel"
+                    String[] parts = upgradeData.split(":");
+                    if (parts.length == 3) {
+                        String id = parts[0];
+                        int currentLevel = Integer.parseInt(parts[1]);
+                        int activeLevel = Integer.parseInt(parts[2]);
+                        PassiveUpgrade upgrade = passiveUpgradeManager.getUpgradeById(id);
+                        if (upgrade != null) {
+                            upgrade.setCurrentLevel(currentLevel);
+                            upgrade.setActiveLevel(activeLevel);
+                            
+                            // Restore extra lives from health upgrade
+                            if (id.equals("health")) {
+                                gameData.setExtraLives(currentLevel);
+                            }
                         }
                     }
                 }

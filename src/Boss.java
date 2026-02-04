@@ -1910,4 +1910,17 @@ public class Boss {
             return 150 + (level * 70); // Mini bosses give better rewards
         }
     }
+    
+    // Getters for resume state
+    public int getLevel() { return level; }
+    public double getVX() { return vx; }
+    public double getVY() { return vy; }
+    public int getShootTimer() { return shootTimer; }
+    public int getPatternType() { return patternType; }
+    public double getSpiralRotation() { return spiralRotation; }
+    
+    // Setters for resume state restoration
+    public void setVelocity(double vx, double vy) { this.vx = vx; this.vy = vy; }
+    public void setShootTimer(int timer) { this.shootTimer = timer; }
+    public void setSpiralRotation(double rotation) { this.spiralRotation = rotation; }
 }

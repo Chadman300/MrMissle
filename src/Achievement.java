@@ -106,6 +106,15 @@ public class Achievement {
         progress = target;
     }
     
+    /**
+     * Reset achievement to locked state with zero progress.
+     * Used when loading a different save file.
+     */
+    public void reset() {
+        unlocked = false;
+        progress = 0;
+    }
+    
     // Getters
     public String getId() { return id; }
     public String getName() { return name; }
