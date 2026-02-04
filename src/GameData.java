@@ -271,6 +271,14 @@ public class GameData {
         }
     }
     
+    /**
+     * Equip a specific item type directly (for debug showcase mode).
+     * Creates the item even if not normally unlocked.
+     */
+    public void equipItemByType(ActiveItem.ItemType type) {
+        equippedItem = new ActiveItem(type);
+    }
+    
     public ActiveItem getEquippedItem() { return equippedItem; }
     public java.util.List<ActiveItem.ItemType> getUnlockedItems() { return unlockedItems; }
     public int getEquippedItemIndex() { return equippedItemIndex; }

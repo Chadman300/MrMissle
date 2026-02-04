@@ -256,6 +256,10 @@ public class Game extends JPanel implements Runnable {
     private int bossHitFlashTimer = 0; // Flash when boss is hit
     private int lastCountdownSecond = -1; // Track countdown changes
     
+    // Type Purge item effect (chromatic screen flash)
+    private int typePurgeFlashTimer = 0;
+    private Color typePurgeFlashColor = Color.WHITE;
+    
     // Perfect Dodge system
     private int perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
     private static final int PERFECT_DODGE_IFRAMES = 8; // 8 frames of invincibility
@@ -390,11 +394,25 @@ public class Game extends JPanel implements Runnable {
     
     // Debug Attack Showcase Mode (for taking screenshots)
     private boolean debugShowcaseMode = false;
-    private int debugShowcaseIndex = 0; // Current attack being showcased
+    private int debugShowcaseIndex = 0; // Current attack/item being showcased
     private int debugShowcaseTimer = 0; // Timer for cycling attacks
     private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing selection
     private static final int DEBUG_SHOWCASE_INTERVAL = 900; // 15 seconds at 60fps
     private int savedRealLevel = 1; // Save the actual game level before entering showcase
+    private int showcaseTab = 0; // 0 = Attacks, 1 = Items
+    
+    // Active Items showcase data: {itemTypeName, level, name, description}
+    private static final String[][] ITEM_SHOWCASE = {
+        {"LUCKY_CHARM", "3", "Lucky Charm", "+50% Money & Score earned\nPassive effect - always active!"},
+        {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
+        {"TYPE_PURGE", "9", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
+        {"SHOCKWAVE", "12", "Shockwave", "Push all bullets away from you\n5 second cooldown, instant effect"},
+        {"DASH", "15", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
+        {"BOMB", "18", "Bomb", "Clear ALL bullets on screen\n6 second cooldown, instant effect"},
+        {"TIME_SLOW", "21", "Time Slow", "Slow bullets by 70%\n7.5 second cooldown, lasts 2 seconds"},
+        {"LASER_BEAM", "24", "Laser Beam", "Fire a powerful damaging beam\n5 second cooldown, lasts 2 seconds"},
+        {"INVINCIBILITY", "27", "Invincibility", "Brief total invulnerability\n10 second cooldown, lasts 3 seconds"}
+    };
     
     // Attack showcase UI
     private int showcaseHoveredButton = -1; // 0 = left arrow, 1 = right arrow, 2 = start button
@@ -1085,19 +1103,32 @@ public class Game extends JPanel implements Runnable {
                 break;
             
             case ATTACK_SHOWCASE:
-                // Attack showcase selection screen
-                if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
-                    // Previous attack
+                // Attack/Item showcase selection screen
+                if (key == KeyEvent.VK_TAB || key == KeyEvent.VK_1 || key == KeyEvent.VK_2) {
+                    // Switch tabs (TAB toggles, 1/2 select directly)
+                    if (key == KeyEvent.VK_TAB) {
+                        showcaseTab = (showcaseTab + 1) % 2;
+                    } else {
+                        showcaseTab = (key == KeyEvent.VK_1) ? 0 : 1;
+                    }
+                    debugShowcaseIndex = 0; // Reset index when switching tabs
+                    updateShowcaseInfo();
+                    soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                    screenShakeIntensity = 2;
+                } else if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
+                    // Previous item
                     debugShowcaseIndex--;
-                    if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
-                    updateShowcaseAttackInfo();
+                    int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+                    if (debugShowcaseIndex < 0) debugShowcaseIndex = maxIndex - 1;
+                    updateShowcaseInfo();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_D || key == KeyEvent.VK_RIGHT) {
-                    // Next attack
+                    // Next item
                     debugShowcaseIndex++;
-                    if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
-                    updateShowcaseAttackInfo();
+                    int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+                    if (debugShowcaseIndex >= maxIndex) debugShowcaseIndex = 0;
+                    updateShowcaseInfo();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
@@ -2335,21 +2366,48 @@ public class Game extends JPanel implements Runnable {
             int startButtonX = (WIDTH - startButtonWidth) / 2;
             int startButtonY = HEIGHT - 120;
             
-            // Check left arrow click (previous attack)
-            if (mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
+            // Tab button areas
+            int tabWidth = 150;
+            int tabHeight = 40;
+            int tabY = 30;
+            int attacksTabX = WIDTH / 2 - tabWidth - 10;
+            int itemsTabX = WIDTH / 2 + 10;
+            
+            // Check attacks tab click
+            if (mouseX >= attacksTabX && mouseX <= attacksTabX + tabWidth &&
+                mouseY >= tabY && mouseY <= tabY + tabHeight && showcaseTab != 0) {
+                showcaseTab = 0;
+                debugShowcaseIndex = 0;
+                updateShowcaseInfo();
+                soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                screenShakeIntensity = 2;
+            }
+            // Check items tab click
+            else if (mouseX >= itemsTabX && mouseX <= itemsTabX + tabWidth &&
+                     mouseY >= tabY && mouseY <= tabY + tabHeight && showcaseTab != 1) {
+                showcaseTab = 1;
+                debugShowcaseIndex = 0;
+                updateShowcaseInfo();
+                soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                screenShakeIntensity = 2;
+            }
+            // Check left arrow click (previous attack/item)
+            else if (mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
                 mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
                 debugShowcaseIndex--;
-                if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
-                updateShowcaseAttackInfo();
+                int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+                if (debugShowcaseIndex < 0) debugShowcaseIndex = maxIndex - 1;
+                updateShowcaseInfo();
                 soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                 screenShakeIntensity = 2;
             }
-            // Check right arrow click (next attack)
+            // Check right arrow click (next attack/item)
             else if (mouseX >= rightArrowX && mouseX <= rightArrowX + arrowWidth &&
                      mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
                 debugShowcaseIndex++;
-                if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
-                updateShowcaseAttackInfo();
+                int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+                if (debugShowcaseIndex >= maxIndex) debugShowcaseIndex = 0;
+                updateShowcaseInfo();
                 soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                 screenShakeIntensity = 2;
             }
@@ -2849,67 +2907,135 @@ public class Game extends JPanel implements Runnable {
         debugShowcaseTimer = 0;
         debugShowcaseInGameplay = false;
         showcaseHoveredButton = -1;
+        showcaseTab = 0; // Start on Attacks tab
         
-        // Update the current attack display
-        updateShowcaseAttackInfo();
+        // Update the current showcase display
+        updateShowcaseInfo();
         
         // Go to showcase selection screen
         transitionToState(GameState.ATTACK_SHOWCASE);
         
-        System.out.println("DEBUG SHOWCASE: Started - Use A/D to browse, SPACE to test attack, ESC to exit");
+        System.out.println("DEBUG SHOWCASE: Started - Use TAB to switch tabs, A/D to browse, SPACE to test, ESC to exit");
     }
     
     /**
      * Update the attack info display for the current showcase index
      */
-    private void updateShowcaseAttackInfo() {
-        if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
-        if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
-        
-        String[] intro = ATTACK_INTROS[debugShowcaseIndex];
-        currentAttackIntroId = intro[0];
-        int attackLevel = Integer.parseInt(intro[1]);
-        currentAttackIntroName = intro[2];
-        currentAttackIntroDescription = intro[3];
-        currentAttackIntroCategory = intro[4]; // Category type
-        attackIntroImage = loadAttackIntroImage(currentAttackIntroId);
-        
-        // Set the level to match this attack (changes boss sprite and background)
-        gameData.setCurrentLevel(attackLevel);
+    private void updateShowcaseInfo() {
+        if (showcaseTab == 0) {
+            // ATTACKS TAB
+            if (debugShowcaseIndex < 0) debugShowcaseIndex = ATTACK_INTROS.length - 1;
+            if (debugShowcaseIndex >= ATTACK_INTROS.length) debugShowcaseIndex = 0;
+            
+            String[] intro = ATTACK_INTROS[debugShowcaseIndex];
+            currentAttackIntroId = intro[0];
+            int attackLevel = Integer.parseInt(intro[1]);
+            currentAttackIntroName = intro[2];
+            currentAttackIntroDescription = intro[3];
+            currentAttackIntroCategory = intro[4]; // Category type
+            attackIntroImage = loadAttackIntroImage(currentAttackIntroId);
+            
+            // Set the level to match this attack (changes boss sprite and background)
+            gameData.setCurrentLevel(attackLevel);
+        } else {
+            // ITEMS TAB
+            if (debugShowcaseIndex < 0) debugShowcaseIndex = ITEM_SHOWCASE.length - 1;
+            if (debugShowcaseIndex >= ITEM_SHOWCASE.length) debugShowcaseIndex = 0;
+            
+            String[] item = ITEM_SHOWCASE[debugShowcaseIndex];
+            currentAttackIntroId = item[0]; // ItemType name
+            int itemLevel = Integer.parseInt(item[1]);
+            currentAttackIntroName = item[2];
+            currentAttackIntroDescription = item[3];
+            currentAttackIntroCategory = "ITEM"; // Mark as item for rendering
+            attackIntroImage = loadItemShowcaseImage(item[0]); // Load item icon
+            
+            // Set the level to unlock this item
+            gameData.setCurrentLevel(itemLevel);
+        }
     }
     
     /**
-     * Start the gameplay test for the currently selected attack
+     * Load showcase image for an active item
+     */
+    private BufferedImage loadItemShowcaseImage(String itemTypeName) {
+        // For now, return null - items will display with their names
+        // Could load item icons from sprites folder later
+        return null;
+    }
+    
+    /**
+     * Start the gameplay test for the currently selected attack or item
      */
     private void startShowcaseTest() {
         debugShowcaseInGameplay = true;
         debugShowcaseTimer = 0;
         
-        // Get the level for this attack
-        int attackLevel = Integer.parseInt(ATTACK_INTROS[debugShowcaseIndex][1]);
-        gameData.setCurrentLevel(attackLevel);
-        
-        // Start the game
-        riskContractType = 0;
-        riskContractActive = false;
-        riskContractMultiplier = 1.0;
-        startGame();
-        
-        // Skip intro animations
-        introPanActive = false;
-        bossIntroActive = false;
-        invulnerabilityTimer = 0;
-        
-        // Configure boss
-        if (currentBoss != null && currentAttackIntroId != null) {
-            configureBossForShowcase(currentAttackIntroId);
-            currentBoss.setDebugSlowMode(true);
-            currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
-            currentBoss.setStayStationary(true);
+        if (showcaseTab == 0) {
+            // ATTACKS TAB - Test boss attack
+            int attackLevel = Integer.parseInt(ATTACK_INTROS[debugShowcaseIndex][1]);
+            gameData.setCurrentLevel(attackLevel);
+            
+            // Start the game
+            riskContractType = 0;
+            riskContractActive = false;
+            riskContractMultiplier = 1.0;
+            startGame();
+            
+            // Skip intro animations
+            introPanActive = false;
+            bossIntroActive = false;
+            invulnerabilityTimer = 0;
+            
+            // Configure boss
+            if (currentBoss != null && currentAttackIntroId != null) {
+                configureBossForShowcase(currentAttackIntroId);
+                currentBoss.setDebugSlowMode(true);
+                currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+                currentBoss.setStayStationary(true);
+            }
+            
+            System.out.println("DEBUG SHOWCASE: Testing Attack - " + currentAttackIntroName + 
+                              " - Press N or ESC to return to selection, R to reset");
+        } else {
+            // ITEMS TAB - Test active item
+            String itemTypeName = ITEM_SHOWCASE[debugShowcaseIndex][0];
+            int itemLevel = Integer.parseInt(ITEM_SHOWCASE[debugShowcaseIndex][1]);
+            gameData.setCurrentLevel(itemLevel);
+            
+            // Start the game
+            riskContractType = 0;
+            riskContractActive = false;
+            riskContractMultiplier = 1.0;
+            startGame();
+            
+            // Skip intro animations
+            introPanActive = false;
+            bossIntroActive = false;
+            invulnerabilityTimer = 0;
+            
+            // Equip the selected active item (using gameData to set it directly)
+            try {
+                ActiveItem.ItemType itemType = ActiveItem.ItemType.valueOf(itemTypeName);
+                gameData.equipItemByType(itemType); // Special method for showcase
+                ActiveItem item = gameData.getEquippedItem();
+                if (item != null) {
+                    item.setCurrentCooldown(0); // Start ready to use
+                }
+            } catch (IllegalArgumentException e) {
+                System.out.println("DEBUG SHOWCASE: Invalid item type: " + itemTypeName);
+            }
+            
+            // Configure boss to shoot bullets for testing items
+            if (currentBoss != null) {
+                currentBoss.setDebugSlowMode(true);
+                currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+                currentBoss.setStayStationary(true);
+            }
+            
+            System.out.println("DEBUG SHOWCASE: Testing Item - " + currentAttackIntroName + 
+                              " - Press SHIFT to use item, N or ESC to return, R to reset");
         }
-        
-        System.out.println("DEBUG SHOWCASE: Testing " + currentAttackIntroName + 
-                          " - Press N or ESC to return to selection, R to reset");
     }
     
     /**
@@ -2945,11 +3071,12 @@ public class Game extends JPanel implements Runnable {
      * Show a specific attack in the debug showcase (legacy method for compatibility)
      */
     private void showDebugShowcaseAttack(int index) {
+        showcaseTab = 0; // Force attacks tab for this legacy method
         debugShowcaseIndex = index;
         if (index < 0 || index >= ATTACK_INTROS.length) {
             debugShowcaseIndex = 0;
         }
-        updateShowcaseAttackInfo();
+        updateShowcaseInfo();
         debugShowcaseInGameplay = false;
         transitionToState(GameState.ATTACK_SHOWCASE);
         
@@ -3674,6 +3801,9 @@ public class Game extends JPanel implements Runnable {
         }
         if (bossHitFlashTimer > 0) {
             bossHitFlashTimer--;
+        }
+        if (typePurgeFlashTimer > 0) {
+            typePurgeFlashTimer--;
         }
 
         // Update combo timer
@@ -4618,6 +4748,9 @@ public class Game extends JPanel implements Runnable {
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             
+            // Reset frame speed multiplier before applying slows
+            bullet.resetFrameSpeedMultiplier();
+            
             // Apply bullet slow upgrade (from PassiveUpgradeManager)
             int bulletSlowLevel = getActiveBulletSlowLevel();
             if (bulletSlowLevel > 0) {
@@ -5179,7 +5312,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor);
                 
                 // Restore original transform (removes both shake and zoom)
                 g2d.setTransform(originalTransform);
@@ -5784,19 +5917,48 @@ public class Game extends JPanel implements Runnable {
                 screenShakeIntensity = 15;
                 break;
                 
-            case MAGNET:
-                // Pull nearby bullets toward player for scoring
-                if (player != null) {
+            case TYPE_PURGE:
+                // Delete all bullets of a randomly selected type and flash screen that color
+                if (!bullets.isEmpty()) {
+                    // Find all bullet types currently on screen
+                    java.util.Set<Bullet.BulletType> typesOnScreen = new java.util.HashSet<>();
                     for (Bullet bullet : bullets) {
-                        double dx = player.getX() - bullet.getX();
-                        double dy = player.getY() - bullet.getY();
-                        double distance = Math.sqrt(dx * dx + dy * dy);
-                        
-                        if (distance < 400) { // Magnet radius
-                            double angle = Math.atan2(dy, dx);
-                            double pullForce = 0.5 * (1.0 - distance / 400);
-                            bullet.applyForce(Math.cos(angle) * pullForce, Math.sin(angle) * pullForce);
+                        if (bullet.isActive()) {
+                            typesOnScreen.add(bullet.getType());
                         }
+                    }
+                    
+                    if (!typesOnScreen.isEmpty()) {
+                        // Pick a random type from those on screen
+                        Bullet.BulletType[] types = typesOnScreen.toArray(new Bullet.BulletType[0]);
+                        Bullet.BulletType targetType = types[(int)(Math.random() * types.length)];
+                        
+                        // Get the color for this bullet type and trigger screen flash
+                        typePurgeFlashColor = getBulletTypeColor(targetType);
+                        typePurgeFlashTimer = 30; // 0.5 second flash
+                        
+                        // Remove all bullets of that type with particles
+                        int purgedCount = 0;
+                        for (int i = bullets.size() - 1; i >= 0; i--) {
+                            Bullet bullet = bullets.get(i);
+                            if (bullet.getType() == targetType) {
+                                // Create disintegration particles
+                                for (int j = 0; j < 4; j++) {
+                                    particles.add(new Particle(
+                                        bullet.getX(), bullet.getY(),
+                                        (Math.random() - 0.5) * 4,
+                                        (Math.random() - 0.5) * 4,
+                                        typePurgeFlashColor, 15, 20,
+                                        Particle.ParticleType.SPARK
+                                    ));
+                                }
+                                bullets.remove(i);
+                                purgedCount++;
+                            }
+                        }
+                        
+                        System.out.println("TYPE_PURGE: Erased " + purgedCount + " " + targetType + " bullets!");
+                        screenShakeIntensity = 8;
                     }
                 }
                 break;
@@ -6139,26 +6301,38 @@ public class Game extends JPanel implements Runnable {
         // Animated pulse effect
         double pulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.05 + 1.0;
         
-        // Header
-        g.setFont(new Font("Arial", Font.BOLD, 48));
-        g.setColor(new Color(255, 180, 80));
-        String header = "ATTACK SHOWCASE";
-        FontMetrics fm = g.getFontMetrics();
-        int headerX = (width - fm.stringWidth(header)) / 2;
-        g.drawString(header, headerX, 80);
+        // === TAB BUTTONS ===
+        int tabWidth = 150;
+        int tabHeight = 40;
+        int tabY = 25;
+        int attacksTabX = width / 2 - tabWidth - 10;
+        int itemsTabX = width / 2 + 10;
         
-        // Attack counter
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        // Attacks tab
+        boolean attacksTabHover = mouseX >= attacksTabX && mouseX <= attacksTabX + tabWidth &&
+                                  mouseY >= tabY && mouseY <= tabY + tabHeight;
+        boolean attacksTabActive = (showcaseTab == 0);
+        drawShowcaseTab(g, attacksTabX, tabY, tabWidth, tabHeight, "ATTACKS", attacksTabActive, attacksTabHover);
+        
+        // Items tab
+        boolean itemsTabHover = mouseX >= itemsTabX && mouseX <= itemsTabX + tabWidth &&
+                                mouseY >= tabY && mouseY <= tabY + tabHeight;
+        boolean itemsTabActive = (showcaseTab == 1);
+        drawShowcaseTab(g, itemsTabX, tabY, tabWidth, tabHeight, "ITEMS", itemsTabActive, itemsTabHover);
+        
+        // Counter (different based on tab)
+        g.setFont(new Font("Arial", Font.BOLD, 18));
         g.setColor(new Color(150, 170, 200));
-        String counter = (debugShowcaseIndex + 1) + " / " + ATTACK_INTROS.length;
-        fm = g.getFontMetrics();
-        g.drawString(counter, (width - fm.stringWidth(counter)) / 2, 115);
+        int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+        String counter = (debugShowcaseIndex + 1) + " / " + maxIndex;
+        FontMetrics fm = g.getFontMetrics();
+        g.drawString(counter, (width - fm.stringWidth(counter)) / 2, tabY + tabHeight + 30);
         
         // Main content card
         int cardWidth = 500;
         int cardHeight = 350;
         int cardX = (width - cardWidth) / 2;
-        int cardY = 150;
+        int cardY = 120;
         
         // Card background
         GradientPaint cardGradient = new GradientPaint(
@@ -6216,19 +6390,30 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Level indicator (left side)
+        // Level indicator (left side) - works for both tabs
         g.setFont(new Font("Arial", Font.BOLD, 16));
         g.setColor(new Color(200, 150, 100));
-        String levelText = "Level " + (ATTACK_INTROS[debugShowcaseIndex][1]);
+        String levelText;
+        if (showcaseTab == 0) {
+            levelText = "Level " + (ATTACK_INTROS[debugShowcaseIndex][1]);
+        } else {
+            levelText = "Unlocks at Level " + (ITEM_SHOWCASE[debugShowcaseIndex][1]);
+        }
         g.drawString(levelText, cardX + 20, cardY + cardHeight - 15);
         
-        // Category indicator (right side)
+        // Category indicator (right side) - different for items
         if (currentAttackIntroCategory != null) {
-            // Category color based on type
-            Color categoryColor = getCategoryColor(currentAttackIntroCategory);
+            Color categoryColor;
+            String categoryText;
+            if (showcaseTab == 0) {
+                categoryColor = getCategoryColor(currentAttackIntroCategory);
+                categoryText = currentAttackIntroCategory;
+            } else {
+                categoryColor = new Color(100, 200, 255); // Cyan for items
+                categoryText = "ACTIVE ITEM";
+            }
             g.setColor(categoryColor);
             fm = g.getFontMetrics();
-            String categoryText = currentAttackIntroCategory;
             int categoryX = cardX + cardWidth - fm.stringWidth(categoryText) - 20;
             g.drawString(categoryText, categoryX, cardY + cardHeight - 15);
         }
@@ -6284,9 +6469,42 @@ public class Game extends JPanel implements Runnable {
         // Instructions at bottom
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(new Color(130, 140, 160));
-        String instructions = "A/D or Arrow Keys to browse  |  SPACE to test  |  ESC to exit";
+        String instructions = "TAB to switch tabs  |  A/D to browse  |  SPACE to test  |  ESC to exit";
         fm = g.getFontMetrics();
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
+    }
+    
+    /**
+     * Draw a tab button for the showcase screen
+     */
+    private void drawShowcaseTab(Graphics2D g, int x, int y, int width, int height, String label, boolean active, boolean hovered) {
+        // Tab background
+        if (active) {
+            g.setColor(new Color(80, 100, 150));
+        } else if (hovered) {
+            g.setColor(new Color(60, 80, 120));
+        } else {
+            g.setColor(new Color(40, 55, 85));
+        }
+        g.fillRoundRect(x, y, width, height, 12, 12);
+        
+        // Tab border
+        if (active) {
+            g.setColor(new Color(150, 180, 255));
+            g.setStroke(new BasicStroke(3));
+        } else {
+            g.setColor(new Color(100, 130, 180));
+            g.setStroke(new BasicStroke(2));
+        }
+        g.drawRoundRect(x, y, width, height, 12, 12);
+        
+        // Tab label
+        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setColor(active ? Color.WHITE : new Color(180, 190, 210));
+        FontMetrics fm = g.getFontMetrics();
+        int labelX = x + (width - fm.stringWidth(label)) / 2;
+        int labelY = y + height / 2 + 6;
+        g.drawString(label, labelX, labelY);
     }
     
     /**
@@ -6338,6 +6556,27 @@ public class Game extends JPanel implements Runnable {
             case "Movement": return new Color(150, 255, 150);  // Green
             case "Explosive": return new Color(255, 120, 50);  // Dark Orange
             default: return new Color(180, 180, 180);          // Gray
+        }
+    }
+    
+    /**
+     * Get a distinctive color for each bullet type (for Type Purge item effect)
+     */
+    private Color getBulletTypeColor(Bullet.BulletType type) {
+        switch (type) {
+            case NORMAL:       return new Color(255, 100, 50);   // Orange-red (fire)
+            case FAST:         return new Color(255, 255, 100);  // Yellow (fast/bright)
+            case LARGE:        return new Color(255, 50, 50);    // Deep red (danger)
+            case HOMING:       return new Color(180, 50, 255);   // Purple (tracking/magic)
+            case BOUNCING:     return new Color(50, 255, 150);   // Cyan-green (bouncy)
+            case SPIRAL:       return new Color(255, 100, 200);  // Pink (spiraling)
+            case ACCELERATING: return new Color(255, 200, 50);   // Gold (accelerating)
+            case WAVE:         return new Color(100, 150, 255);  // Blue (wave motion)
+            case BOMB:         return new Color(255, 80, 0);     // Dark orange (explosive)
+            case GRENADE:      return new Color(200, 150, 50);   // Bronze/brown (grenade)
+            case NUKE:         return new Color(255, 255, 200);  // Pale yellow (nuclear glow)
+            case FRAGMENT:     return new Color(255, 150, 100);  // Light orange (debris)
+            default:           return new Color(255, 255, 255);  // White fallback
         }
     }
     

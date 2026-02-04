@@ -924,8 +924,8 @@ public class Renderer {
             "SHIELD (Lv 6) - 7.5s cooldown",
             "  Tank 3 hits, active for 1 second",
             "",
-            "MAGNET (Lv 9) - 4s cooldown",
-            "  Pull dodged bullets for bonus score",
+            "CHROMATIC PURGE (Lv 9) - 5s cooldown",
+            "  Erase all bullets of a random type",
             "",
             "SHOCKWAVE (Lv 12) - 5s cooldown",
             "  Push all bullets away instantly",
@@ -2253,7 +2253,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -3238,6 +3238,20 @@ public class Renderer {
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
             g2d.setColor(Color.WHITE);
             g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+        
+        // Type Purge chromatic flash effect (flashes the color of the purged bullet type)
+        if (typePurgeFlashTimer > 0 && typePurgeFlashColor != null) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            // Rapid blink effect with the bullet type's color
+            boolean blinkOn = (typePurgeFlashTimer / 3) % 2 == 0;
+            if (blinkOn) {
+                float flashAlpha = Math.min(0.6f, (float)typePurgeFlashTimer / 30.0f * 0.6f);
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+                g2d.setColor(typePurgeFlashColor);
+                g2d.fillRect(0, 0, width, height);
+            }
             g2d.dispose();
         }
         

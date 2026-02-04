@@ -53,6 +53,9 @@ public class Bullet {
     private static final double FADE_OUT_DURATION = 30; // 0.5 seconds to fade out
     private boolean markedForFadeOut = false; // Whether bullet should start fading
     
+    // Temporary speed multiplier (resets each frame, used for Time Slow effect)
+    private double frameSpeedMultiplier = 1.0;
+    
     public enum BulletType {
         NORMAL,      // Standard bullet
         FAST,        // Faster, smaller bullet
@@ -285,9 +288,9 @@ public class Bullet {
                 break;
         }
         
-        // Move bullet (scaled by delta time)
-        x += vx * deltaTime;
-        y += vy * deltaTime;
+        // Move bullet (scaled by delta time and frame speed multiplier for time slow effects)
+        x += vx * deltaTime * frameSpeedMultiplier;
+        y += vy * deltaTime * frameSpeedMultiplier;
         
         // Update fade out timer
         if (fadeOutTimer > 0) {
@@ -305,8 +308,13 @@ public class Bullet {
     }
     
     public void applySlow(double factor) {
-        vx *= factor;
-        vy *= factor;
+        // Apply temporary slow multiplier (doesn't permanently change velocity)
+        frameSpeedMultiplier *= factor;
+    }
+    
+    // Reset the frame speed multiplier (call at start of each update cycle)
+    public void resetFrameSpeedMultiplier() {
+        frameSpeedMultiplier = 1.0;
     }
     
     public boolean shouldSpawnTrail() {

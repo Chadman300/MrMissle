@@ -12,7 +12,7 @@
  * UNLOCK PROGRESSION:
  * - Level 3: Lucky Charm (+50% money/score)
  * - Level 6: Shield (tank hits)
- * - Level 9: Magnet (pull bullets)
+ * - Level 9: Chromatic Purge (delete random bullet type)
  * - Level 12: Shockwave (push bullets)
  * - Level 15: Dash (invincibility frames)
  * - Level 18: Bomb (clear screen)
@@ -41,7 +41,7 @@ public class ActiveItem {
         // Ordered by power level (weakest to strongest)
         LUCKY_CHARM,    // +50% money and score earned (passive) - Level 3
         SHIELD,         // Tank one hit - Level 6
-        MAGNET,         // Pull dodged bullets for bonus score - Level 9
+        TYPE_PURGE,     // Delete all bullets of a random type - Level 9
         SHOCKWAVE,      // Push bullets away in radius - Level 12
         DASH,           // Dash with I-frames - Level 15
         BOMB,           // Clear all bullets on screen - Level 18
@@ -79,11 +79,11 @@ public class ActiveItem {
                 cooldownFrames = 450; // 7.5 seconds (was 15)
                 activeDuration = 60; // Active for 1 second (reduced from 3)
                 break;
-            case MAGNET:
-                name = "Magnet";
-                description = "Pull dodged bullets (4s cooldown)";
-                cooldownFrames = 240; // 4 seconds (was 8)
-                activeDuration = 180; // 3 seconds
+            case TYPE_PURGE:
+                name = "Chromatic Purge";
+                description = "Erase random bullet type (5s cooldown)";
+                cooldownFrames = 300; // 5 seconds
+                activeDuration = 0; // Instant
                 break;
             case SHOCKWAVE:
                 name = "Shockwave";
