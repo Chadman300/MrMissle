@@ -147,24 +147,45 @@ public class Player {
             cachedSpeed = maxSpeed;
         }
         
-        // Calculate squash/stretch based on speed and direction changes
+        // Calculate squash/stretch based on speed - stretch along movement direction
+        // When moving fast: stretch long (squashY > 1), squish narrow (squashX < 1)
+        // When slowing: squish short (squashY < 1), stretch wide (squashX > 1)
         double speedRatio = cachedSpeed / maxSpeed;
-        double targetSquashX = 1.0 - speedRatio * 0.15; // Compress horizontally when moving
-        double targetSquashY = 1.0 + speedRatio * 0.2;  // Stretch vertically when moving
         
-        // Detect direction change for additional squash effect
+        // Calculate acceleration (change in speed) for dynamic squash on deceleration
+        double prevSpeed = Math.sqrt(prevVX * prevVX + prevVY * prevVY);
+        double acceleration = (cachedSpeed - prevSpeed) / MAX_SPEED;
+        
+        // Base stretch effect from speed
+        double stretchAmount = speedRatio * 0.35; // Max 35% stretch at full speed
+        
+        // Add extra squish when decelerating (negative acceleration)
+        double decelSquish = 0;
+        if (acceleration < -0.02) {
+            decelSquish = Math.min(0.25, Math.abs(acceleration) * 2.0); // Up to 25% extra squish
+        }
+        
+        // Target values: stretch along movement (Y), squish perpendicular (X)
+        double targetSquashX = 1.0 - stretchAmount * 0.5 + decelSquish * 0.6; // Narrow when fast, wide when slowing
+        double targetSquashY = 1.0 + stretchAmount - decelSquish * 0.4;       // Long when fast, short when slowing
+        
+        // Detect direction change for impact squash effect
         if ((vx > 0 && prevVX < 0) || (vx < 0 && prevVX > 0)) {
-            targetSquashX = 1.2; // Brief horizontal squash on direction change
-            targetSquashY = 0.8;
+            targetSquashX = 1.3; // Wide squash on horizontal direction change
+            targetSquashY = 0.7;
         }
         if ((vy > 0 && prevVY < 0) || (vy < 0 && prevVY > 0)) {
-            targetSquashY = 1.2;
-            targetSquashX = 0.8;
+            targetSquashX = 1.3; // Wide squash on vertical direction change  
+            targetSquashY = 0.7;
         }
         
-        // Smoothly interpolate squash values
-        squashX += (targetSquashX - squashX) * 0.2;
-        squashY += (targetSquashY - squashY) * 0.2;
+        // Clamp to reasonable values
+        targetSquashX = Math.max(0.6, Math.min(1.4, targetSquashX));
+        targetSquashY = Math.max(0.6, Math.min(1.4, targetSquashY));
+        
+        // Smoothly interpolate squash values (faster response for snappy feel)
+        squashX += (targetSquashX - squashX) * 0.25;
+        squashY += (targetSquashY - squashY) * 0.25;
         
         // Apply velocity to position (scaled by delta time)
         x += vx * deltaTime;

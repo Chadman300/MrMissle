@@ -124,6 +124,7 @@ public class Game extends JPanel implements Runnable {
     private int itemUnlockTimer;
     private int itemUnlockDismissTimer; // Timer for fade-out animation
     private String unlockedItemName;
+    private String unlockedItemDescription; // Description of newly unlocked item
     private boolean showEquipPrompt; // True if should ask to equip item
     private int newItemIndex; // Index of newly unlocked item
     private UIButton[] equipButtons; // [Yes, No] buttons
@@ -264,12 +265,12 @@ public class Game extends JPanel implements Runnable {
     private int riskContractType = 0; // 0 = none, 1 = 2x bullets, 2 = faster bullets, 3 = no active items, 4 = can't stop
     private double riskContractMultiplier = 1.0; // Money multiplier from contract
     private int selectedRiskContract = 0; // Currently selected contract in menu
-    private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Shieldless", "Can't Stop"};
+    private static final String[] RISK_CONTRACT_NAMES = {"No Contract", "Bullet Storm", "Speed Demon", "Powerless", "Can't Stop"};
     private static final String[] RISK_CONTRACT_DESCRIPTIONS = {
         "Play normally with no modifiers",
         "Double the bullets, double the money! (2x)",
         "Bullets move 50% faster (1.75x)",
-        "Shield item disabled (1.5x)",
+        "All active items disabled (1.5x)",
         "Keep moving or die! (2.5x)"
     };
     private static final double[] RISK_CONTRACT_MULTIPLIERS = {1.0, 2.0, 1.75, 1.5, 2.5};
@@ -383,7 +384,8 @@ public class Game extends JPanel implements Runnable {
     private String currentAttackIntroDescription = null;
     private String currentAttackIntroCategory = null; // Pattern type/category
     private List<String> pendingAttackIntros = new ArrayList<>(); // Queue of intros to show
-    private BufferedImage attackIntroImage = null; // Placeholder image for now
+    private BufferedImage attackIntroImage = null; // Attack intro image
+    private static java.util.Map<String, BufferedImage> attackIntroImageCache = new java.util.HashMap<>(); // Cache loaded images
     
     // Debug Attack Showcase Mode (for taking screenshots)
     private boolean debugShowcaseMode = false;
@@ -391,6 +393,7 @@ public class Game extends JPanel implements Runnable {
     private int debugShowcaseTimer = 0; // Timer for cycling attacks
     private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing selection
     private static final int DEBUG_SHOWCASE_INTERVAL = 900; // 15 seconds at 60fps
+    private int savedRealLevel = 1; // Save the actual game level before entering showcase
     
     // Attack showcase UI
     private int showcaseHoveredButton = -1; // 0 = left arrow, 1 = right arrow, 2 = start button
@@ -562,6 +565,7 @@ public class Game extends JPanel implements Runnable {
         previousState = GameState.MENU;
         stateTransitionProgress = 1.0f;
         unlockedItemName = "";
+        unlockedItemDescription = "";
         
         // Initialize scroll positions (ensure level select starts at level 1)
         levelSelectScroll = 1;
@@ -746,7 +750,24 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                            hasSavedGame = false; // Clear in-game save flag when loading from file
+                            // Note: hasSavedGame from disk is ignored - resume only works within same session
+                            // because actual game objects (player, boss, bullets) aren't serialized to disk
+                            hasSavedGame = false;
+                            savedLevel = saveData.getSavedLevel();
+                            // Update level select scroll to match loaded position
+                            levelSelectScroll = gameData.getSelectedLevelView();
+                            levelSelectScrollAnimated = gameData.getSelectedLevelView();
+                            System.out.println("DEBUG LOAD: Loaded - savedLevel=" + savedLevel + " (resume disabled - new session)");
+                            System.out.println("DEBUG LOAD: Set level select scroll to " + gameData.getSelectedLevelView());
+                            // Apply loaded audio settings to sound manager
+                            soundManager.setMasterVolume(gameData.getMasterVolume());
+                            soundManager.setSfxVolume(gameData.getSfxVolume());
+                            soundManager.setUiVolume(gameData.getUiVolume());
+                            soundManager.setMusicVolume(gameData.getMusicVolume());
+                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                            System.out.println("DEBUG LOAD: Applied audio - master=" + gameData.getMasterVolume() + 
+                                ", sfx=" + gameData.getSfxVolume() + ", ui=" + gameData.getUiVolume() + ", music=" + gameData.getMusicVolume() +
+                                ", enabled=" + gameData.isSoundEnabled());
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -758,6 +779,12 @@ public class Game extends JPanel implements Runnable {
                         if (saveManager.save(slot, newSave)) {
                             // Load the new save into GameData
                             newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            // Apply loaded audio settings to sound manager
+                            soundManager.setMasterVolume(gameData.getMasterVolume());
+                            soundManager.setSfxVolume(gameData.getSfxVolume());
+                            soundManager.setUiVolume(gameData.getUiVolume());
+                            soundManager.setMusicVolume(gameData.getMusicVolume());
+                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
                             hasSavedGame = false; // Clear in-game save flag for new save
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
@@ -1001,6 +1028,8 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { 
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    // Save settings changes
+                    performAutoSave();
                     // Return to where we came from (pause menu or main menu)
                     if (settingsEnteredFrom == GameState.PLAYING) {
                         // Came from pause menu - return to paused game
@@ -1075,12 +1104,13 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
                 } else if (key == KeyEvent.VK_ESCAPE) {
-                    // Exit showcase
+                    // Exit showcase - restore the real game level
+                    gameData.setCurrentLevel(savedRealLevel);
                     debugShowcaseMode = false;
                     debugShowcaseInGameplay = false;
                     transitionToState(GameState.MENU);
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    System.out.println("DEBUG SHOWCASE: Exited");
+                    System.out.println("DEBUG SHOWCASE: Exited - restored level to " + savedRealLevel);
                 }
                 break;
                 
@@ -1113,8 +1143,10 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_SPACE) { 
                     // Check if there's a saved game to resume
-                    System.out.println("DEBUG: Space pressed - hasSavedGame: " + hasSavedGame + ", savedLevel: " + savedLevel + ", selectedLevel: " + gameData.getSelectedLevelView());
-                    if (hasSavedGame && gameData.getSelectedLevelView() == savedLevel) {
+                    int selectedLevel = gameData.getSelectedLevelView();
+                    System.out.println("DEBUG RESUME CHECK: hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + ", selectedLevel=" + selectedLevel);
+                    System.out.println("DEBUG RESUME CHECK: savedPlayer=" + (savedPlayer != null) + ", savedBoss=" + (savedBoss != null));
+                    if (hasSavedGame && selectedLevel == savedLevel) {
                         // Show confirmation dialog for resume
                         selectedLevelToStart = savedLevel;
                         selectedConfirmItem = 0;
@@ -1203,7 +1235,7 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 5;
                     } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
-                        // Shieldless contract (type 3) disables ALL active items
+                        // Powerless contract (type 3) disables ALL active items
                         if (riskContractType == 3) {
                             damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
                         } else {
@@ -1251,12 +1283,13 @@ public class Game extends JPanel implements Runnable {
                             System.out.println("DEBUG: Level skipped via T key - direct to WIN");
                         }
                     } else if ((key == KeyEvent.VK_N || key == KeyEvent.VK_ESCAPE) && debugShowcaseMode) {
-                        // Debug showcase: Return to selection screen
+                        // Debug showcase: Return to selection screen - restore the real game level
+                        gameData.setCurrentLevel(savedRealLevel);
                         debugShowcaseInGameplay = false;
                         bullets.clear();
                         beamAttacks.clear();
                         transitionToState(GameState.ATTACK_SHOWCASE);
-                        System.out.println("DEBUG SHOWCASE: Returning to selection");
+                        System.out.println("DEBUG SHOWCASE: Returning to selection - restored level to " + savedRealLevel);
                     }
                 }
                 break;
@@ -1317,6 +1350,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
+                    passiveUpgradeManager.resetExtraLivesPrice(); // Reset extra lives price for new run
                     performAutoSave(); // Save progress after death
                     // Force players to go through level select again
                     transitionToState(GameState.LEVEL_SELECT);
@@ -1325,6 +1359,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun();
+                    passiveUpgradeManager.resetExtraLivesPrice(); // Reset extra lives price for new run
                     performAutoSave(); // Save progress after death
                     transitionToState(GameState.MENU);
                 }
@@ -1667,9 +1702,8 @@ public class Game extends JPanel implements Runnable {
                 currentAttackIntroName = intro[2];
                 currentAttackIntroDescription = intro[3];
                 
-                // TODO: Load actual image when available
-                // For now, create a placeholder image
-                attackIntroImage = createPlaceholderAttackImage(attackId);
+                // Load the attack intro image
+                attackIntroImage = loadAttackIntroImage(attackId);
                 
                 transitionToState(GameState.ATTACK_INTRO);
                 break;
@@ -1678,7 +1712,36 @@ public class Game extends JPanel implements Runnable {
     }
     
     /**
-     * Create a placeholder image for attack introductions (temporary)
+     * Load or get cached attack intro image
+     * Falls back to a placeholder if the image file doesn't exist
+     */
+    private BufferedImage loadAttackIntroImage(String attackId) {
+        // Check cache first
+        if (attackIntroImageCache.containsKey(attackId)) {
+            return attackIntroImageCache.get(attackId);
+        }
+        
+        // Try to load the actual image
+        String imagePath = "sprites/Tutorial/Attacks and Bullets Intros/" + attackId + ".png";
+        try {
+            BufferedImage img = AssetLoader.loadImage(imagePath);
+            if (img != null) {
+                attackIntroImageCache.put(attackId, img);
+                System.out.println("Loaded attack intro image: " + imagePath);
+                return img;
+            }
+        } catch (Exception e) {
+            System.err.println("Could not load attack intro image: " + imagePath + " - " + e.getMessage());
+        }
+        
+        // Fall back to placeholder
+        BufferedImage placeholder = createPlaceholderAttackImage(attackId);
+        attackIntroImageCache.put(attackId, placeholder);
+        return placeholder;
+    }
+    
+    /**
+     * Create a placeholder image for attack introductions (fallback)
      */
     private BufferedImage createPlaceholderAttackImage(String attackId) {
         int size = 200;
@@ -1967,6 +2030,24 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            // Note: hasSavedGame from disk is ignored - resume only works within same session
+                            // because actual game objects (player, boss, bullets) aren't serialized to disk
+                            hasSavedGame = false;
+                            savedLevel = saveData.getSavedLevel();
+                            // Update level select scroll to match loaded position
+                            levelSelectScroll = gameData.getSelectedLevelView();
+                            levelSelectScrollAnimated = gameData.getSelectedLevelView();
+                            System.out.println("DEBUG LOAD: Loaded - savedLevel=" + savedLevel + " (resume disabled - new session)");
+                            System.out.println("DEBUG LOAD: Set level select scroll to " + gameData.getSelectedLevelView());
+                            // Apply loaded audio settings to sound manager
+                            soundManager.setMasterVolume(gameData.getMasterVolume());
+                            soundManager.setSfxVolume(gameData.getSfxVolume());
+                            soundManager.setUiVolume(gameData.getUiVolume());
+                            soundManager.setMusicVolume(gameData.getMusicVolume());
+                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                            System.out.println("DEBUG LOAD: Applied audio - master=" + gameData.getMasterVolume() + 
+                                ", sfx=" + gameData.getSfxVolume() + ", ui=" + gameData.getUiVolume() + ", music=" + gameData.getMusicVolume() +
+                                ", enabled=" + gameData.isSoundEnabled());
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -1977,6 +2058,13 @@ public class Game extends JPanel implements Runnable {
                         if (saveManager.save(slot, newSave)) {
                             // Load the new save into GameData
                             newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            // Apply loaded audio settings to sound manager
+                            soundManager.setMasterVolume(gameData.getMasterVolume());
+                            soundManager.setSfxVolume(gameData.getSfxVolume());
+                            soundManager.setUiVolume(gameData.getUiVolume());
+                            soundManager.setMusicVolume(gameData.getMusicVolume());
+                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                            hasSavedGame = false; // New save has no saved game
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -2470,8 +2558,10 @@ public class Game extends JPanel implements Runnable {
     private void saveGameState() {
         // Save current game state for resume feature
         hasSavedGame = true;
+        savedLevel = gameData.getCurrentLevel();
         
-        System.out.println("DEBUG: Saving game state - Level: " + gameData.getCurrentLevel());
+        System.out.println("DEBUG SAVE STATE: Saving game state - Level: " + savedLevel + ", hasSavedGame: " + hasSavedGame);
+        System.out.println("DEBUG SAVE STATE: player=" + (player != null) + ", boss=" + (currentBoss != null));
         
         // Save references (shallow copy is fine for our use case)
         savedPlayer = player;
@@ -2507,10 +2597,24 @@ public class Game extends JPanel implements Runnable {
         savedBossDeathScale = bossDeathScale;
         savedBossDeathRotation = bossDeathRotation;
         savedStoppedMovingTimer = stoppedMovingTimer;
+        
+        // Persist the resume state to disk
+        performAutoSave();
     }
     
     private void restoreGameState() {
         if (!hasSavedGame) {
+            return;
+        }
+        
+        // Check if we have valid in-memory saved objects
+        // If savedPlayer or savedBoss is null, the saved state is from a previous session
+        // and the actual objects weren't persisted - start a fresh game instead
+        if (savedPlayer == null || savedBoss == null) {
+            System.out.println("DEBUG: Saved game state invalid (objects not in memory) - starting fresh");
+            hasSavedGame = false;
+            gameData.setCurrentLevel(savedLevel);
+            startGame();
             return;
         }
         
@@ -2525,17 +2629,17 @@ public class Game extends JPanel implements Runnable {
             System.out.println("DEBUG: Starting resume countdown - timer: " + unpauseCountdownTimer);
         }
         
-        // Restore saved objects
+        // Restore saved objects (with null checks for safety)
         player = savedPlayer;
         currentBoss = savedBoss;
         bullets.clear();
-        bullets.addAll(savedBullets);
+        if (savedBullets != null) bullets.addAll(savedBullets);
         particles.clear();
-        particles.addAll(savedParticles);
+        if (savedParticles != null) particles.addAll(savedParticles);
         beamAttacks.clear();
-        beamAttacks.addAll(savedBeamAttacks);
+        if (savedBeamAttacks != null) beamAttacks.addAll(savedBeamAttacks);
         damageNumbers.clear();
-        damageNumbers.addAll(savedDamageNumbers);
+        if (savedDamageNumbers != null) damageNumbers.addAll(savedDamageNumbers);
         
         // Restore game state variables
         gameData.setCurrentLevel(savedLevel);
@@ -2567,6 +2671,9 @@ public class Game extends JPanel implements Runnable {
         // Clear saved game after restoring
         hasSavedGame = false;
         
+        // Persist that we've resumed (so reload won't try to resume again)
+        performAutoSave();
+        
         // Start ambient background sound
         soundManager.startAmbientSound();
         
@@ -2588,8 +2695,13 @@ public class Game extends JPanel implements Runnable {
         try {
             SaveData saveData = SaveData.fromGameData(gameData, achievementManager, 
                 passiveUpgradeManager, "Save " + saveManager.getCurrentSaveSlot());
+            
+            // Include resume state in save
+            saveData.setResumeState(hasSavedGame, savedLevel);
+            
             saveManager.autoSave(saveData);
-            System.out.println("Auto-saved to slot " + saveManager.getCurrentSaveSlot());
+            System.out.println("Auto-saved to slot " + saveManager.getCurrentSaveSlot() + 
+                " (hasSavedGame=" + hasSavedGame + ", savedLevel=" + savedLevel + ")");
             
             // Show auto-save indicator
             showAutoSaveIndicator = true;
@@ -2599,12 +2711,23 @@ public class Game extends JPanel implements Runnable {
             e.printStackTrace();
         }
     }
+    
+    /**
+     * Called when the game window is closing - save the current state
+     */
+    public void saveOnExit() {
+        System.out.println("Game closing - performing auto-save...");
+        performAutoSave();
+    }
 
     /**
      * Start the debug attack showcase mode for taking screenshots.
      * Shows a selection screen where user can browse attacks and start tests.
      */
     private void startDebugShowcase() {
+        // Save the real game level before entering showcase
+        savedRealLevel = gameData.getCurrentLevel();
+        
         debugShowcaseMode = true;
         debugShowcaseIndex = 0;
         debugShowcaseTimer = 0;
@@ -2633,7 +2756,7 @@ public class Game extends JPanel implements Runnable {
         currentAttackIntroName = intro[2];
         currentAttackIntroDescription = intro[3];
         currentAttackIntroCategory = intro[4]; // Category type
-        attackIntroImage = createPlaceholderAttackImage(currentAttackIntroId);
+        attackIntroImage = loadAttackIntroImage(currentAttackIntroId);
         
         // Set the level to match this attack (changes boss sprite and background)
         gameData.setCurrentLevel(attackLevel);
@@ -2730,6 +2853,10 @@ public class Game extends JPanel implements Runnable {
         currentBoss.setForceShockwave(false);
         currentBoss.setForceTwirlAttack(false);
         currentBoss.setForceMegaAttack(-1);
+        currentBoss.setDisableBulletShooting(false); // Reset bullet shooting
+        currentBoss.setDisableBeamAttacks(false); // Reset beam disable
+        currentBoss.setDisableShockwave(false); // Reset shockwave disable
+        currentBoss.setDisableTwirl(false); // Reset twirl disable
         
         // Map attack IDs to boss behavior
         // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
@@ -2766,15 +2893,24 @@ public class Game extends JPanel implements Runnable {
                 break;
             case "beam_attack":
                 currentBoss.setForceBeamAttack(true);
+                currentBoss.setDisableBulletShooting(true); // Only show beam, no bullets
+                currentBoss.setDisableShockwave(true); // No shockwave during beam showcase
+                currentBoss.setDisableTwirl(true); // No twirl during beam showcase
                 break;
             case "spiral_bullets":
                 currentBoss.setForcedPatternType(8); // Spiral bullets
                 break;
             case "shockwave":
                 currentBoss.setForceShockwave(true);
+                currentBoss.setDisableBulletShooting(true); // Only show shockwave, no bullets
+                currentBoss.setDisableBeamAttacks(true); // No beams during shockwave showcase
+                currentBoss.setDisableTwirl(true); // No twirl during shockwave showcase
                 break;
             case "twirl_attack":
                 currentBoss.setForceTwirlAttack(true);
+                currentBoss.setDisableBulletShooting(true); // Only show twirl, no bullets
+                currentBoss.setDisableBeamAttacks(true); // No beams during twirl showcase
+                currentBoss.setDisableShockwave(true); // No shockwave during twirl showcase
                 break;
             case "accelerating_bullets":
                 currentBoss.setForcedPatternType(10); // Accelerating
@@ -2837,6 +2973,10 @@ public class Game extends JPanel implements Runnable {
 
     private void startGame() {
         gameState = GameState.PLAYING;
+        
+        // Clear all key states to prevent stuck movement from menu navigation
+        java.util.Arrays.fill(keys, false);
+        
         int speedLevel = getActiveSpeedLevel();
         player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
         bullets.clear();
@@ -4148,6 +4288,7 @@ public class Game extends JPanel implements Runnable {
                     if (!unlockedItems.isEmpty()) {
                         ActiveItem newItem = new ActiveItem(unlockedItems.get(unlockedItems.size() - 1));
                         unlockedItemName = newItem.getName();
+                        unlockedItemDescription = newItem.getDescription(); // Store description
                     }
                     // Equip first item if this is the first unlock
                     if (unlockedItems.size() == 1) {
@@ -5673,12 +5814,82 @@ public class Game extends JPanel implements Runnable {
         g.setPaint(bgGradient);
         g.fillRect(0, 0, width, height);
         
-        // Animated pulse effect
-        double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.1 + 1.0;
+        // Animated pulse effect (smaller range to prevent overflow)
+        double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.05 + 1.0;
         
-        // Main content box
-        int boxWidth = 600;
-        int boxHeight = 500;
+        // Calculate image dimensions first to determine box size
+        int imgDisplayWidth = 0;
+        int imgDisplayHeight = 0;
+        int minImageSize = 80; // Minimum size for the image
+        int maxImageWidth = Math.min(300, width - 250); // Max width with margin
+        int maxImageHeight = Math.min(220, height - 400); // Max height leaving room for text
+        
+        if (attackIntroImage != null) {
+            int imgWidth = attackIntroImage.getWidth();
+            int imgHeight = attackIntroImage.getHeight();
+            
+            // Calculate scale to fit within max bounds while preserving aspect ratio
+            double scaleW = (double)maxImageWidth / imgWidth;
+            double scaleH = (double)maxImageHeight / imgHeight;
+            double scale = Math.min(scaleW, scaleH);
+            
+            // Apply scale but ensure minimum size
+            imgDisplayWidth = Math.max(minImageSize, (int)(imgWidth * scale));
+            imgDisplayHeight = Math.max(minImageSize, (int)(imgHeight * scale));
+            
+            // If we had to enforce minimum, recalculate to maintain aspect ratio
+            if (imgWidth * scale < minImageSize || imgHeight * scale < minImageSize) {
+                double minScale = Math.max((double)minImageSize / imgWidth, (double)minImageSize / imgHeight);
+                imgDisplayWidth = (int)(imgWidth * minScale);
+                imgDisplayHeight = (int)(imgHeight * minScale);
+            }
+        } else {
+            // Default placeholder size
+            imgDisplayWidth = 100;
+            imgDisplayHeight = 100;
+        }
+        
+        // Calculate description dimensions
+        int descLineHeight = 26;
+        int descriptionLines = 0;
+        int maxDescWidth = 0;
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        FontMetrics descFm = g.getFontMetrics();
+        if (currentAttackIntroDescription != null) {
+            String[] descLines = currentAttackIntroDescription.split("\n");
+            descriptionLines = descLines.length;
+            for (String line : descLines) {
+                maxDescWidth = Math.max(maxDescWidth, descFm.stringWidth(line));
+            }
+        }
+        int descriptionHeight = descriptionLines * descLineHeight + 15;
+        
+        // Calculate box dimensions based on content
+        int headerHeight = 60;   // Space for "NEW ATTACK!" header
+        int nameHeight = 45;     // Space for attack name
+        int imageFramePadding = 12; // Padding around image frame
+        int sectionGap = 20;     // Gap between sections
+        int promptHeight = 50;   // Space for "Press SPACE" prompt
+        int boxPaddingH = 50;    // Horizontal padding inside box
+        int boxPaddingV = 25;    // Vertical padding inside box
+        
+        // Calculate required box size
+        int imageAreaHeight = imgDisplayHeight + imageFramePadding * 2;
+        int contentWidth = Math.max(imgDisplayWidth + imageFramePadding * 2 + boxPaddingH * 2, 
+                                    Math.max(maxDescWidth + boxPaddingH * 2, 380));
+        int contentHeight = boxPaddingV + headerHeight + nameHeight + imageAreaHeight + sectionGap + 
+                           descriptionHeight + sectionGap + promptHeight + boxPaddingV;
+        
+        // Clamp box size to screen bounds with margins
+        int maxBoxWidth = width - 80;
+        int maxBoxHeight = height - 60;
+        int boxWidth = Math.min(contentWidth, maxBoxWidth);
+        int boxHeight = Math.min(contentHeight, maxBoxHeight);
+        
+        // Ensure minimum box size
+        boxWidth = Math.max(boxWidth, 380);
+        boxHeight = Math.max(boxHeight, 350);
+        
         int boxX = (width - boxWidth) / 2;
         int boxY = (height - boxHeight) / 2;
         
@@ -5702,77 +5913,99 @@ public class Game extends JPanel implements Runnable {
             g.drawRoundRect(boxX - i * 3, boxY - i * 3, boxWidth + i * 6, boxHeight + i * 6, 30 + i * 2, 30 + i * 2);
         }
         
+        // Track current Y position for layout
+        int currentY = boxY + boxPaddingV;
+        
         // "NEW ATTACK!" header with animation
-        g.setFont(new Font("Arial", Font.BOLD, (int)(42 * pulse)));
+        g.setFont(new Font("Arial", Font.BOLD, (int)(38 * pulse)));
         g.setColor(new Color(255, 200, 100));
         String header = "NEW ATTACK!";
         FontMetrics fm = g.getFontMetrics();
-        int headerX = (width - fm.stringWidth(header)) / 2;
-        g.drawString(header, headerX, boxY + 60);
+        int headerX = boxX + (boxWidth - fm.stringWidth(header)) / 2;
+        currentY += fm.getAscent();
+        g.drawString(header, headerX, currentY);
+        currentY += headerHeight - fm.getAscent();
         
         // Attack name
-        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.setFont(new Font("Arial", Font.BOLD, 32));
         g.setColor(new Color(200, 220, 255));
+        fm = g.getFontMetrics();
         if (currentAttackIntroName != null) {
-            fm = g.getFontMetrics();
-            int nameX = (width - fm.stringWidth(currentAttackIntroName)) / 2;
-            g.drawString(currentAttackIntroName, nameX, boxY + 120);
+            int nameX = boxX + (boxWidth - fm.stringWidth(currentAttackIntroName)) / 2;
+            currentY += fm.getAscent();
+            g.drawString(currentAttackIntroName, nameX, currentY);
         }
+        currentY += nameHeight - fm.getAscent() + 5;
         
-        // Attack image (placeholder for now)
-        int imageSize = 180;
-        int imageX = (width - imageSize) / 2;
-        int imageY = boxY + 150;
+        // Attack image - centered in box
+        int imageX = boxX + (boxWidth - imgDisplayWidth) / 2;
+        int imageY = currentY;
         
         if (attackIntroImage != null) {
-            // Draw with slight pulse scale
-            int scaledSize = (int)(imageSize * pulse);
-            int offset = (imageSize - scaledSize) / 2;
-            g.drawImage(attackIntroImage, imageX + offset, imageY + offset, scaledSize, scaledSize, null);
+            // Apply subtle pulse effect
+            int pulseWidth = (int)(imgDisplayWidth * pulse);
+            int pulseHeight = (int)(imgDisplayHeight * pulse);
+            int pulseImageX = boxX + (boxWidth - pulseWidth) / 2;
+            int pulseOffsetY = (imgDisplayHeight - pulseHeight) / 2;
+            
+            // Draw image frame/border (use base size, not pulsed)
+            g.setColor(new Color(50, 60, 80, 200));
+            g.fillRoundRect(imageX - imageFramePadding, imageY - imageFramePadding, 
+                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 15, 15);
+            g.setColor(new Color(100, 150, 200, 100));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(imageX - imageFramePadding, imageY - imageFramePadding, 
+                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 15, 15);
+            
+            // Draw image with pulse (centered within frame)
+            g.drawImage(attackIntroImage, pulseImageX, imageY + pulseOffsetY, pulseWidth, pulseHeight, null);
         } else {
             // Draw placeholder
             g.setColor(new Color(60, 60, 80));
-            g.fillRoundRect(imageX, imageY, imageSize, imageSize, 20, 20);
+            g.fillRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 20, 20);
             g.setColor(new Color(100, 150, 200));
             g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(imageX, imageY, imageSize, imageSize, 20, 20);
+            g.drawRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 20, 20);
             
-            g.setFont(new Font("Arial", Font.BOLD, 40));
+            g.setFont(new Font("Arial", Font.BOLD, 36));
             g.setColor(new Color(150, 150, 170));
-            g.drawString("?", imageX + imageSize/2 - 12, imageY + imageSize/2 + 14);
+            fm = g.getFontMetrics();
+            g.drawString("?", imageX + imgDisplayWidth/2 - fm.stringWidth("?")/2, 
+                        imageY + imgDisplayHeight/2 + fm.getAscent()/2 - 4);
         }
+        currentY = imageY + imgDisplayHeight + imageFramePadding + sectionGap;
         
-        // Attack description
+        // Attack description - centered in box
         if (currentAttackIntroDescription != null) {
-            g.setFont(new Font("Arial", Font.PLAIN, 20));
+            g.setFont(new Font("Arial", Font.PLAIN, 18));
             g.setColor(new Color(180, 190, 200));
+            fm = g.getFontMetrics();
             
             // Split description by newlines and draw each line
             String[] lines = currentAttackIntroDescription.split("\n");
-            int descY = imageY + imageSize + 40;
-            fm = g.getFontMetrics();
             
             for (String line : lines) {
-                int lineX = (width - fm.stringWidth(line)) / 2;
-                g.drawString(line, lineX, descY);
-                descY += 28;
+                int lineX = boxX + (boxWidth - fm.stringWidth(line)) / 2;
+                g.drawString(line, lineX, currentY + fm.getAscent());
+                currentY += descLineHeight;
             }
         }
         
-        // "Press SPACE to continue" prompt
+        // "Press SPACE to continue" prompt - positioned at bottom of box
         double promptPulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7;
-        g.setFont(new Font("Arial", Font.BOLD, 22));
+        g.setFont(new Font("Arial", Font.BOLD, 20));
         g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
         String prompt = "Press SPACE to continue";
         fm = g.getFontMetrics();
-        int promptX = (width - fm.stringWidth(prompt)) / 2;
-        g.drawString(prompt, promptX, boxY + boxHeight - 35);
+        int promptX = boxX + (boxWidth - fm.stringWidth(prompt)) / 2;
+        int promptY = boxY + boxHeight - boxPaddingV - 5;
+        g.drawString(prompt, promptX, promptY);
         
         // Level indicator in corner
-        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setFont(new Font("Arial", Font.BOLD, 14));
         g.setColor(new Color(150, 150, 170, 180));
         String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
-        g.drawString(levelText, boxX + 20, boxY + boxHeight - 15);
+        g.drawString(levelText, boxX + 15, boxY + boxHeight - 10);
     }
     
     /**
@@ -6128,10 +6361,9 @@ public class Game extends JPanel implements Runnable {
             g.drawString(unlockedItemName, itemX, itemY);
             
             // Item description
-            ActiveItem currentItem = gameData.getEquippedItem();
-            if (currentItem != null && progress > 0.4f) {
+            if (unlockedItemDescription != null && !unlockedItemDescription.isEmpty() && progress > 0.4f) {
                 g.setFont(new Font("Arial", Font.PLAIN, (int)(24 * scale)));
-                String description = currentItem.getDescription();
+                String description = unlockedItemDescription;
                 FontMetrics descFm = g.getFontMetrics();
                 int descX = centerX - descFm.stringWidth(description) / 2;
                 int descY = currentY + (int)(50 * scale);

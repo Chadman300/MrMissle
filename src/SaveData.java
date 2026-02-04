@@ -1,3 +1,5 @@
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +47,10 @@ public class SaveData implements Serializable {
     public boolean contractsUnlocked;
     public boolean seenContractUnlock;
     
+    // Resume/saved game state (for continuing where player left off)
+    public boolean hasSavedGame;
+    public int savedLevel;
+    
     // Roguelike run tracking
     public int runHighestLevel;
     public int totalRunsCompleted;
@@ -72,6 +78,27 @@ public class SaveData implements Serializable {
     
     // Gameplay settings
     public int countdownMode;
+    
+    // Graphics settings
+    public boolean isFullscreen;
+    public boolean enableGradientAnimation;
+    public boolean enableGrainEffect;
+    public boolean enableParticles;
+    public boolean enableShadows;
+    public boolean enableBloom;
+    public boolean enableMotionBlur;
+    public boolean enableChromaticAberration;
+    public boolean enableVignette;
+    public int gradientQuality;
+    public int backgroundMode;
+    public double cameraZoom;
+    public int resolutionPreset;
+    public boolean enableVSync;
+    public int fpsLimit;
+    public boolean enableAntiAliasing;
+    
+    // Debug settings
+    public boolean enableHitboxes;
     
     // Achievements data (we'll add this if needed)
     public List<String> unlockedAchievements;
@@ -165,6 +192,61 @@ public class SaveData implements Serializable {
         this.musicVolume = 0.5f;
         this.soundEnabled = true;
         this.countdownMode = 1;
+        
+        // Default resume state (no saved game initially)
+        this.hasSavedGame = false;
+        this.savedLevel = 1;
+        
+        // Default graphics settings
+        this.isFullscreen = true;
+        this.enableGradientAnimation = true;
+        this.enableGrainEffect = false;
+        this.enableParticles = true;
+        this.enableShadows = true;
+        this.enableBloom = true;
+        this.enableMotionBlur = false;
+        this.enableChromaticAberration = true;
+        this.enableVignette = true;
+        this.gradientQuality = 1;
+        this.backgroundMode = 1;
+        this.cameraZoom = 1.0;
+        this.resolutionPreset = 3;
+        this.enableVSync = true;
+        this.fpsLimit = 1;
+        this.enableAntiAliasing = false;
+        this.enableHitboxes = false;
+    }
+    
+    /**
+     * Custom deserialization to handle backwards compatibility with old saves.
+     * This method is called when loading saved data and initializes any new fields
+     * that didn't exist in older save file versions.
+     */
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        
+        // Initialize graphics settings with defaults if they weren't in the old save
+        // (primitive booleans default to false, but we want some to be true)
+        if (cameraZoom == 0.0) {
+            // This indicates an old save without graphics settings
+            isFullscreen = true;
+            enableGradientAnimation = true;
+            enableGrainEffect = false;
+            enableParticles = true;
+            enableShadows = true;
+            enableBloom = true;
+            enableMotionBlur = false;
+            enableChromaticAberration = true;
+            enableVignette = true;
+            gradientQuality = 1;
+            backgroundMode = 1;
+            cameraZoom = 1.0;
+            resolutionPreset = 3;
+            enableVSync = true;
+            fpsLimit = 1;
+            enableAntiAliasing = false;
+            enableHitboxes = false;
+        }
     }
     
     /**
@@ -231,6 +313,25 @@ public class SaveData implements Serializable {
         data.soundEnabled = gameData.isSoundEnabled();
         data.countdownMode = gameData.getCountdownMode();
         
+        // Graphics settings (from Game static fields)
+        data.isFullscreen = Game.isFullscreen;
+        data.enableGradientAnimation = Game.enableGradientAnimation;
+        data.enableGrainEffect = Game.enableGrainEffect;
+        data.enableParticles = Game.enableParticles;
+        data.enableShadows = Game.enableShadows;
+        data.enableBloom = Game.enableBloom;
+        data.enableMotionBlur = Game.enableMotionBlur;
+        data.enableChromaticAberration = Game.enableChromaticAberration;
+        data.enableVignette = Game.enableVignette;
+        data.gradientQuality = Game.gradientQuality;
+        data.backgroundMode = Game.backgroundMode;
+        data.cameraZoom = Game.cameraZoom;
+        data.resolutionPreset = Game.resolutionPreset;
+        data.enableVSync = Game.enableVSync;
+        data.fpsLimit = Game.fpsLimit;
+        data.enableAntiAliasing = Game.enableAntiAliasing;
+        data.enableHitboxes = Game.enableHitboxes;
+        
         // Achievements
         if (achievementManager != null) {
             data.unlockedAchievements = new ArrayList<>();
@@ -255,6 +356,14 @@ public class SaveData implements Serializable {
         data.seenAttackIntros = new ArrayList<>(gameData.getSeenAttackIntros());
         
         return data;
+    }
+    
+    /**
+     * Set the resume state (called from Game after creating SaveData)
+     */
+    public void setResumeState(boolean hasSavedGame, int savedLevel) {
+        this.hasSavedGame = hasSavedGame;
+        this.savedLevel = savedLevel;
     }
     
     /**
@@ -324,6 +433,28 @@ public class SaveData implements Serializable {
         gameData.setSoundEnabled(soundEnabled);
         gameData.setCountdownMode(countdownMode);
         
+        // Graphics settings (apply to Game static fields)
+        System.out.println("DEBUG LOAD: Applying graphics settings - particles=" + enableParticles + 
+                          ", shadows=" + enableShadows + ", bloom=" + enableBloom + 
+                          ", backgroundMode=" + backgroundMode + ", cameraZoom=" + cameraZoom);
+        Game.isFullscreen = isFullscreen;
+        Game.enableGradientAnimation = enableGradientAnimation;
+        Game.enableGrainEffect = enableGrainEffect;
+        Game.enableParticles = enableParticles;
+        Game.enableShadows = enableShadows;
+        Game.enableBloom = enableBloom;
+        Game.enableMotionBlur = enableMotionBlur;
+        Game.enableChromaticAberration = enableChromaticAberration;
+        Game.enableVignette = enableVignette;
+        Game.gradientQuality = gradientQuality;
+        Game.backgroundMode = backgroundMode;
+        Game.cameraZoom = cameraZoom;
+        Game.resolutionPreset = resolutionPreset;
+        Game.enableVSync = enableVSync;
+        Game.fpsLimit = fpsLimit;
+        Game.enableAntiAliasing = enableAntiAliasing;
+        Game.enableHitboxes = enableHitboxes;
+        
         // Achievements
         if (achievementManager != null && unlockedAchievements != null) {
             for (String achievementId : unlockedAchievements) {
@@ -362,6 +493,20 @@ public class SaveData implements Serializable {
             gameData.getSeenAttackIntros().clear();
             gameData.getSeenAttackIntros().addAll(seenAttackIntros);
         }
+    }
+    
+    /**
+     * Get if there's a saved game in progress
+     */
+    public boolean hasSavedGame() {
+        return hasSavedGame;
+    }
+    
+    /**
+     * Get the saved level for resume
+     */
+    public int getSavedLevel() {
+        return savedLevel;
     }
     
     /**

@@ -104,10 +104,10 @@ public class Renderer {
             statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
         }
         
-        // Initialize settings buttons (11 options)
-        settingsButtons = new UIButton[11];
-        for (int i = 0; i < 11; i++) {
-            settingsButtons[i] = new UIButton("", 0, 0, 700, 80, new Color(76, 86, 106), new Color(235, 203, 139));
+        // Initialize settings buttons (16 options - max for Graphics category)
+        settingsButtons = new UIButton[16];
+        for (int i = 0; i < 16; i++) {
+            settingsButtons[i] = new UIButton("", 0, 0, 700, 70, new Color(76, 86, 106), new Color(235, 203, 139));
         }
         
         // Initialize pause buttons
@@ -356,15 +356,15 @@ public class Renderer {
         // Show score and money in a nice card
         drawStatsCard(g, width, height, time);
         
-        // Version and save slot info (bottom left)
+        // Version and save slot info (bottom left, offset to avoid corner decorations)
         g.setFont(FONT_TINY);
         g.setColor(new Color(120, 130, 150, 180));
         String versionText = Game.GAME_VERSION;
-        g.drawString(versionText, 20, height - 40);
+        g.drawString(versionText, 110, height - 70);
         
         if (currentSaveSlot > 0) {
             String saveText = "Save Slot " + currentSaveSlot;
-            g.drawString(saveText, 20, height - 20);
+            g.drawString(saveText, 110, height - 50);
         }
         
         // Quit hint
@@ -373,7 +373,7 @@ public class Renderer {
             g.setFont(FONT_MEDIUM_BOLD);
             String quitText = "Press ESC again to Quit";
             fm = g.getFontMetrics();
-            g.drawString(quitText, (width - fm.stringWidth(quitText)) / 2, height - 80);
+            g.drawString(quitText, (width - fm.stringWidth(quitText)) / 2, height - 210);
         }
     }
     
@@ -751,7 +751,23 @@ public class Renderer {
     }
     
     private void drawStatsCard(Graphics2D g, int width, int height, double time) {
-        int cardWidth = 350;
+        g.setFont(FONT_LARGE);
+        FontMetrics fm = g.getFontMetrics();
+        
+        // Prepare text strings
+        String scoreText = "Score: " + gameData.getScore();
+        String moneyText = "$" + gameData.getTotalMoney();
+        
+        // Calculate required widths
+        int scoreWidth = fm.stringWidth(scoreText);
+        int moneyWidth = fm.stringWidth(moneyText);
+        int dividerSpace = 40; // Space for divider and padding
+        int padding = 50; // Left and right padding
+        
+        // Dynamically size the card based on content
+        int minCardWidth = 350;
+        int requiredWidth = scoreWidth + moneyWidth + dividerSpace + padding;
+        int cardWidth = Math.max(minCardWidth, requiredWidth);
         int cardHeight = 70;
         int cardX = (width - cardWidth) / 2;
         int cardY = height - 130;
@@ -766,24 +782,23 @@ public class Renderer {
         g.setStroke(new BasicStroke(2));
         g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
         
+        // Calculate divider position based on text widths
+        int dividerX = cardX + padding / 2 + scoreWidth + dividerSpace / 2;
+        
         // Divider line
         g.setColor(new Color(76, 86, 106, 100));
-        g.drawLine(cardX + cardWidth / 2, cardY + 10, cardX + cardWidth / 2, cardY + cardHeight - 10);
+        g.drawLine(dividerX, cardY + 10, dividerX, cardY + cardHeight - 10);
         
-        g.setFont(FONT_LARGE);
-        FontMetrics fm = g.getFontMetrics();
+        int textY = cardY + cardHeight / 2 + fm.getAscent() / 2 - 5;
         
         // Score display (left side)
         g.setColor(new Color(163, 190, 140)); // Green
-        String scoreText = "Score: " + gameData.getScore();
-        int scoreX = cardX + 25;
-        int textY = cardY + cardHeight / 2 + fm.getAscent() / 2 - 5;
+        int scoreX = cardX + padding / 2;
         g.drawString(scoreText, scoreX, textY);
         
-        // Money display (right side)
+        // Money display (right side of divider)
         g.setColor(new Color(235, 203, 139)); // Gold
-        String moneyText = "$" + gameData.getTotalMoney();
-        int moneyX = cardX + cardWidth / 2 + 25;
+        int moneyX = dividerX + dividerSpace / 2;
         g.drawString(moneyText, moneyX, textY);
     }
     
@@ -950,7 +965,7 @@ public class Renderer {
             "",
             "BULLET STORM - 2x bullets (2x money)",
             "SPEED DEMON - 50% faster bullets (1.75x)",
-            "SHIELDLESS - No active items (1.5x)",
+            "POWERLESS - All active items disabled (1.5x)",
             "CAN'T STOP - Must keep moving (2.5x)",
             "",
             "Higher risk = Higher reward!"
@@ -1681,6 +1696,28 @@ public class Renderer {
                     g.scale(scaleX, 1.0);
                     
                     g.drawImage(planeSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight, null);
+                    
+                    // Draw spinning rotors for helicopters
+                    if (Boss.isHelicopterLevel(level)) {
+                        BufferedImage rotorSprite = Boss.getRotorSpriteForLevel(level);
+                        if (rotorSprite != null) {
+                            int rotorWidth = (int)(rotorSprite.getWidth() * 0.4 * scale);
+                            int rotorHeight = (int)(rotorSprite.getHeight() * 0.4 * scale);
+                            
+                            // Save current transform and apply rotor spin
+                            AffineTransform rotorTransform = g.getTransform();
+                            // Rotate the rotor blades (fast spin animation)
+                            double rotorAngle = time * 15; // Fast spinning
+                            g.rotate(rotorAngle);
+                            
+                            // Draw rotor centered on helicopter (offset slightly towards top)
+                            int rotorOffsetY = -spriteHeight / 4; // Position rotor near top of helicopter
+                            g.drawImage(rotorSprite, -rotorWidth / 2, rotorOffsetY - rotorHeight / 2, rotorWidth, rotorHeight, null);
+                            
+                            g.setTransform(rotorTransform);
+                        }
+                    }
+                    
                     g.setTransform(oldTransform);
                     
                     // Sparkle effects for completed levels
@@ -2020,7 +2057,7 @@ public class Renderer {
                 int[] yPoints2 = {iconY - 35, iconY - 15, iconY + 5};
                 g.fillPolygon(xPoints2, yPoints2, 3);
             } else {
-                // Shieldless - Shield with X (larger)
+                // Powerless - Shield with X (larger)
                 g.drawArc(iconCenterX - 28, iconY - 42, 56, 63, 0, 180);
                 g.drawLine(iconCenterX - 28, iconY - 42, iconCenterX - 28, iconY + 7);
                 g.drawLine(iconCenterX + 28, iconY - 42, iconCenterX + 28, iconY + 7);
@@ -2041,7 +2078,7 @@ public class Renderer {
             
             // Multiplier
             g.setFont(new Font("Arial", Font.BOLD, 36));
-            String multiplier = i == 0 ? "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â" : String.format("%.2fx", contractMultipliers[i]);
+            String multiplier = i == 0 ? "--" : String.format("%.2fx", contractMultipliers[i]);
             FontMetrics multFm = g.getFontMetrics();
             g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
@@ -2077,7 +2114,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "<  > or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
         
@@ -2085,7 +2122,7 @@ public class Renderer {
         if (selectedContract > 0) {
             g.setFont(new Font("Arial", Font.BOLD, 16));
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
-            String warning = "ÃƒÂ¢Ã…Â¡Ã‚Â  Higher risk = Higher reward!";
+            String warning = "!! Higher risk = Higher reward !!";
             FontMetrics warnFm = g.getFontMetrics();
             g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
         }
@@ -2211,7 +2248,7 @@ public class Renderer {
         // Controls hint
         g.setFont(new Font("Arial", Font.PLAIN, 18));
         g.setColor(new Color(150, 150, 150));
-        String hint = "ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        String hint = "<  > or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
         FontMetrics hintFm = g.getFontMetrics();
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
@@ -3734,7 +3771,9 @@ public class Renderer {
         g.setFont(new Font("Arial", Font.PLAIN, 24));
         String inst = "Press SPACE to Visit Shop";
         fm = g.getFontMetrics();
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height / 2 + 160);
+        // Position instruction text below stats, with minimum at height/2 + 160
+        int instructionY = Math.max(height / 2 + 160, statsY + 30);
+        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, instructionY);
     }
     
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {
@@ -3957,12 +3996,6 @@ public class Renderer {
         FontMetrics fm;
         
         for (int i = 0; i < names.length; i++) {
-            // Skip rendering if outside visible area
-            if (y < 180 || y > height - 90) {
-                y += 120;
-                continue;
-            }
-            
             boolean isSelected = i == selectedItem;
             
             // Background box
@@ -3970,6 +4003,18 @@ public class Renderer {
             int boxY = y - 20;
             int boxWidth = 700;
             int boxHeight = 70;
+            
+            // Update settings button position for click detection
+            if (i < settingsButtons.length && settingsButtons[i] != null) {
+                settingsButtons[i].setPosition(boxX, boxY);
+                settingsButtons[i].setSize(boxWidth, boxHeight);
+            }
+            
+            // Skip rendering if outside visible area
+            if (y < 180 || y > height - 90) {
+                y += 120;
+                continue;
+            }
             
             if (isSelected) {
                 g.setColor(new Color(88, 91, 112, 200));
@@ -4010,6 +4055,38 @@ public class Renderer {
                 g.setColor(new Color(216, 222, 233));
                 fm = g.getFontMetrics();
                 g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+            } else if (values[i].equals("ON") || values[i].equals("OFF")) {
+                // Draw toggle switch for ON/OFF settings
+                int toggleX = boxX + boxWidth - 80;
+                int toggleY = boxY + 10;
+                int toggleWidth = 60;
+                int toggleHeight = 30;
+                
+                boolean isOn = values[i].equals("ON");
+                
+                // Toggle background
+                if (isOn) {
+                    g.setColor(new Color(163, 190, 140, 200));
+                } else {
+                    g.setColor(new Color(76, 86, 106, 200));
+                }
+                g.fillRoundRect(toggleX, toggleY, toggleWidth, toggleHeight, 15, 15);
+                
+                // Toggle circle
+                int circleX = isOn ? toggleX + toggleWidth - 28 : toggleX + 2;
+                int circleY = toggleY + 2;
+                g.setColor(new Color(236, 239, 244));
+                g.fillOval(circleX, circleY, 26, 26);
+                g.setColor(new Color(216, 222, 233));
+                g.setStroke(new BasicStroke(2));
+                g.drawOval(circleX, circleY, 26, 26);
+                
+                // ON/OFF text
+                g.setFont(new Font("Arial", Font.BOLD, 14));
+                g.setColor(new Color(216, 222, 233));
+                String toggleText = isOn ? "ON" : "OFF";
+                fm = g.getFontMetrics();
+                g.drawString(toggleText, toggleX - fm.stringWidth(toggleText) - 10, toggleY + 21);
             } else {
                 // Regular value text
                 g.setFont(new Font("Arial", Font.BOLD, 20));
@@ -4034,12 +4111,6 @@ public class Renderer {
         FontMetrics fm;
         
         for (int i = 0; i < names.length; i++) {
-            // Skip rendering if outside visible area
-            if (y < 180 || y > height - 90) {
-                y += 120;
-                continue;
-            }
-            
             boolean isSelected = i == selectedItem;
             
             // Background box
@@ -4047,6 +4118,18 @@ public class Renderer {
             int boxY = y - 20;
             int boxWidth = 700;
             int boxHeight = 70;
+            
+            // Update settings button position for click detection
+            if (i < settingsButtons.length && settingsButtons[i] != null) {
+                settingsButtons[i].setPosition(boxX, boxY);
+                settingsButtons[i].setSize(boxWidth, boxHeight);
+            }
+            
+            // Skip rendering if outside visible area
+            if (y < 180 || y > height - 90) {
+                y += 120;
+                continue;
+            }
             
             if (isSelected) {
                 g.setColor(new Color(88, 91, 112, 200));

@@ -91,6 +91,18 @@ public class PassiveUpgradeManager {
         return 1.0;
     }
     
+    /**
+     * Reset extra lives price for new run.
+     * The extra lives upgrade price increases with each purchase,
+     * so we reset the current level back to 0 when a run ends/death occurs.
+     */
+    public void resetExtraLivesPrice() {
+        PassiveUpgrade healthUpgrade = upgradeMap.get("health");
+        if (healthUpgrade != null) {
+            healthUpgrade.setCurrentLevel(0);
+        }
+    }
+    
     public List<PassiveUpgrade> getAllUpgrades() {
         return upgrades;
     }

@@ -49,6 +49,9 @@ public class Bullet {
     private boolean hasGrazed; // Track if bullet has been grazed by player
     private static final int MAX_BOUNCES = 1; // Max bounces for bouncing bullets
     private static final double HOMING_LIFETIME = 480; // 8 seconds lifetime for homing bullets
+    private double fadeOutTimer = -1; // Timer for fade out effect (-1 = not fading)
+    private static final double FADE_OUT_DURATION = 30; // 0.5 seconds to fade out
+    private boolean markedForFadeOut = false; // Whether bullet should start fading
     
     public enum BulletType {
         NORMAL,      // Standard bullet
@@ -82,6 +85,8 @@ public class Bullet {
         this.spriteVariant = (int)(Math.random() * 3); // Random variant 0-2
         this.bounceCount = 0;
         this.hasGrazed = false;
+        this.fadeOutTimer = -1;
+        this.markedForFadeOut = false;
         loadSprites();
     }
     
@@ -165,6 +170,8 @@ public class Bullet {
         this.explosionTimer = EXPLOSION_TIME;
         this.spriteVariant = (int)(Math.random() * 3);
         this.bounceCount = 0;
+        this.fadeOutTimer = -1;
+        this.markedForFadeOut = false;
     }
     
     public void update() {
@@ -209,6 +216,10 @@ public class Bullet {
                     vx = Math.cos(currentAngle) * cachedSpeed;
                     vy = Math.sin(currentAngle) * cachedSpeed;
                 }
+                // Start fading near end of lifetime
+                if (age > HOMING_LIFETIME - FADE_OUT_DURATION && fadeOutTimer < 0) {
+                    fadeOutTimer = FADE_OUT_DURATION;
+                }
                 break;
             case BOUNCING:
                 // Bounce off walls (only once)
@@ -221,6 +232,10 @@ public class Bullet {
                         vy *= -1;
                         bounceCount++;
                     }
+                } else if (fadeOutTimer < 0 && !markedForFadeOut) {
+                    // Start fading after reaching max bounces
+                    markedForFadeOut = true;
+                    fadeOutTimer = FADE_OUT_DURATION * 2; // Longer fade for bouncing
                 }
                 break;
             case SPIRAL:
@@ -273,6 +288,20 @@ public class Bullet {
         // Move bullet (scaled by delta time)
         x += vx * deltaTime;
         y += vy * deltaTime;
+        
+        // Update fade out timer
+        if (fadeOutTimer > 0) {
+            fadeOutTimer -= deltaTime;
+        }
+        
+        // Start fading when approaching screen edges (for non-explosive types)
+        if (fadeOutTimer < 0 && type != BulletType.BOMB && type != BulletType.GRENADE && type != BulletType.NUKE) {
+            int fadeMargin = 50;
+            if (x < fadeMargin || x > screenWidth - fadeMargin || 
+                y < fadeMargin || y > screenHeight - fadeMargin) {
+                fadeOutTimer = FADE_OUT_DURATION;
+            }
+        }
     }
     
     public void applySlow(double factor) {
@@ -368,6 +397,7 @@ public class Bullet {
                 Math.sin(angle) * speed, 
                 BulletType.FRAGMENT);
             fragment.spriteVariant = fragmentSprite - 14; // 0 or 1
+            fragment.warningTime = 0; // Fragments spawn instantly with no delay
             fragments.add(fragment);
         }
         
@@ -415,7 +445,7 @@ public class Bullet {
                 break;
             case BOUNCING:
                 spriteIndex = 4;
-                spriteSize = SIZE * 4;
+                spriteSize = (int)(SIZE * 2.5); // Smaller bouncing bullets
                 break;
             case SPIRAL:
                 spriteIndex = 5;
@@ -460,6 +490,18 @@ public class Bullet {
             flickerAlpha = (flickerFrame % 2 == 0) ? 1.0f : 0.3f;
         }
         
+        // Calculate fade out alpha
+        float fadeAlpha = 1.0f;
+        if (fadeOutTimer > 0) {
+            fadeAlpha = (float)(fadeOutTimer / FADE_OUT_DURATION);
+            fadeAlpha = Math.max(0.0f, Math.min(1.0f, fadeAlpha));
+        } else if (fadeOutTimer == 0) {
+            fadeAlpha = 0.0f;
+        }
+        
+        // Combine flicker and fade alpha
+        float finalAlpha = flickerAlpha * fadeAlpha;
+        
         // Draw sprite if loaded, otherwise fallback to orb
         if (spritesLoaded && bulletSprites[spriteIndex] != null) {
             Graphics2D g2d = (Graphics2D) g.create();
@@ -490,14 +532,14 @@ public class Bullet {
                     int drawShadowWidth = (int)(nativeShadowWidth * shadowScale);
                     int drawShadowHeight = (int)(nativeShadowHeight * shadowScale);
                     
-                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f * flickerAlpha));
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f * finalAlpha));
                     g2d.drawImage(shadowSprite,
                         (int)(-drawShadowWidth/2 + shadowOffsetX),
                         (int)(-drawShadowHeight/2 + shadowOffsetY),
                         drawShadowWidth, drawShadowHeight, null);
                 } else {
                     // Fallback: draw oval shadow (taller than wide, rotated 90 degrees)
-                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f * flickerAlpha));
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f * finalAlpha));
                     g2d.setColor(new Color(0, 0, 0));
                     int shadowWidth = (int)(shadowSize * 0.7); // 30% narrower
                     int shadowHeight = (int)(shadowSize * 1.3); // 30% taller
@@ -506,13 +548,13 @@ public class Bullet {
                         (int)(-shadowHeight/2 + shadowOffsetY),
                         shadowWidth, shadowHeight);
                 }
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, finalAlpha));
                 
                 // Reset rotation for sprite drawing
                 g2d.rotate(-objectRotation);
             } else {
-                // Apply flickering alpha even if shadows are disabled
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
+                // Apply fade alpha even if shadows are disabled
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, finalAlpha));
             }
             g2d.rotate(angle + HALF_PI); // Rotate sprite to face direction of travel
             
@@ -563,29 +605,33 @@ public class Bullet {
                     break;
             }
             
-            // Draw vibrant orb with glow effect
+            // Draw vibrant orb with glow effect (apply fade alpha)
             // Outer glow
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f * fadeAlpha));
             g.setColor(color);
             g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
             
             // Main orb
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f * fadeAlpha));
             g.setColor(color);
             g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
             
             // Bright highlight for depth
-            g.setColor(new Color(255, 255, 255, 200));
+            g.setColor(new Color(255, 255, 255, (int)(200 * fadeAlpha)));
             g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
             
             // Inner core (brighter)
             Color brightCore = new Color(
                 Math.min(255, color.getRed() + 100),
                 Math.min(255, color.getGreen() + 100),
-                Math.min(255, color.getBlue() + 100)
+                Math.min(255, color.getBlue() + 100),
+                (int)(255 * fadeAlpha)
             );
             g.setColor(brightCore);
             g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
+            
+            // Reset composite
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         }
     }
     
@@ -596,11 +642,21 @@ public class Bullet {
         if (type == BulletType.HOMING && age > HOMING_LIFETIME) {
             return true;
         }
+        // Bullets that have fully faded out should be removed
+        if (fadeOutTimer == 0 || fadeOutTimer < -0.5) {
+            // fadeOutTimer goes from FADE_OUT_DURATION down to 0, then stays at 0
+            // Check if it was actively fading and finished
+            if (markedForFadeOut || (type == BulletType.HOMING && age > HOMING_LIFETIME - FADE_OUT_DURATION)) {
+                return true;
+            }
+        }
         return x < -margin || x > width + margin || y < -margin || y > height + margin;
     }
     
     public boolean collidesWith(Player player) {
         if (warningTime > 0) return false; // Can't hit during warning
+        // Faded bullets can't collide
+        if (fadeOutTimer >= 0 && fadeOutTimer < FADE_OUT_DURATION * 0.3) return false;
         double dx = x - player.getX();
         double dy = y - player.getY();
         double distanceSquared = dx * dx + dy * dy;

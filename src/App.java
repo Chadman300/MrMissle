@@ -1,3 +1,5 @@
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
@@ -18,7 +20,17 @@ public class App {
             
             Game game = new Game();
             frame.add(game);
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+            
+            // Add window close handler to auto-save before exiting
+            frame.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    // Auto-save on window close
+                    game.saveOnExit();
+                    System.exit(0);
+                }
+            });
             
             // Start in fullscreen mode with window decorations hidden
             frame.setUndecorated(true);

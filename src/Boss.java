@@ -67,6 +67,10 @@ public class Boss {
     private boolean forceBeamAttack = false; // Force beam attacks for showcase
     private boolean forceShockwave = false; // Force shockwave for showcase
     private boolean forceTwirlAttack = false; // Force twirl attack for showcase
+    private boolean disableBulletShooting = false; // Disable all bullet shooting for showcase
+    private boolean disableBeamAttacks = false; // Disable beam attacks during showcase
+    private boolean disableShockwave = false; // Disable shockwave during showcase
+    private boolean disableTwirl = false; // Disable twirl during showcase
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
     private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
@@ -108,6 +112,44 @@ public class Boss {
             int miniIndex = (level - 1) % 17;
             return miniBossPlaneSprites[miniIndex];
         }
+    }
+    
+    /**
+     * Check if a level features a helicopter boss (for level select rendering)
+     */
+    public static boolean isHelicopterLevel(int level) {
+        if (level == 28) return false; // Final boss is not a helicopter
+        
+        boolean isMegaBoss = (level % 3 == 0);
+        if (isMegaBoss) {
+            int megaIndex = ((level / 3) - 1) % 9;
+            return megaIndex == 7; // Helicopter 1 is at index 7 in megaBossPlaneSprites
+        } else {
+            int miniIndex = (level - 1) % 17;
+            return miniIndex >= 14; // Helicopters 2-4 are at indices 14-16
+        }
+    }
+    
+    /**
+     * Get the rotor blade sprite for a helicopter level (for level select rendering)
+     */
+    public static BufferedImage getRotorSpriteForLevel(int level) {
+        if (!spritesLoaded) {
+            Boss temp = new Boss(0, 0, 1, null);
+        }
+        
+        if (!isHelicopterLevel(level)) return null;
+        
+        boolean isMegaBoss = (level % 3 == 0);
+        if (isMegaBoss) {
+            return helicopterBlades[0]; // Helicopter 1 uses blade 0
+        } else {
+            int miniIndex = (level - 1) % 17;
+            if (miniIndex == 14) return helicopterBlades[0]; // Helicopter 2 uses blade 0
+            if (miniIndex == 15) return helicopterBlades[1]; // Helicopter 3 uses blade 1
+            if (miniIndex == 16) return helicopterBlades[2]; // Helicopter 4 uses blade 2
+        }
+        return helicopterBlades[0];
     }
     
     // Animation for helicopter blades
@@ -588,7 +630,7 @@ public class Boss {
             
             // When entering recovery phase, randomly spawn shockwave (only if boss has been hit at least once)
             // Shockwave attack only available from level 5 onwards (or forced for debug showcase)
-            boolean shouldShockwave = (level >= 5 || forceShockwave) && 
+            boolean shouldShockwave = !disableShockwave && (level >= 5 || forceShockwave) && 
                                       (!isAssaultPhase) && 
                                       (forceShockwave || (currentHealth < maxHealth && Math.random() < 0.4));
             if (shouldShockwave && !shockwaveActive) {
@@ -610,7 +652,7 @@ public class Boss {
                 
                 // 30% chance to start a twirl attack sequence during assault
                 // Twirl/spin attack only available from level 7 onwards (or forced for debug showcase)
-                boolean shouldTwirl = (level >= 7 || forceTwirlAttack) && 
+                boolean shouldTwirl = !disableTwirl && (level >= 7 || forceTwirlAttack) && 
                                       (forceTwirlAttack || Math.random() < 0.3);
                 if (shouldTwirl && !twirlAttackActive) {
                     twirlAttackActive = true;
@@ -679,8 +721,8 @@ public class Boss {
         updateSpiralAttack(bullets, deltaTime);
         
         // Beam attacks (at higher levels - starting at level 4, or forced for debug showcase)
-        // Don't fire beams if a specific non-beam pattern is forced
-        boolean shouldFireBeams = forceBeamAttack || (level >= 4 && forcedPatternType < 0 && forcedMegaAttack < 0);
+        // Don't fire beams if a specific non-beam pattern is forced or if beams are disabled
+        boolean shouldFireBeams = !disableBeamAttacks && (forceBeamAttack || (level >= 4 && forcedPatternType < 0 && forcedMegaAttack < 0));
         if (shouldFireBeams) {
             beamAttackTimer += deltaTime;
             // Use faster interval when forced for debug showcase
@@ -702,6 +744,9 @@ public class Boss {
     }
     
     private void shoot(List<Bullet> bullets, Player player) {
+        // Skip all bullet shooting if disabled (for beam/shockwave/twirl showcase)
+        if (disableBulletShooting) return;
+        
         int bulletCountBefore = bullets.size();
         
         // If a mega attack is forced (for debug showcase), use only that
@@ -956,16 +1001,16 @@ public class Boss {
     }
     
     private void shootMixed(List<Bullet> bullets, Player player) {
-        // Combination attack with different bullet types
+        // Combination attack with different bullet types (spiral + bouncing)
         double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
-        // Homing bullets
-        for (int i = 0; i < 3; i++) { // Increased from 1
-            double angle = angleToPlayer + (i - 1) * 0.3;
+        // Spiral bullets
+        int numSpiral = 4 + level / 3;
+        for (int i = 0; i < numSpiral; i++) {
+            double angle = Math.PI * 2 * i / numSpiral;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
+            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.SPIRAL));
         }
         
         // Circle of bouncing bullets
@@ -1228,6 +1273,48 @@ public class Boss {
     
     // ========== END MEGA BOSS SPECIAL ATTACKS ==========
     
+    /**
+     * Check if a new beam would overlap with any existing beam of the same type.
+     * @param position The position of the new beam
+     * @param width The width of the new beam
+     * @param type The type of beam (VERTICAL or HORIZONTAL)
+     * @return true if the beam would overlap with an existing beam
+     */
+    private boolean wouldBeamOverlap(double position, double width, BeamAttack.BeamType type) {
+        for (BeamAttack existingBeam : beamAttacks) {
+            if (existingBeam.getType() == type) {
+                double existingPos = existingBeam.getPosition();
+                double existingWidth = existingBeam.getWidth();
+                
+                // Check if the beams overlap (with a small buffer for safety)
+                double minDistance = (width / 2) + (existingWidth / 2) + 10; // 10px buffer
+                if (Math.abs(position - existingPos) < minDistance) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * Try to find a non-overlapping position for a beam within the given range.
+     * @param minPos Minimum position
+     * @param maxPos Maximum position
+     * @param width Width of the beam
+     * @param type Type of beam
+     * @param maxAttempts Maximum number of random attempts
+     * @return A valid position, or -1 if no valid position found
+     */
+    private double findNonOverlappingPosition(double minPos, double maxPos, double width, BeamAttack.BeamType type, int maxAttempts) {
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            double position = minPos + Math.random() * (maxPos - minPos);
+            if (!wouldBeamOverlap(position, width, type)) {
+                return position;
+            }
+        }
+        return -1; // No valid position found
+    }
+    
     private void spawnBeamAttack(int screenWidth, int screenHeight) {
         // Mega bosses have more intense beam patterns
         if (isMegaBoss && Math.random() < 0.35) {
@@ -1253,17 +1340,21 @@ public class Boss {
             // Spawn 1-3 vertical beams depending on level
             int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double position = screenWidth * (0.2 + Math.random() * 0.6);
                 double width = 40 + level * 5; // Wider beams at higher levels
-                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+                double position = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10);
+                if (position >= 0) {
+                    beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+                }
             }
         } else {
             // Spawn 1-3 horizontal beams depending on level
             int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double position = screenHeight * (0.3 + Math.random() * 0.5);
                 double width = 40 + level * 5; // Wider beams at higher levels
-                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+                double position = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10);
+                if (position >= 0) {
+                    beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+                }
             }
         }
     }
@@ -1271,11 +1362,15 @@ public class Boss {
     private void spawnCrossBeams(int screenWidth, int screenHeight) {
         // One vertical and one horizontal beam forming a cross
         double width = 50 + level * 6;
-        double verticalX = screenWidth * (0.3 + Math.random() * 0.4);
-        double horizontalY = screenHeight * (0.35 + Math.random() * 0.3);
+        double verticalX = findNonOverlappingPosition(screenWidth * 0.3, screenWidth * 0.7, width, BeamAttack.BeamType.VERTICAL, 10);
+        double horizontalY = findNonOverlappingPosition(screenHeight * 0.35, screenHeight * 0.65, width, BeamAttack.BeamType.HORIZONTAL, 10);
         
-        beamAttacks.add(new BeamAttack(verticalX, width, BeamAttack.BeamType.VERTICAL));
-        beamAttacks.add(new BeamAttack(horizontalY, width, BeamAttack.BeamType.HORIZONTAL));
+        if (verticalX >= 0) {
+            beamAttacks.add(new BeamAttack(verticalX, width, BeamAttack.BeamType.VERTICAL));
+        }
+        if (horizontalY >= 0) {
+            beamAttacks.add(new BeamAttack(horizontalY, width, BeamAttack.BeamType.HORIZONTAL));
+        }
     }
     
     private void spawnGridBeams(int screenWidth, int screenHeight) {
@@ -1284,16 +1379,20 @@ public class Boss {
         int numVertical = 2 + level / 5;
         int numHorizontal = 2 + level / 5;
         
-        // Vertical beams
+        // Vertical beams - use evenly spaced positions but check for overlaps
         for (int i = 0; i < numVertical; i++) {
             double position = screenWidth * ((i + 1.0) / (numVertical + 1.0));
-            beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+            if (!wouldBeamOverlap(position, width, BeamAttack.BeamType.VERTICAL)) {
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+            }
         }
         
-        // Horizontal beams
+        // Horizontal beams - use evenly spaced positions but check for overlaps
         for (int i = 0; i < numHorizontal; i++) {
             double position = screenHeight * ((i + 2.0) / (numHorizontal + 3.0)); // Start lower on screen
-            beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+            if (!wouldBeamOverlap(position, width, BeamAttack.BeamType.HORIZONTAL)) {
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+            }
         }
     }
     
@@ -1305,8 +1404,15 @@ public class Boss {
         int numPairs = 2 + (level >= 10 ? 1 : 0);
         for (int i = 0; i < numPairs; i++) {
             double offsetFactor = (i + 1.0) / (numPairs + 1.0);
-            beamAttacks.add(new BeamAttack(screenWidth * offsetFactor, width, BeamAttack.BeamType.VERTICAL));
-            beamAttacks.add(new BeamAttack(screenHeight * (0.3 + offsetFactor * 0.4), width, BeamAttack.BeamType.HORIZONTAL));
+            double verticalPos = screenWidth * offsetFactor;
+            double horizontalPos = screenHeight * (0.3 + offsetFactor * 0.4);
+            
+            if (!wouldBeamOverlap(verticalPos, width, BeamAttack.BeamType.VERTICAL)) {
+                beamAttacks.add(new BeamAttack(verticalPos, width, BeamAttack.BeamType.VERTICAL));
+            }
+            if (!wouldBeamOverlap(horizontalPos, width, BeamAttack.BeamType.HORIZONTAL)) {
+                beamAttacks.add(new BeamAttack(horizontalPos, width, BeamAttack.BeamType.HORIZONTAL));
+            }
         }
     }
     
@@ -1741,6 +1847,34 @@ public class Boss {
      */
     public void setForceTwirlAttack(boolean force) {
         this.forceTwirlAttack = force;
+    }
+    
+    /**
+     * Disable all bullet shooting (for beam/shockwave/twirl showcase)
+     */
+    public void setDisableBulletShooting(boolean disable) {
+        this.disableBulletShooting = disable;
+    }
+    
+    /**
+     * Disable beam attacks during showcase
+     */
+    public void setDisableBeamAttacks(boolean disable) {
+        this.disableBeamAttacks = disable;
+    }
+    
+    /**
+     * Disable shockwave during showcase
+     */
+    public void setDisableShockwave(boolean disable) {
+        this.disableShockwave = disable;
+    }
+    
+    /**
+     * Disable twirl during showcase
+     */
+    public void setDisableTwirl(boolean disable) {
+        this.disableTwirl = disable;
     }
     
     /**
