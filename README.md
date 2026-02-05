@@ -32,15 +32,15 @@ Originally created for a game jam, now evolved into a full-featured bullet hell 
 - **Save System** - Auto-save progress, upgrades, and unlocks
 
 ### ⚡ Active Items (Unlock by beating levels)
-- **Lucky Charm** (Lv 3) - +50% money and score (passive)
+- **Lucky Charm** (Lv 3) - Spawn money circle for bonus cash
 - **Shield** (Lv 6) - Tank 3 hits with cooldown
-- **Magnet** (Lv 9) - Pull dodged bullets for bonus score
-- **Shockwave** (Lv 12) - Push bullets away
-- **Dash** (Lv 15) - Dash with invincibility frames
-- **Bomb** (Lv 18) - Clear all bullets on screen
-- **Time Slow** (Lv 21) - Slow down time temporarily
-- **Laser Beam** (Lv 24) - Fire powerful beam attack
-- **Invincibility** (Lv 27) - Brief god mode
+- **Stun** (Lv 9) - Freeze the boss for 3 seconds
+- **Chromatic Purge** (Lv 12) - Erase all bullets of random type
+- **Time Slow** (Lv 15) - Slow down bullets and beams
+- **Dash** (Lv 18) - Dash with invincibility frames
+- **Impulse** (Lv 21) - Push bullets away instantly
+- **Frost Beam** (Lv 24) - Freeze bullets in an icy beam
+- **Bomb** (Lv 27) - Clear all bullets on screen
 
 ### 📈 Passive Upgrades (Purchase in shop)
 - **Speed Boost** - Increase movement speed (Max: Level 10)

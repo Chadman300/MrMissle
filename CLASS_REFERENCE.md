@@ -452,7 +452,7 @@ getMultiplier()            // Calculate score multiplier
 - Activation state
 - Effect duration
 
-**Enum:** ItemType (LUCKY_CHARM, SHIELD, MAGNET, SHOCKWAVE, DASH, BOMB, TIME_SLOW, LASER_BEAM, INVINCIBILITY)
+**Enum:** ItemType (LUCKY_CHARM, SHIELD, STUN, TYPE_PURGE, TIME_SLOW, DASH, IMPULSE, FROST_BEAM, BOMB)
 
 **Key Fields:**
 ```java

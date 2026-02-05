@@ -14,6 +14,7 @@ public class BeamAttack {
     private boolean isActive; // Whether beam is dealing damage
     private boolean warningPlayed; // Whether warning sound was played
     private boolean firePlayed; // Whether fire sound was played
+    private double timeSlowMultiplier = 1.0; // Multiplier for time slow effect (1.0 = normal, 0.3 = 70% slow)
     
     private static final int WARNING_DURATION = 210; // 3.5 seconds warning (increased from 150)
     private static final int BEAM_DURATION = 45;     // 0.75 seconds active beam (increased from 30)
@@ -30,18 +31,32 @@ public class BeamAttack {
     }
     
     public void update(double deltaTime) {
+        // Apply time slow multiplier to deltaTime
+        double effectiveDeltaTime = deltaTime * timeSlowMultiplier;
+        
+        // Reset time slow multiplier each frame (must be reapplied if active)
+        timeSlowMultiplier = 1.0;
+        
         if (warningTimer > 0) {
-            warningTimer -= deltaTime;
+            warningTimer -= effectiveDeltaTime;
             if (warningTimer <= 0) {
                 // Warning complete, activate beam
                 isActive = true;
             }
         } else if (isActive && beamTimer > 0) {
-            beamTimer -= deltaTime;
+            beamTimer -= effectiveDeltaTime;
             if (beamTimer <= 0) {
                 isActive = false;
             }
         }
+    }
+    
+    /**
+     * Apply time slow effect to this beam.
+     * Must be called each frame while time slow is active.
+     */
+    public void applyTimeSlow(double multiplier) {
+        this.timeSlowMultiplier = multiplier;
     }
     
     public boolean isDone() {

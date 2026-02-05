@@ -402,16 +402,17 @@ public class Game extends JPanel implements Runnable {
     private int showcaseTab = 0; // 0 = Attacks, 1 = Items
     
     // Active Items showcase data: {itemTypeName, level, name, description}
+    // Ordered by power level (worst to best)
     private static final String[][] ITEM_SHOWCASE = {
-        {"LUCKY_CHARM", "3", "Lucky Charm", "+50% Money & Score earned\nPassive effect - always active!"},
+        {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a money circle - stand in it for bonus money!\n35 second cooldown, lasts 5 seconds"},
         {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
-        {"TYPE_PURGE", "9", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
-        {"SHOCKWAVE", "12", "Shockwave", "Push all bullets away from you\n5 second cooldown, instant effect"},
-        {"DASH", "15", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
-        {"BOMB", "18", "Bomb", "Clear ALL bullets on screen\n6 second cooldown, instant effect"},
-        {"TIME_SLOW", "21", "Time Slow", "Slow bullets by 70%\n7.5 second cooldown, lasts 2 seconds"},
-        {"LASER_BEAM", "24", "Laser Beam", "Fire a powerful damaging beam\n5 second cooldown, lasts 2 seconds"},
-        {"INVINCIBILITY", "27", "Invincibility", "Brief total invulnerability\n10 second cooldown, lasts 3 seconds"}
+        {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 3 seconds"},
+        {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
+        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 70%\n7.5 second cooldown, lasts 2 seconds"},
+        {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
+        {"IMPULSE", "21", "Impulse", "Push all bullets away from you\n5 second cooldown, instant effect"},
+        {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"},
+        {"BOMB", "27", "Bomb", "Clear ALL bullets on screen\n6 second cooldown, instant effect"}
     };
     
     // Attack showcase UI
@@ -443,7 +444,7 @@ public class Game extends JPanel implements Runnable {
     private int afterimageTimer = 0;
     
     // Active item effects
-    private boolean playerInvincible; // For INVINCIBILITY item and DASH i-frames
+    private boolean playerInvincible; // For DASH i-frames
     private boolean shieldActive; // For SHIELD item
     private int shieldHits; // Number of hits shield has taken (3 max)
     private int respawnInvincibilityTimer; // Shorter invincibility after respawn
@@ -451,6 +452,20 @@ public class Game extends JPanel implements Runnable {
     private double spawnProtectionX; // X position where spawn protection was activated
     private double spawnProtectionY; // Y position where spawn protection was activated
     private static final double SPAWN_PROTECTION_RADIUS = 150; // Radius player can move before losing protection
+    
+    // STUN item effect - freezes boss
+    private boolean bossStunned = false;
+    private int bossStunTimer = 0;
+    private double bossStunShakeOffset = 0;
+    
+    // LUCKY_CHARM money circle effect
+    private boolean moneyCircleActive = false;
+    private double moneyCircleX = 0;
+    private double moneyCircleY = 0;
+    private int moneyCircleTimer = 0;
+    private static final int MONEY_CIRCLE_DURATION = 300; // 5 seconds
+    private static final double MONEY_CIRCLE_RADIUS = 80;
+    private static final int MONEY_CIRCLE_BONUS = 5; // Money per second while standing in circle
     
     // Camera tracking with smooth interpolation
     private double cameraX = 0;
@@ -744,6 +759,13 @@ public class Game extends JPanel implements Runnable {
     private void handleKeyPress(KeyEvent e) {
         int key = e.getKeyCode();
         
+        // Global F11 fullscreen toggle - works in all states
+        if (key == KeyEvent.VK_F11) {
+            toggleFullscreen();
+            screenShakeIntensity = 3;
+            return;
+        }
+        
         switch (gameState) {
             case SAVE_SELECT:
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
@@ -881,8 +903,6 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_O) { transitionToState(GameState.SETTINGS); screenShakeIntensity = 5; }
                 // Debug menu shortcut
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
-                // Fullscreen toggle
-                else if (key == KeyEvent.VK_F11) { toggleFullscreen(); screenShakeIntensity = 3; }
                 // Debug attack showcase mode (F10)
                 else if (key == KeyEvent.VK_F10) { startDebugShowcase(); screenShakeIntensity = 5; }
                 break;
@@ -1059,11 +1079,6 @@ public class Game extends JPanel implements Runnable {
                         transitionToState(GameState.MENU);
                     }
                     screenShakeIntensity = 3; 
-                }
-                else if (key == KeyEvent.VK_F11) {
-                    toggleFullscreen();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 3;
                 }
                 break;
                 
@@ -1489,12 +1504,6 @@ public class Game extends JPanel implements Runnable {
                     if (!gameData.getDefeatedBosses()[currentLevel - 1]) {
                         gameData.setBossDefeated(currentLevel - 1, true);
                         bossReward += 100;
-                    }
-                    
-                    // Apply LUCKY_CHARM multiplier if equipped
-                    ActiveItem equippedItem = gameData.getEquippedItem();
-                    if (equippedItem != null && equippedItem.getType() == ActiveItem.ItemType.LUCKY_CHARM) {
-                        bossReward = (int)(bossReward * 1.5); // 50% bonus
                     }
                     
                     System.out.println("DEBUG WIN: Level " + currentLevel + " completed, money before: " + gameData.getTotalMoney() + ", reward: " + bossReward);
@@ -2534,7 +2543,16 @@ public class Game extends JPanel implements Runnable {
             case 3: // Main Menu
                 System.out.println("DEBUG: Going to main menu from pause - saving game state");
                 isPaused = false;
-                saveGameState(); // Save the game state before going to menu
+                // Don't save game state in showcase mode - it shouldn't affect campaign
+                if (!debugShowcaseMode) {
+                    saveGameState(); // Save the game state before going to menu
+                } else {
+                    // Restore the real level when exiting showcase via pause menu
+                    gameData.setCurrentLevel(savedRealLevel);
+                    debugShowcaseMode = false;
+                    debugShowcaseInGameplay = false;
+                    System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
+                }
                 transitionToState(GameState.MENU);
                 selectedMenuItem = 0;
                 break;
@@ -3659,6 +3677,58 @@ public class Game extends JPanel implements Runnable {
         shieldHits = 0;
         // Shield persists until used
         
+        // Update boss stun timer
+        if (bossStunned && bossStunTimer > 0) {
+            bossStunTimer -= deltaTime;
+            // Create shaking effect for stunned boss
+            bossStunShakeOffset = (Math.random() - 0.5) * 8;
+            
+            if (bossStunTimer <= 0) {
+                bossStunned = false;
+                bossStunShakeOffset = 0;
+            }
+        }
+        
+        // Update money circle
+        if (moneyCircleActive) {
+            moneyCircleTimer -= deltaTime;
+            
+            // Check if player is in the circle
+            if (player != null) {
+                double dx = player.getX() - moneyCircleX;
+                double dy = player.getY() - moneyCircleY;
+                double distFromCircle = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distFromCircle <= MONEY_CIRCLE_RADIUS) {
+                    // Player is in the circle - give money every 12 frames (5 times per second)
+                    if ((int)moneyCircleTimer % 12 == 0) {
+                        gameData.addRunMoney(MONEY_CIRCLE_BONUS);
+                        gameData.addTotalMoney(MONEY_CIRCLE_BONUS);
+                        
+                        // Show small money popup
+                        damageNumbers.add(new DamageNumber("+" + MONEY_CIRCLE_BONUS,
+                            player.getX(), player.getY() - 30,
+                            LUCKY_CHARM_GOLD, 20));
+                        
+                        // Spawn coin particle
+                        if (enableParticles && Math.random() < 0.5) {
+                            addParticle(
+                                moneyCircleX + (Math.random() - 0.5) * MONEY_CIRCLE_RADIUS,
+                                moneyCircleY + (Math.random() - 0.5) * MONEY_CIRCLE_RADIUS,
+                                0, -2,
+                                LUCKY_CHARM_GOLD, 20, 4,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                }
+            }
+            
+            if (moneyCircleTimer <= 0) {
+                moneyCircleActive = false;
+            }
+        }
+        
         // Update resurrection animation
         if (resurrectionAnimation) {
             resurrectionTimer--;
@@ -3704,25 +3774,7 @@ public class Game extends JPanel implements Runnable {
         if (player != null) {
             gameData.incrementSurvivalTime();
             
-            // Apply score multiplier from active item
-            ActiveItem item = gameData.getEquippedItem();
             int scoreGain = (int)deltaTime;
-            if (item != null && item.getType() == ActiveItem.ItemType.LUCKY_CHARM) {
-                scoreGain = (int)(scoreGain * 1.5); // 50% bonus
-                
-                // Show visual feedback - occasional sparkles around player
-                if (enableParticles && Math.random() < 0.05 * deltaTime) {
-                    double angle = Math.random() * TWO_PI;
-                    double radius = 30 + Math.random() * 20;
-                    addParticle(
-                        player.getX() + Math.cos(angle) * radius,
-                        player.getY() + Math.sin(angle) * radius,
-                        0, -1.0,
-                        new Color(255, 215, 0, 200), 25, 3,
-                        Particle.ParticleType.SPARK
-                    );
-                }
-            }
             gameData.addScore(scoreGain);
         }
         
@@ -3731,25 +3783,23 @@ public class Game extends JPanel implements Runnable {
         if (equippedItem != null) {
             equippedItem.update();
             
-            // Detect when item becomes ready (exclude Lucky Charm)
-            if (equippedItem.getType() != ActiveItem.ItemType.LUCKY_CHARM) {
-                boolean isReadyNow = equippedItem.canActivate();
-                if (isReadyNow && !wasItemReady) {
-                    // Item just became ready - trigger flicker effect
-                    itemReadyFlickerTimer = 20; // Flicker for 20 frames
-                    soundManager.playSound(SoundManager.Sound.POWERUP_ACTIVATE);
-                }
-                wasItemReady = isReadyNow;
-                
-                // Detect when item effect completes (was active, now not) - exclude Lucky Charm and instant items
-                boolean isActiveNow = equippedItem.isActive();
-                if (wasItemActive && !isActiveNow && equippedItem.getActiveDuration() > 0) {
-                    // Item effect just finished - trigger flash effect
-                    itemCompleteFlashTimer = 15;
-                    soundManager.playSound(SoundManager.Sound.ITEM_END);
-                }
-                wasItemActive = isActiveNow;
+            // Detect when item becomes ready
+            boolean isReadyNow = equippedItem.canActivate();
+            if (isReadyNow && !wasItemReady) {
+                // Item just became ready - trigger flicker effect
+                itemReadyFlickerTimer = 20; // Flicker for 20 frames
+                soundManager.playSound(SoundManager.Sound.POWERUP_ACTIVATE);
             }
+            wasItemReady = isReadyNow;
+            
+            // Detect when item effect completes (was active, now not) - exclude instant items
+            boolean isActiveNow = equippedItem.isActive();
+            if (wasItemActive && !isActiveNow && equippedItem.getActiveDuration() > 0) {
+                // Item effect just finished - trigger flash effect
+                itemCompleteFlashTimer = 15;
+                soundManager.playSound(SoundManager.Sound.ITEM_END);
+            }
+            wasItemActive = isActiveNow;
             
             // Handle active item effects
             if (equippedItem.isActive()) {
@@ -4129,7 +4179,8 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Check if player hit boss (only vulnerable during special window)
-        if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation) {
+        // In showcase mode, boss cannot be damaged
+        if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation && !debugShowcaseMode) {
             if (bossVulnerable) {
                 // Trigger wobble effect immediately on hit
                 currentBoss.triggerWobble();
@@ -4318,11 +4369,6 @@ public class Game extends JPanel implements Runnable {
                     gameData.addScore(winBonus);
                     
                     int moneyReward = currentBoss.getMoneyReward();
-                    
-                    // Apply LUCKY_CHARM multiplier if equipped
-                    if (equippedItem != null && equippedItem.getType() == ActiveItem.ItemType.LUCKY_CHARM) {
-                        moneyReward = (int)(moneyReward * 1.5); // 50% bonus
-                    }
                     
                     // Apply money gain passive multiplier
                     moneyReward = (int)(moneyReward * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
@@ -4584,8 +4630,8 @@ public class Game extends JPanel implements Runnable {
             bossVulnerable = true; // Boss is always vulnerable when not in immunity period
         }
         
-        // Update boss with delta time (but not during death animation, intro, or respawn delay)
-        if (currentBoss != null && !bossDeathAnimation && !introPanActive && player != null) {
+        // Update boss with delta time (but not during death animation, intro, respawn delay, or stun)
+        if (currentBoss != null && !bossDeathAnimation && !introPanActive && player != null && !bossStunned) {
             int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
@@ -4709,6 +4755,12 @@ public class Game extends JPanel implements Runnable {
         
         // Check beam attack collisions (only if player exists)
         for (BeamAttack beam : beamAttacks) {
+            // Apply time slow effect from active item
+            if (equippedItem != null && equippedItem.isActive() && 
+                equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
+                beam.applyTimeSlow(0.3); // 30% speed (70% slow)
+            }
+            
             // Update beam lifecycle
             beam.update(dt);
             
@@ -5314,6 +5366,16 @@ public class Game extends JPanel implements Runnable {
                 g2d.translate(screenShakeX, screenShakeY);
                 renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor);
                 
+                // Draw money circle overlay (before restoring transform so it follows camera)
+                if (moneyCircleActive) {
+                    drawMoneyCircle(g2d, cameraX, cameraY, gradientTime);
+                }
+                
+                // Draw boss stun effect
+                if (bossStunned && currentBoss != null) {
+                    drawBossStunEffect(g2d, cameraX, cameraY, gradientTime);
+                }
+                
                 // Restore original transform (removes both shake and zoom)
                 g2d.setTransform(originalTransform);
                 break;
@@ -5635,28 +5697,36 @@ public class Game extends JPanel implements Runnable {
         java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
         if (window instanceof javax.swing.JFrame) {
             javax.swing.JFrame frame = (javax.swing.JFrame) window;
-            java.awt.GraphicsDevice device = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+            
+            // Get the graphics device for the screen where the window is currently located
+            java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
+            java.awt.GraphicsDevice device = gc.getDevice();
+            java.awt.Rectangle screenBounds = gc.getBounds();
             
             if (isFullscreen) {
-                // Switch to fullscreen - maximized and undecorated
+                // Switch to fullscreen on the current monitor
                 frame.dispose();
                 frame.setUndecorated(true);
-                frame.setExtendedState(javax.swing.JFrame.MAXIMIZED_BOTH);
                 frame.setVisible(true);
+                
+                // Set bounds to match the current screen exactly
+                frame.setBounds(screenBounds);
                 device.setFullScreenWindow(frame);
             } else {
-                // Switch to windowed - get screen size and make 80% of screen
+                // Switch to windowed - use current screen size and make 80% of it
                 device.setFullScreenWindow(null);
                 frame.dispose();
                 frame.setExtendedState(javax.swing.JFrame.NORMAL);
                 frame.setUndecorated(false);
                 
-                java.awt.Dimension screenSize = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
-                int windowWidth = (int)(screenSize.width * 0.8);
-                int windowHeight = (int)(screenSize.height * 0.8);
+                int windowWidth = (int)(screenBounds.width * 0.8);
+                int windowHeight = (int)(screenBounds.height * 0.8);
                 
-                frame.setSize(windowWidth, windowHeight);
-                frame.setLocationRelativeTo(null);
+                // Center on the current monitor
+                int windowX = screenBounds.x + (screenBounds.width - windowWidth) / 2;
+                int windowY = screenBounds.y + (screenBounds.height - windowHeight) / 2;
+                
+                frame.setBounds(windowX, windowY, windowWidth, windowHeight);
                 frame.setVisible(true);
             }
             
@@ -5808,6 +5878,32 @@ public class Game extends JPanel implements Runnable {
     // Handle active item effects during gameplay
     private void handleActiveItemEffects(ActiveItem item, double deltaTime) {
         switch (item.getType()) {
+            case LUCKY_CHARM:
+                // Spawn a money circle at player position
+                if (player != null && !moneyCircleActive) {
+                    moneyCircleActive = true;
+                    moneyCircleX = player.getX();
+                    moneyCircleY = player.getY();
+                    moneyCircleTimer = MONEY_CIRCLE_DURATION;
+                    soundManager.playSound(SoundManager.Sound.COIN_PICKUP);
+                    
+                    // Create spawn particles
+                    if (enableParticles) {
+                        for (int i = 0; i < 20; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double dist = MONEY_CIRCLE_RADIUS * Math.random();
+                            addParticle(
+                                moneyCircleX + Math.cos(angle) * dist,
+                                moneyCircleY + Math.sin(angle) * dist,
+                                0, -1,
+                                LUCKY_CHARM_GOLD, 30, 5,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                }
+                break;
+                
             case DASH:
                 // Apply speed boost and invincibility during dash
                 playerInvincible = true;
@@ -5818,7 +5914,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
                 
-            case SHOCKWAVE:
+            case IMPULSE:
                 // Push all bullets away from player (instant effect)
                 soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
                 if (player != null) {
@@ -5827,15 +5923,15 @@ public class Game extends JPanel implements Runnable {
                         double dy = bullet.getY() - player.getY();
                         double distance = Math.sqrt(dx * dx + dy * dy);
                         
-                        if (distance < 400 && distance > 0) { // Larger shockwave radius (was 300)
+                        if (distance < 400 && distance > 0) { // Larger impulse radius
                             // Push bullet away with much stronger force
                             double angle = Math.atan2(dy, dx);
-                            double pushForce = 35 * (1.0 - distance / 400); // Much stronger (was 15)
+                            double pushForce = 35 * (1.0 - distance / 400);
                             bullet.applyForce(Math.cos(angle) * pushForce, Math.sin(angle) * pushForce);
                         }
                     }
                     
-                    // Create shockwave particles
+                    // Create impulse particles
                     if (enableParticles) {
                         for (int i = 0; i < 30; i++) {
                             double angle = Math.random() * TWO_PI;
@@ -5968,8 +6064,8 @@ public class Game extends JPanel implements Runnable {
                 // This effect is checked in the bullet collision section
                 break;
                 
-            case LASER_BEAM:
-                // Fire a damaging laser beam from missile tip in facing direction
+            case FROST_BEAM:
+                // Fire an icy beam that freezes bullets temporarily
                 if (player != null) {
                     double angle = player.getAngle();
                     double laserWidth = 40;
@@ -5989,7 +6085,7 @@ public class Game extends JPanel implements Runnable {
                         double bulletX = bullet.getX();
                         double bulletY = bullet.getY();
                         
-                        // Check if bullet is within laser beam (line segment collision)
+                        // Check if bullet is within frost beam (line segment collision)
                         // Calculate distance from bullet to laser line
                         double dx = laserEndX - tipX;
                         double dy = laserEndY - tipY;
@@ -6000,19 +6096,20 @@ public class Game extends JPanel implements Runnable {
                         double distanceToLine = Math.sqrt(Math.pow(bulletX - closestX, 2) + Math.pow(bulletY - closestY, 2));
                         
                         if (distanceToLine < laserWidth / 2) {
-                            bullets.remove(i);
-                            returnBulletToPool(bullet);
-                            gameData.addScore(10);
+                            // Freeze the bullet for 3 seconds instead of destroying
+                            bullet.setFrameSpeedMultiplier(0.0); // Completely frozen
+                            bullet.setFreezeTimer(180); // 3 seconds at 60fps
+                            gameData.addScore(5);
                             
-                            // Create destruction particles
+                            // Create ice/frost particles
                             if (enableParticles) {
-                                for (int j = 0; j < 5; j++) {
+                                for (int j = 0; j < 3; j++) {
                                     double particleAngle = Math.random() * TWO_PI;
-                                    double speed = 1 + Math.random() * 3;
+                                    double speed = 0.5 + Math.random() * 2;
                                     addParticle(
                                         bulletX, bulletY,
                                         Math.cos(particleAngle) * speed, Math.sin(particleAngle) * speed,
-                                        new Color(235, 203, 139), 15, 4,
+                                        new Color(136, 192, 208), 20, 3, // Ice blue color
                                         Particle.ParticleType.SPARK
                                     );
                                 }
@@ -6022,15 +6119,121 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
                 
-            case INVINCIBILITY:
-                // Player is invincible
-                soundManager.playSound(SoundManager.Sound.INVINCIBILITY_ACTIVATE);
-                playerInvincible = true;
+            case STUN:
+                // Stun the boss - can't move, can't shoot, shakes
+                soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
+                if (currentBoss != null) {
+                    bossStunned = true;
+                    bossStunTimer = 180; // 3 seconds
+                    screenShakeIntensity = 10;
+                    
+                    // Create stun particles around boss
+                    if (enableParticles) {
+                        for (int i = 0; i < 20; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double dist = 30 + Math.random() * 50;
+                            addParticle(
+                                currentBoss.getX() + Math.cos(angle) * dist, 
+                                currentBoss.getY() + Math.sin(angle) * dist,
+                                0, -1,
+                                new Color(235, 203, 139), 40, 6,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                }
                 break;
                 
             default:
                 break;
         }
+    }
+    
+    private void drawMoneyCircle(Graphics2D g, double cameraX, double cameraY, double time) {
+        // Draw the money circle at its position (adjusted for camera)
+        double drawX = moneyCircleX - cameraX;
+        double drawY = moneyCircleY - cameraY;
+        
+        // Calculate fade based on remaining time
+        float alpha = Math.min(1.0f, moneyCircleTimer / 60.0f); // Fade out in last second
+        
+        // Pulsing effect
+        double pulse = 1.0 + Math.sin(time * 5) * 0.1;
+        double radius = MONEY_CIRCLE_RADIUS * pulse;
+        
+        // Draw outer glow
+        Graphics2D g2d = (Graphics2D) g.create();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.3f));
+        g2d.setColor(LUCKY_CHARM_GOLD);
+        g2d.fillOval((int)(drawX - radius * 1.3), (int)(drawY - radius * 1.3), 
+                     (int)(radius * 2.6), (int)(radius * 2.6));
+        
+        // Draw main circle
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
+        g2d.fillOval((int)(drawX - radius), (int)(drawY - radius), 
+                     (int)(radius * 2), (int)(radius * 2));
+        
+        // Draw inner bright core
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.7f));
+        g2d.setColor(new Color(255, 240, 150));
+        g2d.fillOval((int)(drawX - radius * 0.5), (int)(drawY - radius * 0.5), 
+                     (int)(radius), (int)(radius));
+        
+        // Draw border ring
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.8f));
+        g2d.setColor(LUCKY_CHARM_GOLD);
+        g2d.setStroke(new BasicStroke(3));
+        g2d.drawOval((int)(drawX - radius), (int)(drawY - radius), 
+                     (int)(radius * 2), (int)(radius * 2));
+        
+        // Draw coin symbol in center
+        g2d.setFont(new Font("Arial", Font.BOLD, 24));
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g2d.setColor(new Color(180, 140, 0));
+        FontMetrics fm = g2d.getFontMetrics();
+        String symbol = "$";
+        g2d.drawString(symbol, (int)(drawX - fm.stringWidth(symbol) / 2), (int)(drawY + fm.getAscent() / 3));
+        
+        g2d.dispose();
+    }
+    
+    private void drawBossStunEffect(Graphics2D g, double cameraX, double cameraY, double time) {
+        if (currentBoss == null) return;
+        
+        // Draw yellow/electric stun effect around boss
+        double bossX = currentBoss.getX() - cameraX + bossStunShakeOffset;
+        double bossY = currentBoss.getY() - cameraY;
+        double bossSize = currentBoss.getSize();
+        
+        Graphics2D g2d = (Graphics2D) g.create();
+        
+        // Draw stun ring effect
+        float alpha = 0.4f + (float)(Math.sin(time * 15) * 0.2f);
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g2d.setColor(new Color(235, 203, 139)); // Yellow stun color
+        g2d.setStroke(new BasicStroke(4));
+        g2d.drawOval((int)(bossX - bossSize * 0.7), (int)(bossY - bossSize * 0.7),
+                     (int)(bossSize * 1.4), (int)(bossSize * 1.4));
+        
+        // Draw electric sparks
+        g2d.setColor(new Color(255, 255, 200));
+        for (int i = 0; i < 6; i++) {
+            double angle = (time * 8 + i * Math.PI / 3) % (Math.PI * 2);
+            double dist = bossSize * 0.6;
+            double sparkX = bossX + Math.cos(angle) * dist;
+            double sparkY = bossY + Math.sin(angle) * dist;
+            g2d.fillOval((int)(sparkX - 4), (int)(sparkY - 4), 8, 8);
+        }
+        
+        // Draw "STUNNED" text
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+        g2d.setFont(new Font("Arial", Font.BOLD, 20));
+        g2d.setColor(new Color(235, 203, 139));
+        FontMetrics fm = g2d.getFontMetrics();
+        String text = "STUNNED!";
+        g2d.drawString(text, (int)(bossX - fm.stringWidth(text) / 2), (int)(bossY - bossSize * 0.8));
+        
+        g2d.dispose();
     }
     
     private void drawAutoSaveIndicator(Graphics2D g, int width, int height) {

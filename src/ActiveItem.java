@@ -7,18 +7,17 @@
  * - Only ONE item can be equipped at a time
  * - Items have cooldowns measured in frames (60 FPS)
  * - Some items are instant, others have duration
- * - Lucky Charm is passive (always active, no activation needed)
  * 
  * UNLOCK PROGRESSION:
- * - Level 3: Lucky Charm (+50% money/score)
+ * - Level 3: Lucky Charm (spawn money circle)
  * - Level 6: Shield (tank hits)
- * - Level 9: Chromatic Purge (delete random bullet type)
- * - Level 12: Shockwave (push bullets)
- * - Level 15: Dash (invincibility frames)
- * - Level 18: Bomb (clear screen)
- * - Level 21: Time Slow (slow bullets)
- * - Level 24: Laser Beam (damage boss)
- * - Level 27: Invincibility (god mode)
+ * - Level 9: Stun (freeze boss)
+ * - Level 12: Chromatic Purge (delete random bullet type)
+ * - Level 15: Time Slow (slow bullets/beams)
+ * - Level 18: Dash (invincibility frames)
+ * - Level 21: Impulse (push bullets)
+ * - Level 24: Frost Beam (freeze bullets)
+ * - Level 27: Bomb (clear screen)
  * 
  * BALANCING:
  * - To change cooldowns: modify cooldownFrames in constructor
@@ -35,19 +34,19 @@
 public class ActiveItem {
     /**
      * All available active item types.
-     * Ordered by power level (unlock progression).
+     * Ordered by power level (unlock progression, weakest to strongest).
      */
     public enum ItemType {
         // Ordered by power level (weakest to strongest)
-        LUCKY_CHARM,    // +50% money and score earned (passive) - Level 3
+        LUCKY_CHARM,    // Spawn money circle for bonus money - Level 3
         SHIELD,         // Tank one hit - Level 6
-        TYPE_PURGE,     // Delete all bullets of a random type - Level 9
-        SHOCKWAVE,      // Push bullets away in radius - Level 12
-        DASH,           // Dash with I-frames - Level 15
-        BOMB,           // Clear all bullets on screen - Level 18
-        TIME_SLOW,      // Slow bullets temporarily - Level 21
-        LASER_BEAM,     // Fire powerful beam - Level 24
-        INVINCIBILITY   // Brief invulnerability - Level 27
+        STUN,           // Stun the boss temporarily - Level 9
+        TYPE_PURGE,     // Delete all bullets of a random type - Level 12
+        TIME_SLOW,      // Slow bullets + beams temporarily - Level 15
+        DASH,           // Dash with I-frames - Level 18
+        IMPULSE,        // Push bullets away in radius - Level 21
+        FROST_BEAM,     // Freeze bullets in a beam - Level 24
+        BOMB            // Clear all bullets on screen - Level 27
     }
     
     private ItemType type;
@@ -69,9 +68,10 @@ public class ActiveItem {
         switch (type) {
             case LUCKY_CHARM:
                 name = "Lucky Charm";
-                description = "+50% Money & Score (Passive)";
-                cooldownFrames = 0; // Passive, no cooldown
-                activeDuration = 0;
+                description = "Spawn money circle (35s cooldown)";
+                cooldownFrames = 2100; // 35 seconds
+                activeDuration = 300; // 5 seconds duration
+                currentCooldown = 0; // Starts ready to use
                 break;
             case SHIELD:
                 name = "Shield";
@@ -85,10 +85,10 @@ public class ActiveItem {
                 cooldownFrames = 300; // 5 seconds
                 activeDuration = 0; // Instant
                 break;
-            case SHOCKWAVE:
-                name = "Shockwave";
+            case IMPULSE:
+                name = "Impulse";
                 description = "Push bullets away (5s cooldown)";
-                cooldownFrames = 300; // 5 seconds (was 10)
+                cooldownFrames = 300; // 5 seconds
                 activeDuration = 0; // Instant
                 break;
             case DASH:
@@ -109,17 +109,17 @@ public class ActiveItem {
                 cooldownFrames = 450; // 7.5 seconds (was 15)
                 activeDuration = 120; // 2 seconds (reduced from 4)
                 break;
-            case LASER_BEAM:
-                name = "Laser Beam";
-                description = "Fire powerful beam (5s cooldown)";
-                cooldownFrames = 300; // 5 seconds (was 10)
+            case FROST_BEAM:
+                name = "Frost Beam";
+                description = "Freeze bullets (5s cooldown)";
+                cooldownFrames = 300; // 5 seconds
                 activeDuration = 120; // 2 seconds
                 break;
-            case INVINCIBILITY:
-                name = "Invincibility";
-                description = "Brief invulnerability (10s cooldown)";
-                cooldownFrames = 600; // 10 seconds (was 20)
-                activeDuration = 180; // 3 seconds
+            case STUN:
+                name = "Stun";
+                description = "Stun the boss (10s cooldown)";
+                cooldownFrames = 600; // 10 seconds
+                activeDuration = 180; // 3 seconds stun duration
                 break;
         }
     }

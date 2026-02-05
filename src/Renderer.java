@@ -918,32 +918,32 @@ public class Renderer {
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         String[] items = {
-            "LUCKY CHARM (Lv 3) - Passive",
-            "  +50% money & score always active",
+            "LUCKY CHARM (Lv 3) - 35s cooldown",
+            "  Spawn money circle for bonus cash",
             "",
             "SHIELD (Lv 6) - 7.5s cooldown",
             "  Tank 3 hits, active for 1 second",
             "",
-            "CHROMATIC PURGE (Lv 9) - 5s cooldown",
+            "STUN (Lv 9) - 10s cooldown",
+            "  Freeze the boss for 3 seconds",
+            "",
+            "CHROMATIC PURGE (Lv 12) - 5s cooldown",
             "  Erase all bullets of a random type",
             "",
-            "SHOCKWAVE (Lv 12) - 5s cooldown",
-            "  Push all bullets away instantly",
+            "TIME SLOW (Lv 15) - 7.5s cooldown",
+            "  Slow bullets & beams for 2 seconds",
             "",
-            "DASH (Lv 15) - 2s cooldown",
+            "DASH (Lv 18) - 2s cooldown",
             "  Quick dash with invincibility frames",
             "",
-            "BOMB (Lv 18) - 12s cooldown",
-            "  Clear ALL bullets on screen",
+            "IMPULSE (Lv 21) - 5s cooldown",
+            "  Push all bullets away instantly",
             "",
-            "TIME SLOW (Lv 21) - 15s cooldown",
-            "  Slow bullets for 3 seconds",
+            "FROST BEAM (Lv 24) - 5s cooldown",
+            "  Freeze bullets in an icy beam",
             "",
-            "LASER BEAM (Lv 24) - 8s cooldown",
-            "  Fire beam to damage boss instantly",
-            "",
-            "INVINCIBILITY (Lv 27) - 20s cooldown",
-            "  Brief god mode, ignore all bullets"
+            "BOMB (Lv 27) - 6s cooldown",
+            "  Clear ALL bullets on screen"
         };
         
         for (String line : items) {
@@ -2292,10 +2292,10 @@ public class Renderer {
             }
         }
         
-        // Draw laser beam from active item
+        // Draw frost beam from active item
         ActiveItem equippedItem = gameData.getEquippedItem();
         if (player != null && equippedItem != null && equippedItem.isActive() && 
-            equippedItem.getType() == ActiveItem.ItemType.LASER_BEAM) {
+            equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
             
             double angle = player.getAngle();
             double laserWidth = 40;
@@ -2310,7 +2310,7 @@ public class Renderer {
             double laserEndX = tipX + Math.cos(angle) * laserLength;
             double laserEndY = tipY + Math.sin(angle) * laserLength;
             
-            // Draw laser beam as a rotated rectangle
+            // Draw frost beam as a rotated rectangle - ICE BLUE COLORS
             Graphics2D g2d = (Graphics2D) g.create();
             g2d.translate(tipX, tipY);
             g2d.rotate(angle);
@@ -2319,28 +2319,28 @@ public class Renderer {
             double coneLength = 60; // Length of the cone
             double coneBaseWidth = laserWidth * 2; // Cone starts wider
             
-            // Cone outer glow
+            // Cone outer glow - ICE BLUE
             int[] coneXGlow = {0, (int)coneLength, (int)coneLength};
             int[] coneYGlow = {0, (int)(-laserWidth), (int)(laserWidth)};
-            g2d.setColor(new Color(235, 203, 139, 80));
+            g2d.setColor(new Color(100, 180, 230, 80)); // Ice blue glow
             g2d.fillPolygon(coneXGlow, coneYGlow, 3);
             
-            // Cone inner fill
+            // Cone inner fill - ICE BLUE
             int[] coneX = {0, (int)coneLength, (int)coneLength};
             int[] coneY = {0, (int)(-laserWidth * 0.7), (int)(laserWidth * 0.7)};
-            g2d.setColor(new Color(235, 203, 139, 180));
+            g2d.setColor(new Color(136, 192, 208, 180)); // Ice blue
             g2d.fillPolygon(coneX, coneY, 3);
             
-            // Outer glow (starts at end of cone)
-            g2d.setColor(new Color(235, 203, 139, 50));
+            // Outer glow (starts at end of cone) - ICE BLUE
+            g2d.setColor(new Color(100, 180, 230, 50)); // Ice blue glow
             g2d.fillRect((int)coneLength, (int)(-laserWidth), (int)(laserLength - coneLength), (int)(laserWidth * 2));
             
-            // Inner beam (starts at end of cone)
-            g2d.setColor(new Color(235, 203, 139, 150));
+            // Inner beam (starts at end of cone) - ICE BLUE
+            g2d.setColor(new Color(136, 192, 208, 150)); // Ice blue
             g2d.fillRect((int)coneLength, (int)(-laserWidth / 2), (int)(laserLength - coneLength), (int)laserWidth);
             
-            // Core (starts at end of cone)
-            g2d.setColor(new Color(255, 255, 200, 200));
+            // Core (starts at end of cone) - ICY WHITE
+            g2d.setColor(new Color(200, 235, 255, 200)); // Icy white/light blue
             g2d.fillRect((int)coneLength, (int)(-laserWidth / 4), (int)(laserLength - coneLength), (int)(laserWidth / 2));
             
             g2d.dispose();

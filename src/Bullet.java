@@ -56,6 +56,9 @@ public class Bullet {
     // Temporary speed multiplier (resets each frame, used for Time Slow effect)
     private double frameSpeedMultiplier = 1.0;
     
+    // Frost Beam freeze timer (counts down, when > 0 bullet is frozen)
+    private int freezeTimer = 0;
+    
     public enum BulletType {
         NORMAL,      // Standard bullet
         FAST,        // Faster, smaller bullet
@@ -175,6 +178,8 @@ public class Bullet {
         this.bounceCount = 0;
         this.fadeOutTimer = -1;
         this.markedForFadeOut = false;
+        this.freezeTimer = 0;
+        this.frameSpeedMultiplier = 1.0;
     }
     
     public void update() {
@@ -288,6 +293,15 @@ public class Bullet {
                 break;
         }
         
+        // Handle freeze timer from Frost Beam
+        if (freezeTimer > 0) {
+            freezeTimer--;
+            if (freezeTimer <= 0) {
+                // Unfreeze - restore normal speed
+                frameSpeedMultiplier = 1.0;
+            }
+        }
+        
         // Move bullet (scaled by delta time and frame speed multiplier for time slow effects)
         x += vx * deltaTime * frameSpeedMultiplier;
         y += vy * deltaTime * frameSpeedMultiplier;
@@ -310,6 +324,21 @@ public class Bullet {
     public void applySlow(double factor) {
         // Apply temporary slow multiplier (doesn't permanently change velocity)
         frameSpeedMultiplier *= factor;
+    }
+    
+    // Set the frame speed multiplier directly (used for Frost Beam freeze)
+    public void setFrameSpeedMultiplier(double multiplier) {
+        frameSpeedMultiplier = multiplier;
+    }
+    
+    // Set the freeze timer (Frost Beam effect)
+    public void setFreezeTimer(int frames) {
+        freezeTimer = frames;
+    }
+    
+    // Check if bullet is frozen by Frost Beam
+    public boolean isFrozen() {
+        return freezeTimer > 0;
     }
     
     // Reset the frame speed multiplier (call at start of each update cycle)
@@ -577,6 +606,20 @@ public class Bullet {
             g2d.drawImage(bulletSprites[spriteIndex], 
                 -drawWidth/2, -drawHeight/2, 
                 drawWidth, drawHeight, null);
+            
+            // Draw frost overlay if bullet is frozen
+            if (freezeTimer > 0) {
+                // Ice blue tint overlay
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+                g2d.setColor(new Color(136, 192, 208)); // Ice blue
+                g2d.fillOval(-drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
+                
+                // Sparkle effect for frost
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f));
+                g2d.setColor(new Color(200, 235, 255)); // Icy white
+                int sparkleSize = Math.max(4, drawWidth / 4);
+                g2d.fillOval(-sparkleSize/2, -sparkleSize/2, sparkleSize, sparkleSize);
+            }
             
             g2d.dispose();
         } else {
