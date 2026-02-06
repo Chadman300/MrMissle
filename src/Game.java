@@ -407,13 +407,13 @@ public class Game extends JPanel implements Runnable {
     private static final String[][] ITEM_SHOWCASE = {
         {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
         {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
+        {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
         {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 3 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
         {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 70%\n7.5 second cooldown, lasts 2 seconds"},
         {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
         {"IMPULSE", "21", "Impulse", "Push all bullets away from you\n5 second cooldown, instant effect"},
-        {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"},
-        {"BOMB", "27", "Bomb", "Clear ALL bullets on screen\n6 second cooldown, instant effect"}
+        {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"}
     };
     
     // Attack showcase UI
@@ -473,15 +473,21 @@ public class Game extends JPanel implements Runnable {
     
     // FROST_BEAM angle - smoothly follows player facing
     private double frostBeamAngle = 0;
-    private static final double FROST_BEAM_TURN_SPEED = 0.08; // How fast the beam rotates to follow player
+    private static final double FROST_BEAM_TURN_SPEED = 0.025; // How fast the beam rotates to follow player (slower for weighty feel)
     // Frost beam animation state - two phase: thin extend, then thicken
     private double frostBeamProgress = 0; // 0 = off, 0-0.3 = extending thin, 0.3-0.6 = thickening, 0.6+ = full
     private boolean frostBeamExtending = false;
     private boolean frostBeamRetracting = false;
     private static final double FROST_BEAM_EXTEND_SPEED = 0.05; // Speed of animation
-    private static final double FROST_BEAM_RETRACT_SPEED = 0.15; // Speed of retraction (faster)
+    private static final double FROST_BEAM_RETRACT_SPEED = 0.08; // Speed of retraction
     private boolean frostBeamShakeTriggered = false; // Track if we've done the mid-animation shake
     private double frostBeamStopDistance = -1; // Distance to first bullet hit (-1 = no hit, beam goes full length)
+    private double frostBeamRetractPhase = 0; // 0-1 retraction phase (0 = start, 1 = done)
+    
+    // BOMB scattered explosion effect
+    private java.util.List<double[]> bombExplosionQueue = new java.util.ArrayList<>(); // Each: {x, y, delay}
+    private int bombExplosionTimer = 0;
+    private static final double BOMB_EXPLOSION_RADIUS = 90; // Radius of each bomb explosion
     
     // LUCKY_CHARM money circle effect - supports multiple circles
     private java.util.List<double[]> moneyCircles = new java.util.ArrayList<>(); // Each: {x, y, timer}
@@ -1350,6 +1356,14 @@ public class Game extends JPanel implements Runnable {
                                     frostBeamShakeTriggered = false; // Reset shake trigger
                                     screenShakeIntensity = 4; // Small initial shake
                                     soundManager.playSound(SoundManager.Sound.SCREEN_SHAKE, 0.3f);
+                                    // Point beam at boss initially
+                                    if (currentBoss != null && player != null) {
+                                        double dx = currentBoss.getX() - player.getX();
+                                        double dy = currentBoss.getY() - player.getY();
+                                        frostBeamAngle = Math.atan2(dy, dx);
+                                    } else if (player != null) {
+                                        frostBeamAngle = player.getAngle();
+                                    }
                                 }
                             }
                         }
@@ -3789,11 +3803,104 @@ public class Game extends JPanel implements Runnable {
                 frostBeamExtending = false;
             }
         } else if (frostBeamRetracting) {
-            frostBeamProgress -= FROST_BEAM_RETRACT_SPEED * deltaTime;
-            if (frostBeamProgress <= 0) {
+            frostBeamRetractPhase += FROST_BEAM_RETRACT_SPEED * deltaTime;
+            // Phase 1: Beam thins out rapidly (0-0.4)
+            // Phase 2: Beam shortens from tip (0.4-0.8)
+            // Phase 3: Circle fades (0.8-1.0)
+            if (frostBeamRetractPhase >= 1.0) {
+                frostBeamRetractPhase = 0;
                 frostBeamProgress = 0;
                 frostBeamRetracting = false;
                 frostBeamShakeTriggered = false; // Reset for next use
+            }
+        }
+        
+        // Update bomb explosion queue (staggered explosions)
+        if (!bombExplosionQueue.isEmpty()) {
+            bombExplosionTimer++;
+            
+            // Process bombs whose delay has passed
+            java.util.Iterator<double[]> bombIter = bombExplosionQueue.iterator();
+            while (bombIter.hasNext()) {
+                double[] bomb = bombIter.next();
+                double bombX = bomb[0];
+                double bombY = bomb[1];
+                double delay = bomb[2];
+                
+                if (bombExplosionTimer >= delay) {
+                    // EXPLODE THIS BOMB!
+                    bombIter.remove();
+                    
+                    // Play explosion sound (only every other bomb to reduce audio spam)
+                    if (bombExplosionTimer % 2 == 0) {
+                        float pitch = 0.8f + (float)(Math.random() * 0.4f);
+                        soundManager.playSound(SoundManager.Sound.EXPL_MEDIUM_1, pitch);
+                    }
+                    
+                    // Screen shake (lighter)
+                    screenShakeIntensity = Math.max(screenShakeIntensity, 8);
+                    
+                    // Destroy bullets within explosion radius (no per-bullet particles)
+                    int bulletsDestroyed = 0;
+                    for (int i = bullets.size() - 1; i >= 0; i--) {
+                        Bullet bullet = bullets.get(i);
+                        double dx = bullet.getX() - bombX;
+                        double dy = bullet.getY() - bombY;
+                        double dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < BOMB_EXPLOSION_RADIUS) {
+                            bullets.remove(i);
+                            returnBulletToPool(bullet);
+                            bulletsDestroyed++;
+                        }
+                    }
+                    
+                    // Award score
+                    gameData.addScore(bulletsDestroyed * 5);
+                    
+                    // EXPLOSION EFFECTS (balanced visuals)
+                    if (enableParticles) {
+                        // Shockwave ring
+                        addParticle(
+                            bombX, bombY, 0, 0,
+                            new Color(255, 180, 80, 250), 18, (int)(BOMB_EXPLOSION_RADIUS * 1.3),
+                            Particle.ParticleType.EXPLOSION
+                        );
+                        
+                        // Fire burst particles
+                        for (int i = 0; i < 8; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 4 + Math.random() * 5;
+                            Color fireColor = (Math.random() < 0.5) ? FIRE_ORANGE : FIRE_YELLOW;
+                            addParticle(
+                                bombX, bombY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                fireColor, 18, 5 + (int)(Math.random() * 3),
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                        
+                        // Fast debris sparks
+                        for (int i = 0; i < 6; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 10 + Math.random() * 6;
+                            addParticle(
+                                bombX, bombY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                new Color(255, 220, 150), 20, 2,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                }
+            }
+            
+            // Final big shake when all bombs done
+            if (bombExplosionQueue.isEmpty() && bombExplosionTimer > 0) {
+                soundManager.playSound(SoundManager.Sound.EXPL_LONG_1, 0.6f);
+                screenShakeIntensity = 20;
+                hitFreezeFrames = 6;
+                bombExplosionTimer = 0;
             }
         }
         
@@ -3940,6 +4047,7 @@ public class Game extends JPanel implements Runnable {
                 if (equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
                     frostBeamRetracting = true;
                     frostBeamExtending = false;
+                    frostBeamRetractPhase = 0; // Start retraction from beginning
                 }
             }
             wasItemActive = isActiveNow;
@@ -5544,7 +5652,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -6119,60 +6227,52 @@ public class Game extends JPanel implements Runnable {
                 shieldHits = 0; // Reset hit counter
                 break;
                 
-            case BOMB:
-                // Clear all bullets (instant effect)
+            case BOMBS:
+                // Spawn scattered bomb explosions across the screen
                 soundManager.playSound(SoundManager.Sound.BOMB_ACTIVATE);
-                soundManager.playSound(SoundManager.Sound.EXPL_LONG_1, 0.8f);
-                int clearedBullets = bullets.size();
                 
-                // Create destruction particles for each bullet before clearing
-                if (enableParticles) {
-                    for (Bullet bullet : bullets) {
-                        // Spawn particles at each bullet's position
-                        for (int j = 0; j < 3; j++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 1 + Math.random() * 2;
-                            addParticle(
-                                bullet.getX(), bullet.getY(),
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(255, 200, 100, 200), 15, 4,
-                                Particle.ParticleType.SPARK
-                            );
+                // Number of bombs to spawn (reduced for performance)
+                int numBombs = 8 + (int)(Math.random() * 5); // 8-12 bombs
+                double bombRadius = 100; // Slightly larger radius to compensate
+                double minBombDistance = 100; // Minimum distance between bomb centers
+                
+                // Store bomb positions
+                java.util.List<double[]> bombPositions = new java.util.ArrayList<>();
+                
+                // Generate bomb positions with minimum distance constraint
+                int maxAttempts = 50;
+                for (int i = 0; i < numBombs && maxAttempts > 0; i++) {
+                    // Random position within screen bounds (with padding)
+                    double bombX = 80 + Math.random() * (WIDTH - 160);
+                    double bombY = 80 + Math.random() * (HEIGHT - 160);
+                    
+                    // Check minimum distance from other bombs
+                    boolean validPosition = true;
+                    for (double[] existingBomb : bombPositions) {
+                        double dx = bombX - existingBomb[0];
+                        double dy = bombY - existingBomb[1];
+                        if (Math.sqrt(dx * dx + dy * dy) < minBombDistance) {
+                            validPosition = false;
+                            break;
                         }
                     }
-                }
-                
-                // Clear all bullets properly
-                bullets.clear();
-                
-                // Award score for cleared bullets
-                gameData.addScore(clearedBullets * 5);
-                
-                // Create massive explosion effect
-                if (enableParticles && player != null) {
-                    for (int i = 0; i < 50; i++) {
-                        double angle = Math.random() * TWO_PI;
-                        double speed = 3 + Math.random() * 8;
-                        Color fireColor = Math.random() < 0.5 ? FIRE_ORANGE : FIRE_YELLOW;
-                        addParticle(
-                            player.getX(), player.getY(),
-                            Math.cos(angle) * speed, Math.sin(angle) * speed,
-                            fireColor, 40, 8,
-                            Particle.ParticleType.SPARK
-                        );
-                    }
-                    // Add expanding shockwave rings
-                    for (int i = 0; i < 3; i++) {
-                        addParticle(
-                            player.getX(), player.getY(), 0, 0,
-                            new Color(255, 200, 100, 200 - i * 50), 30 + i * 10, 50 + i * 40,
-                            Particle.ParticleType.EXPLOSION
-                        );
+                    
+                    if (validPosition) {
+                        bombPositions.add(new double[]{bombX, bombY, i * 5 + Math.random() * 3}); // x, y, delay - more spread out timing
+                    } else {
+                        i--; // Try again
+                        maxAttempts--;
                     }
                 }
                 
-                hitFreezeFrames = 5; // Brief freeze on bomb
-                screenShakeIntensity = 15;
+                // Schedule bomb explosions with staggered timing
+                final java.util.List<double[]> finalBombPositions = bombPositions;
+                bombExplosionQueue.clear();
+                bombExplosionQueue.addAll(finalBombPositions);
+                bombExplosionTimer = 0;
+                
+                // Initial screen shake
+                screenShakeIntensity = 8;
                 break;
                 
             case TYPE_PURGE:

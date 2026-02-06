@@ -17,7 +17,7 @@
  * - Level 18: Dash (invincibility frames)
  * - Level 21: Impulse (push bullets)
  * - Level 24: Frost Beam (freeze bullets)
- * - Level 27: Bomb (clear screen)
+ * - Level 27: Bombs (explosive barrage)
  * 
  * BALANCING:
  * - To change cooldowns: modify cooldownFrames in constructor
@@ -40,13 +40,13 @@ public class ActiveItem {
         // Ordered by power level (weakest to strongest)
         LUCKY_CHARM,    // Spawn money circle for bonus money - Level 3
         SHIELD,         // Tank one hit - Level 6
+        BOMBS,          // Explosive barrage on screen - Level 7
         STUN,           // Stun the boss temporarily - Level 9
         TYPE_PURGE,     // Delete all bullets of a random type - Level 12
         TIME_SLOW,      // Slow bullets + beams temporarily - Level 15
         DASH,           // Dash with I-frames - Level 18
         IMPULSE,        // Push bullets away in radius - Level 21
-        FROST_BEAM,     // Freeze bullets in a beam - Level 24
-        BOMB            // Clear all bullets on screen - Level 27
+        FROST_BEAM      // Freeze bullets in a beam - Level 24
     }
     
     private ItemType type;
@@ -97,9 +97,9 @@ public class ActiveItem {
                 cooldownFrames = 120; // 2 seconds (was 3.5)
                 activeDuration = 15; // 0.25 seconds of dash (reduced)
                 break;
-            case BOMB:
-                name = "Bomb";
-                description = "Clear all bullets (6s cooldown)";
+            case BOMBS:
+                name = "Bombs";
+                description = "Bomb barrage (6s cooldown)";
                 cooldownFrames = 360; // 6 seconds (was 12)
                 activeDuration = 0; // Instant
                 break;

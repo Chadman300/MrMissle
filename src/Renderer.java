@@ -924,6 +924,9 @@ public class Renderer {
             "SHIELD (Lv 6) - 7.5s cooldown",
             "  Tank 3 hits, active for 1 second",
             "",
+            "BOMBS (Lv 7) - 6s cooldown",
+            "  Explosive barrage across screen",
+            "",
             "STUN (Lv 9) - 10s cooldown",
             "  Freeze the boss for 3 seconds",
             "",
@@ -940,10 +943,7 @@ public class Renderer {
             "  Push all bullets away instantly",
             "",
             "FROST BEAM (Lv 24) - 5s cooldown",
-            "  Freeze bullets in an icy beam",
-            "",
-            "BOMB (Lv 27) - 6s cooldown",
-            "  Clear ALL bullets on screen"
+            "  Freeze bullets in an icy beam"
         };
         
         for (String line : items) {
@@ -2262,7 +2262,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2335,12 +2335,47 @@ public class Renderer {
         
         // Draw frost beam from active item (two-phase animation: extend thin, then thicken)
         ActiveItem equippedItem = gameData.getEquippedItem();
-        boolean shouldDrawFrostBeam = player != null && frostBeamProgress > 0;
+        boolean shouldDrawFrostBeam = player != null && (frostBeamProgress > 0 || frostBeamRetracting);
         if (shouldDrawFrostBeam) {
             double angle = frostBeamAngle;
             double maxLaserLength = Math.sqrt(width * width + height * height); // Full screen diagonal
             
-            // TWO-PHASE ANIMATION:
+            // RETRACTION ANIMATION - override normal phases when retracting
+            double lengthMultiplier = 1.0;
+            double widthMultiplier = 1.0;
+            double alphaMultiplier = 1.0;
+            
+            if (frostBeamRetracting) {
+                // Phase 1 (0.0-0.3): Beam rapidly thins out
+                // Phase 2 (0.3-0.7): Beam shortens from the tip
+                // Phase 3 (0.7-1.0): Circle fades and shrinks
+                
+                if (frostBeamRetractPhase < 0.3) {
+                    // Thinning phase - width shrinks quickly
+                    double thinProgress = frostBeamRetractPhase / 0.3;
+                    widthMultiplier = 1.0 - (thinProgress * 0.7); // Goes to 30% width
+                    lengthMultiplier = 1.0;
+                    alphaMultiplier = 1.0;
+                } else if (frostBeamRetractPhase < 0.7) {
+                    // Shortening phase - beam retracts from tip
+                    double shortenProgress = (frostBeamRetractPhase - 0.3) / 0.4;
+                    // Ease in-out for smooth retraction
+                    double easedShorten = shortenProgress < 0.5 
+                        ? 2 * shortenProgress * shortenProgress 
+                        : 1 - Math.pow(-2 * shortenProgress + 2, 2) / 2;
+                    widthMultiplier = 0.3;
+                    lengthMultiplier = 1.0 - easedShorten; // Shrinks to 0
+                    alphaMultiplier = 1.0 - (shortenProgress * 0.3); // Slight fade
+                } else {
+                    // Circle fade phase
+                    double fadeProgress = (frostBeamRetractPhase - 0.7) / 0.3;
+                    widthMultiplier = 0.3 * (1.0 - fadeProgress);
+                    lengthMultiplier = 0;
+                    alphaMultiplier = 1.0 - fadeProgress;
+                }
+            }
+            
+            // TWO-PHASE ANIMATION (for extending):
             // Phase 1 (0.0 - 0.3): Beam extends to full length but stays thin
             // Phase 2 (0.3 - 0.6): Beam rapidly thickens with sharp transition
             // Phase 3 (0.6 - 1.0): Full beam, fully thick
@@ -2366,8 +2401,14 @@ public class Renderer {
                 widthProgress = 1.0;
             }
             
+            // Apply retraction multipliers
+            if (frostBeamRetracting) {
+                widthProgress *= widthMultiplier;
+                easedLengthProgress *= lengthMultiplier;
+            }
+            
             // Circle also expands with width
-            double circleProgress = Math.max(widthProgress, 0.3); // At least 30% visible
+            double circleProgress = Math.max(widthProgress, 0.3) * alphaMultiplier; // At least 30% visible
             
             double maxWidth = 55;
             double currentWidth = maxWidth * widthProgress;
@@ -2375,8 +2416,8 @@ public class Renderer {
             // Length is constant (full) once extended
             double laserLength = maxLaserLength * easedLengthProgress;
             
-            // If beam hits a bullet, stop at that distance
-            if (frostBeamStopDistance > 0 && frostBeamStopDistance < laserLength) {
+            // If beam hits a bullet, stop at that distance (only when not retracting)
+            if (!frostBeamRetracting && frostBeamStopDistance > 0 && frostBeamStopDistance < laserLength) {
                 laserLength = frostBeamStopDistance;
             }
             
@@ -2415,13 +2456,15 @@ public class Renderer {
                         (int)(circleRadius * 2 - innerOffset * 2), (int)(circleRadius * 2 - innerOffset * 2));
             
             // Draw the beam extending from circle edge - with smooth base and end cap
-            Graphics2D beamG = (Graphics2D) g.create();
-            beamG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            beamG.translate(beamStartX, beamStartY);
-            beamG.rotate(angle);
-            
-            // Alpha fades in smoothly
-            double beamAlpha = Math.min(1.0, frostBeamProgress / 0.15);
+            // Skip beam body if length is 0 (final retraction phase)
+            if (laserLength > 5) {
+                Graphics2D beamG = (Graphics2D) g.create();
+                beamG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                beamG.translate(beamStartX, beamStartY);
+                beamG.rotate(angle);
+                
+                // Alpha fades in smoothly, and applies retraction alpha
+                double beamAlpha = Math.min(1.0, frostBeamProgress / 0.15) * alphaMultiplier;
             
             // === BASE CONNECTION - Smooth gradient from circle ===
             // Draw a filled semicircle at the base to connect smoothly to the ring
@@ -2485,6 +2528,7 @@ public class Renderer {
             beamG.fillPolygon(spikeX3, spikeY3, 3);
             
             beamG.dispose();
+            } // End of laserLength > 5 check
             g2d.dispose();
         }
         
