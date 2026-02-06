@@ -13,10 +13,12 @@ public class ComboSystem {
     // Combo milestone announcements
     private String currentAnnouncement;
     private int announcementTimer;
+    private double announcementSpawnX; // Fixed spawn position X
+    private double announcementSpawnY; // Fixed spawn position Y
     private static final int ANNOUNCEMENT_DURATION = 90; // 1.5 seconds
     
-    // Combo milestones for announcements
-    private static final int[] COMBO_MILESTONES = {10, 25, 50, 100, 200, 500, 1000};
+    // Combo milestones for announcements (lowered thresholds for more frequent feedback)
+    private static final int[] COMBO_MILESTONES = {3, 6, 10, 20, 35, 50, 100};
     private static final String[] COMBO_MESSAGES = {
         "NICE!", "GREAT!", "AMAZING!", "INCREDIBLE!", "LEGENDARY!", "GODLIKE!", "IMPOSSIBLE!"
     };
@@ -35,6 +37,8 @@ public class ComboSystem {
         this.totalGrazeValue = 0;
         this.currentAnnouncement = null;
         this.announcementTimer = 0;
+        this.announcementSpawnX = 0;
+        this.announcementSpawnY = 0;
     }
     
     public void update(double deltaTime, double comboTimeoutMultiplier) {
@@ -71,6 +75,10 @@ public class ComboSystem {
     }
     
     public void addCombo(int value, boolean isCloseCall, boolean isPerfectDodge, SoundManager soundManager) {
+        addCombo(value, isCloseCall, isPerfectDodge, soundManager, 0, 0);
+    }
+    
+    public void addCombo(int value, boolean isCloseCall, boolean isPerfectDodge, SoundManager soundManager, double playerX, double playerY) {
         int previousCombo = combo;
         combo += value;
         totalGrazeValue += value;
@@ -92,6 +100,8 @@ public class ComboSystem {
             if (combo >= COMBO_MILESTONES[i] && previousCombo < COMBO_MILESTONES[i]) {
                 currentAnnouncement = COMBO_MESSAGES[i];
                 announcementTimer = ANNOUNCEMENT_DURATION;
+                announcementSpawnX = playerX; // Store spawn position
+                announcementSpawnY = playerY;
                 // Play sound with increasing pitch for higher milestones
                 if (soundManager != null) {
                     float pitch = 1.0f + (i * 0.15f); // Increase pitch for higher combos
@@ -144,6 +154,14 @@ public class ComboSystem {
         return announcementTimer;
     }
     
+    public double getAnnouncementSpawnX() {
+        return announcementSpawnX;
+    }
+    
+    public double getAnnouncementSpawnY() {
+        return announcementSpawnY;
+    }
+
     public int getCloseCallCount() {
         return closeCallCount;
     }

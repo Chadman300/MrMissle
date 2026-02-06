@@ -399,12 +399,13 @@ public class Game extends JPanel implements Runnable {
     private boolean debugShowcaseInGameplay = false; // True when showing gameplay, false when showing selection
     private static final int DEBUG_SHOWCASE_INTERVAL = 900; // 15 seconds at 60fps
     private int savedRealLevel = 1; // Save the actual game level before entering showcase
+    private ActiveItem savedEquippedItem = null; // Save the equipped item before entering showcase
     private int showcaseTab = 0; // 0 = Attacks, 1 = Items
     
     // Active Items showcase data: {itemTypeName, level, name, description}
     // Ordered by power level (worst to best)
     private static final String[][] ITEM_SHOWCASE = {
-        {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a money circle - stand in it for bonus money!\n35 second cooldown, lasts 5 seconds"},
+        {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
         {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
         {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 3 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
@@ -458,14 +459,35 @@ public class Game extends JPanel implements Runnable {
     private int bossStunTimer = 0;
     private double bossStunShakeOffset = 0;
     
-    // LUCKY_CHARM money circle effect
-    private boolean moneyCircleActive = false;
-    private double moneyCircleX = 0;
-    private double moneyCircleY = 0;
-    private int moneyCircleTimer = 0;
-    private static final int MONEY_CIRCLE_DURATION = 300; // 5 seconds
-    private static final double MONEY_CIRCLE_RADIUS = 80;
-    private static final int MONEY_CIRCLE_BONUS = 5; // Money per second while standing in circle
+    // Dynamic zoom effects for active items
+    private double effectZoom = 1.0; // Current zoom from item effects (1.0 = normal)
+    private double targetEffectZoom = 1.0; // Target zoom to interpolate towards
+    private static final double ZOOM_LERP_SPEED = 0.08; // How fast zoom transitions
+    private static final double TIME_SLOW_ZOOM = 1.15; // Zoom in during time slow (larger = more zoom)
+    private static final double DASH_ZOOM = 0.92; // Zoom OUT during dash (speed effect)
+    private static final double IMPULSE_ZOOM = 1.12; // Zoom in during impulse (push effect)
+    private boolean dashZoomActive = false; // Track dash zoom state
+    private int dashZoomTimer = 0; // Timer for dash zoom effect (short impulse)
+    private boolean impulseZoomActive = false; // Track impulse zoom state
+    private int impulseZoomTimer = 0; // Timer for impulse zoom effect
+    
+    // FROST_BEAM angle - smoothly follows player facing
+    private double frostBeamAngle = 0;
+    private static final double FROST_BEAM_TURN_SPEED = 0.08; // How fast the beam rotates to follow player
+    // Frost beam animation state - two phase: thin extend, then thicken
+    private double frostBeamProgress = 0; // 0 = off, 0-0.3 = extending thin, 0.3-0.6 = thickening, 0.6+ = full
+    private boolean frostBeamExtending = false;
+    private boolean frostBeamRetracting = false;
+    private static final double FROST_BEAM_EXTEND_SPEED = 0.05; // Speed of animation
+    private static final double FROST_BEAM_RETRACT_SPEED = 0.15; // Speed of retraction (faster)
+    private boolean frostBeamShakeTriggered = false; // Track if we've done the mid-animation shake
+    private double frostBeamStopDistance = -1; // Distance to first bullet hit (-1 = no hit, beam goes full length)
+    
+    // LUCKY_CHARM money circle effect - supports multiple circles
+    private java.util.List<double[]> moneyCircles = new java.util.ArrayList<>(); // Each: {x, y, timer}
+    private static final int MONEY_CIRCLE_DURATION = -1; // Permanent (no timer)
+    private static final double MONEY_CIRCLE_RADIUS = 120; // Bigger circle
+    private static final int MONEY_CIRCLE_BONUS = 1; // Money per tick while standing in circle (reduced)
     
     // Camera tracking with smooth interpolation
     private double cameraX = 0;
@@ -1152,8 +1174,9 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
                 } else if (key == KeyEvent.VK_ESCAPE) {
-                    // Exit showcase - restore the real game level
+                    // Exit showcase - restore the real game level and equipped item
                     gameData.setCurrentLevel(savedRealLevel);
+                    gameData.restoreEquippedItem(savedEquippedItem); // Restore original item
                     debugShowcaseMode = false;
                     debugShowcaseInGameplay = false;
                     transitionToState(GameState.MENU);
@@ -1295,6 +1318,38 @@ public class Game extends JPanel implements Runnable {
                                 // Handle instant effects immediately (before update() deactivates them)
                                 if (item.getActiveDuration() == 0) {
                                     handleActiveItemEffects(item, 1.0);
+                                }
+                                // Handle one-time activation effects for duration-based items
+                                if (item.getType() == ActiveItem.ItemType.LUCKY_CHARM && player != null) {
+                                    // Spawn a single money circle at player position
+                                    double circleX = player.getX();
+                                    double circleY = player.getY();
+                                    moneyCircles.add(new double[]{circleX, circleY, 0});
+                                    soundManager.playSound(SoundManager.Sound.COIN_PICKUP);
+                                    
+                                    // Create spawn particles (green to match circle)
+                                    if (enableParticles) {
+                                        for (int i = 0; i < 20; i++) {
+                                            double angle = Math.random() * TWO_PI;
+                                            double dist = MONEY_CIRCLE_RADIUS * Math.random();
+                                            addParticle(
+                                                circleX + Math.cos(angle) * dist,
+                                                circleY + Math.sin(angle) * dist,
+                                                0, -1,
+                                                new Color(50, 200, 80), 30, 5,
+                                                Particle.ParticleType.SPARK
+                                            );
+                                        }
+                                    }
+                                }
+                                // Frost beam activation - start extension animation
+                                if (item.getType() == ActiveItem.ItemType.FROST_BEAM) {
+                                    frostBeamExtending = true;
+                                    frostBeamRetracting = false;
+                                    frostBeamProgress = 0;
+                                    frostBeamShakeTriggered = false; // Reset shake trigger
+                                    screenShakeIntensity = 4; // Small initial shake
+                                    soundManager.playSound(SoundManager.Sound.SCREEN_SHAKE, 0.3f);
                                 }
                             }
                         }
@@ -2547,8 +2602,9 @@ public class Game extends JPanel implements Runnable {
                 if (!debugShowcaseMode) {
                     saveGameState(); // Save the game state before going to menu
                 } else {
-                    // Restore the real level when exiting showcase via pause menu
+                    // Restore the real level and equipped item when exiting showcase via pause menu
                     gameData.setCurrentLevel(savedRealLevel);
+                    gameData.restoreEquippedItem(savedEquippedItem); // Restore original item
                     debugShowcaseMode = false;
                     debugShowcaseInGameplay = false;
                     System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
@@ -2917,8 +2973,9 @@ public class Game extends JPanel implements Runnable {
      * Shows a selection screen where user can browse attacks and start tests.
      */
     private void startDebugShowcase() {
-        // Save the real game level before entering showcase
+        // Save the real game level and equipped item before entering showcase
         savedRealLevel = gameData.getCurrentLevel();
+        savedEquippedItem = gameData.getEquippedItem(); // Save current equipped item
         
         debugShowcaseMode = true;
         debugShowcaseIndex = 0;
@@ -3244,6 +3301,7 @@ public class Game extends JPanel implements Runnable {
         particles.clear();
         damageNumbers.clear();
         beamAttacks.clear();
+        moneyCircles.clear(); // Clear Lucky Charm circles from previous level
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
@@ -3311,6 +3369,12 @@ public class Game extends JPanel implements Runnable {
         bossDeathScale = 1.0;
         bossDeathRotation = 0;
         escapeTimer = 0;
+        
+        // Reset dynamic zoom effects
+        effectZoom = 1.0;
+        targetEffectZoom = 1.0;
+        dashZoomActive = false;
+        dashZoomTimer = 0;
         
         // Initialize timer and FPS tracking
         gameStartTime = System.currentTimeMillis();
@@ -3677,56 +3741,129 @@ public class Game extends JPanel implements Runnable {
         shieldHits = 0;
         // Shield persists until used
         
-        // Update boss stun timer
-        if (bossStunned && bossStunTimer > 0) {
-            bossStunTimer -= deltaTime;
+        // Update boss stun timer - sync with item active state
+        // Check if stun item is currently active
+        ActiveItem equippedForStun = gameData.getEquippedItem();
+        boolean stunItemActive = equippedForStun != null && 
+            equippedForStun.getType() == ActiveItem.ItemType.STUN && 
+            equippedForStun.isActive();
+        
+        if (bossStunned) {
             // Create shaking effect for stunned boss
             bossStunShakeOffset = (Math.random() - 0.5) * 8;
             
-            if (bossStunTimer <= 0) {
+            // End stun when item is no longer active
+            if (!stunItemActive) {
                 bossStunned = false;
                 bossStunShakeOffset = 0;
             }
         }
         
-        // Update money circle
-        if (moneyCircleActive) {
-            moneyCircleTimer -= deltaTime;
+        // Update frost beam angle - smoothly follow player facing direction
+        if (player != null) {
+            double targetAngle = player.getAngle();
+            double angleDiff = targetAngle - frostBeamAngle;
+            // Normalize angle difference to -PI to PI
+            while (angleDiff > Math.PI) angleDiff -= TWO_PI;
+            while (angleDiff < -Math.PI) angleDiff += TWO_PI;
+            // Smoothly interpolate
+            frostBeamAngle += angleDiff * FROST_BEAM_TURN_SPEED * deltaTime;
+            // Keep angle normalized
+            while (frostBeamAngle > Math.PI) frostBeamAngle -= TWO_PI;
+            while (frostBeamAngle < -Math.PI) frostBeamAngle += TWO_PI;
+        }
+        
+        // Update frost beam animation (two-phase: extend thin, then thicken)
+        if (frostBeamExtending) {
+            frostBeamProgress += FROST_BEAM_EXTEND_SPEED * deltaTime;
             
-            // Check if player is in the circle
+            // Trigger intense shake when beam hits the "thicken" phase (at 0.3)
+            if (frostBeamProgress >= 0.3 && !frostBeamShakeTriggered) {
+                frostBeamShakeTriggered = true;
+                screenShakeIntensity = 18; // Sharp intense shake
+                soundManager.playSound(SoundManager.Sound.SCREEN_SHAKE, 0.7f);
+            }
+            
+            if (frostBeamProgress >= 1.0) {
+                frostBeamProgress = 1.0;
+                frostBeamExtending = false;
+            }
+        } else if (frostBeamRetracting) {
+            frostBeamProgress -= FROST_BEAM_RETRACT_SPEED * deltaTime;
+            if (frostBeamProgress <= 0) {
+                frostBeamProgress = 0;
+                frostBeamRetracting = false;
+                frostBeamShakeTriggered = false; // Reset for next use
+            }
+        }
+        
+        // Update dynamic zoom effects for active items
+        ActiveItem equippedForZoom = gameData.getEquippedItem();
+        if (equippedForZoom != null && equippedForZoom.isActive()) {
+            if (equippedForZoom.getType() == ActiveItem.ItemType.TIME_SLOW) {
+                // Zoom in during time slow
+                targetEffectZoom = TIME_SLOW_ZOOM;
+            } else if (equippedForZoom.getType() == ActiveItem.ItemType.DASH) {
+                // Quick zoom out during dash (speed effect) - short impulse
+                targetEffectZoom = DASH_ZOOM;
+                dashZoomActive = true;
+                dashZoomTimer = 8; // Very short impulse zoom - quick snap back
+            }
+        } else {
+            // Return to normal zoom (unless dash/impulse zoom is still active)
+            if (dashZoomActive) {
+                dashZoomTimer--;
+                if (dashZoomTimer <= 0) {
+                    dashZoomActive = false;
+                    if (!impulseZoomActive) targetEffectZoom = 1.0;
+                }
+            } else if (impulseZoomActive) {
+                impulseZoomTimer--;
+                if (impulseZoomTimer <= 0) {
+                    impulseZoomActive = false;
+                    targetEffectZoom = 1.0;
+                }
+            } else {
+                targetEffectZoom = 1.0;
+            }
+        }
+        
+        // Smoothly interpolate effect zoom towards target
+        effectZoom += (targetEffectZoom - effectZoom) * ZOOM_LERP_SPEED * deltaTime;
+        
+        // Update money circles (permanent - no timer countdown)
+        for (double[] circle : moneyCircles) {
+            circle[2]++; // Increment timer for animation timing
+            
+            // Check if player is in this circle
             if (player != null) {
-                double dx = player.getX() - moneyCircleX;
-                double dy = player.getY() - moneyCircleY;
+                double dx = player.getX() - circle[0];
+                double dy = player.getY() - circle[1];
                 double distFromCircle = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distFromCircle <= MONEY_CIRCLE_RADIUS) {
-                    // Player is in the circle - give money every 12 frames (5 times per second)
-                    if ((int)moneyCircleTimer % 12 == 0) {
+                    // Player is in the circle - give money every 20 frames (3 times per second)
+                    if ((int)circle[2] % 20 == 0) {
                         gameData.addRunMoney(MONEY_CIRCLE_BONUS);
                         gameData.addTotalMoney(MONEY_CIRCLE_BONUS);
                         
-                        // Show small money popup
-                        damageNumbers.add(new DamageNumber("+" + MONEY_CIRCLE_BONUS,
-                            player.getX(), player.getY() - 30,
-                            LUCKY_CHARM_GOLD, 20));
-                        
-                        // Spawn coin particle
-                        if (enableParticles && Math.random() < 0.5) {
+                        // Spawn falling money sign particle near player (bigger size)
+                        if (enableParticles) {
+                            // Money sign spawns near player and falls down
+                            double spawnX = player.getX() + (Math.random() - 0.5) * 40;
+                            double spawnY = player.getY() - 30;
                             addParticle(
-                                moneyCircleX + (Math.random() - 0.5) * MONEY_CIRCLE_RADIUS,
-                                moneyCircleY + (Math.random() - 0.5) * MONEY_CIRCLE_RADIUS,
-                                0, -2,
-                                LUCKY_CHARM_GOLD, 20, 4,
-                                Particle.ParticleType.SPARK
+                                spawnX, spawnY,
+                                (Math.random() - 0.5) * 1.5, // Slight horizontal drift
+                                2.0 + Math.random() * 1.5, // Fall downward
+                                new Color(50, 200, 80), 60, 18, // Green money color, BIGGER size (was 8)
+                                Particle.ParticleType.MONEY_SIGN
                             );
                         }
                     }
                 }
             }
-            
-            if (moneyCircleTimer <= 0) {
-                moneyCircleActive = false;
-            }
+            // Circles are permanent - never deactivate based on timer
         }
         
         // Update resurrection animation
@@ -3798,6 +3935,12 @@ public class Game extends JPanel implements Runnable {
                 // Item effect just finished - trigger flash effect
                 itemCompleteFlashTimer = 15;
                 soundManager.playSound(SoundManager.Sound.ITEM_END);
+                
+                // Start frost beam retraction animation
+                if (equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
+                    frostBeamRetracting = true;
+                    frostBeamExtending = false;
+                }
             }
             wasItemActive = isActiveNow;
             
@@ -4755,10 +4898,13 @@ public class Game extends JPanel implements Runnable {
         
         // Check beam attack collisions (only if player exists)
         for (BeamAttack beam : beamAttacks) {
-            // Apply time slow effect from active item
-            if (equippedItem != null && equippedItem.isActive() && 
-                equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
-                beam.applyTimeSlow(0.3); // 30% speed (70% slow)
+            // Apply time slow effect from active item (TIME_SLOW or STUN)
+            if (equippedItem != null && equippedItem.isActive()) {
+                if (equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
+                    beam.applyTimeSlow(0.3); // 30% speed (70% slow)
+                } else if (equippedItem.getType() == ActiveItem.ItemType.STUN) {
+                    beam.applyTimeSlow(0.0); // Completely freeze beams during stun
+                }
             }
             
             // Update beam lifecycle
@@ -5049,8 +5195,8 @@ public class Game extends JPanel implements Runnable {
                         comboPulseScale = 1.2;
                     }
                     
-                    // Add combo with tier info
-                    comboSystem.addCombo(grazeValue, isCloseCall, isPerfectDodge, soundManager);
+                    // Add combo with tier info and player position for announcement spawn
+                    comboSystem.addCombo(grazeValue, isCloseCall, isPerfectDodge, soundManager, player.getX(), player.getY());
                     
                     // Add score with combo multiplier
                     int grazeScore = (int)(10 * grazeValue * comboSystem.getMultiplier());
@@ -5356,20 +5502,49 @@ public class Game extends JPanel implements Runnable {
                 drawAttackShowcase(g2d, WIDTH, HEIGHT);
                 break;
             case PLAYING:
-                // Apply camera zoom
+                // Apply camera zoom combined with dynamic effect zoom
                 AffineTransform originalTransform = g2d.getTransform();
+                double totalZoom = cameraZoom * effectZoom; // Combine base zoom with effect zoom
+                
+                // When zooming OUT (totalZoom < 1.0), fill exposed edges with blurred/scaled background
+                if (totalZoom < 1.0) {
+                    // First, draw an enlarged blurred version of the background to fill edges
+                    Graphics2D bgG = (Graphics2D) g2d.create();
+                    
+                    // Scale up the background to fill the exposed areas (inverse of zoom)
+                    double bgScale = 1.0 / totalZoom;
+                    double offsetX = (WIDTH * bgScale - WIDTH) / 2;
+                    double offsetY = (HEIGHT * bgScale - HEIGHT) / 2;
+                    
+                    // Draw scaled and dimmed background
+                    bgG.translate(-offsetX, -offsetY);
+                    bgG.scale(bgScale, bgScale);
+                    
+                    // Draw the background (gradient or parallax)
+                    if (backgroundMode == 0) {
+                        renderer.drawAnimatedGradientPublic(bgG, WIDTH, HEIGHT, gradientTime, gameData.getCurrentLevel());
+                    } else if (backgroundMode == 1) {
+                        renderer.drawParallaxBackgroundPublic(bgG, WIDTH, HEIGHT, gameData.getCurrentLevel());
+                    } else {
+                        renderer.drawAnimatedGradientPublic(bgG, WIDTH, HEIGHT, gradientTime, gameData.getCurrentLevel());
+                    }
+                    
+                    // Apply blur/darken effect over the background edges
+                    bgG.dispose();
+                    
+                    // Draw a semi-transparent dark overlay to make edges less prominent
+                    float edgeDarkness = (float)(1.0 - totalZoom) * 0.6f; // Darker when zoomed out more
+                    g2d.setColor(new Color(0, 0, 0, (int)(edgeDarkness * 255)));
+                    g2d.fillRect(0, 0, WIDTH, HEIGHT);
+                }
+                
                 g2d.translate(WIDTH / 2, HEIGHT / 2);
-                g2d.scale(cameraZoom, cameraZoom);
+                g2d.scale(totalZoom, totalZoom);
                 g2d.translate(-WIDTH / 2, -HEIGHT / 2);
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor);
-                
-                // Draw money circle overlay (before restoring transform so it follows camera)
-                if (moneyCircleActive) {
-                    drawMoneyCircle(g2d, cameraX, cameraY, gradientTime);
-                }
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -5458,6 +5633,8 @@ public class Game extends JPanel implements Runnable {
     
     // Public getters for InputHandler (if needed)
     public GameState getGameState() { return gameState; }
+    public double getFrostBeamAngle() { return frostBeamAngle; }
+    public double getFrostBeamProgress() { return frostBeamProgress; }
     public void setGameState(GameState state) { this.gameState = state; }
     public void selectPreviousStat() { selectedStatItem = Math.max(0, selectedStatItem - 1); }
     public void selectNextStat() { selectedStatItem = Math.min(3, selectedStatItem + 1); }
@@ -5879,29 +6056,8 @@ public class Game extends JPanel implements Runnable {
     private void handleActiveItemEffects(ActiveItem item, double deltaTime) {
         switch (item.getType()) {
             case LUCKY_CHARM:
-                // Spawn a money circle at player position
-                if (player != null && !moneyCircleActive) {
-                    moneyCircleActive = true;
-                    moneyCircleX = player.getX();
-                    moneyCircleY = player.getY();
-                    moneyCircleTimer = MONEY_CIRCLE_DURATION;
-                    soundManager.playSound(SoundManager.Sound.COIN_PICKUP);
-                    
-                    // Create spawn particles
-                    if (enableParticles) {
-                        for (int i = 0; i < 20; i++) {
-                            double angle = Math.random() * TWO_PI;
-                            double dist = MONEY_CIRCLE_RADIUS * Math.random();
-                            addParticle(
-                                moneyCircleX + Math.cos(angle) * dist,
-                                moneyCircleY + Math.sin(angle) * dist,
-                                0, -1,
-                                LUCKY_CHARM_GOLD, 30, 5,
-                                Particle.ParticleType.SPARK
-                            );
-                        }
-                    }
-                }
+                // Circle is spawned once at activation time (in key handler)
+                // This per-frame handler is empty for Lucky Charm
                 break;
                 
             case DASH:
@@ -5917,6 +6073,12 @@ public class Game extends JPanel implements Runnable {
             case IMPULSE:
                 // Push all bullets away from player (instant effect)
                 soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
+                
+                // Trigger impulse zoom effect
+                impulseZoomActive = true;
+                impulseZoomTimer = 25; // Hold zoom for about 0.4 seconds
+                targetEffectZoom = IMPULSE_ZOOM;
+                
                 if (player != null) {
                     for (Bullet bullet : bullets) {
                         double dx = bullet.getX() - player.getX();
@@ -6065,20 +6227,32 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case FROST_BEAM:
-                // Fire an icy beam that freezes bullets temporarily
-                if (player != null) {
-                    double angle = player.getAngle();
-                    double laserWidth = 40;
-                    double laserLength = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT); // Reach full screen diagonal
+                // Fire an icy beam that freezes bullets - doesn't penetrate, stops at first hit
+                // Only freeze bullets when beam is sufficiently extended (progress > 0.3)
+                frostBeamStopDistance = -1; // Reset stop distance each frame
+                
+                if (player != null && frostBeamProgress > 0.3) {
+                    double angle = frostBeamAngle; // Use smooth beam angle instead of player angle
+                    double maxLaserLength = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT);
                     
-                    // Calculate tip position (30 pixels from center in facing direction)
-                    double tipDistance = 30;
-                    double tipX = player.getX() + Math.cos(angle) * tipDistance;
-                    double tipY = player.getY() + Math.sin(angle) * tipDistance;
+                    // Beam width and length scale with animation progress
+                    double easedProgress = 1.0 - Math.pow(1.0 - frostBeamProgress, 3);
+                    double laserWidth = 50 * easedProgress;
+                    double laserLength = maxLaserLength * Math.min(1.0, easedProgress * 1.5);
+                    
+                    // Calculate tip position (at edge of centered circle)
+                    double circleRadius = 30 + (10 * easedProgress);
+                    double tipX = player.getX() + Math.cos(angle) * circleRadius;
+                    double tipY = player.getY() + Math.sin(angle) * circleRadius;
                     
                     // Calculate laser end point
                     double laserEndX = tipX + Math.cos(angle) * laserLength;
                     double laserEndY = tipY + Math.sin(angle) * laserLength;
+                    
+                    // Find the closest bullet along the beam (frozen or not) for visual stop
+                    Bullet closestBulletToFreeze = null;
+                    double closestTToFreeze = Double.MAX_VALUE; // For freezing (unfrozen bullets only)
+                    double closestTForVisual = Double.MAX_VALUE; // For visual stop (any bullet)
                     
                     for (int i = bullets.size() - 1; i >= 0; i--) {
                         Bullet bullet = bullets.get(i);
@@ -6086,7 +6260,6 @@ public class Game extends JPanel implements Runnable {
                         double bulletY = bullet.getY();
                         
                         // Check if bullet is within frost beam (line segment collision)
-                        // Calculate distance from bullet to laser line
                         double dx = laserEndX - tipX;
                         double dy = laserEndY - tipY;
                         double lineLength = Math.sqrt(dx * dx + dy * dy);
@@ -6096,23 +6269,38 @@ public class Game extends JPanel implements Runnable {
                         double distanceToLine = Math.sqrt(Math.pow(bulletX - closestX, 2) + Math.pow(bulletY - closestY, 2));
                         
                         if (distanceToLine < laserWidth / 2) {
-                            // Freeze the bullet for 3 seconds instead of destroying
-                            bullet.setFrameSpeedMultiplier(0.0); // Completely frozen
-                            bullet.setFreezeTimer(180); // 3 seconds at 60fps
-                            gameData.addScore(5);
+                            // Track closest bullet for visual (any bullet, frozen or not)
+                            if (t < closestTForVisual) {
+                                closestTForVisual = t;
+                                // Calculate actual distance from beam start to bullet
+                                frostBeamStopDistance = t * laserLength;
+                            }
                             
-                            // Create ice/frost particles
-                            if (enableParticles) {
-                                for (int j = 0; j < 3; j++) {
-                                    double particleAngle = Math.random() * TWO_PI;
-                                    double speed = 0.5 + Math.random() * 2;
-                                    addParticle(
-                                        bulletX, bulletY,
-                                        Math.cos(particleAngle) * speed, Math.sin(particleAngle) * speed,
-                                        new Color(136, 192, 208), 20, 3, // Ice blue color
-                                        Particle.ParticleType.SPARK
-                                    );
-                                }
+                            // Track closest unfrozen bullet for freezing
+                            if (!bullet.isFrozen() && t < closestTToFreeze) {
+                                closestBulletToFreeze = bullet;
+                                closestTToFreeze = t;
+                            }
+                        }
+                    }
+                    
+                    // Freeze only the closest unfrozen bullet (beam doesn't penetrate)
+                    if (closestBulletToFreeze != null) {
+                        closestBulletToFreeze.setFrameSpeedMultiplier(0.0); // Completely frozen
+                        closestBulletToFreeze.setFreezeTimer(360); // 6 seconds at 60fps
+                        gameData.addScore(5);
+                        
+                        // Create ice/frost particles
+                        if (enableParticles) {
+                            for (int j = 0; j < 3; j++) {
+                                double particleAngle = Math.random() * TWO_PI;
+                                double speed = 0.5 + Math.random() * 2;
+                                addParticle(
+                                    closestBulletToFreeze.getX(), closestBulletToFreeze.getY(),
+                                    Math.cos(particleAngle) * speed, Math.sin(particleAngle) * speed,
+                                    new Color(136, 192, 208), 20, 3, // Ice blue color
+                                    Particle.ParticleType.SPARK
+                                );
                             }
                         }
                     }
@@ -6121,10 +6309,10 @@ public class Game extends JPanel implements Runnable {
                 
             case STUN:
                 // Stun the boss - can't move, can't shoot, shakes
+                // Stun duration is now tied to item's active state
                 soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
                 if (currentBoss != null) {
                     bossStunned = true;
-                    bossStunTimer = 180; // 3 seconds
                     screenShakeIntensity = 10;
                     
                     // Create stun particles around boss
@@ -6149,54 +6337,6 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
-    private void drawMoneyCircle(Graphics2D g, double cameraX, double cameraY, double time) {
-        // Draw the money circle at its position (adjusted for camera)
-        double drawX = moneyCircleX - cameraX;
-        double drawY = moneyCircleY - cameraY;
-        
-        // Calculate fade based on remaining time
-        float alpha = Math.min(1.0f, moneyCircleTimer / 60.0f); // Fade out in last second
-        
-        // Pulsing effect
-        double pulse = 1.0 + Math.sin(time * 5) * 0.1;
-        double radius = MONEY_CIRCLE_RADIUS * pulse;
-        
-        // Draw outer glow
-        Graphics2D g2d = (Graphics2D) g.create();
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.3f));
-        g2d.setColor(LUCKY_CHARM_GOLD);
-        g2d.fillOval((int)(drawX - radius * 1.3), (int)(drawY - radius * 1.3), 
-                     (int)(radius * 2.6), (int)(radius * 2.6));
-        
-        // Draw main circle
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
-        g2d.fillOval((int)(drawX - radius), (int)(drawY - radius), 
-                     (int)(radius * 2), (int)(radius * 2));
-        
-        // Draw inner bright core
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.7f));
-        g2d.setColor(new Color(255, 240, 150));
-        g2d.fillOval((int)(drawX - radius * 0.5), (int)(drawY - radius * 0.5), 
-                     (int)(radius), (int)(radius));
-        
-        // Draw border ring
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.8f));
-        g2d.setColor(LUCKY_CHARM_GOLD);
-        g2d.setStroke(new BasicStroke(3));
-        g2d.drawOval((int)(drawX - radius), (int)(drawY - radius), 
-                     (int)(radius * 2), (int)(radius * 2));
-        
-        // Draw coin symbol in center
-        g2d.setFont(new Font("Arial", Font.BOLD, 24));
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-        g2d.setColor(new Color(180, 140, 0));
-        FontMetrics fm = g2d.getFontMetrics();
-        String symbol = "$";
-        g2d.drawString(symbol, (int)(drawX - fm.stringWidth(symbol) / 2), (int)(drawY + fm.getAscent() / 3));
-        
-        g2d.dispose();
-    }
-    
     private void drawBossStunEffect(Graphics2D g, double cameraX, double cameraY, double time) {
         if (currentBoss == null) return;
         
@@ -6207,15 +6347,16 @@ public class Game extends JPanel implements Runnable {
         
         Graphics2D g2d = (Graphics2D) g.create();
         
-        // Draw stun ring effect
-        float alpha = 0.4f + (float)(Math.sin(time * 15) * 0.2f);
+        // Draw stun ring effect - semi-transparent
+        float alpha = 0.25f + (float)(Math.sin(time * 15) * 0.15f); // More transparent (0.1 to 0.4 range)
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
         g2d.setColor(new Color(235, 203, 139)); // Yellow stun color
         g2d.setStroke(new BasicStroke(4));
         g2d.drawOval((int)(bossX - bossSize * 0.7), (int)(bossY - bossSize * 0.7),
                      (int)(bossSize * 1.4), (int)(bossSize * 1.4));
         
-        // Draw electric sparks
+        // Draw electric sparks - also semi-transparent
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 1.2f)); // Slightly brighter
         g2d.setColor(new Color(255, 255, 200));
         for (int i = 0; i < 6; i++) {
             double angle = (time * 8 + i * Math.PI / 3) % (Math.PI * 2);
@@ -6225,8 +6366,8 @@ public class Game extends JPanel implements Runnable {
             g2d.fillOval((int)(sparkX - 4), (int)(sparkY - 4), 8, 8);
         }
         
-        // Draw "STUNNED" text
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.9f));
+        // Draw "STUNNED" text - also semi-transparent
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
         g2d.setFont(new Font("Arial", Font.BOLD, 20));
         g2d.setColor(new Color(235, 203, 139));
         FontMetrics fm = g2d.getFontMetrics();

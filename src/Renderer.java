@@ -1704,16 +1704,25 @@ public class Renderer {
                             int rotorWidth = (int)(rotorSprite.getWidth() * 0.4 * scale);
                             int rotorHeight = (int)(rotorSprite.getHeight() * 0.4 * scale);
                             
-                            // Save current transform and apply rotor spin
+                            // Save current transform and composite
                             AffineTransform rotorTransform = g.getTransform();
-                            // Rotate the rotor blades (fast spin animation)
+                            Composite oldComposite = g.getComposite();
+                            
+                            // Make rotors slightly transparent
+                            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                            
+                            // Position rotor near top of helicopter (offset from center)
+                            int rotorOffsetY = spriteHeight / 6; // Adjusted rotor position (lower)
+                            g.translate(0, rotorOffsetY); // Move to rotor center position
+                            
+                            // Rotate the rotor blades around its center (fast spin animation)
                             double rotorAngle = time * 15; // Fast spinning
                             g.rotate(rotorAngle);
                             
-                            // Draw rotor centered on helicopter (offset slightly towards top)
-                            int rotorOffsetY = -spriteHeight / 4; // Position rotor near top of helicopter
-                            g.drawImage(rotorSprite, -rotorWidth / 2, rotorOffsetY - rotorHeight / 2, rotorWidth, rotorHeight, null);
+                            // Draw rotor centered at origin
+                            g.drawImage(rotorSprite, -rotorWidth / 2, -rotorHeight / 2, rotorWidth, rotorHeight, null);
                             
+                            g.setComposite(oldComposite);
                             g.setTransform(rotorTransform);
                         }
                     }
@@ -2253,7 +2262,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2284,6 +2293,38 @@ public class Renderer {
         double breathY = Math.cos(time * 0.3) * 1.0;
         g.translate(-cameraX + breathX, -cameraY + breathY);
         
+        // Draw money circles (Lucky Charm) - UNDER all sprites but after background
+        for (double[] circle : moneyCircles) {
+            double drawX = circle[0];
+            double drawY = circle[1];
+            double radius = moneyCircleRadius;
+            
+            Graphics2D g2d = (Graphics2D) g.create();
+            
+            // Draw main transparent green circle fill
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+            g2d.setColor(new Color(50, 200, 80)); // Green
+            g2d.fillOval((int)(drawX - radius), (int)(drawY - radius), 
+                         (int)(radius * 2), (int)(radius * 2));
+            
+            // Draw outer ring (less transparent, thinner)
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+            g2d.setColor(new Color(50, 200, 80)); // Green
+            g2d.setStroke(new BasicStroke(2));
+            g2d.drawOval((int)(drawX - radius), (int)(drawY - radius), 
+                         (int)(radius * 2), (int)(radius * 2));
+            
+            // Draw money sign in center (less transparent, bigger font for bigger circle)
+            g2d.setFont(new Font("Arial", Font.BOLD, 36));
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+            g2d.setColor(new Color(50, 200, 80)); // Green
+            FontMetrics fm = g2d.getFontMetrics();
+            String symbol = "$";
+            g2d.drawString(symbol, (int)(drawX - fm.stringWidth(symbol) / 2), (int)(drawY + fm.getAscent() / 3));
+            
+            g2d.dispose();
+        }
+        
         // Draw beam attacks (behind everything else)
         for (int i = 0; i < beamAttacks.size(); i++) {
             BeamAttack beam = beamAttacks.get(i);
@@ -2292,64 +2333,166 @@ public class Renderer {
             }
         }
         
-        // Draw frost beam from active item
+        // Draw frost beam from active item (two-phase animation: extend thin, then thicken)
         ActiveItem equippedItem = gameData.getEquippedItem();
-        if (player != null && equippedItem != null && equippedItem.isActive() && 
-            equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
+        boolean shouldDrawFrostBeam = player != null && frostBeamProgress > 0;
+        if (shouldDrawFrostBeam) {
+            double angle = frostBeamAngle;
+            double maxLaserLength = Math.sqrt(width * width + height * height); // Full screen diagonal
             
-            double angle = player.getAngle();
-            double laserWidth = 40;
-            double laserLength = Math.sqrt(width * width + height * height); // Full screen diagonal
+            // TWO-PHASE ANIMATION:
+            // Phase 1 (0.0 - 0.3): Beam extends to full length but stays thin
+            // Phase 2 (0.3 - 0.6): Beam rapidly thickens with sharp transition
+            // Phase 3 (0.6 - 1.0): Full beam, fully thick
             
-            // Calculate tip position (30 pixels from center in facing direction)
-            double tipDistance = 30;
-            double tipX = player.getX() + Math.cos(angle) * tipDistance;
-            double tipY = player.getY() + Math.sin(angle) * tipDistance;
+            // Length: Reaches full length quickly in phase 1
+            double lengthProgress = Math.min(1.0, frostBeamProgress / 0.25); // Full length by 0.25
+            double easedLengthProgress = 1.0 - Math.pow(1.0 - lengthProgress, 2); // Ease out
             
-            // Calculate laser end point
-            double laserEndX = tipX + Math.cos(angle) * laserLength;
-            double laserEndY = tipY + Math.sin(angle) * laserLength;
+            // Width: Stays thin until 0.3, then rapidly expands
+            double widthProgress;
+            if (frostBeamProgress < 0.3) {
+                // Phase 1: Very thin (10% width)
+                widthProgress = 0.1;
+            } else if (frostBeamProgress < 0.6) {
+                // Phase 2: Rapid expansion from 10% to 100%
+                double expandProgress = (frostBeamProgress - 0.3) / 0.3; // 0 to 1 over this phase
+                // Use elastic ease for satisfying snap
+                double elasticEase = Math.pow(2, -10 * (1 - expandProgress)) * Math.sin((expandProgress - 0.1) * 5 * Math.PI) + 1;
+                elasticEase = Math.max(0, Math.min(1, elasticEase)); // Clamp
+                widthProgress = 0.1 + 0.9 * elasticEase;
+            } else {
+                // Phase 3: Full width
+                widthProgress = 1.0;
+            }
             
-            // Draw frost beam as a rotated rectangle - ICE BLUE COLORS
+            // Circle also expands with width
+            double circleProgress = Math.max(widthProgress, 0.3); // At least 30% visible
+            
+            double maxWidth = 55;
+            double currentWidth = maxWidth * widthProgress;
+            
+            // Length is constant (full) once extended
+            double laserLength = maxLaserLength * easedLengthProgress;
+            
+            // If beam hits a bullet, stop at that distance
+            if (frostBeamStopDistance > 0 && frostBeamStopDistance < laserLength) {
+                laserLength = frostBeamStopDistance;
+            }
+            
+            // Circle parameters - centered on player
+            double circleRadius = 25 + (15 * circleProgress); // Grows with width phase
+            double circleX = player.getX();
+            double circleY = player.getY();
+            
+            // Calculate beam start position (at edge of centered circle)
+            double beamStartX = player.getX() + Math.cos(angle) * circleRadius;
+            double beamStartY = player.getY() + Math.sin(angle) * circleRadius;
+            
             Graphics2D g2d = (Graphics2D) g.create();
-            g2d.translate(tipX, tipY);
-            g2d.rotate(angle);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             
-            // Draw triangular cone at the beginning (funneling effect)
-            double coneLength = 60; // Length of the cone
-            double coneBaseWidth = laserWidth * 2; // Cone starts wider
+            // Draw hollow circle CENTERED on player - ICE BLUE
+            int alpha = (int)(200 * circleProgress);
             
-            // Cone outer glow - ICE BLUE
-            int[] coneXGlow = {0, (int)coneLength, (int)coneLength};
-            int[] coneYGlow = {0, (int)(-laserWidth), (int)(laserWidth)};
-            g2d.setColor(new Color(100, 180, 230, 80)); // Ice blue glow
-            g2d.fillPolygon(coneXGlow, coneYGlow, 3);
+            // Outer glow circle
+            g2d.setColor(new Color(100, 180, 230, (int)(80 * circleProgress)));
+            g2d.setStroke(new BasicStroke((float)(10 * circleProgress)));
+            g2d.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
+                        (int)(circleRadius * 2), (int)(circleRadius * 2));
             
-            // Cone inner fill - ICE BLUE
-            int[] coneX = {0, (int)coneLength, (int)coneLength};
-            int[] coneY = {0, (int)(-laserWidth * 0.7), (int)(laserWidth * 0.7)};
-            g2d.setColor(new Color(136, 192, 208, 180)); // Ice blue
-            g2d.fillPolygon(coneX, coneY, 3);
+            // Main circle ring
+            g2d.setColor(new Color(136, 192, 208, alpha));
+            g2d.setStroke(new BasicStroke((float)(5 * circleProgress)));
+            g2d.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
+                        (int)(circleRadius * 2), (int)(circleRadius * 2));
             
-            // Outer glow (starts at end of cone) - ICE BLUE
-            g2d.setColor(new Color(100, 180, 230, 50)); // Ice blue glow
-            g2d.fillRect((int)coneLength, (int)(-laserWidth), (int)(laserLength - coneLength), (int)(laserWidth * 2));
+            // Inner bright ring
+            g2d.setColor(new Color(200, 235, 255, alpha));
+            g2d.setStroke(new BasicStroke((float)(2 * circleProgress)));
+            int innerOffset = (int)(3 * circleProgress);
+            g2d.drawOval((int)(circleX - circleRadius + innerOffset), (int)(circleY - circleRadius + innerOffset), 
+                        (int)(circleRadius * 2 - innerOffset * 2), (int)(circleRadius * 2 - innerOffset * 2));
             
-            // Inner beam (starts at end of cone) - ICE BLUE
-            g2d.setColor(new Color(136, 192, 208, 150)); // Ice blue
-            g2d.fillRect((int)coneLength, (int)(-laserWidth / 2), (int)(laserLength - coneLength), (int)laserWidth);
+            // Draw the beam extending from circle edge - with smooth base and end cap
+            Graphics2D beamG = (Graphics2D) g.create();
+            beamG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            beamG.translate(beamStartX, beamStartY);
+            beamG.rotate(angle);
             
-            // Core (starts at end of cone) - ICY WHITE
-            g2d.setColor(new Color(200, 235, 255, 200)); // Icy white/light blue
-            g2d.fillRect((int)coneLength, (int)(-laserWidth / 4), (int)(laserLength - coneLength), (int)(laserWidth / 2));
+            // Alpha fades in smoothly
+            double beamAlpha = Math.min(1.0, frostBeamProgress / 0.15);
             
+            // === BASE CONNECTION - Smooth gradient from circle ===
+            // Draw a filled semicircle at the base to connect smoothly to the ring
+            int baseRadius = (int)(currentWidth * 0.9);
+            beamG.setColor(new Color(100, 180, 230, (int)(60 * beamAlpha)));
+            beamG.fillArc(-baseRadius/2, -baseRadius, baseRadius, baseRadius * 2, -90, 180);
+            
+            beamG.setColor(new Color(136, 192, 208, (int)(150 * beamAlpha)));
+            int innerBaseRadius = (int)(currentWidth * 0.5);
+            beamG.fillArc(-innerBaseRadius/2, -innerBaseRadius, innerBaseRadius, innerBaseRadius * 2, -90, 180);
+            
+            beamG.setColor(new Color(200, 235, 255, (int)(200 * beamAlpha)));
+            int coreBaseRadius = (int)(currentWidth * 0.2);
+            beamG.fillArc(-coreBaseRadius/2, -coreBaseRadius, coreBaseRadius, coreBaseRadius * 2, -90, 180);
+            
+            // === MAIN BEAM BODY - Consistent width rectangles ===
+            // Outer glow beam - ICE BLUE
+            beamG.setColor(new Color(100, 180, 230, (int)(50 * beamAlpha)));
+            beamG.fillRect(0, (int)(-currentWidth * 0.9), (int)laserLength, (int)(currentWidth * 1.8));
+            
+            // Inner beam - ICE BLUE
+            beamG.setColor(new Color(136, 192, 208, (int)(180 * beamAlpha)));
+            beamG.fillRect(0, (int)(-currentWidth * 0.5), (int)laserLength, (int)(currentWidth * 1.0));
+            
+            // Core beam - ICY WHITE (brightest)
+            beamG.setColor(new Color(200, 235, 255, (int)(220 * beamAlpha)));
+            beamG.fillRect(0, (int)(-currentWidth * 0.2), (int)laserLength, (int)(currentWidth * 0.4));
+            
+            // === END CAP - Ice crystal topper ===
+            int endX = (int)laserLength;
+            
+            // Outer glow end cap (rounded)
+            beamG.setColor(new Color(100, 180, 230, (int)(70 * beamAlpha)));
+            int endCapRadius = (int)(currentWidth * 1.2);
+            beamG.fillOval(endX - endCapRadius/2, -endCapRadius, endCapRadius, endCapRadius * 2);
+            
+            // Inner end cap
+            beamG.setColor(new Color(136, 192, 208, (int)(180 * beamAlpha)));
+            int innerEndRadius = (int)(currentWidth * 0.7);
+            beamG.fillOval(endX - innerEndRadius/3, -innerEndRadius, innerEndRadius, innerEndRadius * 2);
+            
+            // Core bright end
+            beamG.setColor(new Color(200, 235, 255, (int)(230 * beamAlpha)));
+            int coreEndRadius = (int)(currentWidth * 0.35);
+            beamG.fillOval(endX - coreEndRadius/4, -coreEndRadius, coreEndRadius, coreEndRadius * 2);
+            
+            // Ice crystal spikes at the tip
+            beamG.setColor(new Color(220, 245, 255, (int)(200 * beamAlpha)));
+            int spikeLength = (int)(currentWidth * 0.6);
+            // Center spike
+            int[] spikeX = {endX, endX + spikeLength, endX};
+            int[] spikeY = {(int)(-currentWidth * 0.15), 0, (int)(currentWidth * 0.15)};
+            beamG.fillPolygon(spikeX, spikeY, 3);
+            // Top spike
+            int[] spikeX2 = {endX, endX + (int)(spikeLength * 0.6), endX};
+            int[] spikeY2 = {(int)(-currentWidth * 0.4), (int)(-currentWidth * 0.2), (int)(-currentWidth * 0.15)};
+            beamG.fillPolygon(spikeX2, spikeY2, 3);
+            // Bottom spike
+            int[] spikeX3 = {endX, endX + (int)(spikeLength * 0.6), endX};
+            int[] spikeY3 = {(int)(currentWidth * 0.4), (int)(currentWidth * 0.2), (int)(currentWidth * 0.15)};
+            beamG.fillPolygon(spikeX3, spikeY3, 3);
+            
+            beamG.dispose();
             g2d.dispose();
         }
         
         // Draw particles (behind sprites) - use snapshot to avoid ConcurrentModificationException
+        // Skip MONEY_SIGN particles here - they'll be drawn on top later
         java.util.List<Particle> particleSnapshot = new java.util.ArrayList<>(particles);
         for (Particle particle : particleSnapshot) {
-            if (particle != null && particle.isAlive()) {
+            if (particle != null && particle.isAlive() && particle.getType() != Particle.ParticleType.MONEY_SIGN) {
                 particle.draw(g);
             }
         }
@@ -2470,10 +2613,42 @@ public class Renderer {
             
             g2d.dispose();
         } else {
-            // Normal boss drawing
-            boss.draw(g);
+            // Draw ALL indicators UNDER boss sprite
             
-            // Boss attack phase glow effect
+            // Draw soft bloom/glow effect UNDER boss (layered for smooth falloff)
+            if (Game.enableBloom) {
+                Graphics2D bloomG = (Graphics2D) g.create();
+                
+                // Choose bloom color based on state
+                Color bloomColor;
+                if (bossVulnerable) {
+                    // Golden/white bloom when vulnerable - indicates "attack now!"
+                    float pulse = 0.7f + 0.3f * (float)Math.sin(time * 6);
+                    bloomColor = new Color(255, 240, 200); // Warm golden white
+                    
+                    // Draw layered bloom (larger = more transparent for soft falloff)
+                    for (int i = 4; i > 0; i--) {
+                        float alpha = (0.08f * pulse) / i;
+                        bloomG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(alpha, 1.0f)));
+                        bloomG.setColor(bloomColor);
+                        double glowSize = boss.getSize() * (1.0 + i * 0.4);
+                        bloomG.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                    }
+                } else {
+                    // Subtle cool bloom when invulnerable
+                    bloomColor = new Color(100, 150, 200);
+                    for (int i = 3; i > 0; i--) {
+                        float alpha = 0.04f / i;
+                        bloomG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        bloomG.setColor(bloomColor);
+                        double glowSize = boss.getSize() * (1.0 + i * 0.3);
+                        bloomG.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                    }
+                }
+                bloomG.dispose();
+            }
+            
+            // Draw attack phase glow effect UNDER boss
             if (boss.isAssaultPhase()) {
                 // Red pulsing glow during assault
                 Graphics2D g2d = (Graphics2D) g.create();
@@ -2493,6 +2668,26 @@ public class Renderer {
                 g2d.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
                 g2d.dispose();
             }
+            
+            // Draw invulnerability indicator UNDER boss when boss cannot be attacked
+            if (!bossVulnerable && !bossDeathAnimation && invulnerabilityTimer > 0) {
+                // Pulsing ring around boss during invulnerability
+                // Calculate color based on time remaining (red -> yellow)
+                double timeRatio = invulnerabilityTimer / 300.0; // Normalize to 0-1 (300 frames = 5 seconds)
+                Color circleColor;
+                // Red to Yellow transition (red stays at 255, green increases as timer decreases)
+                int red = 255;
+                int green = Math.max(0, Math.min(255, (int)(255 * (1 - timeRatio))));
+                circleColor = new Color(red, green, 0, 150);
+                
+                double pulseSize = 160 + Math.sin(time * 10) * 20; // Bigger circle (160 base, +/- 20 pulse)
+                g.setColor(circleColor);
+                g.setStroke(new BasicStroke(5f)); // Slightly thicker stroke
+                g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
+            }
+            
+            // Normal boss drawing (AFTER all indicators so boss appears on top)
+            boss.draw(g);
             
             // Draw shockwave during recovery phase (circular arc directed at player)
             if (boss.isShockwaveActive()) {
@@ -2547,23 +2742,6 @@ public class Renderer {
                 g2d.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
                 g2d.dispose();
             }
-            
-            // Draw invulnerability indicator when boss cannot be attacked
-            if (!bossVulnerable && !bossDeathAnimation && invulnerabilityTimer > 0) {
-                // Pulsing ring around boss during invulnerability
-                // Calculate color based on time remaining (red -> yellow)
-                double timeRatio = invulnerabilityTimer / 300.0; // Normalize to 0-1 (300 frames = 5 seconds)
-                Color circleColor;
-                // Red to Yellow transition (red stays at 255, green increases as timer decreases)
-                int red = 255;
-                int green = Math.max(0, Math.min(255, (int)(255 * (1 - timeRatio))));
-                circleColor = new Color(red, green, 0, 150);
-                
-                double pulseSize = 120 + Math.sin(time * 10) * 15;
-                g.setColor(circleColor);
-                g.setStroke(new BasicStroke(4f));
-                g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
-            }
         }
         } // End boss != null check
         
@@ -2572,6 +2750,13 @@ public class Renderer {
             Bullet bullet = bullets.get(i);
             if (bullet != null) {
                 bullet.draw(g);
+            }
+        }
+        
+        // Draw MONEY_SIGN particles ON TOP of player and bullets
+        for (Particle particle : particleSnapshot) {
+            if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
+                particle.draw(g);
             }
         }
         
@@ -2834,46 +3019,95 @@ public class Renderer {
             g.setTransform(comboTransform);
         }
         
-        // Draw combo milestone announcements (center screen, big dramatic text)
+        // Draw combo milestone announcements at fixed spawn position (where player was)
         if (comboSystem != null && comboSystem.getCurrentAnnouncement() != null) {
             String announcement = comboSystem.getCurrentAnnouncement();
-            float announcementProgress = comboSystem.getAnnouncementTimer() / 90.0f;
+            float announcementProgress = comboSystem.getAnnouncementTimer() / 90.0f; // 1.0 = just started, 0.0 = ending
+            float lifeProgress = 1.0f - announcementProgress; // 0.0 = just started, 1.0 = ending
             
-            // Scale in then fade out effect
-            float scale = announcementProgress > 0.8f ? 
-                (1.0f - announcementProgress) / 0.2f * 0.5f + 1.0f : // Scale up from 1.0 to 1.5
-                Math.min(1.5f, 1.5f - (0.8f - announcementProgress) * 0.25f); // Settle to 1.25
-            float alpha = Math.min(1.0f, announcementProgress * 2.0f); // Fade out in last half
+            // Smooth elastic pop-in effect (overshoots then settles)
+            float scale;
+            if (lifeProgress < 0.15f) {
+                // Pop in with overshoot (0 -> 1.3 in first 15%)
+                float t = lifeProgress / 0.15f;
+                scale = 1.3f * easeOutBack(t);
+            } else if (lifeProgress < 0.25f) {
+                // Settle down from overshoot (1.3 -> 1.0)
+                float t = (lifeProgress - 0.15f) / 0.1f;
+                scale = 1.3f - 0.3f * t;
+            } else {
+                // Normal size with gentle pulse
+                scale = 1.0f + 0.05f * (float)Math.sin(lifeProgress * Math.PI * 4);
+            }
+            
+            // Smooth alpha: fade in quick, hold, then fade out
+            float alpha;
+            if (lifeProgress < 0.1f) {
+                alpha = lifeProgress / 0.1f; // Quick fade in
+            } else if (lifeProgress < 0.7f) {
+                alpha = 1.0f; // Hold full opacity
+            } else {
+                alpha = 1.0f - (lifeProgress - 0.7f) / 0.3f; // Smooth fade out
+            }
+            
+            // Gentle sway rotation (like hanging text)
+            float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / 24); // +/- 7.5 degrees
+            // Dampen sway as it fades out
+            swayAngle *= Math.min(1.0f, (1.0f - lifeProgress) * 2);
+            
+            // Smooth float upward with easing
+            float floatUp = easeOutQuad(lifeProgress) * 80;
             
             AffineTransform announcementTransform = g.getTransform();
-            int centerX = width / 2;
-            int centerY = height / 3;
+            // Use fixed spawn position (where player was when announcement triggered)
+            int textX = (int)comboSystem.getAnnouncementSpawnX();
+            int textY = (int)(comboSystem.getAnnouncementSpawnY() - 60 - floatUp);
             
-            g.translate(centerX, centerY);
+            // Apply transforms: translate, rotate around text center, then scale
+            g.translate(textX, textY);
+            g.rotate(swayAngle);
             g.scale(scale, scale);
-            g.translate(-centerX, -centerY);
             
-            // Draw shadow
+            // Draw with larger font
             g.setFont(new Font("Arial", Font.BOLD, 72));
             FontMetrics announceFm = g.getFontMetrics();
             int announceWidth = announceFm.stringWidth(announcement);
+            int textOffsetX = -announceWidth / 2;
+            int textOffsetY = announceFm.getAscent() / 3;
             
-            g.setColor(new Color(0, 0, 0, (int)(180 * alpha)));
-            g.drawString(announcement, centerX - announceWidth / 2 + 4, centerY + 4);
+            // Draw glow/outline for better visibility
+            int glowAlpha = (int)(100 * alpha);
+            g.setColor(new Color(0, 0, 0, glowAlpha));
+            for (int ox = -3; ox <= 3; ox++) {
+                for (int oy = -3; oy <= 3; oy++) {
+                    if (ox != 0 || oy != 0) {
+                        g.drawString(announcement, textOffsetX + ox, textOffsetY + oy);
+                    }
+                }
+            }
             
-            // Draw main text with gradient-like color based on announcement
+            // Draw shadow
+            g.setColor(new Color(0, 0, 0, (int)(200 * alpha)));
+            g.drawString(announcement, textOffsetX + 4, textOffsetY + 4);
+            
+            // Draw main text with color based on announcement
             Color announceColor = switch(announcement) {
                 case "NICE!" -> new Color(163, 190, 140, (int)(255 * alpha)); // Green
-                case "GREAT!" -> new Color(136, 192, 208, (int)(255 * alpha)); // Blue
-                case "AMAZING!" -> new Color(235, 203, 139, (int)(255 * alpha)); // Yellow
-                case "INCREDIBLE!" -> new Color(208, 135, 112, (int)(255 * alpha)); // Orange
-                case "LEGENDARY!" -> new Color(180, 142, 173, (int)(255 * alpha)); // Purple
-                case "GODLIKE!" -> new Color(191, 97, 106, (int)(255 * alpha)); // Red
+                case "GREAT!" -> new Color(100, 200, 255, (int)(255 * alpha)); // Bright Blue
+                case "AMAZING!" -> new Color(255, 220, 100, (int)(255 * alpha)); // Bright Yellow
+                case "INCREDIBLE!" -> new Color(255, 150, 80, (int)(255 * alpha)); // Bright Orange
+                case "LEGENDARY!" -> new Color(220, 130, 220, (int)(255 * alpha)); // Bright Purple
+                case "GODLIKE!" -> new Color(255, 100, 100, (int)(255 * alpha)); // Bright Red
                 case "IMPOSSIBLE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
                 default -> new Color(255, 255, 255, (int)(255 * alpha));
             };
             g.setColor(announceColor);
-            g.drawString(announcement, centerX - announceWidth / 2, centerY);
+            g.drawString(announcement, textOffsetX, textOffsetY);
+            
+            // Add shine highlight on top half
+            Color shineColor = new Color(255, 255, 255, (int)(80 * alpha));
+            g.setColor(shineColor);
+            g.drawString(announcement, textOffsetX, textOffsetY - 1);
             
             g.setTransform(announcementTransform);
         }
@@ -4475,16 +4709,8 @@ public class Renderer {
         // Bloom effect: draw glowing halos around bright objects
         Composite originalComposite = g.getComposite();
         
-        // Glow around vulnerable boss
-        if (bossVulnerable && boss != null) {
-            for (int i = 3; i > 0; i--) {
-                float alpha = 0.15f / i;
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-                g.setColor(new Color(255, 255, 0));
-                double glowSize = boss.getSize() + (i * 25);
-                g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
-            }
-        }
+        // Note: Boss glow removed as it was drawing on top of the boss sprite
+        // The vulnerability indicator is now drawn UNDER the boss in the main render loop
         
         // Glow around player
         if (player != null) {
@@ -4747,11 +4973,38 @@ public class Renderer {
         }
     }
     
+    // Public methods for drawing backgrounds (used by Game for zoom-out edge fill)
+    public void drawAnimatedGradientPublic(Graphics2D g, int width, int height, double time, int level) {
+        Color[] colors = getLevelGradientColors(level);
+        drawAnimatedGradient(g, width, height, time, colors);
+    }
+    
+    public void drawParallaxBackgroundPublic(Graphics2D g, int width, int height, int level) {
+        drawParallaxBackground(g, width, height, level, 0);
+    }
+    
     // Getter methods for button arrays (for mouse navigation)
     public UIButton[] getMenuButtons() { return menuButtons; }
     public UIButton[] getSettingsButtons() { return settingsButtons; }
     public UIButton[] getPauseButtons() { return pauseButtons; }
     public UIButton[] getShopButtons() { return shopButtons; }
     public UIButton[] getStatsButtons() { return statsButtons; }
+    
+    // Easing functions for smooth animations
+    private float easeOutQuad(float t) {
+        return 1 - (1 - t) * (1 - t);
+    }
+    
+    private float easeOutBack(float t) {
+        float c1 = 1.70158f;
+        float c3 = c1 + 1;
+        return 1 + c3 * (float)Math.pow(t - 1, 3) + c1 * (float)Math.pow(t - 1, 2);
+    }
+    
+    private float easeOutElastic(float t) {
+        if (t == 0 || t == 1) return t;
+        float c4 = (2 * (float)Math.PI) / 3;
+        return (float)Math.pow(2, -10 * t) * (float)Math.sin((t * 10 - 0.75f) * c4) + 1;
+    }
 }
 

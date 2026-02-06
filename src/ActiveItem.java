@@ -68,9 +68,9 @@ public class ActiveItem {
         switch (type) {
             case LUCKY_CHARM:
                 name = "Lucky Charm";
-                description = "Spawn money circle (35s cooldown)";
+                description = "Spawn permanent money circle (35s cooldown)";
                 cooldownFrames = 2100; // 35 seconds
-                activeDuration = 300; // 5 seconds duration
+                activeDuration = 300; // 5 seconds duration (item active state)
                 currentCooldown = 0; // Starts ready to use
                 break;
             case SHIELD:
@@ -158,7 +158,12 @@ public class ActiveItem {
     
     public void startLevelCooldown() {
         // Start each level with item on cooldown
-        currentCooldown = cooldownFrames;
+        // Lucky Charm gets a shorter 5 second delay, others get full cooldown
+        if (type == ItemType.LUCKY_CHARM) {
+            currentCooldown = 300; // 5 seconds at 60fps
+        } else {
+            currentCooldown = cooldownFrames; // Full cooldown for other items
+        }
         active = false;
         activeTimer = 0;
     }

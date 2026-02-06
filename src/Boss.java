@@ -1514,7 +1514,7 @@ public class Boss {
         
         if (isMegaBoss) {
             int megaIndex = ((level / 3) - 1) % 9;
-            return megaIndex == 8; // Helicopter 1 is at index 8
+            return megaIndex == 7; // Helicopter 1 is at index 7
         } else {
             int miniIndex = (level - 1) % 17;
             return miniIndex >= 14; // Helicopters 2-4 are at indices 14-16

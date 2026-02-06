@@ -198,7 +198,18 @@ public class Bullet {
         
         age += deltaTime;
         
-        // Type-specific behavior
+        // Handle freeze timer from Frost Beam FIRST - skip all behaviors when frozen
+        if (freezeTimer > 0) {
+            freezeTimer--;
+            if (freezeTimer <= 0) {
+                // Unfreeze - restore normal speed
+                frameSpeedMultiplier = 1.0;
+            }
+            // Skip ALL movement and behavior when frozen
+            return;
+        }
+        
+        // Type-specific behavior (only when not frozen)
         switch (type) {
             case FAST:
                 // Already faster from initial velocity
@@ -293,15 +304,6 @@ public class Bullet {
                 break;
         }
         
-        // Handle freeze timer from Frost Beam
-        if (freezeTimer > 0) {
-            freezeTimer--;
-            if (freezeTimer <= 0) {
-                // Unfreeze - restore normal speed
-                frameSpeedMultiplier = 1.0;
-            }
-        }
-        
         // Move bullet (scaled by delta time and frame speed multiplier for time slow effects)
         x += vx * deltaTime * frameSpeedMultiplier;
         y += vy * deltaTime * frameSpeedMultiplier;
@@ -342,8 +344,11 @@ public class Bullet {
     }
     
     // Reset the frame speed multiplier (call at start of each update cycle)
+    // BUT don't reset if frozen by Frost Beam
     public void resetFrameSpeedMultiplier() {
-        frameSpeedMultiplier = 1.0;
+        if (freezeTimer <= 0) {
+            frameSpeedMultiplier = 1.0;
+        }
     }
     
     public boolean shouldSpawnTrail() {

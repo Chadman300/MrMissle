@@ -31,7 +31,8 @@ public class Particle {
         TRAIL,      // Smooth trail
         EXPLOSION,  // Expanding circle
         DODGE,      // Lucky dodge effect
-        SMOKE       // Soft, expanding smoke puffs
+        SMOKE,      // Soft, expanding smoke puffs
+        MONEY_SIGN  // Falling money sign from Lucky Charm
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
@@ -135,6 +136,13 @@ public class Particle {
                 g.setColor(new Color(r, gColor, b, Math.max(0, fadedAlpha)));
                 g.fillOval((int)(x - expansionSize/2), (int)(y - expansionSize/2), (int)expansionSize, (int)expansionSize);
                 break;
+                
+            case MONEY_SIGN:
+                // Draw a falling "$" sign
+                g.setColor(color);
+                g.setFont(new Font("Arial", Font.BOLD, (int)size));
+                g.drawString("$", (int)x, (int)y);
+                break;
         }
         
         g.setComposite(ALPHA_CACHE[100]);
@@ -144,6 +152,7 @@ public class Particle {
         return lifetime > 0;
     }
     
+    public ParticleType getType() { return type; }
     public double getX() { return x; }
     public double getY() { return y; }
 }

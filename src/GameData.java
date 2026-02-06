@@ -279,6 +279,14 @@ public class GameData {
         equippedItem = new ActiveItem(type);
     }
     
+    /**
+     * Restore a previously saved equipped item (for exiting showcase mode).
+     * Pass null to clear equipped item.
+     */
+    public void restoreEquippedItem(ActiveItem item) {
+        equippedItem = item;
+    }
+    
     public ActiveItem getEquippedItem() { return equippedItem; }
     public java.util.List<ActiveItem.ItemType> getUnlockedItems() { return unlockedItems; }
     public int getEquippedItemIndex() { return equippedItemIndex; }
