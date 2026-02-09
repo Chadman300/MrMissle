@@ -1,3 +1,9 @@
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -32,10 +38,30 @@ public class App {
                 }
             });
             
+            // Find the monitor where the mouse cursor currently is
+            Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            GraphicsDevice[] screens = ge.getScreenDevices();
+            GraphicsDevice targetScreen = ge.getDefaultScreenDevice(); // Default fallback
+            
+            for (GraphicsDevice screen : screens) {
+                GraphicsConfiguration gc = screen.getDefaultConfiguration();
+                Rectangle bounds = gc.getBounds();
+                if (bounds.contains(mouseLocation)) {
+                    targetScreen = screen;
+                    break;
+                }
+            }
+            
+            // Get the bounds of the target monitor
+            Rectangle screenBounds = targetScreen.getDefaultConfiguration().getBounds();
+            
             // Start in fullscreen mode with window decorations hidden
             frame.setUndecorated(true);
-            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
             frame.setResizable(true); // Allow resizing if user exits fullscreen
+            
+            // Position and size frame to fill the target monitor
+            frame.setBounds(screenBounds);
             
             frame.setVisible(true);
             game.start();

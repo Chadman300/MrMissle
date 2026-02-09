@@ -3939,20 +3939,27 @@ public class Game extends JPanel implements Runnable {
         effectZoom += (targetEffectZoom - effectZoom) * ZOOM_LERP_SPEED * deltaTime;
         
         // Update money circles (permanent - no timer countdown)
+        // Track if player already got money this frame to prevent stacking
+        boolean playerGotMoneyThisFrame = false;
+        int moneyCircleAnimTimer = 0; // Use first circle's timer for money timing
+        
         for (double[] circle : moneyCircles) {
             circle[2]++; // Increment timer for animation timing
+            if (moneyCircleAnimTimer == 0) moneyCircleAnimTimer = (int)circle[2];
             
-            // Check if player is in this circle
-            if (player != null) {
+            // Check if player is in this circle (but only give money once)
+            if (player != null && !playerGotMoneyThisFrame) {
                 double dx = player.getX() - circle[0];
                 double dy = player.getY() - circle[1];
                 double distFromCircle = Math.sqrt(dx * dx + dy * dy);
                 
                 if (distFromCircle <= MONEY_CIRCLE_RADIUS) {
-                    // Player is in the circle - give money every 20 frames (3 times per second)
-                    if ((int)circle[2] % 20 == 0) {
+                    // Player is in a circle - give money every 20 frames (3 times per second)
+                    // Use global timer so all circles are synchronized
+                    if (moneyCircleAnimTimer % 20 == 0) {
                         gameData.addRunMoney(MONEY_CIRCLE_BONUS);
                         gameData.addTotalMoney(MONEY_CIRCLE_BONUS);
+                        playerGotMoneyThisFrame = true; // Prevent stacking from other circles
                         
                         // Spawn falling money sign particle near player (bigger size)
                         if (enableParticles) {

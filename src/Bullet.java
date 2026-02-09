@@ -313,9 +313,11 @@ public class Bullet {
             fadeOutTimer -= deltaTime;
         }
         
-        // Start fading when approaching screen edges (for non-explosive types)
+        // Start fading when outside player bounds (not at screen edge)
+        // Player is constrained to stay 50px inside screen edges, so fade bullets
+        // when they go 50px OUTSIDE the screen so they remain dangerous in the playable area
         if (fadeOutTimer < 0 && type != BulletType.BOMB && type != BulletType.GRENADE && type != BulletType.NUKE) {
-            int fadeMargin = 50;
+            int fadeMargin = -50; // Negative margin = fade outside screen bounds
             if (x < fadeMargin || x > screenWidth - fadeMargin || 
                 y < fadeMargin || y > screenHeight - fadeMargin) {
                 fadeOutTimer = FADE_OUT_DURATION;

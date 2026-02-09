@@ -2294,33 +2294,48 @@ public class Renderer {
         g.translate(-cameraX + breathX, -cameraY + breathY);
         
         // Draw money circles (Lucky Charm) - UNDER all sprites but after background
-        for (double[] circle : moneyCircles) {
-            double drawX = circle[0];
-            double drawY = circle[1];
-            double radius = moneyCircleRadius;
+        // Use Area to combine overlapping circles into one unified shape
+        if (!moneyCircles.isEmpty()) {
+            java.awt.geom.Area combinedArea = new java.awt.geom.Area();
+            double centerX = 0, centerY = 0; // For drawing $ sign in center of mass
+            
+            for (double[] circle : moneyCircles) {
+                double drawX = circle[0];
+                double drawY = circle[1];
+                double radius = moneyCircleRadius;
+                centerX += drawX;
+                centerY += drawY;
+                
+                // Add this circle to the combined area
+                java.awt.geom.Ellipse2D.Double ellipse = new java.awt.geom.Ellipse2D.Double(
+                    drawX - radius, drawY - radius, radius * 2, radius * 2);
+                combinedArea.add(new java.awt.geom.Area(ellipse));
+            }
+            
+            // Calculate center of mass for $ sign
+            centerX /= moneyCircles.size();
+            centerY /= moneyCircles.size();
             
             Graphics2D g2d = (Graphics2D) g.create();
             
-            // Draw main transparent green circle fill
+            // Draw combined transparent green fill
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
             g2d.setColor(new Color(50, 200, 80)); // Green
-            g2d.fillOval((int)(drawX - radius), (int)(drawY - radius), 
-                         (int)(radius * 2), (int)(radius * 2));
+            g2d.fill(combinedArea);
             
-            // Draw outer ring (less transparent, thinner)
+            // Draw combined outer ring
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
             g2d.setColor(new Color(50, 200, 80)); // Green
             g2d.setStroke(new BasicStroke(2));
-            g2d.drawOval((int)(drawX - radius), (int)(drawY - radius), 
-                         (int)(radius * 2), (int)(radius * 2));
+            g2d.draw(combinedArea);
             
-            // Draw money sign in center (less transparent, bigger font for bigger circle)
+            // Draw single money sign at center of mass
             g2d.setFont(new Font("Arial", Font.BOLD, 36));
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
             g2d.setColor(new Color(50, 200, 80)); // Green
             FontMetrics fm = g2d.getFontMetrics();
             String symbol = "$";
-            g2d.drawString(symbol, (int)(drawX - fm.stringWidth(symbol) / 2), (int)(drawY + fm.getAscent() / 3));
+            g2d.drawString(symbol, (int)(centerX - fm.stringWidth(symbol) / 2), (int)(centerY + fm.getAscent() / 3));
             
             g2d.dispose();
         }
