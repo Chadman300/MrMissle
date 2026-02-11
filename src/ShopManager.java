@@ -39,7 +39,12 @@ public class ShopManager {
         if (itemIndex >= 1 && passiveUpgradeManager != null) {
             int upgradeIndex = itemIndex - 1;
             if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
-                return passiveUpgradeManager.getAllUpgrades().get(upgradeIndex).getCost();
+                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
+                // Extra Lives has fixed cost (baseCost) - doesn't scale with level
+                if (upgrade.getId().equals("health")) {
+                    return upgrade.getBaseCost();
+                }
+                return upgrade.getCost();
             }
         }
         return 0;

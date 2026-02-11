@@ -98,6 +98,7 @@ public class PassiveUpgrade {
     public String getDescription() { return description; }
     public int getCurrentLevel() { return currentLevel; } // Purchased level
     public int getActiveLevel() { return activeLevel; }   // Allocated level
+    public int getBaseCost() { return baseCost; }         // Base cost (before multipliers)
     public int getMaxLevel() { return maxLevel; }
     public UpgradeType getType() { return type; }
     public boolean isMaxed() { return currentLevel >= maxLevel; }

@@ -2401,6 +2401,84 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
+        } else if (gameState == GameState.STATS) {
+            // Stats screen mouse controls
+            int cardWidth = 900;
+            int cardHeight = 65;
+            int cardSpacing = 10;
+            int baseY = 180;
+            int itemX = WIDTH / 2 - cardWidth / 2;
+            int y = baseY - (int)statsScrollAnimated;
+            int currentIndex = 0;
+            
+            // Check Active Item card (first card, taller)
+            int activeItemHeight = cardHeight + 30; // 95
+            y += 30; // section header offset
+            if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
+                mouseY >= y && mouseY <= y + activeItemHeight) {
+                selectedStatItem = 0;
+                updateStatsScroll();
+                
+                // Left half = previous item, right half = next item
+                if (gameData.hasActiveItems()) {
+                    if (mouseX < WIDTH / 2) {
+                        gameData.equipPreviousItem();
+                    } else {
+                        gameData.equipNextItem();
+                    }
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                }
+                return;
+            }
+            y += activeItemHeight + cardSpacing + 50; // +50 for next section header
+            currentIndex++;
+            
+            // Check Upgrade cards
+            if (passiveUpgradeManager != null) {
+                java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
+                
+                // All upgrades except Extra Lives (last one is read-only)
+                for (int i = 0; i < upgrades.size() - 1; i++) {
+                    if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
+                        mouseY >= y && mouseY <= y + cardHeight) {
+                        selectedStatItem = currentIndex;
+                        updateStatsScroll();
+                        
+                        // Left side = decrease, right side = increase
+                        PassiveUpgrade upgrade = upgrades.get(i);
+                        if (mouseX < WIDTH / 2) {
+                            // Decrease active level
+                            if (upgrade.getActiveLevel() > 0) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
+                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                screenShakeIntensity = 2;
+                            }
+                        } else {
+                            // Increase active level (up to purchased level)
+                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
+                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                screenShakeIntensity = 2;
+                            }
+                        }
+                        return;
+                    }
+                    y += cardHeight + cardSpacing;
+                    currentIndex++;
+                }
+                
+                // Extra Lives card (read-only, just select it)
+                y += 50; // section header offset
+                if (upgrades.size() > 0 && mouseX >= itemX && mouseX <= itemX + cardWidth &&
+                    mouseY >= y && mouseY <= y + cardHeight) {
+                    selectedStatItem = currentIndex;
+                    updateStatsScroll();
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                    return;
+                }
+            }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if clicking on risk contract cards
             int cardWidth = 200;
@@ -6568,6 +6646,12 @@ public class Game extends JPanel implements Runnable {
                     
                     for (int i = bullets.size() - 1; i >= 0; i--) {
                         Bullet bullet = bullets.get(i);
+                        
+                        // Skip bullets that haven't spawned yet (still in warning phase)
+                        if (!bullet.isActive()) {
+                            continue;
+                        }
+                        
                         double bulletX = bullet.getX();
                         double bulletY = bullet.getY();
                         

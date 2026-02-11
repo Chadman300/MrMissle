@@ -59,24 +59,36 @@ public class PassiveUpgradeManager {
     
     public boolean purchaseUpgrade(String id, GameData gameData) {
         PassiveUpgrade upgrade = upgradeMap.get(id);
-        if (upgrade != null && upgrade.canUpgrade(gameData.getTotalMoney())) {
-            // Special handling for Extra Lives
-            if (id.equals("health")) {
-                // Can only buy if not at max lives
-                if (gameData.getExtraLives() >= 3) {
-                    return false; // Already at max lives
-                }
+        if (upgrade == null) {
+            return false;
+        }
+        
+        // Special handling for Extra Lives - uses gameData.extraLives instead of upgrade.currentLevel
+        if (id.equals("health")) {
+            // Can only buy if not at max lives AND have enough money
+            int currentLives = gameData.getExtraLives();
+            if (currentLives >= 3) {
+                return false; // Already at max lives
             }
             
+            // Calculate cost based on current lives (not upgrade.currentLevel)
+            // Cost stays fixed at baseCost for extra lives
+            int cost = upgrade.getBaseCost();
+            if (gameData.getTotalMoney() < cost) {
+                return false; // Not enough money
+            }
+            
+            gameData.setTotalMoney(gameData.getTotalMoney() - cost);
+            gameData.addExtraLife();
+            // Don't call upgrade.upgrade() for health - we track via gameData.extraLives only
+            return true;
+        }
+        
+        // Normal upgrade handling for non-health upgrades
+        if (upgrade.canUpgrade(gameData.getTotalMoney())) {
             int cost = upgrade.getCost();
             gameData.setTotalMoney(gameData.getTotalMoney() - cost);
             upgrade.upgrade();
-            
-            // Apply extra life when purchasing
-            if (id.equals("health")) {
-                gameData.addExtraLife();
-            }
-            
             return true;
         }
         return false;
