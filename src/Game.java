@@ -418,6 +418,8 @@ public class Game extends JPanel implements Runnable {
     
     // Attack showcase UI
     private int showcaseHoveredButton = -1; // 0 = left arrow, 1 = right arrow, 2 = start button
+    private double showcaseCarouselOffset = 0; // Smooth animation offset for carousel sliding
+    private double showcaseTargetOffset = 0; // Target offset (0 when settled)
     
     // Game feel effects
     private int hitFreezeFrames = 0; // Freeze frames on boss damage
@@ -1146,39 +1148,123 @@ public class Game extends JPanel implements Runnable {
                 break;
             
             case ATTACK_SHOWCASE:
-                // Attack/Item showcase selection screen
-                if (key == KeyEvent.VK_TAB || key == KeyEvent.VK_1 || key == KeyEvent.VK_2) {
-                    // Switch tabs (TAB toggles, 1/2 select directly)
-                    if (key == KeyEvent.VK_TAB) {
-                        showcaseTab = (showcaseTab + 1) % 2;
-                    } else {
-                        showcaseTab = (key == KeyEvent.VK_1) ? 0 : 1;
+                // Attack/Item showcase selection screen - carousel style
+                // showcaseHoveredButton: 0 = Attacks tab, 1 = Items tab, 2 = Left arrow, 3 = Right arrow, -1 = none
+                if (key == KeyEvent.VK_W || key == KeyEvent.VK_UP) {
+                    // Move up between rows: Arrows -> Tabs
+                    if (showcaseHoveredButton == 2 || showcaseHoveredButton == 3) {
+                        showcaseHoveredButton = showcaseTab; // Arrows -> Current tab
+                    } else if (showcaseHoveredButton == -1) {
+                        showcaseHoveredButton = showcaseTab; // Enter at tabs
                     }
-                    debugShowcaseIndex = 0; // Reset index when switching tabs
-                    updateShowcaseInfo();
-                    soundManager.playSound(SoundManager.Sound.UI_SWIPE);
-                    screenShakeIntensity = 2;
-                } else if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
-                    // Previous item
-                    debugShowcaseIndex--;
-                    int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
-                    if (debugShowcaseIndex < 0) debugShowcaseIndex = maxIndex - 1;
-                    updateShowcaseInfo();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_S || key == KeyEvent.VK_DOWN) {
+                    // Move down between rows: Tabs -> Arrows
+                    if (showcaseHoveredButton == 0 || showcaseHoveredButton == 1) {
+                        showcaseHoveredButton = 2; // Tabs -> Left arrow
+                    } else if (showcaseHoveredButton == -1) {
+                        showcaseHoveredButton = 2; // Enter at arrows
+                    }
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
+                    // Move left within row OR scroll carousel if on arrows
+                    if (showcaseHoveredButton == 1) {
+                        // On Items tab -> switch to Attacks tab immediately
+                        showcaseHoveredButton = 0;
+                        showcaseTab = 0;
+                        debugShowcaseIndex = 0;
+                        showcaseCarouselOffset = 0;
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                    } else if (showcaseHoveredButton == 0) {
+                        // Already on Attacks tab, do nothing
+                    } else if (showcaseHoveredButton == 3) {
+                        showcaseHoveredButton = 2; // Right arrow -> Left arrow
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    } else if (showcaseHoveredButton == 2) {
+                        // On left arrow - scroll to previous item (no loop)
+                        if (debugShowcaseIndex > 0) {
+                            debugShowcaseIndex--;
+                            showcaseCarouselOffset = -1.0; // Start animation from left
+                            updateShowcaseInfo();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        }
+                    } else if (showcaseHoveredButton == -1) {
+                        showcaseHoveredButton = 2; // Enter at left arrow
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    }
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_D || key == KeyEvent.VK_RIGHT) {
-                    // Next item
-                    debugShowcaseIndex++;
+                    // Move right within row OR scroll carousel if on arrows
                     int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
-                    if (debugShowcaseIndex >= maxIndex) debugShowcaseIndex = 0;
-                    updateShowcaseInfo();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    if (showcaseHoveredButton == 0) {
+                        // On Attacks tab -> switch to Items tab immediately
+                        showcaseHoveredButton = 1;
+                        showcaseTab = 1;
+                        debugShowcaseIndex = 0;
+                        showcaseCarouselOffset = 0;
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                        maxIndex = ITEM_SHOWCASE.length; // Update maxIndex for new tab
+                    } else if (showcaseHoveredButton == 1) {
+                        // Already on Items tab, do nothing
+                    } else if (showcaseHoveredButton == 2) {
+                        showcaseHoveredButton = 3; // Left arrow -> Right arrow
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    } else if (showcaseHoveredButton == 3) {
+                        // On right arrow - scroll to next item (no loop)
+                        if (debugShowcaseIndex < maxIndex - 1) {
+                            debugShowcaseIndex++;
+                            showcaseCarouselOffset = 1.0; // Start animation from right
+                            updateShowcaseInfo();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        }
+                    } else if (showcaseHoveredButton == -1) {
+                        showcaseHoveredButton = 3; // Enter at right arrow
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    }
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                    // Start test
-                    startShowcaseTest();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 3;
+                    // Activate selected element or start test
+                    if (showcaseHoveredButton == 2) {
+                        // Left arrow - previous item (no loop)
+                        if (debugShowcaseIndex > 0) {
+                            debugShowcaseIndex--;
+                            showcaseCarouselOffset = -1.0;
+                            updateShowcaseInfo();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                    } else if (showcaseHoveredButton == 3) {
+                        // Right arrow - next item (no loop)
+                        int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
+                        if (debugShowcaseIndex < maxIndex - 1) {
+                            debugShowcaseIndex++;
+                            showcaseCarouselOffset = 1.0;
+                            updateShowcaseInfo();
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                    } else {
+                        // Anywhere else (tabs, no selection) - start test with current card
+                        startShowcaseTest();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 3;
+                    }
+                } else if (key == KeyEvent.VK_TAB) {
+                    // Quick tab switch
+                    showcaseTab = (showcaseTab + 1) % 2;
+                    debugShowcaseIndex = 0;
+                    showcaseCarouselOffset = 0; // Reset animation
+                    updateShowcaseInfo();
+                    // Update hover to match new tab if on tabs row
+                    if (showcaseHoveredButton == 0 || showcaseHoveredButton == 1) {
+                        showcaseHoveredButton = showcaseTab;
+                    }
+                    soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                    screenShakeIntensity = 2;
                 } else if (key == KeyEvent.VK_ESCAPE) {
                     // Exit showcase - restore the real game level and equipped item
                     gameData.setCurrentLevel(savedRealLevel);
@@ -2431,23 +2517,17 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.ATTACK_SHOWCASE) {
-            // Showcase selection screen button clicks
-            // Button layout: Left arrow (100, HEIGHT/2 - 50), Right arrow (WIDTH - 200, HEIGHT/2 - 50), Start button (center bottom)
-            int arrowWidth = 80;
-            int arrowHeight = 100;
-            int leftArrowX = 50;
-            int rightArrowX = WIDTH - 130;
-            int arrowY = HEIGHT / 2 - 50;
-            
-            int startButtonWidth = 200;
-            int startButtonHeight = 60;
-            int startButtonX = (WIDTH - startButtonWidth) / 2;
-            int startButtonY = HEIGHT - 120;
+            // Showcase selection screen button clicks - Carousel style
+            int centerX = WIDTH / 2;
+            int centerY = HEIGHT / 2 - 50; // Match drawing offset
+            int cardSpacing = 600;
+            int centerCardWidth = 620;
+            int centerCardHeight = 540;
             
             // Tab button areas
             int tabWidth = 150;
             int tabHeight = 40;
-            int tabY = 30;
+            int tabY = 25;
             int attacksTabX = WIDTH / 2 - tabWidth - 10;
             int itemsTabX = WIDTH / 2 + 10;
             
@@ -2469,32 +2549,76 @@ public class Game extends JPanel implements Runnable {
                 soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                 screenShakeIntensity = 2;
             }
-            // Check left arrow click (previous attack/item)
-            else if (mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
-                mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
-                debugShowcaseIndex--;
+            // Check carousel card clicks - check if clicking left, center, or right cards
+            else {
                 int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
-                if (debugShowcaseIndex < 0) debugShowcaseIndex = maxIndex - 1;
-                updateShowcaseInfo();
-                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                screenShakeIntensity = 2;
-            }
-            // Check right arrow click (next attack/item)
-            else if (mouseX >= rightArrowX && mouseX <= rightArrowX + arrowWidth &&
-                     mouseY >= arrowY && mouseY <= arrowY + arrowHeight) {
-                debugShowcaseIndex++;
-                int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
-                if (debugShowcaseIndex >= maxIndex) debugShowcaseIndex = 0;
-                updateShowcaseInfo();
-                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                screenShakeIntensity = 2;
-            }
-            // Check start button click
-            else if (mouseX >= startButtonX && mouseX <= startButtonX + startButtonWidth &&
-                     mouseY >= startButtonY && mouseY <= startButtonY + startButtonHeight) {
-                startShowcaseTest();
-                soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                screenShakeIntensity = 5;
+                int cardY = centerY - centerCardHeight / 2;
+                
+                // Left cards area (previous items)
+                int leftCardX = centerX - cardSpacing - (int)(centerCardWidth * 0.65) / 2;
+                int leftCardW = (int)(centerCardWidth * 0.65);
+                int leftCardH = (int)(centerCardHeight * 0.65);
+                int leftCardY = centerY - leftCardH / 2;
+                
+                // Right cards area (next items)
+                int rightCardX = centerX + cardSpacing - (int)(centerCardWidth * 0.65) / 2;
+                int rightCardW = leftCardW;
+                int rightCardH = leftCardH;
+                int rightCardY = leftCardY;
+                
+                // Center card
+                int cCardX = centerX - centerCardWidth / 2;
+                int cCardY = centerY - centerCardHeight / 2;
+                
+                // Check left card click (go to previous - no loop)
+                if (mouseX >= leftCardX && mouseX <= leftCardX + leftCardW &&
+                    mouseY >= leftCardY && mouseY <= leftCardY + leftCardH) {
+                    if (debugShowcaseIndex > 0) {
+                        debugShowcaseIndex--;
+                        showcaseCarouselOffset = -1.0; // Animate from left
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
+                    }
+                }
+                // Check right card click (go to next - no loop)
+                else if (mouseX >= rightCardX && mouseX <= rightCardX + rightCardW &&
+                         mouseY >= rightCardY && mouseY <= rightCardY + rightCardH) {
+                    if (debugShowcaseIndex < maxIndex - 1) {
+                        debugShowcaseIndex++;
+                        showcaseCarouselOffset = 1.0; // Animate from right
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
+                    }
+                }
+                // Check center card click (start test)
+                else if (mouseX >= cCardX && mouseX <= cCardX + centerCardWidth &&
+                         mouseY >= cCardY && mouseY <= cCardY + centerCardHeight) {
+                    startShowcaseTest();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 5;
+                }
+                // Check left arrow box click
+                else if (mouseX <= 95 && mouseY >= HEIGHT / 2 - 60 && mouseY <= HEIGHT / 2 + 60) {
+                    if (debugShowcaseIndex > 0) {
+                        debugShowcaseIndex--;
+                        showcaseCarouselOffset = -1.0;
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
+                    }
+                }
+                // Check right arrow box click
+                else if (mouseX >= WIDTH - 95 && mouseY >= HEIGHT / 2 - 60 && mouseY <= HEIGHT / 2 + 60) {
+                    if (debugShowcaseIndex < maxIndex - 1) {
+                        debugShowcaseIndex++;
+                        showcaseCarouselOffset = 1.0;
+                        updateShowcaseInfo();
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 2;
+                    }
+                }
             }
         }
     }
@@ -3048,9 +3172,90 @@ public class Game extends JPanel implements Runnable {
      * Load showcase image for an active item
      */
     private BufferedImage loadItemShowcaseImage(String itemTypeName) {
-        // For now, return null - items will display with their names
-        // Could load item icons from sprites folder later
-        return null;
+        // Check cache first
+        String cacheKey = "ITEM_" + itemTypeName;
+        if (attackIntroImageCache.containsKey(cacheKey)) {
+            return attackIntroImageCache.get(cacheKey);
+        }
+        
+        // Try to load item image from sprites folder
+        String[] possiblePaths = {
+            "sprites/Tutorial/Attacks and Bullets Intros/" + itemTypeName + ".png",
+            "sprites/items/" + itemTypeName + ".png",
+            "sprites/items/" + itemTypeName.toLowerCase() + ".png"
+        };
+        
+        for (String imagePath : possiblePaths) {
+            try {
+                BufferedImage img = AssetLoader.loadImage(imagePath);
+                if (img != null) {
+                    attackIntroImageCache.put(cacheKey, img);
+                    System.out.println("Loaded item showcase image: " + imagePath);
+                    return img;
+                }
+            } catch (Exception e) {
+                // Try next path
+            }
+        }
+        
+        // Create a colored placeholder for items
+        BufferedImage placeholder = createItemPlaceholderImage(itemTypeName);
+        attackIntroImageCache.put(cacheKey, placeholder);
+        return placeholder;
+    }
+    
+    /**
+     * Create a placeholder image for item showcase
+     */
+    private BufferedImage createItemPlaceholderImage(String itemTypeName) {
+        int size = 200;
+        BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Get color based on item type
+        Color itemColor = new Color(100, 200, 255); // Default cyan for items
+        switch (itemTypeName) {
+            case "SHIELD": itemColor = new Color(100, 180, 255); break;
+            case "MAGNET": itemColor = new Color(255, 200, 100); break;
+            case "SLOW_TIME": itemColor = new Color(180, 100, 255); break;
+            case "PHASE": itemColor = new Color(100, 255, 200); break;
+            case "BOMB": itemColor = new Color(255, 100, 100); break;
+            case "STUN": itemColor = new Color(255, 255, 100); break;
+            case "DOUBLE_DAMAGE": itemColor = new Color(255, 150, 50); break;
+            case "IMPULSE": itemColor = new Color(150, 200, 255); break;
+            case "FROST_BEAM": itemColor = new Color(150, 220, 255); break;
+        }
+        
+        // Draw circular background
+        g.setColor(new Color(40, 45, 60));
+        g.fillOval(10, 10, size - 20, size - 20);
+        g.setColor(itemColor);
+        g.setStroke(new BasicStroke(4));
+        g.drawOval(10, 10, size - 20, size - 20);
+        
+        // Draw icon symbol
+        g.setFont(new Font("Arial", Font.BOLD, 60));
+        g.setColor(itemColor);
+        String symbol = "?";
+        switch (itemTypeName) {
+            case "SHIELD": symbol = "◉"; break;
+            case "MAGNET": symbol = "⊛"; break;
+            case "SLOW_TIME": symbol = "◷"; break;
+            case "PHASE": symbol = "◈"; break;
+            case "BOMB": symbol = "◆"; break;
+            case "STUN": symbol = "⚡"; break;
+            case "DOUBLE_DAMAGE": symbol = "×2"; break;
+            case "IMPULSE": symbol = "◎"; break;
+            case "FROST_BEAM": symbol = "❄"; break;
+        }
+        FontMetrics fm = g.getFontMetrics();
+        int symbolX = (size - fm.stringWidth(symbol)) / 2;
+        int symbolY = size / 2 + fm.getAscent() / 3;
+        g.drawString(symbol, symbolX, symbolY);
+        
+        g.dispose();
+        return img;
     }
     
     /**
@@ -6751,6 +6956,7 @@ public class Game extends JPanel implements Runnable {
         
         // Animated pulse effect
         double pulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.05 + 1.0;
+        double time = System.currentTimeMillis() / 1000.0;
         
         // === TAB BUTTONS ===
         int tabWidth = 150;
@@ -6763,13 +6969,15 @@ public class Game extends JPanel implements Runnable {
         boolean attacksTabHover = mouseX >= attacksTabX && mouseX <= attacksTabX + tabWidth &&
                                   mouseY >= tabY && mouseY <= tabY + tabHeight;
         boolean attacksTabActive = (showcaseTab == 0);
-        drawShowcaseTab(g, attacksTabX, tabY, tabWidth, tabHeight, "ATTACKS", attacksTabActive, attacksTabHover);
+        boolean attacksTabKeySelected = (showcaseHoveredButton == 0);
+        drawShowcaseTab(g, attacksTabX, tabY, tabWidth, tabHeight, "ATTACKS", attacksTabActive, attacksTabHover, attacksTabKeySelected);
         
         // Items tab
         boolean itemsTabHover = mouseX >= itemsTabX && mouseX <= itemsTabX + tabWidth &&
                                 mouseY >= tabY && mouseY <= tabY + tabHeight;
         boolean itemsTabActive = (showcaseTab == 1);
-        drawShowcaseTab(g, itemsTabX, tabY, tabWidth, tabHeight, "ITEMS", itemsTabActive, itemsTabHover);
+        boolean itemsTabKeySelected = (showcaseHoveredButton == 1);
+        drawShowcaseTab(g, itemsTabX, tabY, tabWidth, tabHeight, "ITEMS", itemsTabActive, itemsTabHover, itemsTabKeySelected);
         
         // Counter (different based on tab)
         g.setFont(new Font("Arial", Font.BOLD, 18));
@@ -6779,148 +6987,301 @@ public class Game extends JPanel implements Runnable {
         FontMetrics fm = g.getFontMetrics();
         g.drawString(counter, (width - fm.stringWidth(counter)) / 2, tabY + tabHeight + 30);
         
-        // Main content card
-        int cardWidth = 500;
-        int cardHeight = 350;
-        int cardX = (width - cardWidth) / 2;
-        int cardY = 120;
+        // === CAROUSEL CARDS (Journey Map style) ===
+        int centerX = width / 2;
+        int centerY = height / 2 - 50; // Move cards up
+        int cardSpacing = 600; // Space between card centers
+        int centerCardWidth = 620;
+        int centerCardHeight = 540;
         
-        // Card background
-        GradientPaint cardGradient = new GradientPaint(
-            cardX, cardY, new Color(35, 45, 65, 240),
-            cardX, cardY + cardHeight, new Color(25, 30, 45, 240)
-        );
-        g.setPaint(cardGradient);
-        g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 25, 25);
-        
-        // Card border
-        g.setColor(new Color(100, 150, 200, 180));
-        g.setStroke(new BasicStroke(2));
-        g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 25, 25);
-        
-        // Attack name
-        g.setFont(new Font("Arial", Font.BOLD, 32));
-        g.setColor(new Color(200, 220, 255));
-        if (currentAttackIntroName != null) {
-            fm = g.getFontMetrics();
-            int nameX = (width - fm.stringWidth(currentAttackIntroName)) / 2;
-            g.drawString(currentAttackIntroName, nameX, cardY + 50);
-        }
-        
-        // Attack image (placeholder)
-        int imageSize = 140;
-        int imageX = (width - imageSize) / 2;
-        int imageY = cardY + 70;
-        
-        if (attackIntroImage != null) {
-            int scaledSize = (int)(imageSize * pulse);
-            int offset = (imageSize - scaledSize) / 2;
-            g.drawImage(attackIntroImage, imageX + offset, imageY + offset, scaledSize, scaledSize, null);
+        // Animate carousel offset towards 0 (smooth slide)
+        if (Math.abs(showcaseCarouselOffset) > 0.01) {
+            showcaseCarouselOffset *= 0.85; // Ease out animation
         } else {
-            g.setColor(new Color(50, 55, 70));
-            g.fillRoundRect(imageX, imageY, imageSize, imageSize, 15, 15);
-            g.setColor(new Color(100, 150, 200));
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(imageX, imageY, imageSize, imageSize, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 36));
-            g.setColor(new Color(130, 140, 160));
-            g.drawString("?", imageX + imageSize/2 - 10, imageY + imageSize/2 + 12);
+            showcaseCarouselOffset = 0;
         }
         
-        // Attack description
-        if (currentAttackIntroDescription != null) {
-            g.setFont(new Font("Arial", Font.PLAIN, 18));
-            g.setColor(new Color(170, 180, 195));
-            String[] lines = currentAttackIntroDescription.split("\n");
-            int descY = imageY + imageSize + 35;
-            fm = g.getFontMetrics();
-            for (String line : lines) {
-                int lineX = (width - fm.stringWidth(line)) / 2;
-                g.drawString(line, lineX, descY);
-                descY += 24;
-            }
-        }
-        
-        // Level indicator (left side) - works for both tabs
-        g.setFont(new Font("Arial", Font.BOLD, 16));
-        g.setColor(new Color(200, 150, 100));
-        String levelText;
-        if (showcaseTab == 0) {
-            levelText = "Level " + (ATTACK_INTROS[debugShowcaseIndex][1]);
-        } else {
-            levelText = "Unlocks at Level " + (ITEM_SHOWCASE[debugShowcaseIndex][1]);
-        }
-        g.drawString(levelText, cardX + 20, cardY + cardHeight - 15);
-        
-        // Category indicator (right side) - different for items
-        if (currentAttackIntroCategory != null) {
-            Color categoryColor;
-            String categoryText;
+        // Draw cards for visible items (no wrapping)
+        for (int offset = -2; offset <= 2; offset++) {
+            int itemIndex = debugShowcaseIndex + offset;
+            
+            // Skip items outside valid range (no wrapping)
+            if (itemIndex < 0 || itemIndex >= maxIndex) continue;
+            
+            // Calculate position with animation offset
+            double animatedOffset = offset + showcaseCarouselOffset;
+            int cardCenterX = centerX + (int)(animatedOffset * cardSpacing);
+            double distFromCenter = Math.abs(animatedOffset);
+            double scale = Math.max(0.5, 1.0 - distFromCenter * 0.35);
+            float alpha = (float)Math.max(0.2, 1.0 - distFromCenter * 0.5);
+            
+            // Skip if too far off screen
+            if (cardCenterX < -200 || cardCenterX > width + 200) continue;
+            
+            int cardW = (int)(centerCardWidth * scale);
+            int cardH = (int)(centerCardHeight * scale);
+            int cardX = cardCenterX - cardW / 2;
+            int cardY = centerY - cardH / 2;
+            
+            // Get item data
+            String itemName, itemDesc, itemLevel, itemCategory, itemId;
             if (showcaseTab == 0) {
-                categoryColor = getCategoryColor(currentAttackIntroCategory);
-                categoryText = currentAttackIntroCategory;
+                itemId = ATTACK_INTROS[itemIndex][0];   // Internal ID for image loading
+                itemLevel = ATTACK_INTROS[itemIndex][1];
+                itemName = ATTACK_INTROS[itemIndex][2]; // Display name (nice formatting)
+                itemDesc = ATTACK_INTROS[itemIndex][3];
+                itemCategory = ATTACK_INTROS[itemIndex].length > 4 ? ATTACK_INTROS[itemIndex][4] : "Attack";
             } else {
-                categoryColor = new Color(100, 200, 255); // Cyan for items
-                categoryText = "ACTIVE ITEM";
+                itemName = ITEM_SHOWCASE[itemIndex][2]; // Name is at index 2
+                itemLevel = ITEM_SHOWCASE[itemIndex][1];
+                itemCategory = "ACTIVE ITEM";
+                itemDesc = ITEM_SHOWCASE[itemIndex][3];
+                itemId = ITEM_SHOWCASE[itemIndex][0]; // Type ID for items
             }
-            g.setColor(categoryColor);
+            
+            // Load image for this card (use cache)
+            BufferedImage cardImage = null;
+            if (showcaseTab == 0) {
+                cardImage = loadAttackIntroImage(itemId);
+            } else {
+                cardImage = loadItemShowcaseImage(itemId);
+            }
+            
+            // Apply alpha for fading effect
+            Composite originalComposite = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Selection glow for center card (when animation settled)
+            if (offset == 0 && Math.abs(showcaseCarouselOffset) < 0.3) {
+                float glowAlpha = (float)(1.0 - Math.abs(showcaseCarouselOffset) * 3); // Fade glow during animation
+                float glowPulse = (float)(0.2 + 0.15 * Math.sin(time * 4)) * glowAlpha;
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0, glowPulse)));
+                g.setColor(new Color(100, 150, 255));
+                g.fillRoundRect(cardX - 15, cardY - 15, cardW + 30, cardH + 30, 30, 30);
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            }
+            
+            // Card shadow
+            g.setColor(new Color(0, 0, 0, (int)(100 * alpha)));
+            g.fillRoundRect(cardX + 5, cardY + 5, cardW, cardH, 20, 20);
+            
+            // Card background gradient
+            GradientPaint cardGradient = new GradientPaint(
+                cardX, cardY, new Color(45, 55, 75),
+                cardX, cardY + cardH, new Color(30, 35, 50)
+            );
+            g.setPaint(cardGradient);
+            g.fillRoundRect(cardX, cardY, cardW, cardH, 20, 20);
+            
+            // Card border
+            g.setColor(offset == 0 ? new Color(120, 170, 255, 200) : new Color(80, 100, 140, 150));
+            g.setStroke(new BasicStroke(offset == 0 ? 3 : 2));
+            g.drawRoundRect(cardX, cardY, cardW, cardH, 20, 20);
+            
+            // Item name at top
+            int fontSize = (int)(28 * scale);
+            g.setFont(new Font("Arial", Font.BOLD, Math.max(14, fontSize)));
+            g.setColor(new Color(200, 220, 255));
             fm = g.getFontMetrics();
-            int categoryX = cardX + cardWidth - fm.stringWidth(categoryText) - 20;
-            g.drawString(categoryText, categoryX, cardY + cardHeight - 15);
+            int nameX = cardX + (cardW - fm.stringWidth(itemName)) / 2;
+            g.drawString(itemName, nameX, cardY + (int)(35 * scale));
+            
+            // Item image - LARGER and with correct aspect ratio
+            int maxImageWidth = (int)(cardW * 0.88);  // 88% of card width
+            int maxImageHeight = (int)(cardH * 0.52); // 52% of card height for image area
+            int imageY = cardY + (int)(48 * scale);
+            
+            if (cardImage != null) {
+                // Calculate scaled size preserving aspect ratio
+                int imgWidth = cardImage.getWidth();
+                int imgHeight = cardImage.getHeight();
+                double imgAspect = (double) imgWidth / imgHeight;
+                
+                int drawWidth, drawHeight;
+                if (imgAspect > 1) {
+                    // Wider than tall
+                    drawWidth = maxImageWidth;
+                    drawHeight = (int)(maxImageWidth / imgAspect);
+                    if (drawHeight > maxImageHeight) {
+                        drawHeight = maxImageHeight;
+                        drawWidth = (int)(maxImageHeight * imgAspect);
+                    }
+                } else {
+                    // Taller than wide or square
+                    drawHeight = maxImageHeight;
+                    drawWidth = (int)(maxImageHeight * imgAspect);
+                    if (drawWidth > maxImageWidth) {
+                        drawWidth = maxImageWidth;
+                        drawHeight = (int)(maxImageWidth / imgAspect);
+                    }
+                }
+                
+                int imageX = cardX + (cardW - drawWidth) / 2;
+                int imageCenterY = imageY + (maxImageHeight - drawHeight) / 2;
+                
+                // Pulse effect for center card
+                if (offset == 0) {
+                    double pulseScale = 1.0 + (pulse - 1.0) * 0.5; // Subtle pulse
+                    int pulseW = (int)(drawWidth * pulseScale);
+                    int pulseH = (int)(drawHeight * pulseScale);
+                    int pulseX = imageX - (pulseW - drawWidth) / 2;
+                    int pulseY = imageCenterY - (pulseH - drawHeight) / 2;
+                    g.drawImage(cardImage, pulseX, pulseY, pulseW, pulseH, null);
+                } else {
+                    g.drawImage(cardImage, imageX, imageCenterY, drawWidth, drawHeight, null);
+                }
+            } else {
+                // Placeholder if no image
+                int placeholderSize = (int)(Math.min(maxImageWidth, maxImageHeight) * 0.8);
+                int imageX = cardX + (cardW - placeholderSize) / 2;
+                g.setColor(new Color(50, 55, 70, (int)(255 * alpha)));
+                g.fillRoundRect(imageX, imageY, placeholderSize, placeholderSize, 10, 10);
+                g.setColor(new Color(100, 150, 200, (int)(200 * alpha)));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(imageX, imageY, placeholderSize, placeholderSize, 10, 10);
+                g.setFont(new Font("Arial", Font.BOLD, (int)(24 * scale)));
+                g.setColor(new Color(130, 140, 160, (int)(255 * alpha)));
+                fm = g.getFontMetrics();
+                g.drawString("?", imageX + placeholderSize/2 - fm.stringWidth("?")/2, imageY + placeholderSize/2 + fm.getAscent()/3);
+            }
+            
+            // Description area - below image with more spacing
+            int descStartY = imageY + maxImageHeight + (int)(30 * scale);
+            
+            // Only show description on center card
+            if (offset == 0 && itemDesc != null) {
+                g.setFont(new Font("Arial", Font.PLAIN, 18));
+                g.setColor(new Color(190, 205, 225));
+                String[] lines = itemDesc.split("\n");
+                fm = g.getFontMetrics();
+                int descY = descStartY;
+                int descPadding = 25; // Padding from card edges
+                int maxDescWidth = cardW - descPadding * 2;
+                for (String line : lines) {
+                    // Truncate if too long
+                    String displayLine = line;
+                    while (fm.stringWidth(displayLine) > maxDescWidth && displayLine.length() > 3) {
+                        displayLine = displayLine.substring(0, displayLine.length() - 4) + "...";
+                    }
+                    int lineX = cardX + (cardW - fm.stringWidth(displayLine)) / 2;
+                    g.drawString(displayLine, lineX, descY);
+                    descY += 24;
+                }
+            }
+            
+            // Level text (bottom left)
+            g.setFont(new Font("Arial", Font.BOLD, Math.max(12, (int)(14 * scale))));
+            g.setColor(new Color(200, 150, 100, (int)(255 * alpha)));
+            String lvlText = showcaseTab == 0 ? "Lv." + itemLevel : "Unlocks Lv." + itemLevel;
+            g.drawString(lvlText, cardX + (int)(12 * scale), cardY + cardH - (int)(12 * scale));
+            
+            // Category (bottom right) - only on center
+            if (offset == 0) {
+                Color categoryColor = showcaseTab == 0 ? getCategoryColor(itemCategory) : new Color(100, 200, 255);
+                g.setColor(categoryColor);
+                g.setFont(new Font("Arial", Font.BOLD, 14));
+                fm = g.getFontMetrics();
+                g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 12, cardY + cardH - 12);
+            }
+            
+            g.setComposite(originalComposite);
         }
         
-        // Left arrow button
-        int arrowWidth = 80;
-        int arrowHeight = 100;
-        int leftArrowX = 50;
-        int rightArrowX = width - 130;
-        int arrowY = height / 2 - 50;
+        // Arrow indicators on the sides - now as selectable boxes
+        int arrowBoxWidth = 80;
+        int arrowBoxHeight = 120;
+        int arrowY = height / 2 - 50 - arrowBoxHeight / 2; // Match card center offset
+        int leftArrowX = 15;
+        int rightArrowX = width - arrowBoxWidth - 15;
         
-        // Left arrow hover check
-        boolean leftHover = mouseX >= leftArrowX && mouseX <= leftArrowX + arrowWidth &&
-                           mouseY >= arrowY && mouseY <= arrowY + arrowHeight;
-        drawShowcaseArrow(g, leftArrowX, arrowY, arrowWidth, arrowHeight, true, leftHover);
+        float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
         
-        // Right arrow hover check
-        boolean rightHover = mouseX >= rightArrowX && mouseX <= rightArrowX + arrowWidth &&
-                            mouseY >= arrowY && mouseY <= arrowY + arrowHeight;
-        drawShowcaseArrow(g, rightArrowX, arrowY, arrowWidth, arrowHeight, false, rightHover);
+        // Check if at edges (disable arrows)
+        boolean canGoLeft = debugShowcaseIndex > 0;
+        boolean canGoRight = debugShowcaseIndex < maxIndex - 1;
         
-        // Start button
-        int startButtonWidth = 200;
-        int startButtonHeight = 60;
-        int startButtonX = (width - startButtonWidth) / 2;
-        int startButtonY = height - 120;
-        
-        boolean startHover = mouseX >= startButtonX && mouseX <= startButtonX + startButtonWidth &&
-                            mouseY >= startButtonY && mouseY <= startButtonY + startButtonHeight;
-        
-        // Start button background
-        if (startHover) {
-            g.setColor(new Color(80, 160, 80));
+        // Left arrow box
+        boolean leftHover = showcaseHoveredButton == 2;
+        if (!canGoLeft) {
+            // Disabled state - very dim
+            g.setColor(new Color(30, 35, 45, 100));
+            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(50, 60, 80, 80));
+            g.setStroke(new BasicStroke(1));
+            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(80, 90, 110, 100));
+            fm = g.getFontMetrics();
+            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
+        } else if (leftHover) {
+            // Glowing selection box
+            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
+            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
+            g.fillRoundRect(leftArrowX - 5, arrowY - 5, arrowBoxWidth + 10, arrowBoxHeight + 10, 20, 20);
+            g.setColor(new Color(60, 100, 160));
+            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(120, 180, 255));
+            g.setStroke(new BasicStroke(3));
+            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(255, 255, 255));
+            fm = g.getFontMetrics();
+            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
         } else {
-            g.setColor(new Color(60, 120, 60));
+            g.setColor(new Color(40, 50, 70, 180));
+            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(80, 100, 130, 150));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
+            fm = g.getFontMetrics();
+            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
         }
-        g.fillRoundRect(startButtonX, startButtonY, startButtonWidth, startButtonHeight, 15, 15);
         
-        // Start button border
-        g.setColor(new Color(120, 200, 120));
-        g.setStroke(new BasicStroke(startHover ? 3 : 2));
-        g.drawRoundRect(startButtonX, startButtonY, startButtonWidth, startButtonHeight, 15, 15);
-        
-        // Start button text
-        g.setFont(new Font("Arial", Font.BOLD, 24));
-        g.setColor(Color.WHITE);
-        String startText = "START TEST";
-        fm = g.getFontMetrics();
-        int textX = startButtonX + (startButtonWidth - fm.stringWidth(startText)) / 2;
-        int textY = startButtonY + startButtonHeight / 2 + 8;
-        g.drawString(startText, textX, textY);
+        // Right arrow box
+        boolean rightHover = showcaseHoveredButton == 3;
+        if (!canGoRight) {
+            // Disabled state - very dim
+            g.setColor(new Color(30, 35, 45, 100));
+            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(50, 60, 80, 80));
+            g.setStroke(new BasicStroke(1));
+            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(80, 90, 110, 100));
+            fm = g.getFontMetrics();
+            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
+        } else if (rightHover) {
+            // Glowing selection box
+            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
+            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
+            g.fillRoundRect(rightArrowX - 5, arrowY - 5, arrowBoxWidth + 10, arrowBoxHeight + 10, 20, 20);
+            g.setColor(new Color(60, 100, 160));
+            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(120, 180, 255));
+            g.setStroke(new BasicStroke(3));
+            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(255, 255, 255));
+            fm = g.getFontMetrics();
+            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
+        } else {
+            g.setColor(new Color(40, 50, 70, 180));
+            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setColor(new Color(80, 100, 130, 150));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
+            fm = g.getFontMetrics();
+            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
+        }
         
         // Instructions at bottom
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(new Color(130, 140, 160));
-        String instructions = "TAB to switch tabs  |  A/D to browse  |  SPACE to test  |  ESC to exit";
+        String instructions = "WASD to navigate  |  SPACE/CLICK to start  |  ESC to exit";
         fm = g.getFontMetrics();
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
     }
@@ -6928,11 +7289,20 @@ public class Game extends JPanel implements Runnable {
     /**
      * Draw a tab button for the showcase screen
      */
-    private void drawShowcaseTab(Graphics2D g, int x, int y, int width, int height, String label, boolean active, boolean hovered) {
+    private void drawShowcaseTab(Graphics2D g, int x, int y, int width, int height, String label, boolean active, boolean hovered, boolean keyboardSelected) {
+        double time = System.currentTimeMillis() / 1000.0;
+        
+        // Keyboard selection glow (outer glow)
+        if (keyboardSelected) {
+            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
+            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
+            g.fillRoundRect(x - 5, y - 5, width + 10, height + 10, 16, 16);
+        }
+        
         // Tab background
         if (active) {
-            g.setColor(new Color(80, 100, 150));
-        } else if (hovered) {
+            g.setColor(keyboardSelected ? new Color(90, 120, 180) : new Color(80, 100, 150));
+        } else if (hovered || keyboardSelected) {
             g.setColor(new Color(60, 80, 120));
         } else {
             g.setColor(new Color(40, 55, 85));
@@ -6940,7 +7310,10 @@ public class Game extends JPanel implements Runnable {
         g.fillRoundRect(x, y, width, height, 12, 12);
         
         // Tab border
-        if (active) {
+        if (keyboardSelected) {
+            g.setColor(new Color(120, 200, 255));
+            g.setStroke(new BasicStroke(3));
+        } else if (active) {
             g.setColor(new Color(150, 180, 255));
             g.setStroke(new BasicStroke(3));
         } else {
@@ -6951,7 +7324,7 @@ public class Game extends JPanel implements Runnable {
         
         // Tab label
         g.setFont(new Font("Arial", Font.BOLD, 18));
-        g.setColor(active ? Color.WHITE : new Color(180, 190, 210));
+        g.setColor((active || keyboardSelected) ? Color.WHITE : new Color(180, 190, 210));
         FontMetrics fm = g.getFontMetrics();
         int labelX = x + (width - fm.stringWidth(label)) / 2;
         int labelY = y + height / 2 + 6;
