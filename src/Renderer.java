@@ -1439,7 +1439,7 @@ public class Renderer {
         }
     }
     
-    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel, boolean planeTakeoffAnimation, int planeTakeoffTimer) {
+    public void drawLevelSelect(Graphics2D g, int width, int height, int currentLevel, int maxUnlockedLevel, double time, double scrollOffset, boolean hasSavedGame, int savedLevel, boolean planeTakeoffAnimation, double planeTakeoffTimer) {
         int selectedLevel = gameData.getSelectedLevelView();
         
         // Draw animated gradient background
@@ -1631,7 +1631,7 @@ public class Renderer {
                     int takeoffOffset = 0;
                     if (planeTakeoffAnimation && isSelected && distFromCenter < 0.3) {
                         // Easing function: starts slow, speeds up
-                        float progress = planeTakeoffTimer / 60.0f;
+                        float progress = (float)(planeTakeoffTimer / 60.0);
                         float easedProgress = progress * progress; // Quadratic ease-in
                         takeoffOffset = (int)(easedProgress * height * 1.5); // Fly off screen
                     }
@@ -2137,14 +2137,14 @@ public class Renderer {
         }
     }
     
-    public void drawLevelConfirm(Graphics2D g, int width, int height, int level, int selectedConfirmItem, boolean isResume, double time, boolean planeTakeoffAnimation, int planeTakeoffTimer, double scrollOffset, boolean hasSavedGame, int savedLevel) {
+    public void drawLevelConfirm(Graphics2D g, int width, int height, int level, int selectedConfirmItem, boolean isResume, double time, boolean planeTakeoffAnimation, double planeTakeoffTimer, double scrollOffset, boolean hasSavedGame, int savedLevel) {
         // If plane takeoff animation is active, show the level select screen with flying plane
         if (planeTakeoffAnimation) {
             // Draw level select screen in background
             drawLevelSelect(g, width, height, level, level, time, scrollOffset, hasSavedGame, savedLevel, true, planeTakeoffTimer);
             
             // Fade to white as plane flies up
-            float fadeProgress = planeTakeoffTimer / 60.0f;
+            float fadeProgress = (float)(planeTakeoffTimer / 60.0);
             g.setColor(new Color(255, 255, 255, (int)(255 * fadeProgress * fadeProgress)));
             g.fillRect(0, 0, width, height);
             return;
@@ -2262,7 +2262,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, int bossFlashTimer, int screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, int resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, int unpauseCountdownTimer, int itemReadyFlickerTimer, int itemCompleteFlashTimer, int achievementFlashTimer, int bossIntroFlashTimer, int countdownFlashTimer, int bossHitFlashTimer, int typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -3418,7 +3418,7 @@ public class Renderer {
             g.fillRect(0, 0, width, height);
             
             // Calculate countdown number (3, 2, 1, GO!)
-            int secondsRemaining = (unpauseCountdownTimer > 0) ? ((unpauseCountdownTimer - 1) / 60) + 1 : 0;
+            int secondsRemaining = (unpauseCountdownTimer > 0) ? (int)(((unpauseCountdownTimer - 1) / 60) + 1) : 0;
             String countdownText;
             Color countdownColor;
             
@@ -3431,7 +3431,7 @@ public class Renderer {
             }
             
             // Scale animation (quick pop-in on each tick)
-            int frameInTick = unpauseCountdownTimer % 60;
+            int frameInTick = (int)(unpauseCountdownTimer % 60);
             float tickProgress = frameInTick / 60.0f;
             float scale = tickProgress > 0.8f ? 
                 (1.0f - tickProgress) / 0.2f * 0.5f + 1.0f : 

@@ -119,7 +119,7 @@ public class ActiveItem {
                 name = "Stun";
                 description = "Stun the boss (10s cooldown)";
                 cooldownFrames = 600; // 10 seconds
-                activeDuration = 180; // 3 seconds stun duration
+                activeDuration = 90; // 1.5 seconds stun duration
                 break;
         }
     }

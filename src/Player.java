@@ -340,6 +340,13 @@ public class Player {
         this.y = y;
     }
     
+    // Reset velocity to zero (for respawn)
+    public void resetVelocity() {
+        this.vx = 0;
+        this.vy = 0;
+        this.cachedSpeed = 0;
+    }
+    
     // Apply dash boost (used by DASH active item)
     public void applyDashBoost(double multiplier) {
         // Increase current velocity by the multiplier

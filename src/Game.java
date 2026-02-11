@@ -34,14 +34,14 @@ public class Game extends JPanel implements Runnable {
     private double levelSelectScroll; // Target scroll position for level select
     private double levelSelectScrollAnimated; // Animated (smooth) scroll position
     private boolean planeTakeoffAnimation; // True when plane is flying up
-    private int planeTakeoffTimer; // Animation timer
+    private double planeTakeoffTimer; // Animation timer
     private static final int PLANE_TAKEOFF_DURATION = 60; // 1 second
     private double shopScroll; // Target scroll position for shop
     private double shopScrollAnimated; // Animated (smooth) scroll position
     private double statsScroll; // Target scroll position for stats screen
     private double statsScrollAnimated; // Animated (smooth) scroll position
     private double settingsScroll; // Scroll offset for settings menu
-    private int scrollCooldown; // Cooldown timer to prevent mouse selection while scrolling
+    private double scrollCooldown; // Cooldown timer to prevent mouse selection while scrolling
     private double achievementsScroll; // Target scroll position for achievements
     private double achievementsScrollAnimated; // Animated (smooth) scroll position
     private GameState shopEnteredFrom; // Track where player came from when entering shop
@@ -121,8 +121,8 @@ public class Game extends JPanel implements Runnable {
     // Item unlock animation
     private boolean itemUnlockAnimation;
     private boolean itemUnlockDismissing; // True when animation is fading out
-    private int itemUnlockTimer;
-    private int itemUnlockDismissTimer; // Timer for fade-out animation
+    private double itemUnlockTimer;
+    private double itemUnlockDismissTimer; // Timer for fade-out animation
     private String unlockedItemName;
     private String unlockedItemDescription; // Description of newly unlocked item
     private boolean showEquipPrompt; // True if should ask to equip item
@@ -135,8 +135,8 @@ public class Game extends JPanel implements Runnable {
     // Contract unlock animation
     private boolean contractUnlockAnimation;
     private boolean contractUnlockDismissing;
-    private int contractUnlockTimer;
-    private int contractUnlockDismissTimer;
+    private double contractUnlockTimer;
+    private double contractUnlockDismissTimer;
     private static final int CONTRACT_UNLOCK_DURATION = 240; // 4 seconds (longer for more info)
     private static final int CONTRACT_DISMISS_DURATION = 30;
     
@@ -165,7 +165,7 @@ public class Game extends JPanel implements Runnable {
     private boolean isPaused;
     private int selectedPauseItem;
     private boolean unpauseCountdownActive;
-    private int unpauseCountdownTimer;
+    private double unpauseCountdownTimer;
     private static final int UNPAUSE_COUNTDOWN_DURATION = 180; // 3 seconds (60 fps * 3)
     
     // Level confirmation
@@ -226,7 +226,7 @@ public class Game extends JPanel implements Runnable {
     private int vulnerabilityTimer;
     private int invulnerabilityTimer; // Prevents boss from going vulnerable at level start
     private int bossHitCount; // Number of times boss has been hit (max 3)
-    private int bossFlashTimer; // Flash effect when boss takes damage
+    private double bossFlashTimer; // Flash effect when boss takes damage
     private static final int BOSS_MAX_HITS = 3;
     private static final int VULNERABILITY_DURATION = 1200; // 20 second window
     private static final int INVULNERABILITY_DURATION = 180; // 3 seconds at start
@@ -245,25 +245,25 @@ public class Game extends JPanel implements Runnable {
     private static final double PERFECT_DODGE_DISTANCE = 8; // Frame-perfect dodge
     private int grazeScore = 0; // Accumulate graze score
     private int hitPauseTimer = 0; // Brief pause on impact
-    private int screenFlashTimer = 0; // Screen flash on player hit
-    private int itemReadyFlickerTimer = 0; // Flicker when item becomes ready
-    private int itemCompleteFlashTimer = 0; // Flash when item effect completes
+    private double screenFlashTimer = 0; // Screen flash on player hit
+    private double itemReadyFlickerTimer = 0; // Flicker when item becomes ready
+    private double itemCompleteFlashTimer = 0; // Flash when item effect completes
     private boolean wasItemReady = false; // Track previous ready state
     private boolean wasItemActive = false; // Track previous active state
-    private int achievementFlashTimer = 0; // Flash when achievement unlocked
-    private int bossIntroFlashTimer = 0; // Flash when boss intro appears
-    private int countdownFlashTimer = 0; // Flash on each countdown tick
-    private int bossHitFlashTimer = 0; // Flash when boss is hit
+    private double achievementFlashTimer = 0; // Flash when achievement unlocked
+    private double bossIntroFlashTimer = 0; // Flash when boss intro appears
+    private double countdownFlashTimer = 0; // Flash on each countdown tick
+    private double bossHitFlashTimer = 0; // Flash when boss is hit
     private int lastCountdownSecond = -1; // Track countdown changes
     
     // Type Purge item effect (chromatic screen flash)
-    private int typePurgeFlashTimer = 0;
+    private double typePurgeFlashTimer = 0;
     private Color typePurgeFlashColor = Color.WHITE;
     
     // Perfect Dodge system
-    private int perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
+    private double perfectDodgeIFrames = 0; // Brief invincibility after perfect dodge
     private static final int PERFECT_DODGE_IFRAMES = 8; // 8 frames of invincibility
-    private int perfectDodgeFlashTimer = 0; // Visual flash effect
+    private double perfectDodgeFlashTimer = 0; // Visual flash effect
     
     // Risk Contract system
     private boolean riskContractActive = false;
@@ -408,7 +408,7 @@ public class Game extends JPanel implements Runnable {
         {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
         {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
         {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
-        {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 3 seconds"},
+        {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1.5 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
         {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 70%\n7.5 second cooldown, lasts 2 seconds"},
         {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
@@ -422,9 +422,9 @@ public class Game extends JPanel implements Runnable {
     private double showcaseTargetOffset = 0; // Target offset (0 when settled)
     
     // Game feel effects
-    private int hitFreezeFrames = 0; // Freeze frames on boss damage
+    private double hitFreezeFrames = 0; // Freeze frames on boss damage
     private double slowMotionFactor = 1.0; // Slow-motion multiplier (1.0 = normal)
-    private int slowMotionTimer = 0; // Timer for slow-motion effect
+    private double slowMotionTimer = 0; // Timer for slow-motion effect
     private double comboPulseScale = 1.0; // Scale pulse on combo increase
     private double cameraBreathOffset = 0; // Subtle camera breathing
     private double cameraBreathTime = 0; // Time for camera breathing sine wave
@@ -435,7 +435,7 @@ public class Game extends JPanel implements Runnable {
     
     // Extra Life / Resurrection system
     public boolean resurrectionAnimation = false;
-    public int resurrectionTimer = 0;
+    public double resurrectionTimer = 0;
     public static final int RESURRECTION_DURATION = 120; // 2 seconds
     public double resurrectionScale = 0.0;
     public double resurrectionGlow = 0.0;
@@ -469,9 +469,9 @@ public class Game extends JPanel implements Runnable {
     private static final double DASH_ZOOM = 0.92; // Zoom OUT during dash (speed effect)
     private static final double IMPULSE_ZOOM = 1.12; // Zoom in during impulse (push effect)
     private boolean dashZoomActive = false; // Track dash zoom state
-    private int dashZoomTimer = 0; // Timer for dash zoom effect (short impulse)
+    private double dashZoomTimer = 0; // Timer for dash zoom effect (short impulse)
     private boolean impulseZoomActive = false; // Track impulse zoom state
-    private int impulseZoomTimer = 0; // Timer for impulse zoom effect
+    private double impulseZoomTimer = 0; // Timer for impulse zoom effect
     
     // FROST_BEAM angle - smoothly follows player facing
     private double frostBeamAngle = 0;
@@ -557,7 +557,7 @@ public class Game extends JPanel implements Runnable {
     private int deleteConfirmTimer = 0; // Timer for delete confirmation
     private boolean deleteModeActive = false; // True when accessing save screen from Delete Save menu
     private boolean showAutoSaveIndicator = false; // Show auto-save icon
-    private int autoSaveIndicatorTimer = 0; // Timer for auto-save indicator fade
+    private double autoSaveIndicatorTimer = 0; // Timer for auto-save indicator fade
     private static final int AUTO_SAVE_INDICATOR_DURATION = 120; // 2 seconds
     
     public Game() {
@@ -2853,6 +2853,10 @@ public class Game extends JPanel implements Runnable {
             bullets.clear();
             beamAttacks.clear();
             
+            // Teleport player to spawn point
+            player.setPosition(WIDTH / 2, HEIGHT - 200);
+            player.resetVelocity();
+            
             // Give boss 5 seconds of immunity after player resurrection
             invulnerabilityTimer = 300;
             bossVulnerable = false;
@@ -3631,6 +3635,9 @@ public class Game extends JPanel implements Runnable {
         invulnerabilityTimer = 300; // 5 seconds of immunity at boss start
         bossHitCount = 0;
         respawnInvincibilityTimer = 0; // No respawn invincibility at start
+        playerInvincible = false; // Reset player invincibility from previous level
+        shieldActive = false; // Reset shield from previous level/respawn
+        shieldHits = 0; // Reset shield hit counter
         hasMovedOnce = false; // Reset Can't Stop contract movement tracker
         stoppedMovingTimer = 0;
         waitingForRespawn = false;
@@ -3717,7 +3724,9 @@ public class Game extends JPanel implements Runnable {
             lastTime = now;
             
             while (delta >= 1) {
-                double deltaTime = 1.0; // Normalized delta time (1.0 = one frame at target FPS)
+                // Normalize deltaTime relative to 60 FPS (base framerate)
+                // At 60 FPS: deltaTime = 1.0, at 120 FPS: deltaTime = 0.5, etc.
+                double deltaTime = 60.0 / targetFPS;
                 update(deltaTime);
                 gradientTime += 0.02 * deltaTime; // Animate gradient with delta time
                 
@@ -3729,7 +3738,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Update scroll cooldown
                 if (scrollCooldown > 0) {
-                    scrollCooldown--;
+                    scrollCooldown -= deltaTime;
                 }
                 
                 // Update game timer (only during gameplay)
@@ -3786,10 +3795,10 @@ public class Game extends JPanel implements Runnable {
         
         // Handle unpause countdown timer (decrement even when game is frozen)
         if (unpauseCountdownActive) {
-            unpauseCountdownTimer--;
+            unpauseCountdownTimer -= deltaTime;
             
             // Calculate current countdown second
-            int currentSecond = (unpauseCountdownTimer > 0) ? ((unpauseCountdownTimer - 1) / 60) + 1 : 0;
+            int currentSecond = (unpauseCountdownTimer > 0) ? ((int)((unpauseCountdownTimer - 1) / 60) + 1) : 0;
             
             // Trigger flash and sound on countdown changes
             if (currentSecond != lastCountdownSecond) {
@@ -3819,14 +3828,14 @@ public class Game extends JPanel implements Runnable {
         
         // Handle hit freeze frames (pause game briefly on boss damage)
         if (hitFreezeFrames > 0) {
-            hitFreezeFrames--;
+            hitFreezeFrames -= deltaTime;
             return; // Skip update during freeze
         }
         
         // Apply slow-motion effect to delta time
         double effectiveDelta = deltaTime;
         if (slowMotionTimer > 0) {
-            slowMotionTimer--;
+            slowMotionTimer -= deltaTime;
             effectiveDelta = deltaTime * slowMotionFactor;
             if (slowMotionTimer <= 0) {
                 slowMotionFactor = 1.0; // Reset
@@ -3838,35 +3847,35 @@ public class Game extends JPanel implements Runnable {
         
         // Update perfect dodge i-frames
         if (perfectDodgeIFrames > 0) {
-            perfectDodgeIFrames--;
+            perfectDodgeIFrames -= deltaTime;
         }
         if (perfectDodgeFlashTimer > 0) {
-            perfectDodgeFlashTimer--;
+            perfectDodgeFlashTimer -= deltaTime;
         }
         
         // Update combo pulse animation (decay back to 1.0)
         if (comboPulseScale > 1.0) {
-            comboPulseScale = Math.max(1.0, comboPulseScale - 0.05);
+            comboPulseScale = Math.max(1.0, comboPulseScale - 0.05 * deltaTime);
         }
         
         // Update camera breathing effect
-        cameraBreathTime += 0.02;
+        cameraBreathTime += 0.02 * deltaTime;
         cameraBreathOffset = Math.sin(cameraBreathTime) * 2.0;
         
         // Smooth UI number animations
         double scoreTarget = gameData.getScore();
         double moneyTarget = gameData.getTotalMoney() + gameData.getRunMoney();
-        displayedScore += (scoreTarget - displayedScore) * 0.15;
-        displayedMoney += (moneyTarget - displayedMoney) * 0.15;
+        displayedScore += (scoreTarget - displayedScore) * 0.15 * deltaTime;
+        displayedMoney += (moneyTarget - displayedMoney) * 0.15 * deltaTime;
         
         // Update item unlock animation timer (let it countdown for animation progress)
         if (itemUnlockTimer > 0) {
-            itemUnlockTimer--;
+            itemUnlockTimer -= deltaTime;
         }
         
         // Update dismiss animation
         if (itemUnlockDismissing) {
-            itemUnlockDismissTimer--;
+            itemUnlockDismissTimer -= deltaTime;
             if (itemUnlockDismissTimer <= 0) {
                 itemUnlockAnimation = false;
                 itemUnlockDismissing = false;
@@ -3883,12 +3892,12 @@ public class Game extends JPanel implements Runnable {
         
         // Update contract unlock animation timer
         if (contractUnlockTimer > 0) {
-            contractUnlockTimer--;
+            contractUnlockTimer -= deltaTime;
         }
         
         // Update contract dismiss animation
         if (contractUnlockDismissing) {
-            contractUnlockDismissTimer--;
+            contractUnlockDismissTimer -= deltaTime;
             if (contractUnlockDismissTimer <= 0) {
                 contractUnlockAnimation = false;
                 contractUnlockDismissing = false;
@@ -3897,7 +3906,7 @@ public class Game extends JPanel implements Runnable {
         
         // Update state transitions
         if (stateTransitionProgress < 1.0f) {
-            stateTransitionProgress = Math.min(1.0f, stateTransitionProgress + TRANSITION_SPEED);
+            stateTransitionProgress = Math.min(1.0f, stateTransitionProgress + TRANSITION_SPEED * (float)deltaTime);
         }
         
         // Update save selection state
@@ -3929,7 +3938,7 @@ public class Game extends JPanel implements Runnable {
         
         // Update auto-save indicator
         if (autoSaveIndicatorTimer > 0) {
-            autoSaveIndicatorTimer--;
+            autoSaveIndicatorTimer -= deltaTime;
             if (autoSaveIndicatorTimer <= 0) {
                 showAutoSaveIndicator = false;
             }
@@ -3938,14 +3947,14 @@ public class Game extends JPanel implements Runnable {
         // Smooth scroll animation for level select carousel
         if (gameState == GameState.LEVEL_SELECT || gameState == GameState.LEVEL_CONFIRM) {
             double scrollDiff = levelSelectScroll - levelSelectScrollAnimated;
-            levelSelectScrollAnimated += scrollDiff * 0.15; // Smooth interpolation
+            levelSelectScrollAnimated += scrollDiff * 0.15 * deltaTime; // Smooth interpolation
             if (Math.abs(scrollDiff) < 0.01) {
                 levelSelectScrollAnimated = levelSelectScroll;
             }
             
             // Handle plane takeoff animation
             if (planeTakeoffAnimation) {
-                planeTakeoffTimer++;
+                planeTakeoffTimer += deltaTime;
                 if (planeTakeoffTimer >= PLANE_TAKEOFF_DURATION) {
                     // Animation complete - now actually start the level
                     planeTakeoffAnimation = false;
@@ -3987,7 +3996,7 @@ public class Game extends JPanel implements Runnable {
         // Smooth scroll animation for shop
         if (gameState == GameState.SHOP) {
             double shopScrollDiff = shopScroll - shopScrollAnimated;
-            shopScrollAnimated += shopScrollDiff * 0.15; // Smooth interpolation
+            shopScrollAnimated += shopScrollDiff * 0.15 * deltaTime; // Smooth interpolation
             if (Math.abs(shopScrollDiff) < 0.01) {
                 shopScrollAnimated = shopScroll;
             }
@@ -3996,7 +4005,7 @@ public class Game extends JPanel implements Runnable {
         // Smooth scroll animation for stats screen
         if (gameState == GameState.STATS) {
             double statsScrollDiff = statsScroll - statsScrollAnimated;
-            statsScrollAnimated += statsScrollDiff * 0.15; // Smooth interpolation
+            statsScrollAnimated += statsScrollDiff * 0.15 * deltaTime; // Smooth interpolation
             if (Math.abs(statsScrollDiff) < 0.01) {
                 statsScrollAnimated = statsScroll;
             }
@@ -4005,7 +4014,7 @@ public class Game extends JPanel implements Runnable {
         // Smooth scroll animation for achievements screen
         if (gameState == GameState.ACHIEVEMENTS) {
             double achievementsScrollDiff = achievementsScroll - achievementsScrollAnimated;
-            achievementsScrollAnimated += achievementsScrollDiff * 0.15; // Smooth interpolation
+            achievementsScrollAnimated += achievementsScrollDiff * 0.15 * deltaTime; // Smooth interpolation
             if (Math.abs(achievementsScrollDiff) < 0.01) {
                 achievementsScrollAnimated = achievementsScroll;
             }
@@ -4202,13 +4211,13 @@ public class Game extends JPanel implements Runnable {
         } else {
             // Return to normal zoom (unless dash/impulse zoom is still active)
             if (dashZoomActive) {
-                dashZoomTimer--;
+                dashZoomTimer -= dt;
                 if (dashZoomTimer <= 0) {
                     dashZoomActive = false;
                     if (!impulseZoomActive) targetEffectZoom = 1.0;
                 }
             } else if (impulseZoomActive) {
-                impulseZoomTimer--;
+                impulseZoomTimer -= dt;
                 if (impulseZoomTimer <= 0) {
                     impulseZoomActive = false;
                     targetEffectZoom = 1.0;
@@ -4265,7 +4274,7 @@ public class Game extends JPanel implements Runnable {
         
         // Update resurrection animation
         if (resurrectionAnimation) {
-            resurrectionTimer--;
+            resurrectionTimer -= deltaTime;
             // Animate scale from 0 to 1
             double progress = 1.0 - (resurrectionTimer / (double)RESURRECTION_DURATION);
             resurrectionScale = Math.min(1.0, progress * 2.0); // Scale up in first half
@@ -4370,31 +4379,31 @@ public class Game extends JPanel implements Runnable {
         
         // Update flash timers
         if (bossFlashTimer > 0) {
-            bossFlashTimer--;
+            bossFlashTimer -= deltaTime;
         }
         if (screenFlashTimer > 0) {
-            screenFlashTimer--;
+            screenFlashTimer -= deltaTime;
         }
         if (itemReadyFlickerTimer > 0) {
-            itemReadyFlickerTimer--;
+            itemReadyFlickerTimer -= deltaTime;
         }
         if (itemCompleteFlashTimer > 0) {
-            itemCompleteFlashTimer--;
+            itemCompleteFlashTimer -= deltaTime;
         }
         if (achievementFlashTimer > 0) {
-            achievementFlashTimer--;
+            achievementFlashTimer -= deltaTime;
         }
         if (bossIntroFlashTimer > 0) {
-            bossIntroFlashTimer--;
+            bossIntroFlashTimer -= deltaTime;
         }
         if (countdownFlashTimer > 0) {
-            countdownFlashTimer--;
+            countdownFlashTimer -= deltaTime;
         }
         if (bossHitFlashTimer > 0) {
-            bossHitFlashTimer--;
+            bossHitFlashTimer -= deltaTime;
         }
         if (typePurgeFlashTimer > 0) {
-            typePurgeFlashTimer--;
+            typePurgeFlashTimer -= deltaTime;
         }
 
         // Update combo timer
@@ -4596,7 +4605,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Smoothly interpolate camera position (slower than before)
                 // Scale camera movement inversely with zoom - more zoom = less camera movement
-                double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom;
+                double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom * dt;
                 cameraX += (targetCameraX - cameraX) * zoomAdjustedSmoothing;
                 cameraY += (targetCameraY - cameraY) * zoomAdjustedSmoothing;
                 
@@ -6833,14 +6842,35 @@ public class Game extends JPanel implements Runnable {
         g.fillRect(0, 0, width, height);
         
         // Animated pulse effect (smaller range to prevent overflow)
-        double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.05 + 1.0;
+        double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.03 + 1.0;
         
-        // Calculate image dimensions first to determine box size
+        // Box dimensions - fill most of the screen
+        int boxWidth = Math.min(900, width - 40);
+        int boxHeight = Math.min(800, height - 30);
+        int boxX = (width - boxWidth) / 2;
+        int boxY = (height - boxHeight) / 2;
+        
+        // Calculate available space for the image (after accounting for text areas)
+        int headerHeight = 70;   // Space for "NEW ATTACK!" header
+        int nameHeight = 55;     // Space for attack name
+        int descriptionHeight = 100; // Space for description (2-3 lines)
+        int promptHeight = 50;   // Space for "Press SPACE" prompt
+        int boxPaddingV = 25;    // Vertical padding
+        int sectionGap = 20;     // Gap between sections
+        int imageFramePadding = 15; // Padding around image frame
+        
+        // Calculate max image area (what's left after text and padding)
+        int textAreaHeight = headerHeight + nameHeight + descriptionHeight + promptHeight + sectionGap * 3 + boxPaddingV * 2;
+        int maxImageHeight = boxHeight - textAreaHeight - imageFramePadding * 2;
+        int maxImageWidth = boxWidth - 60; // Leave margin on sides
+        
+        // Ensure reasonable minimums
+        maxImageHeight = Math.max(maxImageHeight, 300);
+        maxImageWidth = Math.max(maxImageWidth, 400);
+        
+        // Calculate image dimensions
         int imgDisplayWidth = 0;
         int imgDisplayHeight = 0;
-        int minImageSize = 80; // Minimum size for the image
-        int maxImageWidth = Math.min(300, width - 250); // Max width with margin
-        int maxImageHeight = Math.min(220, height - 400); // Max height leaving room for text
         
         if (attackIntroImage != null) {
             int imgWidth = attackIntroImage.getWidth();
@@ -6851,65 +6881,18 @@ public class Game extends JPanel implements Runnable {
             double scaleH = (double)maxImageHeight / imgHeight;
             double scale = Math.min(scaleW, scaleH);
             
-            // Apply scale but ensure minimum size
-            imgDisplayWidth = Math.max(minImageSize, (int)(imgWidth * scale));
-            imgDisplayHeight = Math.max(minImageSize, (int)(imgHeight * scale));
+            // Apply scale
+            imgDisplayWidth = (int)(imgWidth * scale);
+            imgDisplayHeight = (int)(imgHeight * scale);
             
-            // If we had to enforce minimum, recalculate to maintain aspect ratio
-            if (imgWidth * scale < minImageSize || imgHeight * scale < minImageSize) {
-                double minScale = Math.max((double)minImageSize / imgWidth, (double)minImageSize / imgHeight);
-                imgDisplayWidth = (int)(imgWidth * minScale);
-                imgDisplayHeight = (int)(imgHeight * minScale);
-            }
+            // Clamp to reasonable bounds
+            imgDisplayWidth = Math.max(100, Math.min(imgDisplayWidth, maxImageWidth));
+            imgDisplayHeight = Math.max(100, Math.min(imgDisplayHeight, maxImageHeight));
         } else {
             // Default placeholder size
-            imgDisplayWidth = 100;
-            imgDisplayHeight = 100;
+            imgDisplayWidth = 150;
+            imgDisplayHeight = 150;
         }
-        
-        // Calculate description dimensions
-        int descLineHeight = 26;
-        int descriptionLines = 0;
-        int maxDescWidth = 0;
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-        FontMetrics descFm = g.getFontMetrics();
-        if (currentAttackIntroDescription != null) {
-            String[] descLines = currentAttackIntroDescription.split("\n");
-            descriptionLines = descLines.length;
-            for (String line : descLines) {
-                maxDescWidth = Math.max(maxDescWidth, descFm.stringWidth(line));
-            }
-        }
-        int descriptionHeight = descriptionLines * descLineHeight + 15;
-        
-        // Calculate box dimensions based on content
-        int headerHeight = 60;   // Space for "NEW ATTACK!" header
-        int nameHeight = 45;     // Space for attack name
-        int imageFramePadding = 12; // Padding around image frame
-        int sectionGap = 20;     // Gap between sections
-        int promptHeight = 50;   // Space for "Press SPACE" prompt
-        int boxPaddingH = 50;    // Horizontal padding inside box
-        int boxPaddingV = 25;    // Vertical padding inside box
-        
-        // Calculate required box size
-        int imageAreaHeight = imgDisplayHeight + imageFramePadding * 2;
-        int contentWidth = Math.max(imgDisplayWidth + imageFramePadding * 2 + boxPaddingH * 2, 
-                                    Math.max(maxDescWidth + boxPaddingH * 2, 380));
-        int contentHeight = boxPaddingV + headerHeight + nameHeight + imageAreaHeight + sectionGap + 
-                           descriptionHeight + sectionGap + promptHeight + boxPaddingV;
-        
-        // Clamp box size to screen bounds with margins
-        int maxBoxWidth = width - 80;
-        int maxBoxHeight = height - 60;
-        int boxWidth = Math.min(contentWidth, maxBoxWidth);
-        int boxHeight = Math.min(contentHeight, maxBoxHeight);
-        
-        // Ensure minimum box size
-        boxWidth = Math.max(boxWidth, 380);
-        boxHeight = Math.max(boxHeight, 350);
-        
-        int boxX = (width - boxWidth) / 2;
-        int boxY = (height - boxHeight) / 2;
         
         // Box background with gradient
         GradientPaint boxGradient = new GradientPaint(
@@ -6935,17 +6918,19 @@ public class Game extends JPanel implements Runnable {
         int currentY = boxY + boxPaddingV;
         
         // "NEW ATTACK!" header with animation
-        g.setFont(new Font("Arial", Font.BOLD, (int)(38 * pulse)));
+        int headerFontSize = Math.min(50, boxWidth / 10);
+        g.setFont(new Font("Arial", Font.BOLD, (int)(headerFontSize * pulse)));
         g.setColor(new Color(255, 200, 100));
         String header = "NEW ATTACK!";
         FontMetrics fm = g.getFontMetrics();
         int headerX = boxX + (boxWidth - fm.stringWidth(header)) / 2;
         currentY += fm.getAscent();
         g.drawString(header, headerX, currentY);
-        currentY += headerHeight - fm.getAscent();
+        currentY += sectionGap;
         
         // Attack name
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        int nameFontSize = Math.min(40, boxWidth / 12);
+        g.setFont(new Font("Arial", Font.BOLD, nameFontSize));
         g.setColor(new Color(200, 220, 255));
         fm = g.getFontMetrics();
         if (currentAttackIntroName != null) {
@@ -6953,7 +6938,7 @@ public class Game extends JPanel implements Runnable {
             currentY += fm.getAscent();
             g.drawString(currentAttackIntroName, nameX, currentY);
         }
-        currentY += nameHeight - fm.getAscent() + 5;
+        currentY += sectionGap;
         
         // Attack image - centered in box
         int imageX = boxX + (boxWidth - imgDisplayWidth) / 2;
@@ -6995,7 +6980,9 @@ public class Game extends JPanel implements Runnable {
         
         // Attack description - centered in box
         if (currentAttackIntroDescription != null) {
-            g.setFont(new Font("Arial", Font.PLAIN, 18));
+            int descFontSize = Math.min(24, boxWidth / 25);
+            int descLineHeight = descFontSize + 10;
+            g.setFont(new Font("Arial", Font.PLAIN, descFontSize));
             g.setColor(new Color(180, 190, 200));
             fm = g.getFontMetrics();
             
@@ -7011,7 +6998,8 @@ public class Game extends JPanel implements Runnable {
         
         // "Press SPACE to continue" prompt - positioned at bottom of box
         double promptPulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7;
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        int promptFontSize = Math.min(26, boxWidth / 24);
+        g.setFont(new Font("Arial", Font.BOLD, promptFontSize));
         g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
         String prompt = "Press SPACE to continue";
         fm = g.getFontMetrics();

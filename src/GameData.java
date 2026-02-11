@@ -215,8 +215,6 @@ public class GameData {
         for (int i = 0; i < defeatedBosses.length; i++) {
             defeatedBosses[i] = true;
         }
-        unlockAllItems();
-        unlockContracts();
     }
     
     public void giveCheatMoney(int amount) {
@@ -225,10 +223,8 @@ public class GameData {
     
     public void maxAllUpgrades() {
         speedUpgradeLevel = 10;
-        bulletSlowUpgradeLevel = 10;
-        luckyDodgeUpgradeLevel = 10;
-        unlockAllItems();
-        unlockContracts();
+        bulletSlowUpgradeLevel = 50;
+        luckyDodgeUpgradeLevel = 12;
     }
     
     // Active Items methods
