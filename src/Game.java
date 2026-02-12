@@ -109,7 +109,7 @@ public class Game extends JPanel implements Runnable {
     private List<Bullet> nearbyBulletsCache = new ArrayList<>(); // Reusable list for performance
     
     // Player trail effect
-    private int trailSpawnTimer;
+    private double trailSpawnTimer;
     
     // Input
     private boolean[] keys;
@@ -155,11 +155,16 @@ public class Game extends JPanel implements Runnable {
     private int comboTimer;
     private static final int COMBO_TIMEOUT = 180; // 3 seconds
     
-    // Boss intro cinematics
+    // Boss intro cinematics - Street Fighter / Smash Bros style
     private boolean bossIntroActive;
     private int bossIntroTimer;
-    private static final int BOSS_INTRO_DURATION = 120; // 2 seconds
+    private static final int BOSS_INTRO_DURATION = 320; // 6-phase split-screen + bar animations
     private String bossIntroText;
+    private double bossIntroPlayerX; // Player sprite sliding in from left
+    private double bossIntroBossX;   // Boss sprite sliding in from right
+    private double bossIntroVsScale; // VS text scale animation
+    private double bossIntroFlash;   // Flash intensity for dramatic effect
+    private int bossIntroPhase;      // 0=split close, 1=slide in, 2=VS flash, 3=bars in+hold, 4=bars out, 5=split open
     
     // Pause menu
     private boolean isPaused;
@@ -405,8 +410,8 @@ public class Game extends JPanel implements Runnable {
     // Active Items showcase data: {itemTypeName, level, name, description}
     // Ordered by power level (worst to best)
     private static final String[][] ITEM_SHOWCASE = {
-        {"LUCKY_CHARM", "3", "Lucky Charm", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
-        {"SHIELD", "6", "Shield", "Tank 3 hits from enemy bullets\n7.5 second cooldown"},
+        {"LUCKY_CHARM", "3", "Pool of Loot", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
+        {"SHIELD", "6", "Shield", "Summon 3 orbiting shields that block bullets!\nShields persist until hit. 5s first use, then 20s cooldown"},
         {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
         {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1.5 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
@@ -448,8 +453,10 @@ public class Game extends JPanel implements Runnable {
     
     // Active item effects
     private boolean playerInvincible; // For DASH i-frames
-    private boolean shieldActive; // For SHIELD item
-    private int shieldHits; // Number of hits shield has taken (3 max)
+    private boolean shieldActive; // For SHIELD item - 3 orbiting shields
+    private int shieldHits; // Number of shields remaining (3 max, decrements on hit)
+    private double shieldOrbitAngle = 0; // Rotation angle for orbiting shields
+    private boolean shieldFirstUse = true; // Track if this is the first use (5s cooldown vs 20s)
     private int respawnInvincibilityTimer; // Shorter invincibility after respawn
     private double dashSpeedMultiplier; // For DASH item
     private double spawnProtectionX; // X position where spawn protection was activated
@@ -1398,14 +1405,18 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 5;
                     } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
+                        System.out.println("SPACE pressed - Attempting item activation");
                         // Powerless contract (type 3) disables ALL active items
                         if (riskContractType == 3) {
                             damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
                         } else {
                             eKeyPressed = true;
                             ActiveItem item = gameData.getEquippedItem();
+                            System.out.println("SPACE: item=" + (item != null ? item.getType() : "null") + 
+                                             ", canActivate=" + (item != null ? item.canActivate() : "N/A"));
                             if (item != null && item.canActivate()) {
                                 item.activate();
+                                System.out.println("SPACE: Item activated!");
                                 screenShakeIntensity = 3;
                                 // Handle instant effects immediately (before update() deactivates them)
                                 if (item.getActiveDuration() == 0) {
@@ -3410,7 +3421,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             System.out.println("DEBUG SHOWCASE: Testing Item - " + currentAttackIntroName + 
-                              " - Press SHIFT to use item, N or ESC to return, R to reset");
+                              " - Press SPACE to use item, N or ESC to return, R to reset");
         }
     }
     
@@ -3602,7 +3613,7 @@ public class Game extends JPanel implements Runnable {
         particles.clear();
         damageNumbers.clear();
         beamAttacks.clear();
-        moneyCircles.clear(); // Clear Lucky Charm circles from previous level
+        moneyCircles.clear(); // Clear Pool of Loot circles from previous level
         currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
@@ -3638,6 +3649,8 @@ public class Game extends JPanel implements Runnable {
         playerInvincible = false; // Reset player invincibility from previous level
         shieldActive = false; // Reset shield from previous level/respawn
         shieldHits = 0; // Reset shield hit counter
+        shieldFirstUse = true; // Reset first use flag for shield cooldown
+        shieldOrbitAngle = 0; // Reset orbit angle
         hasMovedOnce = false; // Reset Can't Stop contract movement tracker
         stoppedMovingTimer = 0;
         waitingForRespawn = false;
@@ -3650,17 +3663,23 @@ public class Game extends JPanel implements Runnable {
         totalGrazesThisRun = 0;
         comboSystem.resetCombo();
         
-        // Start boss intro cinematic
+        // Start boss intro cinematic - Street Fighter / Smash Bros style
         bossIntroActive = true;
         bossIntroTimer = 0;
-        bossIntroText = "LEVEL " + gameData.getCurrentLevel() + " - " + currentBoss.getVehicleName();
+        bossIntroText = currentBoss.getVehicleName();
         if (currentBoss.isMegaBoss()) {
-            bossIntroText += " [MEGA BOSS]";
+            bossIntroText += " [MEGA]";
         }
+        bossIntroPlayerX = -200; // Start off-screen left
+        bossIntroBossX = WIDTH + 200; // Start off-screen right
+        bossIntroVsScale = 0; // VS text starts invisible
+        bossIntroFlash = 0;
+        bossIntroPhase = 0; // Start with slide-in phase
         bossIntroFlashTimer = 25; // Flash effect for boss intro
         soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
         // Start intro sequence with boss entrance
+        introPanActive = true;
         introPanActive = true;
         introPanTimer = 0;
         bossEntranceY = -200; // Boss will start above screen
@@ -4044,7 +4063,7 @@ public class Game extends JPanel implements Runnable {
         // Reset active item effect states each frame
         playerInvincible = false;
         dashSpeedMultiplier = 1.0;
-        shieldHits = 0;
+        // NOTE: shieldHits is NOT reset here - it persists until shields are destroyed by bullets
         // Shield persists until used
         
         // Update boss stun timer - sync with item active state
@@ -4298,14 +4317,12 @@ public class Game extends JPanel implements Runnable {
                 if (distanceFromSpawn > SPAWN_PROTECTION_RADIUS) {
                     // Player moved too far - remove protection immediately
                     respawnInvincibilityTimer = 0;
-                    shieldActive = false;
                     playerInvincible = false;
                 }
             }
             
             if (respawnInvincibilityTimer <= 0) {
-                // Timer expired - remove shield and invincibility
-                shieldActive = false;
+                // Timer expired - remove invincibility
                 playerInvincible = false;
             } else {
                 // Still invincible from respawn
@@ -4324,7 +4341,7 @@ public class Game extends JPanel implements Runnable {
         // Update active item
         ActiveItem equippedItem = gameData.getEquippedItem();
         if (equippedItem != null) {
-            equippedItem.update();
+            equippedItem.update(deltaTime);
             
             // Detect when item becomes ready
             boolean isReadyNow = equippedItem.canActivate();
@@ -4354,12 +4371,9 @@ public class Game extends JPanel implements Runnable {
             // Handle active item effects
             if (equippedItem.isActive()) {
                 handleActiveItemEffects(equippedItem, deltaTime);
-            } else {
-                // Item just ended - clear shield if it was active
-                if (equippedItem.getType() == ActiveItem.ItemType.SHIELD) {
-                    shieldActive = false;
-                }
             }
+            // Note: Shield persists until all 3 orbs are destroyed by bullets
+            // Don't clear shieldActive here - it's managed by collision detection
         }
         
         // Update screen shake
@@ -4424,6 +4438,12 @@ public class Game extends JPanel implements Runnable {
             // Only allow player control when intro pan is complete
             if (!introPanActive) {
                 player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
+                
+                // Update orbiting shield rotation
+                if (shieldActive && shieldHits > 0) {
+                    shieldOrbitAngle += dt * 0.06; // Gentle shield rotation
+                    if (shieldOrbitAngle > TWO_PI) shieldOrbitAngle -= TWO_PI;
+                }
                 
                 // Can't Stop contract: Check if player is moving
                 if (riskContractType == 4 && riskContractActive) {
@@ -4618,6 +4638,68 @@ public class Game extends JPanel implements Runnable {
             // Update boss intro cinematic
             if (bossIntroActive) {
                 bossIntroTimer += deltaTime;
+                int t = bossIntroTimer;
+                double w = WIDTH;
+                
+                // Phase 0: Split-screen closes from edges to center (0-50)
+                if (t < 50) {
+                    bossIntroPlayerX = -300;
+                    bossIntroBossX = w + 300;
+                    bossIntroVsScale = 0;
+                    bossIntroFlash = 0;
+                    bossIntroPhase = 0;
+                }
+                // Phase 1: Sprites slide in from off-screen (50-100)
+                else if (t < 100) {
+                    double progress = (t - 50) / 50.0;
+                    double ease = 1.0 - Math.pow(1.0 - progress, 3);
+                    double overshoot = Math.sin(progress * Math.PI) * 0.03;
+                    bossIntroPlayerX = -300 + (w * 0.27 + 300) * (ease + overshoot);
+                    bossIntroBossX = w + 300 - (w * 0.27 + 300) * (ease + overshoot);
+                    bossIntroVsScale = 0;
+                    bossIntroFlash = 0;
+                    bossIntroPhase = 1;
+                    if (t >= 85 && t < 88) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 8);
+                    }
+                }
+                // Phase 2: VS text slams in with flash (100-140)
+                else if (t < 140) {
+                    double progress = (t - 100) / 40.0;
+                    bossIntroPlayerX = w * 0.27;
+                    bossIntroBossX = w * 0.73;
+                    double elasticEase = 1.0 + Math.sin(progress * Math.PI * 2) * 0.12 * (1.0 - progress);
+                    bossIntroVsScale = Math.min(1.0, progress * 1.8) * elasticEase;
+                    if (t < 105) {
+                        bossIntroFlash = 1.0 - (t - 100) / 5.0;
+                        if (t == 100) screenShakeIntensity = 15;
+                    } else {
+                        bossIntroFlash = 0;
+                    }
+                    bossIntroPhase = 2;
+                }
+                // Phase 3: Letterbox bars slide in from top/bottom + hold (140-220)
+                else if (t < 220) {
+                    bossIntroPlayerX = w * 0.27;
+                    bossIntroBossX = w * 0.73;
+                    bossIntroVsScale = 1.0 + 0.015 * Math.sin((t - 140) * 0.12);
+                    bossIntroPhase = 3;
+                }
+                // Phase 4: Letterbox bars slide back out (220-265)
+                else if (t < 265) {
+                    bossIntroPlayerX = w * 0.27;
+                    bossIntroBossX = w * 0.73;
+                    bossIntroVsScale = 1.0;
+                    bossIntroPhase = 4;
+                }
+                // Phase 5: Split-screen opens outward (265-320)
+                else {
+                    bossIntroPlayerX = w * 0.27;
+                    bossIntroBossX = w * 0.73;
+                    bossIntroVsScale = 1.0;
+                    bossIntroPhase = 5;
+                }
+                
                 if (bossIntroTimer >= BOSS_INTRO_DURATION) {
                     bossIntroActive = false;
                 }
@@ -4648,8 +4730,8 @@ public class Game extends JPanel implements Runnable {
             
             // Spawn fire trail behind player
             if (player != null && Game.enableParticles) {
-                trailSpawnTimer++;
-                if (trailSpawnTimer >= 2) { // Every 2 frames
+                trailSpawnTimer += deltaTime;
+                if (trailSpawnTimer >= 2) { // Every 2 frames worth of time
                     trailSpawnTimer = 0;
                     // Create rocket/fire trail particles
                     // Calculate angle based on velocity (or default upward if stationary)
@@ -5263,12 +5345,12 @@ public class Game extends JPanel implements Runnable {
             respawnDelayTimer -= deltaTime;
             
             if (respawnDelayTimer <= 0) {
-                // Respawn player at bottom with shield
+                // Respawn player at bottom with invincibility (not shield item)
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 int speedLevel = getActiveSpeedLevel();
                 player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
-                shieldActive = true;
-                shieldHits = 0; // Reset shield hit counter
+                // Don't activate shield here - use invincibility instead
+                // shieldActive is only for the Shield active item
                 playerInvincible = true;
                 respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
                 
@@ -5423,6 +5505,58 @@ public class Game extends JPanel implements Runnable {
         // Rebuild spatial grid after all bullet updates for optimized collision
         rebuildBulletGrid();
         
+        // Shield collision check - independent of player hitbox, uses shield's visual radius
+        if (player != null && !bossDeathAnimation && shieldActive && shieldHits > 0) {
+            List<Bullet> nearbyForShield = getNearbyBullets(player.getX(), player.getY());
+            java.util.Iterator<Bullet> shieldIter = nearbyForShield.iterator();
+            while (shieldIter.hasNext()) {
+                Bullet bullet = shieldIter.next();
+                if (!bullet.isActive()) continue;
+                if (bullet.getWarningTime() > 0) continue;
+                
+                // Distance from bullet to player center
+                double bDx = bullet.getX() - player.getX();
+                double bDy = bullet.getY() - player.getY();
+                double bulletDist = Math.sqrt(bDx * bDx + bDy * bDy);
+                double shieldOrbitR = 38; // Match visual orbit radius
+                // Shield blocks if bullet is within the full outer glow radius (orbit + glow + half stroke)
+                boolean inShieldBand = bulletDist < shieldOrbitR + 52; // Covers full visual shield area
+                
+                if (inShieldBand) {
+                    // One shield breaks per hit
+                    shieldHits--;
+                    if (shieldHits <= 0) {
+                        shieldActive = false;
+                    }
+                    soundManager.playSound(SoundManager.Sound.SHIELD_BREAK);
+                    bullets.remove(bullet);
+                    returnBulletToPool(bullet);
+                    
+                    // Create shield break particles at the destroyed shield's position
+                    if (enableParticles) {
+                        double shieldOrbitRadius = 38;
+                        double destroyedShieldAngle = shieldOrbitAngle + (shieldHits * TWO_PI / 3.0);
+                        double shieldX = player.getX() + Math.cos(destroyedShieldAngle) * shieldOrbitRadius;
+                        double shieldY = player.getY() + Math.sin(destroyedShieldAngle) * shieldOrbitRadius;
+                        
+                        for (int j = 0; j < 20; j++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 2 + Math.random() * 5;
+                            addParticle(
+                                shieldX, shieldY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                new Color(136, 192, 208), 30, 8,
+                                Particle.ParticleType.SPARK
+                            );
+                        }
+                    }
+                    
+                    screenShakeIntensity = 6;
+                    if (shieldHits <= 0) break; // All shields gone, stop checking
+                }
+            }
+        }
+        
         // Check collisions using spatial grid (much faster for many bullets!)
         if (player != null && !bossDeathAnimation) {
             List<Bullet> nearbyBullets = getNearbyBullets(player.getX(), player.getY());
@@ -5437,43 +5571,6 @@ public class Game extends JPanel implements Runnable {
                     // Check for perfect dodge i-frames
                     if (perfectDodgeIFrames > 0) {
                         // Perfect dodge invincibility - phase through bullet
-                        continue;
-                    }
-                    
-                    // Check for shield
-                    if (shieldActive) {
-                        // Shield blocks the hit
-                        shieldHits++;
-                        soundManager.playSound(SoundManager.Sound.SHIELD_BREAK);
-                        bullets.remove(bullet);
-                        returnBulletToPool(bullet);
-                        
-                        // Shield breaks after 3 hits - deactivate item immediately
-                        if (shieldHits >= 3) {
-                            shieldActive = false;
-                            shieldHits = 0;
-                            // Force deactivate the shield item
-                            ActiveItem shieldItem = gameData.getEquippedItem();
-                            if (shieldItem != null && shieldItem.getType() == ActiveItem.ItemType.SHIELD) {
-                                shieldItem.setActive(false);
-                            }
-                        }
-                        
-                        // Create shield break particles
-                        if (enableParticles) {
-                            for (int j = 0; j < 15; j++) {
-                                double angle = Math.random() * TWO_PI;
-                                double speed = 2 + Math.random() * 4;
-                                addParticle(
-                                    player.getX(), player.getY(),
-                                    Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                    new Color(136, 192, 208), 25, 6,
-                                    Particle.ParticleType.SPARK
-                                );
-                            }
-                        }
-                        
-                        screenShakeIntensity = 5;
                         continue;
                     }
                     
@@ -5951,7 +6048,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -6464,7 +6561,7 @@ public class Game extends JPanel implements Runnable {
         switch (item.getType()) {
             case LUCKY_CHARM:
                 // Circle is spawned once at activation time (in key handler)
-                // This per-frame handler is empty for Lucky Charm
+                // This per-frame handler is empty for Pool of Loot
                 break;
                 
             case DASH:
@@ -6519,11 +6616,22 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHIELD:
-                // Shield is active - will tank next hit
-                // Note: Shieldless contract blocks ALL items at activation, not just shield
-                soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
-                shieldActive = true;
-                shieldHits = 0; // Reset hit counter
+                // Orbiting shield - only activate if not already active (no stacking)
+                System.out.println("SHIELD: Attempting activation. shieldActive=" + shieldActive);
+                if (!shieldActive) {
+                    soundManager.playSound(SoundManager.Sound.SHIELD_ACTIVATE);
+                    shieldActive = true;
+                    shieldHits = 3; // 3 shields orbiting
+                    shieldOrbitAngle = 0; // Reset orbit angle
+                    System.out.println("SHIELD: Activated! shieldHits=" + shieldHits);
+                    
+                    // Set cooldown based on first use or not
+                    if (shieldFirstUse) {
+                        // First use in level - will have 5 second cooldown (set in startLevelCooldown)
+                        shieldFirstUse = false;
+                    }
+                    // After first use, item will use full 20 second cooldown from ActiveItem
+                }
                 break;
                 
             case BOMBS:

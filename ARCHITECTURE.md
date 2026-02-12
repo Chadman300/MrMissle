@@ -206,7 +206,7 @@ GameData.load()
 **Item Types:**
 - **Instant:** Shockwave, Bomb
 - **Duration:** Shield, Magnet, Dash, Time Slow, Laser, Invincibility
-- **Passive:** Lucky Charm (always on)
+- **Passive:** Pool of Loot (always on)
 
 ---
 

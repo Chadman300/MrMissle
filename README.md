@@ -32,7 +32,7 @@ Originally created for a game jam, now evolved into a full-featured bullet hell 
 - **Save System** - Auto-save progress, upgrades, and unlocks
 
 ### ⚡ Active Items (Unlock by beating levels)
-- **Lucky Charm** (Lv 3) - Spawn money circle for bonus cash
+- **Pool of Loot** (Lv 3) - Spawn money circle for bonus cash
 - **Shield** (Lv 6) - Tank 3 hits with cooldown
 - **Stun** (Lv 9) - Freeze the boss for 3 seconds
 - **Chromatic Purge** (Lv 12) - Erase all bullets of random type

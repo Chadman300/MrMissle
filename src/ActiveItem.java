@@ -9,7 +9,7 @@
  * - Some items are instant, others have duration
  * 
  * UNLOCK PROGRESSION:
- * - Level 3: Lucky Charm (spawn money circle)
+ * - Level 3: Pool of Loot (spawn money circle)
  * - Level 6: Shield (tank hits)
  * - Level 9: Stun (freeze boss)
  * - Level 12: Chromatic Purge (delete random bullet type)
@@ -53,10 +53,10 @@ public class ActiveItem {
     private String name;
     private String description;
     private int cooldownFrames;
-    private int currentCooldown;
+    private double currentCooldown;
     private boolean active;
     private int activeDuration; // How long the effect lasts (0 for instant)
-    private int activeTimer;
+    private double activeTimer;
     
     public ActiveItem(ItemType type) {
         this.type = type;
@@ -67,7 +67,7 @@ public class ActiveItem {
         // Set properties based on type
         switch (type) {
             case LUCKY_CHARM:
-                name = "Lucky Charm";
+                name = "Pool of Loot";
                 description = "Spawn permanent money circle (35s cooldown)";
                 cooldownFrames = 2100; // 35 seconds
                 activeDuration = 300; // 5 seconds duration (item active state)
@@ -75,9 +75,9 @@ public class ActiveItem {
                 break;
             case SHIELD:
                 name = "Shield";
-                description = "Tank 3 hits (7.5s cooldown)";
-                cooldownFrames = 450; // 7.5 seconds (was 15)
-                activeDuration = 60; // Active for 1 second (reduced from 3)
+                description = "3 orbiting shields (5s first, 20s after)";
+                cooldownFrames = 1200; // 20 seconds for subsequent uses
+                activeDuration = 0; // Instant activation - shields persist until destroyed
                 break;
             case TYPE_PURGE:
                 name = "Chromatic Purge";
@@ -124,15 +124,16 @@ public class ActiveItem {
         }
     }
     
-    public void update() {
-        // Update cooldown
+    public void update(double deltaTime) {
+        // Update cooldown using deltaTime for frame-rate independence
         if (currentCooldown > 0) {
-            currentCooldown--;
+            currentCooldown -= deltaTime;
+            if (currentCooldown < 0) currentCooldown = 0;
         }
         
-        // Update active duration
+        // Update active duration using deltaTime
         if (active && activeDuration > 0) {
-            activeTimer--;
+            activeTimer -= deltaTime;
             if (activeTimer <= 0) {
                 active = false;
             }
@@ -145,7 +146,7 @@ public class ActiveItem {
     }
     
     public boolean canActivate() {
-        return currentCooldown == 0 && !active && cooldownFrames > 0;
+        return currentCooldown <= 0 && !active && cooldownFrames > 0;
     }
     
     public void activate() {
@@ -158,8 +159,8 @@ public class ActiveItem {
     
     public void startLevelCooldown() {
         // Start each level with item on cooldown
-        // Lucky Charm gets a shorter 5 second delay, others get full cooldown
-        if (type == ItemType.LUCKY_CHARM) {
+        // Pool of Loot and Shield get a shorter 5 second delay, others get full cooldown
+        if (type == ItemType.LUCKY_CHARM || type == ItemType.SHIELD) {
             currentCooldown = 300; // 5 seconds at 60fps
         } else {
             currentCooldown = cooldownFrames; // Full cooldown for other items
@@ -177,9 +178,9 @@ public class ActiveItem {
     public String getName() { return name; }
     public String getDescription() { return description; }
     public int getCooldownFrames() { return cooldownFrames; }
-    public int getCurrentCooldown() { return currentCooldown; }
+    public double getCurrentCooldown() { return currentCooldown; }
     public boolean isActive() { return active; }
-    public int getActiveTimer() { return activeTimer; }
+    public double getActiveTimer() { return activeTimer; }
     public int getActiveDuration() { return activeDuration; }
     
     public float getCooldownPercent() {
@@ -188,5 +189,5 @@ public class ActiveItem {
     }
     
     public void setActive(boolean active) { this.active = active; }
-    public void setCurrentCooldown(int cooldown) { this.currentCooldown = cooldown; }
+    public void setCurrentCooldown(double cooldown) { this.currentCooldown = cooldown; }
 }

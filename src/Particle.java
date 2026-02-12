@@ -32,7 +32,7 @@ public class Particle {
         EXPLOSION,  // Expanding circle
         DODGE,      // Lucky dodge effect
         SMOKE,      // Soft, expanding smoke puffs
-        MONEY_SIGN  // Falling money sign from Lucky Charm
+        MONEY_SIGN  // Falling money sign from Pool of Loot
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
