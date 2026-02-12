@@ -63,6 +63,7 @@ public class Game extends JPanel implements Runnable {
     private List<Bullet> bulletPool; // Pool for recycling bullets
     private List<Particle> particles;
     private List<Particle> particlePool; // Pool for recycling particles
+    private List<Particle> introParticles; // Separate particles for boss intro cinematic (screen-space)
     private List<BeamAttack> beamAttacks;
     
     // Particle limits for performance
@@ -586,6 +587,7 @@ public class Game extends JPanel implements Runnable {
         bulletPool = new ArrayList<>();
         particles = new ArrayList<>();
         particlePool = new ArrayList<>();
+        introParticles = new ArrayList<>();
         beamAttacks = new ArrayList<>();
         bulletGrid = new HashMap<>();
         gameData = new GameData();
@@ -3666,6 +3668,7 @@ public class Game extends JPanel implements Runnable {
         // Start boss intro cinematic - Street Fighter / Smash Bros style
         bossIntroActive = true;
         bossIntroTimer = 0;
+        introParticles.clear();
         bossIntroText = currentBoss.getVehicleName();
         if (currentBoss.isMegaBoss()) {
             bossIntroText += " [MEGA]";
@@ -4700,8 +4703,134 @@ public class Game extends JPanel implements Runnable {
                     bossIntroPhase = 5;
                 }
                 
+                // Update existing intro particles
+                for (int i = introParticles.size() - 1; i >= 0; i--) {
+                    introParticles.get(i).update(deltaTime);
+                    if (!introParticles.get(i).isAlive()) {
+                        introParticles.remove(i);
+                    }
+                }
+                
+                // Spawn exhaust particles during phases 1-4 (sprites visible on screen)
+                if (bossIntroPhase >= 1 && bossIntroPhase <= 4 && enableParticles) {
+                    int centerY = HEIGHT / 2;
+                    double cos12 = Math.cos(Math.toRadians(12));
+                    double sin12 = Math.sin(Math.toRadians(12));
+                    
+                    // --- PLAYER EXHAUST (blue/cyan, behind sprite, tilt -12°) ---
+                    // Exhaust direction: sprite bottom rotated -12° -> angle 78° from east
+                    double pExAngle = Math.toRadians(78);
+                    double pExX = bossIntroPlayerX + Math.cos(pExAngle) * 40;
+                    double pExY = centerY + 10 + Math.sin(pExAngle) * 40;
+                    Color[] blueColors = {new Color(100, 200, 255), new Color(60, 160, 255), 
+                                          new Color(150, 220, 255), new Color(200, 240, 255)};
+                    for (int i = 0; i < 3; i++) {
+                        double speed = 1.5 + Math.random() * 2.5;
+                        double spread = (Math.random() - 0.5) * 0.7;
+                        double vx = Math.cos(pExAngle + spread) * speed;
+                        double vy = Math.sin(pExAngle + spread) * speed;
+                        introParticles.add(new Particle(
+                            pExX + (Math.random() - 0.5) * 10,
+                            pExY + (Math.random() - 0.5) * 10,
+                            vx, vy,
+                            blueColors[(int)(Math.random() * blueColors.length)],
+                            15 + (int)(Math.random() * 20),
+                            3 + Math.random() * 5,
+                            Particle.ParticleType.EXHAUST
+                        ));
+                    }
+                    // Player smoke puffs
+                    if (Math.random() < 0.3) {
+                        introParticles.add(new Particle(
+                            pExX + (Math.random() - 0.5) * 12,
+                            pExY + (Math.random() - 0.5) * 12,
+                            (Math.random() - 0.5) * 0.5,
+                            Math.sin(pExAngle) * 0.8,
+                            new Color(100, 160, 220, 80),
+                            20 + (int)(Math.random() * 15),
+                            5 + Math.random() * 4,
+                            Particle.ParticleType.SMOKE
+                        ));
+                    }
+                    // Player wing tip sparks
+                    for (int side = -1; side <= 1; side += 2) {
+                        if (Math.random() < 0.35) {
+                            // Wing at (side*20, 5) in rotated space -> transform to screen space
+                            double wsx = bossIntroPlayerX + side * 20 * cos12 + 5 * sin12;
+                            double wsy = centerY + 10 - side * 20 * sin12 + 5 * cos12;
+                            introParticles.add(new Particle(
+                                wsx, wsy,
+                                (Math.random() - 0.5) * 0.8,
+                                0.5 + Math.random() * 1.0,
+                                new Color(180, 230, 255),
+                                10 + (int)(Math.random() * 10),
+                                2 + Math.random() * 3,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                    }
+                    
+                    // --- BOSS EXHAUST (red/orange, behind sprite, tilt +12°) ---
+                    // Exhaust direction: sprite bottom rotated +12° -> angle 102° from east
+                    double bExAngle = Math.toRadians(102);
+                    double bExX = bossIntroBossX + Math.cos(bExAngle) * 45;
+                    double bExY = centerY + 10 + Math.sin(bExAngle) * 45;
+                    Color[] redColors = {new Color(255, 180, 40), new Color(255, 120, 20), 
+                                         new Color(255, 200, 60), new Color(255, 80, 10)};
+                    for (int i = 0; i < 4; i++) {
+                        double speed = 1.8 + Math.random() * 3.0;
+                        double spread = (Math.random() - 0.5) * 0.7;
+                        double vx = Math.cos(bExAngle + spread) * speed;
+                        double vy = Math.sin(bExAngle + spread) * speed;
+                        introParticles.add(new Particle(
+                            bExX + (Math.random() - 0.5) * 12,
+                            bExY + (Math.random() - 0.5) * 12,
+                            vx, vy,
+                            redColors[(int)(Math.random() * redColors.length)],
+                            15 + (int)(Math.random() * 25),
+                            3 + Math.random() * 6,
+                            Particle.ParticleType.EXHAUST
+                        ));
+                    }
+                    // Boss smoke puffs
+                    if (Math.random() < 0.4) {
+                        introParticles.add(new Particle(
+                            bExX + (Math.random() - 0.5) * 14,
+                            bExY + (Math.random() - 0.5) * 14,
+                            (Math.random() - 0.5) * 0.5,
+                            Math.sin(bExAngle) * 0.8,
+                            new Color(200, 120, 60, 80),
+                            20 + (int)(Math.random() * 15),
+                            6 + Math.random() * 5,
+                            Particle.ParticleType.SMOKE
+                        ));
+                    }
+                    // Boss wing tip sparks
+                    for (int side = -1; side <= 1; side += 2) {
+                        if (Math.random() < 0.4) {
+                            double wsx = bossIntroBossX - side * 28 * cos12 + 5 * sin12;
+                            double wsy = centerY + 10 + side * 28 * sin12 + 5 * cos12;
+                            introParticles.add(new Particle(
+                                wsx, wsy,
+                                (Math.random() - 0.5) * 0.8,
+                                0.5 + Math.random() * 1.2,
+                                new Color(255, 200, 100),
+                                10 + (int)(Math.random() * 12),
+                                2 + Math.random() * 4,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                    }
+                    
+                    // Cap intro particles to avoid overflow
+                    while (introParticles.size() > 150) {
+                        introParticles.remove(0);
+                    }
+                }
+                
                 if (bossIntroTimer >= BOSS_INTRO_DURATION) {
                     bossIntroActive = false;
+                    introParticles.clear();
                 }
             }
             
@@ -4764,7 +4893,7 @@ public class Game extends JPanel implements Runnable {
                             trailColor,
                             15 + (int)(Math.random() * 10),
                             6 + (int)(Math.random() * 6),
-                            Particle.ParticleType.SPARK
+                            Particle.ParticleType.EXHAUST
                         );
                     }
                 }
@@ -5520,7 +5649,7 @@ public class Game extends JPanel implements Runnable {
                 double bulletDist = Math.sqrt(bDx * bDx + bDy * bDy);
                 double shieldOrbitR = 38; // Match visual orbit radius
                 // Shield blocks if bullet is within the full outer glow radius (orbit + glow + half stroke)
-                boolean inShieldBand = bulletDist < shieldOrbitR + 52; // Covers full visual shield area
+                boolean inShieldBand = bulletDist < shieldOrbitR + 35; // Tighter shield hitbox
                 
                 if (inShieldBand) {
                     // One shield breaks per hit
@@ -6048,7 +6177,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {

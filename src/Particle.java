@@ -32,7 +32,8 @@ public class Particle {
         EXPLOSION,  // Expanding circle
         DODGE,      // Lucky dodge effect
         SMOKE,      // Soft, expanding smoke puffs
-        MONEY_SIGN  // Falling money sign from Pool of Loot
+        MONEY_SIGN, // Falling money sign from Pool of Loot
+        EXHAUST     // Rocket exhaust - like SPARK but no gravity
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
@@ -96,6 +97,7 @@ public class Particle {
         
         switch (type) {
             case SPARK:
+            case EXHAUST:
                 g.setColor(color);
                 g.fillOval((int)(x - size/2), (int)(y - size/2), (int)size, (int)size);
                 break;

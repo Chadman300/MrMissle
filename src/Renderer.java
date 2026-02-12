@@ -1,7 +1,6 @@
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
-import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
@@ -2264,7 +2263,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -2299,24 +2298,17 @@ public class Renderer {
         // Use Area to combine overlapping circles into one unified shape
         if (!moneyCircles.isEmpty()) {
             java.awt.geom.Area combinedArea = new java.awt.geom.Area();
-            double centerX = 0, centerY = 0; // For drawing $ sign in center of mass
             
             for (double[] circle : moneyCircles) {
                 double drawX = circle[0];
                 double drawY = circle[1];
                 double radius = moneyCircleRadius;
-                centerX += drawX;
-                centerY += drawY;
                 
                 // Add this circle to the combined area
                 java.awt.geom.Ellipse2D.Double ellipse = new java.awt.geom.Ellipse2D.Double(
                     drawX - radius, drawY - radius, radius * 2, radius * 2);
                 combinedArea.add(new java.awt.geom.Area(ellipse));
             }
-            
-            // Calculate center of mass for $ sign
-            centerX /= moneyCircles.size();
-            centerY /= moneyCircles.size();
             
             Graphics2D g2d = (Graphics2D) g.create();
             
@@ -2331,13 +2323,47 @@ public class Renderer {
             g2d.setStroke(new BasicStroke(2));
             g2d.draw(combinedArea);
             
-            // Draw single money sign at center of mass
+            // Find connected groups of circles (overlapping = centers within 2*radius)
+            // Each group gets its own $ sign at its center of mass
+            boolean[] visited = new boolean[moneyCircles.size()];
             g2d.setFont(new Font("Arial", Font.BOLD, 36));
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
             g2d.setColor(new Color(50, 200, 80)); // Green
             FontMetrics fm = g2d.getFontMetrics();
             String symbol = "$";
-            g2d.drawString(symbol, (int)(centerX - fm.stringWidth(symbol) / 2), (int)(centerY + fm.getAscent() / 3));
+            
+            for (int i = 0; i < moneyCircles.size(); i++) {
+                if (visited[i]) continue;
+                // BFS/flood-fill to find all circles connected to circle i
+                java.util.List<Integer> group = new java.util.ArrayList<>();
+                java.util.Queue<Integer> queue = new java.util.LinkedList<>();
+                queue.add(i);
+                visited[i] = true;
+                while (!queue.isEmpty()) {
+                    int cur = queue.poll();
+                    group.add(cur);
+                    double[] c1 = moneyCircles.get(cur);
+                    for (int j = 0; j < moneyCircles.size(); j++) {
+                        if (visited[j]) continue;
+                        double[] c2 = moneyCircles.get(j);
+                        double dx = c1[0] - c2[0];
+                        double dy = c1[1] - c2[1];
+                        if (Math.sqrt(dx * dx + dy * dy) < moneyCircleRadius * 2) {
+                            visited[j] = true;
+                            queue.add(j);
+                        }
+                    }
+                }
+                // Draw $ at center of mass of this group
+                double gx = 0, gy = 0;
+                for (int idx : group) {
+                    gx += moneyCircles.get(idx)[0];
+                    gy += moneyCircles.get(idx)[1];
+                }
+                gx /= group.size();
+                gy /= group.size();
+                g2d.drawString(symbol, (int)(gx - fm.stringWidth(symbol) / 2), (int)(gy + fm.getAscent() / 3));
+            }
             
             g2d.dispose();
         }
@@ -3482,6 +3508,18 @@ public class Renderer {
                     leftG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     leftG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                     float playerScale = 5.5f;
+                    
+                    // === REAL EXHAUST PARTICLES (drawn behind sprite) ===
+                    if (introParticles != null) {
+                        AffineTransform ipTransform = leftG.getTransform();
+                        for (Particle p : introParticles) {
+                            if (p != null && p.isAlive() && p.getX() < centerX + 50) {
+                                p.draw(leftG);
+                            }
+                        }
+                        leftG.setTransform(ipTransform);
+                    }
+                    
                     leftG.translate(playerDisplayX, centerY + 10);
                     leftG.rotate(Math.toRadians(-12));
                     leftG.scale(playerScale, playerScale);
@@ -3630,6 +3668,18 @@ public class Renderer {
                     rightG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     rightG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                     float bossScale = 4.5f;
+                    
+                    // === REAL EXHAUST PARTICLES (drawn behind boss sprite) ===
+                    if (introParticles != null) {
+                        AffineTransform ipTransform = rightG.getTransform();
+                        for (Particle p : introParticles) {
+                            if (p != null && p.isAlive() && p.getX() >= centerX - 50) {
+                                p.draw(rightG);
+                            }
+                        }
+                        rightG.setTransform(ipTransform);
+                    }
+                    
                     rightG.translate(bossDisplayX, centerY + 10);
                     rightG.rotate(Math.toRadians(12));
                     rightG.scale(bossScale, bossScale);
