@@ -4866,6 +4866,7 @@ public class Game extends JPanel implements Runnable {
                     // Calculate angle based on velocity (or default upward if stationary)
                     double vx = player.getVX();
                     double vy = player.getVY();
+                    double speed = Math.sqrt(vx * vx + vy * vy);
                     double angle = (vx == 0 && vy == 0) ? -Math.PI / 2 : Math.atan2(vy, vx);
                     
                     // Spawn particles at the back of the rocket (opposite to movement direction)
@@ -4873,26 +4874,62 @@ public class Game extends JPanel implements Runnable {
                     double trailX = player.getX() - Math.cos(angle) * backDistance;
                     double trailY = player.getY() - Math.sin(angle) * backDistance;
                     
-                    // Only spawn 1 particle per update (was 2) for performance
+                    // Scale exhaust with speed upgrade level (0-10)
+                    int spdLvl = getActiveSpeedLevel();
+                    double spdFrac = spdLvl / 10.0; // 0.0 to 1.0
+                    
+                    // --- BLUE BASE PARTICLES (only when speed upgrades > 0) ---
+                    // These spawn RIGHT at the nozzle with short life so they stay at the base
+                    if (spdLvl > 0 && particles.size() < MAX_PARTICLES) {
+                        int blueCount = 1 + (spdLvl >= 4 ? 1 : 0) + (spdLvl >= 8 ? 1 : 0);
+                        for (int bp = 0; bp < blueCount; bp++) {
+                            if (particles.size() >= MAX_PARTICLES) break;
+                            double perpAngle = angle + Math.PI / 2;
+                            double spread = (Math.random() - 0.5) * 4;
+                            double bx = trailX + Math.cos(perpAngle) * spread;
+                            double by = trailY + Math.sin(perpAngle) * spread;
+                            // Very slow velocity so they stay near the base
+                            double bvx = -Math.cos(angle) * (0.2 + Math.random() * 0.4);
+                            double bvy = -Math.sin(angle) * (0.2 + Math.random() * 0.4);
+                            // Deep blue flame colors - more intense at higher levels
+                            int r = (int)(0 + Math.random() * 20);
+                            int g = (int)(100 + Math.random() * 100);
+                            int b = 255;
+                            addParticle(bx, by, bvx, bvy,
+                                new Color(r, g, b),
+                                6 + (int)(Math.random() * 6 + spdFrac * 4), // Short life - stays at base
+                                4 + (int)(Math.random() * 3 + spdFrac * 2),
+                                Particle.ParticleType.EXHAUST);
+                        }
+                    }
+                    
+                    // --- ORANGE/FIRE TRAIL PARTICLES (the main exhaust plume) ---
+                    // These travel further and form the visible trail behind the rocket
                     if (particles.size() < MAX_PARTICLES) {
-                        // Add spread perpendicular to movement direction
                         double perpAngle = angle + Math.PI / 2;
                         double spread = (Math.random() - 0.5) * 6;
                         double finalX = trailX + Math.cos(perpAngle) * spread;
                         double finalY = trailY + Math.sin(perpAngle) * spread;
                         
-                        // Particle velocity opposite to rocket direction
-                        double particleVX = -Math.cos(angle) * (0.5 + Math.random() * 1.0);
-                        double particleVY = -Math.sin(angle) * (0.5 + Math.random() * 1.0);
+                        // Particle velocity scales with player speed for natural trail length
+                        // Stationary: moderate idle exhaust, moving: trails behind proportionally
+                        double baseVel = 0.6 + Math.random() * 0.5;
+                        double speedScale = 1.0 + Math.min(speed * 0.08, 0.5); // Gentle scaling, capped
+                        double particleVX = -Math.cos(angle) * baseVel * speedScale;
+                        double particleVY = -Math.sin(angle) * baseVel * speedScale;
                         
-                        // Use cached fire colors instead of new Color
                         Color trailColor = Math.random() < 0.5 ? FIRE_ORANGE : BOSS_FIRE;
+                        
+                        // Lifetime: decent idle length, modest increase with speed upgrades
+                        int baseLife = 18 + (int)(spdFrac * 5);
+                        int lifeVariance = 8;
+                        
                         addParticle(
                             finalX, finalY,
                             particleVX, particleVY,
                             trailColor,
-                            15 + (int)(Math.random() * 10),
-                            6 + (int)(Math.random() * 6),
+                            baseLife + (int)(Math.random() * lifeVariance),
+                            6 + (int)(Math.random() * 5),
                             Particle.ParticleType.EXHAUST
                         );
                     }
