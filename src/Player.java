@@ -56,11 +56,18 @@ public class Player {
         loadSprite();
     }
     
-    private void loadSprite() {
+    // Maximum rendered size for player sprite (SIZE * 2 = 40)
+    private static final int SPRITE_PRESCALE_SIZE = SIZE * 2;
+
+    /**
+     * Preload player sprites (called from background loading thread).
+     */
+    public static void preloadSprites() {
         if (missileSprite == null) {
             String path = "sprites/Missle Man Assets/Missles/Missle Black.png";
             try {
-                missileSprite = AssetLoader.loadImage(path);
+                missileSprite = AssetLoader.prescaleImage(
+                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
             } catch (IOException e) {
                 System.err.println("Could not load missile sprite: " + path);
             }
@@ -68,7 +75,29 @@ public class Player {
         if (missileShadow == null) {
             String path = "sprites/Missle Man Assets/Missles/Missle Black Shadow.png";
             try {
-                missileShadow = AssetLoader.loadImage(path);
+                missileShadow = AssetLoader.prescaleImage(
+                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
+            } catch (IOException e) {
+                System.err.println("Could not load missile shadow: " + path);
+            }
+        }
+    }
+
+    private void loadSprite() {
+        if (missileSprite == null) {
+            String path = "sprites/Missle Man Assets/Missles/Missle Black.png";
+            try {
+                missileSprite = AssetLoader.prescaleImage(
+                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
+            } catch (IOException e) {
+                System.err.println("Could not load missile sprite: " + path);
+            }
+        }
+        if (missileShadow == null) {
+            String path = "sprites/Missle Man Assets/Missles/Missle Black Shadow.png";
+            try {
+                missileShadow = AssetLoader.prescaleImage(
+                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
             } catch (IOException e) {
                 System.err.println("Could not load missile shadow: " + path);
             }

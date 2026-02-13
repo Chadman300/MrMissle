@@ -1618,8 +1618,8 @@ public class Renderer {
             try {
                 BufferedImage planeSprite = Boss.getSpriteForLevel(level);
                 if (planeSprite != null) {
-                    int spriteWidth = (int)(planeSprite.getWidth() * 0.1 * scale);
-                    int spriteHeight = (int)(planeSprite.getHeight() * 0.1 * scale);
+                    int spriteWidth = (int)(planeSprite.getWidth() * scale);
+                    int spriteHeight = (int)(planeSprite.getHeight() * scale);
                     int spriteX = x;
                     
                     // Move sprite higher up and add bounce animation for selected
@@ -1702,8 +1702,8 @@ public class Renderer {
                     if (Boss.isHelicopterLevel(level)) {
                         BufferedImage rotorSprite = Boss.getRotorSpriteForLevel(level);
                         if (rotorSprite != null) {
-                            int rotorWidth = (int)(rotorSprite.getWidth() * 0.1 * scale);
-                            int rotorHeight = (int)(rotorSprite.getHeight() * 0.1 * scale);
+                            int rotorWidth = (int)(rotorSprite.getWidth() * scale);
+                            int rotorHeight = (int)(rotorSprite.getHeight() * scale);
                             
                             // Save current transform and composite
                             AffineTransform rotorTransform = g.getTransform();
@@ -3523,6 +3523,7 @@ public class Renderer {
                         int innerLen = 75;
                         int outerLen = innerLen + 60 + (int)(Math.sin(time * 0.05 + ray * 1.1) * 35);
                         float rayAlpha = (float)(0.08 + 0.12 * Math.sin(time * 0.04 + ray * 0.9));
+                        if (rayAlpha < 0) rayAlpha = 0;
                         // Wider outer ray
                         leftG.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                         leftG.setColor(new Color(60, 140, 255, (int)(120 * rayAlpha)));
@@ -3546,11 +3547,14 @@ public class Renderer {
                     // Exhaust particles behind sprite
                     if (introParticles != null) {
                         AffineTransform ipTransform = leftG.getTransform();
-                        for (Particle p : introParticles) {
-                            if (p != null && p.isAlive() && p.getX() < centerX + 50) {
-                                p.draw(leftG);
+                        try {
+                            java.util.List<Particle> particlesCopy = new java.util.ArrayList<>(introParticles);
+                            for (Particle p : particlesCopy) {
+                                if (p != null && p.isAlive() && p.getX() < centerX + 50) {
+                                    p.draw(leftG);
+                                }
                             }
-                        }
+                        } catch (Exception e) { /* skip if list modified concurrently */ }
                         leftG.setTransform(ipTransform);
                     }
                     
@@ -3778,6 +3782,7 @@ public class Renderer {
                         int innerLen = 90;
                         int outerLen = innerLen + 70 + (int)(Math.sin(time * 0.045 + spike * 0.8) * 40);
                         float sAlpha = (float)(0.08 + 0.14 * Math.sin(time * 0.035 + spike * 1.0));
+                        if (sAlpha < 0) sAlpha = 0;
                         // Wide outer spike
                         rightG.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                         rightG.setColor(new Color(255, 60, 10, (int)(130 * sAlpha)));
@@ -3801,11 +3806,14 @@ public class Renderer {
                     // Exhaust particles behind boss sprite
                     if (introParticles != null) {
                         AffineTransform ipTransform = rightG.getTransform();
-                        for (Particle p : introParticles) {
-                            if (p != null && p.isAlive() && p.getX() >= centerX - 50) {
-                                p.draw(rightG);
+                        try {
+                            java.util.List<Particle> particlesCopy = new java.util.ArrayList<>(introParticles);
+                            for (Particle p : particlesCopy) {
+                                if (p != null && p.isAlive() && p.getX() >= centerX - 50) {
+                                    p.draw(rightG);
+                                }
                             }
-                        }
+                        } catch (Exception e) { /* skip if list modified concurrently */ }
                         rightG.setTransform(ipTransform);
                     }
                     
@@ -3820,6 +3828,7 @@ public class Renderer {
                     int flareX = bossDisplayX - 30;
                     int flareY = centerY - 40;
                     float flarePulse = 0.4f + (float)Math.sin(time * 0.06 + 1.5) * 0.6f;
+                    if (flarePulse < 0) flarePulse = 0;
                     // Outer soft glow
                     RadialGradientPaint flareOuter = new RadialGradientPaint(
                         new Point2D.Float(flareX, flareY), 90,
@@ -3951,8 +3960,9 @@ public class Renderer {
                     int spX = (int)(centerX + slashSkew - slashSkew * 2 * t2);
                     int spY = (int)(-80 + (height + 160) * t2);
                     float sparkle = (float)(0.4 + 0.6 * Math.sin(time * 0.18 + sp * 1.1));
+                    if (sparkle < 0) sparkle = 0;
                     int spSize = (int)(5 + 8 * sparkle);
-                    int spAlpha = (int)(240 * sparkle * alpha);
+                    int spAlpha = Math.max(0, Math.min(255, (int)(240 * sparkle * alpha)));
                     // Glow behind sparkle
                     g.setColor(new Color(255, 220, 100, (int)(spAlpha * 0.3)));
                     g.fillOval(spX - spSize * 2, spY - spSize * 2, spSize * 4, spSize * 4);

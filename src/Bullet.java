@@ -100,6 +100,16 @@ public class Bullet {
         bulletSizeMultiplier = multiplier;
     }
     
+    // Maximum rendered size for any bullet sprite (SIZE * 7 = 42 for nuke)
+    private static final int SPRITE_PRESCALE_SIZE = SIZE * 7;
+
+    /**
+     * Preload all bullet sprites (called from background loading thread).
+     */
+    public static void preloadSprites() {
+        loadSprites();
+    }
+
     private static void loadSprites() {
         if (spritesLoaded) return;
         try {
@@ -141,7 +151,8 @@ public class Bullet {
     
     private static void loadSpriteWithPath(String path, int index) throws IOException {
         try {
-            bulletSprites[index] = AssetLoader.loadImage(path);
+            bulletSprites[index] = AssetLoader.prescaleImage(
+                AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
         } catch (IOException e) {
             System.err.println("Could not load bullet sprite: " + path);
             throw e;
@@ -150,13 +161,15 @@ public class Bullet {
     
     private static void loadSpriteWithPathAndShadow(String spritePath, String shadowPath, int index) throws IOException {
         try {
-            bulletSprites[index] = AssetLoader.loadImage(spritePath);
+            bulletSprites[index] = AssetLoader.prescaleImage(
+                AssetLoader.loadImage(spritePath), SPRITE_PRESCALE_SIZE);
         } catch (IOException e) {
             System.err.println("Could not load bullet sprite: " + spritePath);
             throw e;
         }
         try {
-            bulletShadows[index] = AssetLoader.loadImage(shadowPath);
+            bulletShadows[index] = AssetLoader.prescaleImage(
+                AssetLoader.loadImage(shadowPath), SPRITE_PRESCALE_SIZE);
         } catch (IOException e) {
             System.err.println("Could not load bullet shadow: " + shadowPath);
             throw e;

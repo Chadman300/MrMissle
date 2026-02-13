@@ -6619,7 +6619,17 @@ public class Game extends JPanel implements Runnable {
                 
                 // Preload sounds
                 soundManager.preloadSounds();
-                targetLoadingProgress = 40;
+                targetLoadingProgress = 30;
+                repaint();
+                
+                // Preload game sprites (Boss, Bullet, Player) on background thread
+                // so they are ready before first level starts
+                Boss.preloadSprites();
+                targetLoadingProgress = 50;
+                repaint();
+                Bullet.preloadSprites();
+                Player.preloadSprites();
+                targetLoadingProgress = 60;
                 repaint();
                 
                 // Create renderer (this loads backgrounds and overlay)

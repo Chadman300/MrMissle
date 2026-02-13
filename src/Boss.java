@@ -91,6 +91,16 @@ public class Boss {
     private static boolean spritesLoaded = false;
     
     /**
+     * Preload all boss sprites (called from background loading thread).
+     * Creates a temporary Boss instance to trigger the static sprite loading.
+     */
+    public static void preloadSprites() {
+        if (!spritesLoaded) {
+            new Boss(0, 0, 1, null);
+        }
+    }
+
+    /**
      * Get the sprite for a specific level (for use in level select preview).
      * This method ensures sprites are loaded and returns the appropriate sprite.
      */
@@ -345,8 +355,10 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png", helicopterBlades, 2);
             
             // Load final boss
-            finalBossSprite = rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png"));
-            finalBossShadow = rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss Shadow.png"));
+            finalBossSprite = AssetLoader.prescaleImage(
+                rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png")), SPRITE_PRESCALE_SIZE);
+            finalBossShadow = AssetLoader.prescaleImage(
+                rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss Shadow.png")), SPRITE_PRESCALE_SIZE);
             
             spritesLoaded = true;
         } catch (IOException e) {
