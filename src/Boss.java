@@ -278,40 +278,40 @@ public class Boss {
         if (spritesLoaded) return;
         try {
             // Load mini boss planes: Planes 1-9, 11-15 (14 planes)
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 1.png", miniBossPlaneSprites, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 2.png", miniBossPlaneSprites, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 3.png", miniBossPlaneSprites, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 4.png", miniBossPlaneSprites, 3);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 5.png", miniBossPlaneSprites, 4);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 6.png", miniBossPlaneSprites, 5);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7.png", miniBossPlaneSprites, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8.png", miniBossPlaneSprites, 7);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9.png", miniBossPlaneSprites, 8);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11.png", miniBossPlaneSprites, 9);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12.png", miniBossPlaneSprites, 10);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13.png", miniBossPlaneSprites, 11);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14.png", miniBossPlaneSprites, 12);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 15.png", miniBossPlaneSprites, 13);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1.png", miniBossPlaneSprites, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 2.png", miniBossPlaneSprites, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 3.png", miniBossPlaneSprites, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 4.png", miniBossPlaneSprites, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 5.png", miniBossPlaneSprites, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 6.png", miniBossPlaneSprites, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 7.png", miniBossPlaneSprites, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 8.png", miniBossPlaneSprites, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 9.png", miniBossPlaneSprites, 8);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 11.png", miniBossPlaneSprites, 9);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 12.png", miniBossPlaneSprites, 10);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 13.png", miniBossPlaneSprites, 11);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 14.png", miniBossPlaneSprites, 12);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 15.png", miniBossPlaneSprites, 13);
             // Helicopters 2, 3, 4 for mini bosses
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png", miniBossPlaneSprites, 14);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png", miniBossPlaneSprites, 15);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", miniBossPlaneSprites, 16);
             
             // Load mini boss shadows
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 1 Shadow.png", miniBossPlaneShadows, 0);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 2 Shadow.png", miniBossPlaneShadows, 1);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 3 Shadow.png", miniBossPlaneShadows, 2);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 4 Shadow.png", miniBossPlaneShadows, 3);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 5 Shadow.png", miniBossPlaneShadows, 4);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 6 Shadow.png", miniBossPlaneShadows, 5);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 7 Shadow.png", miniBossPlaneShadows, 6);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 8 Shadow.png", miniBossPlaneShadows, 7);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 9 Shadow.png", miniBossPlaneShadows, 8);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 11 Shadow.png", miniBossPlaneShadows, 9);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 12 Shadow.png", miniBossPlaneShadows, 10);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 13 Shadow.png", miniBossPlaneShadows, 11);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 14 Shadow.png", miniBossPlaneShadows, 12);
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\High Res\\Plane 15 Shadow.png", miniBossPlaneShadows, 13);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1 Shadow.png", miniBossPlaneShadows, 0);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 2 Shadow.png", miniBossPlaneShadows, 1);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 3 Shadow.png", miniBossPlaneShadows, 2);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 4 Shadow.png", miniBossPlaneShadows, 3);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 5 Shadow.png", miniBossPlaneShadows, 4);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 6 Shadow.png", miniBossPlaneShadows, 5);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 7 Shadow.png", miniBossPlaneShadows, 6);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 8 Shadow.png", miniBossPlaneShadows, 7);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 9 Shadow.png", miniBossPlaneShadows, 8);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 11 Shadow.png", miniBossPlaneShadows, 9);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 12 Shadow.png", miniBossPlaneShadows, 10);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 13 Shadow.png", miniBossPlaneShadows, 11);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 14 Shadow.png", miniBossPlaneShadows, 12);
+            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 15 Shadow.png", miniBossPlaneShadows, 13);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", miniBossPlaneShadows, 14);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", miniBossPlaneShadows, 15);
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", miniBossPlaneShadows, 16);
@@ -355,9 +355,13 @@ public class Boss {
         }
     }
     
+    // Maximum rendered size for any boss sprite (mega boss: BASE_SIZE*1.5*2 = 300)
+    private static final int SPRITE_PRESCALE_SIZE = (int)(BASE_SIZE * 1.5 * 2);
+
     private void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
         try {
-            array[index] = rotateImage180(AssetLoader.loadImage(path));
+            array[index] = AssetLoader.prescaleImage(
+                rotateImage180(AssetLoader.loadImage(path)), SPRITE_PRESCALE_SIZE);
         } catch (IOException e) {
             System.err.println("Could not load boss sprite: " + path);
             throw e;

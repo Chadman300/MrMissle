@@ -1618,8 +1618,8 @@ public class Renderer {
             try {
                 BufferedImage planeSprite = Boss.getSpriteForLevel(level);
                 if (planeSprite != null) {
-                    int spriteWidth = (int)(planeSprite.getWidth() * 0.4 * scale);
-                    int spriteHeight = (int)(planeSprite.getHeight() * 0.4 * scale);
+                    int spriteWidth = (int)(planeSprite.getWidth() * 0.1 * scale);
+                    int spriteHeight = (int)(planeSprite.getHeight() * 0.1 * scale);
                     int spriteX = x;
                     
                     // Move sprite higher up and add bounce animation for selected
@@ -1702,8 +1702,8 @@ public class Renderer {
                     if (Boss.isHelicopterLevel(level)) {
                         BufferedImage rotorSprite = Boss.getRotorSpriteForLevel(level);
                         if (rotorSprite != null) {
-                            int rotorWidth = (int)(rotorSprite.getWidth() * 0.4 * scale);
-                            int rotorHeight = (int)(rotorSprite.getHeight() * 0.4 * scale);
+                            int rotorWidth = (int)(rotorSprite.getWidth() * 0.1 * scale);
+                            int rotorHeight = (int)(rotorSprite.getHeight() * 0.1 * scale);
                             
                             // Save current transform and composite
                             AffineTransform rotorTransform = g.getTransform();
@@ -3370,146 +3370,180 @@ public class Renderer {
             int shakeMargin = 250;
             
             // === COMPUTE SPLIT-SCREEN & BAR ANIMATIONS FROM TIMER/PHASE ===
-            // Phase 0 (0-50):    split closes from edges to center
-            // Phase 1 (50-100):  sprites slide in
-            // Phase 2 (100-140): VS flash
-            // Phase 3 (140-220): bars slide in from top/bottom + hold
-            // Phase 4 (220-265): bars slide back out
-            // Phase 5 (265-320): split opens from center to edges
-            float splitProgress = 0; // 0 = fully open (halves at edges), 1 = fully closed (halves meet at center)
-            float barSlideProgress = 0; // 0 = bars offscreen, 1 = bars fully visible
+            float splitProgress = 0;
+            float barSlideProgress = 0;
             
             if (bossIntroPhase == 0) {
-                // Split closing: edges → center
                 float p = Math.min(1f, bossIntroTimer / 50f);
-                float ease = p * p * (3f - 2f * p); // smoothstep
+                float ease = p * p * (3f - 2f * p);
                 splitProgress = ease;
-                barSlideProgress = 0; // bars not visible yet
+                barSlideProgress = 0;
             } else if (bossIntroPhase == 5) {
-                // Split opening: center → edges
                 float p = Math.min(1f, (bossIntroTimer - 265) / 55f);
                 float ease = p * p * (3f - 2f * p);
                 splitProgress = 1f - ease;
-                barSlideProgress = 0; // bars already gone
+                barSlideProgress = 0;
             } else if (bossIntroPhase == 3) {
-                // Bars sliding in during first part, then hold
                 splitProgress = 1f;
-                float barP = Math.min(1f, (bossIntroTimer - 140) / 40f); // bars take 40 frames to slide in
+                float barP = Math.min(1f, (bossIntroTimer - 140) / 40f);
                 float barEase = barP * barP * (3f - 2f * barP);
                 barSlideProgress = barEase;
             } else if (bossIntroPhase == 4) {
-                // Bars sliding back out
                 splitProgress = 1f;
-                float barP = Math.min(1f, (bossIntroTimer - 220) / 40f); // bars take 40 frames to slide out
+                float barP = Math.min(1f, (bossIntroTimer - 220) / 40f);
                 float barEase = barP * barP * (3f - 2f * barP);
                 barSlideProgress = 1f - barEase;
             } else {
-                // Phases 1, 2: split fully closed, bars not visible
                 splitProgress = 1f;
                 barSlideProgress = 0;
             }
             
-            // Content alpha: fully visible when split is closed, fade during phase 5
             float alpha = splitProgress;
             
             int centerX = width / 2;
             int centerY = height / 2;
-            
-            // Split offset: how far each half has moved from the edge toward center
-            int maxSplitOffset = width / 2; // Each half covers half the screen when fully closed
+            int maxSplitOffset = width / 2;
             int splitOffset = (int)(maxSplitOffset * splitProgress);
-            
-            // Use positions from Game.java animation
             int playerDisplayX = (int)bossIntroPlayerX;
             int bossDisplayX = (int)bossIntroBossX;
-            
-            // Skew amount for angled split (matches center divider slash)
             int slashSkew = 70;
             
-            // === LEFT HALF (player side) - clips to angled left portion ===
-            // When split is closing: left half slides in from left edge
-            // When fully closed: left half fills left side of screen
+            // === LEFT HALF (player side) ===
             {
                 Graphics2D leftG = (Graphics2D)g.create();
-                // Angled clip polygon for left half - matches the diagonal slash angle
                 int[] leftClipX = {-shakeMargin, splitOffset + slashSkew, splitOffset - slashSkew, -shakeMargin};
                 int[] leftClipY = {-shakeMargin, -shakeMargin, height + shakeMargin, height + shakeMargin};
                 leftG.setClip(new java.awt.Polygon(leftClipX, leftClipY, 4));
+                leftG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 
-                // Deep dark background
-                leftG.setColor(new Color(6, 4, 15));
+                // Deep dark background with subtle blue tint
+                leftG.setColor(new Color(4, 6, 18));
                 leftG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
                 
-                // Blue radial wash
+                // Layered radial wash - primary + secondary for depth
                 RadialGradientPaint leftWash = new RadialGradientPaint(
-                    new Point2D.Float(playerDisplayX, centerY), 400,
-                    new float[]{0f, 0.3f, 0.7f, 1f},
-                    new Color[]{new Color(30, 90, 200, 100),
-                               new Color(15, 60, 150, 60),
-                               new Color(8, 30, 80, 30),
-                               new Color(6, 4, 15, 0)});
+                    new Point2D.Float(playerDisplayX, centerY), 500,
+                    new float[]{0f, 0.15f, 0.4f, 0.7f, 1f},
+                    new Color[]{new Color(40, 120, 255, 120),
+                               new Color(25, 80, 200, 80),
+                               new Color(15, 50, 150, 50),
+                               new Color(8, 25, 80, 25),
+                               new Color(4, 6, 18, 0)});
                 leftG.setPaint(leftWash);
                 leftG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
                 
-                // Blue floating particles
-                for (int i = 0; i < 40; i++) {
+                // Secondary ambient wash offset upward for atmosphere
+                RadialGradientPaint leftWash2 = new RadialGradientPaint(
+                    new Point2D.Float(playerDisplayX - 100, centerY - 150), 350,
+                    new float[]{0f, 0.5f, 1f},
+                    new Color[]{new Color(20, 60, 180, 40),
+                               new Color(10, 30, 120, 20),
+                               new Color(0, 0, 0, 0)});
+                leftG.setPaint(leftWash2);
+                leftG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
+                
+                // Animated diagonal speed lines (manga/anime style)
+                leftG.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER));
+                for (int i = 0; i < 25; i++) {
+                    double lineX = ((i * 67.3 + time * (2.5 + i * 0.15)) % (width + 200)) - 100;
+                    float lineAlpha = (float)(0.04 + 0.06 * Math.sin(time * 0.06 + i * 1.3));
+                    if (lineAlpha < 0) lineAlpha = 0;
+                    leftG.setColor(new Color(100, 180, 255, (int)(255 * lineAlpha)));
+                    leftG.drawLine((int)lineX + 200, -50, (int)lineX - 200, height + 50);
+                }
+                
+                // Blue floating particles - more varied sizes and brighter
+                for (int i = 0; i < 50; i++) {
                     double px = ((i * 137.5 + time * (0.3 + i * 0.02)) % (width + 100)) - 50;
                     double py = ((i * 97.3 - time * (0.5 + i * 0.015)) % (height + 100)) - 50;
-                    int pSize = 2 + (i % 4);
-                    float pAlpha = (float)(0.15 + 0.25 * Math.sin(time * 0.04 + i * 1.7));
+                    int pSize = 1 + (i % 5);
+                    float pAlpha = (float)(0.1 + 0.35 * Math.sin(time * 0.04 + i * 1.7));
                     if (pAlpha < 0) pAlpha = 0;
-                    leftG.setColor(new Color(100, 180, 255, (int)(255 * pAlpha)));
+                    if (pSize > 3) {
+                        // Larger particles get a soft glow halo
+                        leftG.setColor(new Color(60, 140, 255, (int)(80 * pAlpha)));
+                        leftG.fillOval((int)px - pSize * 2, (int)py - pSize * 2, pSize * 4, pSize * 4);
+                    }
+                    leftG.setColor(new Color(120, 200, 255, (int)(255 * pAlpha)));
                     leftG.fillOval((int)px - pSize/2, (int)py - pSize/2, pSize, pSize);
                 }
                 
-                // Blue bokeh orbs
-                for (int i = 0; i < 8; i++) {
+                // Blue bokeh orbs - larger and more layered
+                for (int i = 0; i < 10; i++) {
                     double bx = ((i * 211.7 + time * 0.15) % (width + 200)) - 100;
                     double by = ((i * 173.1 + time * 0.08) % (height + 200)) - 100;
-                    int bSize = 30 + (i % 5) * 15;
-                    float bAlpha = (float)(0.05 + 0.05 * Math.sin(time * 0.03 + i * 2.3));
+                    int bSize = 35 + (i % 6) * 18;
+                    float bAlpha = (float)(0.04 + 0.06 * Math.sin(time * 0.03 + i * 2.3));
                     if (bAlpha < 0) bAlpha = 0;
-                    leftG.setColor(new Color(60, 140, 255, (int)(255 * bAlpha)));
+                    // Outer soft ring
+                    leftG.setColor(new Color(40, 100, 255, (int)(120 * bAlpha)));
+                    leftG.fillOval((int)bx - bSize - 5, (int)by - bSize - 5, (bSize + 5) * 2, (bSize + 5) * 2);
+                    // Inner bright core
+                    leftG.setColor(new Color(80, 160, 255, (int)(255 * bAlpha)));
                     leftG.fillOval((int)bx - bSize, (int)by - bSize, bSize * 2, bSize * 2);
+                }
+                
+                // Subtle horizontal scanlines for CRT/cinematic feel
+                for (int sy = 0; sy < height; sy += 4) {
+                    leftG.setColor(new Color(0, 0, 0, 12));
+                    leftG.drawLine(-shakeMargin, sy, width + shakeMargin, sy);
                 }
                 
                 // Player sprite with anti-aliasing and tilt (only after phase 0)
                 if (player != null && bossIntroPhase >= 1) {
-                    // Layered aura glow
+                    // Larger layered aura glow with breathing animation
+                    float breathe = 0.9f + 0.1f * (float)Math.sin(time * 0.06);
+                    int auraR = (int)(220 * breathe);
                     RadialGradientPaint playerAura = new RadialGradientPaint(
-                        new Point2D.Float(playerDisplayX, centerY + 10), 180,
-                        new float[]{0f, 0.2f, 0.5f, 0.8f, 1f},
-                        new Color[]{new Color(100, 200, 255, 90),
-                                   new Color(60, 160, 255, 60),
+                        new Point2D.Float(playerDisplayX, centerY + 10), auraR,
+                        new float[]{0f, 0.15f, 0.35f, 0.6f, 0.85f, 1f},
+                        new Color[]{new Color(130, 220, 255, 110),
+                                   new Color(80, 180, 255, 80),
+                                   new Color(50, 140, 255, 55),
                                    new Color(30, 100, 220, 35),
-                                   new Color(15, 50, 150, 15),
+                                   new Color(15, 50, 150, 12),
                                    new Color(0, 0, 0, 0)});
                     leftG.setPaint(playerAura);
-                    leftG.fillOval(playerDisplayX - 180, centerY + 10 - 180, 360, 360);
+                    leftG.fillOval(playerDisplayX - auraR, centerY + 10 - auraR, auraR * 2, auraR * 2);
                     
-                    // Radiating light rays
-                    leftG.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    for (int ray = 0; ray < 12; ray++) {
-                        double rayAngle = ray * Math.PI / 6 + time * 0.008;
-                        int innerLen = 80;
-                        int outerLen = innerLen + 50 + (int)(Math.sin(time * 0.05 + ray * 1.1) * 25);
-                        float rayAlpha = (float)(0.12 + 0.1 * Math.sin(time * 0.04 + ray * 0.9));
-                        leftG.setColor(new Color(120, 200, 255, (int)(255 * rayAlpha)));
+                    // Pulsing energy ring around player
+                    float ringPulse = 0.6f + 0.4f * (float)Math.sin(time * 0.08);
+                    int ringR = (int)(140 * breathe);
+                    leftG.setStroke(new BasicStroke(2.5f));
+                    leftG.setColor(new Color(100, 200, 255, (int)(60 * ringPulse)));
+                    leftG.drawOval(playerDisplayX - ringR, centerY + 10 - ringR, ringR * 2, ringR * 2);
+                    int ringR2 = (int)(170 * breathe);
+                    leftG.setStroke(new BasicStroke(1.5f));
+                    leftG.setColor(new Color(60, 160, 255, (int)(35 * ringPulse)));
+                    leftG.drawOval(playerDisplayX - ringR2, centerY + 10 - ringR2, ringR2 * 2, ringR2 * 2);
+                    
+                    // Radiating light rays - thicker, more dramatic
+                    for (int ray = 0; ray < 16; ray++) {
+                        double rayAngle = ray * Math.PI / 8 + time * 0.008;
+                        int innerLen = 75;
+                        int outerLen = innerLen + 60 + (int)(Math.sin(time * 0.05 + ray * 1.1) * 35);
+                        float rayAlpha = (float)(0.08 + 0.12 * Math.sin(time * 0.04 + ray * 0.9));
+                        // Wider outer ray
+                        leftG.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        leftG.setColor(new Color(60, 140, 255, (int)(120 * rayAlpha)));
                         int rx = playerDisplayX + (int)(Math.cos(rayAngle) * innerLen);
                         int ry = centerY + 10 + (int)(Math.sin(rayAngle) * innerLen);
                         int rx2 = playerDisplayX + (int)(Math.cos(rayAngle) * outerLen);
                         int ry2 = centerY + 10 + (int)(Math.sin(rayAngle) * outerLen);
+                        leftG.drawLine(rx, ry, rx2, ry2);
+                        // Bright inner ray
+                        leftG.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        leftG.setColor(new Color(150, 220, 255, (int)(200 * rayAlpha)));
                         leftG.drawLine(rx, ry, rx2, ry2);
                     }
                     
                     // Anti-aliased tilted player sprite
                     AffineTransform pTransform = leftG.getTransform();
                     leftG.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    leftG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     leftG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                     float playerScale = 5.5f;
                     
-                    // === REAL EXHAUST PARTICLES (drawn behind sprite) ===
+                    // Exhaust particles behind sprite
                     if (introParticles != null) {
                         AffineTransform ipTransform = leftG.getTransform();
                         for (Particle p : introParticles) {
@@ -3527,149 +3561,244 @@ public class Renderer {
                     player.draw(leftG);
                     leftG.setTransform(pTransform);
                     
-                    // Lens flare
+                    // Multi-layer lens flare with anamorphic streak
                     int flareX = playerDisplayX + 30;
                     int flareY = centerY - 50;
-                    float flarePulse = 0.6f + (float)Math.sin(time * 0.07) * 0.4f;
+                    float flarePulse = 0.5f + (float)Math.sin(time * 0.07) * 0.5f;
+                    // Outer soft glow
+                    RadialGradientPaint flareOuter = new RadialGradientPaint(
+                        new Point2D.Float(flareX, flareY), 80,
+                        new float[]{0f, 0.2f, 0.5f, 1f},
+                        new Color[]{new Color(200, 230, 255, (int)(120 * flarePulse)),
+                                   new Color(120, 180, 255, (int)(80 * flarePulse)),
+                                   new Color(60, 120, 255, (int)(30 * flarePulse)),
+                                   new Color(0, 0, 0, 0)});
+                    leftG.setPaint(flareOuter);
+                    leftG.fillOval(flareX - 80, flareY - 80, 160, 160);
+                    // Core flare
                     RadialGradientPaint flare = new RadialGradientPaint(
-                        new Point2D.Float(flareX, flareY), 50,
-                        new float[]{0f, 0.1f, 0.4f, 1f},
+                        new Point2D.Float(flareX, flareY), 40,
+                        new float[]{0f, 0.15f, 0.5f, 1f},
                         new Color[]{new Color(255, 255, 255, (int)(255 * flarePulse)),
-                                   new Color(180, 220, 255, (int)(200 * flarePulse)),
-                                   new Color(80, 160, 255, (int)(80 * flarePulse)),
+                                   new Color(200, 230, 255, (int)(220 * flarePulse)),
+                                   new Color(80, 160, 255, (int)(100 * flarePulse)),
                                    new Color(0, 0, 0, 0)});
                     leftG.setPaint(flare);
-                    leftG.fillOval(flareX - 50, flareY - 50, 100, 100);
-                    // Horizontal + vertical streaks
-                    leftG.setColor(new Color(200, 230, 255, (int)(130 * flarePulse)));
-                    leftG.setStroke(new BasicStroke(2.5f));
-                    leftG.drawLine(flareX - 80, flareY, flareX + 80, flareY);
-                    leftG.setColor(new Color(255, 255, 255, (int)(80 * flarePulse)));
-                    leftG.setStroke(new BasicStroke(1));
-                    leftG.drawLine(flareX - 120, flareY, flareX + 120, flareY);
-                    leftG.setColor(new Color(200, 230, 255, (int)(110 * flarePulse)));
-                    leftG.setStroke(new BasicStroke(1.5f));
-                    leftG.drawLine(flareX, flareY - 40, flareX, flareY + 40);
-                    // Ghost orbs
-                    leftG.setColor(new Color(100, 180, 255, (int)(35 * flarePulse)));
-                    leftG.fillOval(flareX - 70, flareY + 20, 30, 30);
-                    leftG.setColor(new Color(150, 210, 255, (int)(20 * flarePulse)));
-                    leftG.fillOval(flareX + 50, flareY - 30, 20, 20);
+                    leftG.fillOval(flareX - 40, flareY - 40, 80, 80);
+                    // Wide anamorphic horizontal streak
+                    leftG.setColor(new Color(180, 220, 255, (int)(100 * flarePulse)));
+                    leftG.setStroke(new BasicStroke(3f));
+                    leftG.drawLine(flareX - 150, flareY, flareX + 150, flareY);
+                    leftG.setColor(new Color(255, 255, 255, (int)(60 * flarePulse)));
+                    leftG.setStroke(new BasicStroke(1f));
+                    leftG.drawLine(flareX - 200, flareY, flareX + 200, flareY);
+                    // Vertical cross
+                    leftG.setColor(new Color(180, 220, 255, (int)(90 * flarePulse)));
+                    leftG.setStroke(new BasicStroke(2f));
+                    leftG.drawLine(flareX, flareY - 50, flareX, flareY + 50);
+                    // Ghost orbs at different distances
+                    leftG.setColor(new Color(80, 160, 255, (int)(25 * flarePulse)));
+                    leftG.fillOval(flareX - 80, flareY + 25, 22, 22);
+                    leftG.setColor(new Color(120, 200, 255, (int)(18 * flarePulse)));
+                    leftG.fillOval(flareX + 60, flareY - 35, 16, 16);
+                    leftG.setColor(new Color(60, 140, 255, (int)(15 * flarePulse)));
+                    leftG.fillOval(flareX + 100, flareY + 10, 12, 12);
                     
-                    // Name plate
+                    // Name plate with animated reveal and gradient border
                     String playerLabel = "CHALLENGER";
-                    leftG.setFont(new Font("Impact", Font.BOLD, 48));
+                    leftG.setFont(new Font("Impact", Font.BOLD, 52));
                     FontMetrics fm = leftG.getFontMetrics();
                     int labelW = fm.stringWidth(playerLabel);
                     int labelX = playerDisplayX - labelW / 2;
-                    int labelY = centerY - 130;
-                    leftG.setColor(new Color(0, 20, 60, 200));
-                    leftG.fillRoundRect(labelX - 22, labelY - 40, labelW + 44, 55, 10, 10);
-                    leftG.setColor(new Color(60, 170, 255, 230));
-                    leftG.fillRect(labelX - 22, labelY + 11, labelW + 44, 3);
+                    int labelY = centerY - 135;
+                    int plateW = labelW + 50;
+                    int plateH = 58;
+                    int plateX = labelX - 25;
+                    int plateY = labelY - 43;
+                    // Plate background with gradient
+                    GradientPaint plateBg = new GradientPaint(
+                        plateX, plateY, new Color(0, 15, 50, 220),
+                        plateX + plateW, plateY, new Color(0, 30, 80, 200));
+                    leftG.setPaint(plateBg);
+                    leftG.fillRoundRect(plateX, plateY, plateW, plateH, 6, 6);
+                    // Animated gradient border
+                    GradientPaint borderGrad = new GradientPaint(
+                        plateX, plateY, new Color(60, 170, 255, 200),
+                        plateX + plateW, plateY + plateH, new Color(150, 220, 255, 200));
+                    leftG.setPaint(borderGrad);
+                    leftG.setStroke(new BasicStroke(2f));
+                    leftG.drawRoundRect(plateX, plateY, plateW, plateH, 6, 6);
+                    // Accent line under text
+                    float accentPulse = 0.7f + 0.3f * (float)Math.sin(time * 0.1);
+                    leftG.setColor(new Color(80, 190, 255, (int)(255 * accentPulse)));
+                    leftG.fillRect(plateX + 4, plateY + plateH - 4, plateW - 8, 2);
+                    // Text with glow
+                    leftG.setColor(new Color(60, 150, 255, 80));
+                    leftG.drawString(playerLabel, labelX + 1, labelY + 1);
                     leftG.setColor(new Color(0, 0, 0, 200));
                     leftG.drawString(playerLabel, labelX + 2, labelY + 2);
-                    leftG.setColor(new Color(215, 240, 255));
+                    // Gradient text fill
+                    GradientPaint textGrad = new GradientPaint(
+                        labelX, labelY - 30, new Color(220, 240, 255),
+                        labelX, labelY + 5, new Color(160, 210, 255));
+                    leftG.setPaint(textGrad);
                     leftG.drawString(playerLabel, labelX, labelY);
                 }
                 
-                // Rising blue embers on left side
-                for (int i = 0; i < 15; i++) {
+                // Rising blue embers - more, varied sizes with glow trails
+                for (int i = 0; i < 25; i++) {
                     double ex = ((i * 83.3 + time * (0.3 + i * 0.02)) % (width / 2 + 30)) - 15;
                     double ey = height - ((i * 67.7 + time * (1.0 + i * 0.035)) % (height + 80));
-                    int eSize = 2 + (i % 3);
-                    float eAlpha = (float)(0.3 + 0.3 * Math.sin(time * 0.07 + i * 1.8));
+                    int eSize = 2 + (i % 4);
+                    float eAlpha = (float)(0.25 + 0.35 * Math.sin(time * 0.07 + i * 1.8));
                     if (eAlpha < 0) eAlpha = 0;
-                    leftG.setColor(new Color(80, 180, 255, (int)(255 * eAlpha)));
+                    // Soft glow around ember
+                    leftG.setColor(new Color(60, 140, 255, (int)(60 * eAlpha)));
+                    leftG.fillOval((int)ex - eSize, (int)ey - eSize, eSize * 3, eSize * 3);
+                    // Bright core
+                    leftG.setColor(new Color(120, 200, 255, (int)(255 * eAlpha)));
                     leftG.fillOval((int)ex, (int)ey, eSize, eSize);
                 }
                 
                 leftG.dispose();
             }
             
-            // === RIGHT HALF (boss side) - clips to angled right portion ===
+            // === RIGHT HALF (boss side) ===
             {
                 Graphics2D rightG = (Graphics2D)g.create();
                 int rightStart = width - splitOffset;
-                // Angled clip polygon for right half - matches the diagonal slash angle
                 int[] rightClipX = {rightStart + slashSkew, width + shakeMargin, width + shakeMargin, rightStart - slashSkew};
                 int[] rightClipY = {-shakeMargin, -shakeMargin, height + shakeMargin, height + shakeMargin};
                 rightG.setClip(new java.awt.Polygon(rightClipX, rightClipY, 4));
+                rightG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 
-                // Deep dark background
-                rightG.setColor(new Color(15, 4, 6));
+                // Deep dark background with crimson tint
+                rightG.setColor(new Color(18, 4, 4));
                 rightG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
                 
-                // Red/orange radial wash
+                // Layered red/orange radial wash
                 RadialGradientPaint rightWash = new RadialGradientPaint(
-                    new Point2D.Float(bossDisplayX, centerY), 400,
-                    new float[]{0f, 0.3f, 0.7f, 1f},
-                    new Color[]{new Color(200, 50, 20, 100),
-                               new Color(150, 30, 10, 60),
-                               new Color(80, 15, 5, 30),
-                               new Color(15, 4, 6, 0)});
+                    new Point2D.Float(bossDisplayX, centerY), 500,
+                    new float[]{0f, 0.15f, 0.4f, 0.7f, 1f},
+                    new Color[]{new Color(255, 60, 20, 120),
+                               new Color(200, 40, 15, 80),
+                               new Color(150, 25, 8, 50),
+                               new Color(80, 12, 4, 25),
+                               new Color(18, 4, 4, 0)});
                 rightG.setPaint(rightWash);
                 rightG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
                 
-                // Red/orange floating particles
-                for (int i = 0; i < 40; i++) {
+                // Secondary menacing wash offset downward
+                RadialGradientPaint rightWash2 = new RadialGradientPaint(
+                    new Point2D.Float(bossDisplayX + 80, centerY + 120), 300,
+                    new float[]{0f, 0.5f, 1f},
+                    new Color[]{new Color(180, 40, 10, 40),
+                               new Color(100, 20, 5, 20),
+                               new Color(0, 0, 0, 0)});
+                rightG.setPaint(rightWash2);
+                rightG.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
+                
+                // Animated diagonal speed lines (opposite direction from left)
+                rightG.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER));
+                for (int i = 0; i < 25; i++) {
+                    double lineX = ((i * 73.7 - time * (2.5 + i * 0.15)) % (width + 200));
+                    if (lineX < 0) lineX += width + 200;
+                    lineX -= 100;
+                    float lineAlpha = (float)(0.04 + 0.06 * Math.sin(time * 0.055 + i * 1.5));
+                    if (lineAlpha < 0) lineAlpha = 0;
+                    rightG.setColor(new Color(255, 100, 40, (int)(255 * lineAlpha)));
+                    rightG.drawLine((int)lineX - 200, -50, (int)lineX + 200, height + 50);
+                }
+                
+                // Red/orange floating particles - more varied
+                for (int i = 0; i < 50; i++) {
                     double px = ((i * 151.3 + time * (0.25 + i * 0.018)) % (width + 100)) - 50;
                     double py = ((i * 109.7 - time * (0.45 + i * 0.013)) % (height + 100)) - 50;
-                    int pSize = 2 + (i % 4);
-                    float pAlpha = (float)(0.15 + 0.25 * Math.sin(time * 0.035 + i * 1.9));
+                    int pSize = 1 + (i % 5);
+                    float pAlpha = (float)(0.1 + 0.35 * Math.sin(time * 0.035 + i * 1.9));
                     if (pAlpha < 0) pAlpha = 0;
-                    rightG.setColor(new Color(255, 130, 60, (int)(255 * pAlpha)));
+                    if (pSize > 3) {
+                        rightG.setColor(new Color(255, 60, 20, (int)(80 * pAlpha)));
+                        rightG.fillOval((int)px - pSize * 2, (int)py - pSize * 2, pSize * 4, pSize * 4);
+                    }
+                    rightG.setColor(new Color(255, 150, 60, (int)(255 * pAlpha)));
                     rightG.fillOval((int)px - pSize/2, (int)py - pSize/2, pSize, pSize);
                 }
                 
-                // Red bokeh orbs
-                for (int i = 0; i < 8; i++) {
+                // Red bokeh orbs - larger and more layered
+                for (int i = 0; i < 10; i++) {
                     double bx = ((i * 197.3 + time * 0.12) % (width + 200)) - 100;
                     double by = ((i * 163.7 + time * 0.09) % (height + 200)) - 100;
-                    int bSize = 30 + (i % 5) * 15;
-                    float bAlpha = (float)(0.05 + 0.05 * Math.sin(time * 0.025 + i * 2.1));
+                    int bSize = 35 + (i % 6) * 18;
+                    float bAlpha = (float)(0.04 + 0.06 * Math.sin(time * 0.025 + i * 2.1));
                     if (bAlpha < 0) bAlpha = 0;
-                    rightG.setColor(new Color(255, 80, 40, (int)(255 * bAlpha)));
+                    rightG.setColor(new Color(255, 40, 15, (int)(120 * bAlpha)));
+                    rightG.fillOval((int)bx - bSize - 5, (int)by - bSize - 5, (bSize + 5) * 2, (bSize + 5) * 2);
+                    rightG.setColor(new Color(255, 90, 40, (int)(255 * bAlpha)));
                     rightG.fillOval((int)bx - bSize, (int)by - bSize, bSize * 2, bSize * 2);
                 }
                 
-                // Boss sprite with anti-aliasing and tilt (only after phase 0)
+                // Subtle horizontal scanlines
+                for (int sy = 0; sy < height; sy += 4) {
+                    rightG.setColor(new Color(0, 0, 0, 12));
+                    rightG.drawLine(-shakeMargin, sy, width + shakeMargin, sy);
+                }
+                
+                // Boss sprite with anti-aliasing and tilt
                 if (boss != null && bossIntroPhase >= 1) {
-                    // Menacing aura
+                    // Larger menacing aura with breathing
+                    float breathe = 0.9f + 0.1f * (float)Math.sin(time * 0.05 + 1.0);
+                    int auraR = (int)(240 * breathe);
                     RadialGradientPaint bossAura = new RadialGradientPaint(
-                        new Point2D.Float(bossDisplayX, centerY + 10), 200,
-                        new float[]{0f, 0.2f, 0.5f, 0.8f, 1f},
-                        new Color[]{new Color(255, 80, 20, 90),
-                                   new Color(220, 50, 10, 60),
-                                   new Color(180, 30, 5, 35),
-                                   new Color(100, 15, 3, 15),
+                        new Point2D.Float(bossDisplayX, centerY + 10), auraR,
+                        new float[]{0f, 0.15f, 0.35f, 0.6f, 0.85f, 1f},
+                        new Color[]{new Color(255, 100, 30, 110),
+                                   new Color(255, 60, 15, 80),
+                                   new Color(200, 40, 8, 55),
+                                   new Color(150, 25, 5, 35),
+                                   new Color(80, 10, 2, 12),
                                    new Color(0, 0, 0, 0)});
                     rightG.setPaint(bossAura);
-                    rightG.fillOval(bossDisplayX - 200, centerY + 10 - 200, 400, 400);
+                    rightG.fillOval(bossDisplayX - auraR, centerY + 10 - auraR, auraR * 2, auraR * 2);
                     
-                    // Energy spikes
-                    rightG.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    for (int spike = 0; spike < 14; spike++) {
-                        double sAngle = spike * Math.PI / 7 - time * 0.01;
-                        int innerLen = 95;
-                        int outerLen = innerLen + 60 + (int)(Math.sin(time * 0.045 + spike * 0.8) * 30);
-                        float sAlpha = (float)(0.12 + 0.1 * Math.sin(time * 0.035 + spike * 1.0));
-                        rightG.setColor(new Color(255, 100, 30, (int)(255 * sAlpha)));
+                    // Pulsing threat rings
+                    float ringPulse = 0.5f + 0.5f * (float)Math.sin(time * 0.07 + 0.5);
+                    int ringR = (int)(155 * breathe);
+                    rightG.setStroke(new BasicStroke(3f));
+                    rightG.setColor(new Color(255, 80, 20, (int)(50 * ringPulse)));
+                    rightG.drawOval(bossDisplayX - ringR, centerY + 10 - ringR, ringR * 2, ringR * 2);
+                    int ringR2 = (int)(190 * breathe);
+                    rightG.setStroke(new BasicStroke(1.5f));
+                    rightG.setColor(new Color(255, 50, 10, (int)(30 * ringPulse)));
+                    rightG.drawOval(bossDisplayX - ringR2, centerY + 10 - ringR2, ringR2 * 2, ringR2 * 2);
+                    
+                    // Energy spikes - more dramatic with varying thickness
+                    for (int spike = 0; spike < 18; spike++) {
+                        double sAngle = spike * Math.PI / 9 - time * 0.012;
+                        int innerLen = 90;
+                        int outerLen = innerLen + 70 + (int)(Math.sin(time * 0.045 + spike * 0.8) * 40);
+                        float sAlpha = (float)(0.08 + 0.14 * Math.sin(time * 0.035 + spike * 1.0));
+                        // Wide outer spike
+                        rightG.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        rightG.setColor(new Color(255, 60, 10, (int)(130 * sAlpha)));
                         int sx = bossDisplayX + (int)(Math.cos(sAngle) * innerLen);
                         int sy = centerY + 10 + (int)(Math.sin(sAngle) * innerLen);
                         int sx2 = bossDisplayX + (int)(Math.cos(sAngle) * outerLen);
                         int sy2 = centerY + 10 + (int)(Math.sin(sAngle) * outerLen);
+                        rightG.drawLine(sx, sy, sx2, sy2);
+                        // Bright inner spike
+                        rightG.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        rightG.setColor(new Color(255, 150, 50, (int)(200 * sAlpha)));
                         rightG.drawLine(sx, sy, sx2, sy2);
                     }
                     
                     // Anti-aliased tilted boss sprite
                     AffineTransform bTransform = rightG.getTransform();
                     rightG.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                    rightG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     rightG.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                     float bossScale = 4.5f;
                     
-                    // === REAL EXHAUST PARTICLES (drawn behind boss sprite) ===
+                    // Exhaust particles behind boss sprite
                     if (introParticles != null) {
                         AffineTransform ipTransform = rightG.getTransform();
                         for (Particle p : introParticles) {
@@ -3687,96 +3816,147 @@ public class Renderer {
                     boss.draw(rightG);
                     rightG.setTransform(bTransform);
                     
-                    // Lens flare (red/orange tinted)
+                    // Multi-layer lens flare (red/orange tinted)
                     int flareX = bossDisplayX - 30;
                     int flareY = centerY - 40;
-                    float flarePulse = 0.5f + (float)Math.sin(time * 0.06 + 1.5) * 0.5f;
-                    RadialGradientPaint flare = new RadialGradientPaint(
-                        new Point2D.Float(flareX, flareY), 55,
-                        new float[]{0f, 0.1f, 0.4f, 1f},
-                        new Color[]{new Color(255, 255, 240, (int)(255 * flarePulse)),
-                                   new Color(255, 200, 140, (int)(200 * flarePulse)),
-                                   new Color(255, 100, 30, (int)(80 * flarePulse)),
+                    float flarePulse = 0.4f + (float)Math.sin(time * 0.06 + 1.5) * 0.6f;
+                    // Outer soft glow
+                    RadialGradientPaint flareOuter = new RadialGradientPaint(
+                        new Point2D.Float(flareX, flareY), 90,
+                        new float[]{0f, 0.2f, 0.5f, 1f},
+                        new Color[]{new Color(255, 200, 150, (int)(100 * flarePulse)),
+                                   new Color(255, 120, 60, (int)(60 * flarePulse)),
+                                   new Color(255, 60, 20, (int)(25 * flarePulse)),
                                    new Color(0, 0, 0, 0)});
-                    rightG.setPaint(flare);
-                    rightG.fillOval(flareX - 55, flareY - 55, 110, 110);
-                    rightG.setColor(new Color(255, 200, 150, (int)(130 * flarePulse)));
-                    rightG.setStroke(new BasicStroke(2.5f));
-                    rightG.drawLine(flareX - 90, flareY, flareX + 90, flareY);
-                    rightG.setColor(new Color(255, 255, 200, (int)(70 * flarePulse)));
-                    rightG.setStroke(new BasicStroke(1));
-                    rightG.drawLine(flareX - 130, flareY, flareX + 130, flareY);
-                    rightG.setColor(new Color(255, 200, 150, (int)(110 * flarePulse)));
-                    rightG.setStroke(new BasicStroke(1.5f));
-                    rightG.drawLine(flareX, flareY - 45, flareX, flareY + 45);
+                    rightG.setPaint(flareOuter);
+                    rightG.fillOval(flareX - 90, flareY - 90, 180, 180);
+                    // Core flare
+                    RadialGradientPaint flareCore = new RadialGradientPaint(
+                        new Point2D.Float(flareX, flareY), 45,
+                        new float[]{0f, 0.15f, 0.5f, 1f},
+                        new Color[]{new Color(255, 255, 240, (int)(255 * flarePulse)),
+                                   new Color(255, 220, 160, (int)(220 * flarePulse)),
+                                   new Color(255, 120, 40, (int)(100 * flarePulse)),
+                                   new Color(0, 0, 0, 0)});
+                    rightG.setPaint(flareCore);
+                    rightG.fillOval(flareX - 45, flareY - 45, 90, 90);
+                    // Wide anamorphic horizontal streak
+                    rightG.setColor(new Color(255, 180, 120, (int)(100 * flarePulse)));
+                    rightG.setStroke(new BasicStroke(3f));
+                    rightG.drawLine(flareX - 160, flareY, flareX + 160, flareY);
+                    rightG.setColor(new Color(255, 255, 200, (int)(50 * flarePulse)));
+                    rightG.setStroke(new BasicStroke(1f));
+                    rightG.drawLine(flareX - 220, flareY, flareX + 220, flareY);
+                    // Vertical cross
+                    rightG.setColor(new Color(255, 180, 120, (int)(80 * flarePulse)));
+                    rightG.setStroke(new BasicStroke(2f));
+                    rightG.drawLine(flareX, flareY - 55, flareX, flareY + 55);
                     // Ghost orbs + hexagonal artifact
-                    rightG.setColor(new Color(255, 120, 50, (int)(30 * flarePulse)));
-                    rightG.fillOval(flareX + 55, flareY + 15, 28, 28);
-                    rightG.setColor(new Color(255, 180, 80, (int)(25 * flarePulse)));
-                    int hexR = 10;
+                    rightG.setColor(new Color(255, 100, 40, (int)(25 * flarePulse)));
+                    rightG.fillOval(flareX + 60, flareY + 18, 24, 24);
+                    rightG.setColor(new Color(255, 150, 60, (int)(20 * flarePulse)));
+                    int hexR = 12;
                     int[] hexXp = new int[6]; int[] hexYp = new int[6];
                     for (int h = 0; h < 6; h++) {
-                        hexXp[h] = flareX + 40 + (int)(hexR * Math.cos(h * Math.PI / 3));
-                        hexYp[h] = flareY - 25 + (int)(hexR * Math.sin(h * Math.PI / 3));
+                        hexXp[h] = flareX + 45 + (int)(hexR * Math.cos(h * Math.PI / 3 + time * 0.02));
+                        hexYp[h] = flareY - 28 + (int)(hexR * Math.sin(h * Math.PI / 3 + time * 0.02));
                     }
                     rightG.fillPolygon(hexXp, hexYp, 6);
+                    rightG.setColor(new Color(255, 80, 30, (int)(15 * flarePulse)));
+                    rightG.fillOval(flareX - 90, flareY + 30, 18, 18);
                     
-                    // Boss name label
-                    int bossFontSize = bossIntroText.length() > 14 ? 38 : (bossIntroText.length() > 10 ? 44 : 48);
+                    // Boss name label with gradient border
+                    int bossFontSize = bossIntroText.length() > 14 ? 40 : (bossIntroText.length() > 10 ? 46 : 52);
                     rightG.setFont(new Font("Impact", Font.BOLD, bossFontSize));
                     FontMetrics fm = rightG.getFontMetrics();
                     int labelW = fm.stringWidth(bossIntroText);
                     int labelX = bossDisplayX - labelW / 2;
-                    int labelY = centerY - 130;
-                    rightG.setColor(new Color(60, 10, 5, 200));
-                    rightG.fillRoundRect(labelX - 22, labelY - 40, labelW + 44, 55, 10, 10);
-                    rightG.setColor(new Color(255, 80, 30, 230));
-                    rightG.fillRect(labelX - 22, labelY + 11, labelW + 44, 3);
+                    int labelY = centerY - 135;
+                    int plateW = labelW + 50;
+                    int plateH = 58;
+                    int plateX = labelX - 25;
+                    int plateY = labelY - 43;
+                    // Plate background with gradient
+                    GradientPaint plateBg = new GradientPaint(
+                        plateX, plateY, new Color(50, 8, 4, 220),
+                        plateX + plateW, plateY, new Color(80, 15, 5, 200));
+                    rightG.setPaint(plateBg);
+                    rightG.fillRoundRect(plateX, plateY, plateW, plateH, 6, 6);
+                    // Animated gradient border
+                    GradientPaint borderGrad = new GradientPaint(
+                        plateX, plateY, new Color(255, 100, 30, 200),
+                        plateX + plateW, plateY + plateH, new Color(255, 180, 60, 200));
+                    rightG.setPaint(borderGrad);
+                    rightG.setStroke(new BasicStroke(2f));
+                    rightG.drawRoundRect(plateX, plateY, plateW, plateH, 6, 6);
+                    // Accent line under text
+                    float accentPulse = 0.7f + 0.3f * (float)Math.sin(time * 0.1 + 1.0);
+                    rightG.setColor(new Color(255, 100, 30, (int)(255 * accentPulse)));
+                    rightG.fillRect(plateX + 4, plateY + plateH - 4, plateW - 8, 2);
+                    // Text with glow
+                    rightG.setColor(new Color(255, 80, 20, 80));
+                    rightG.drawString(bossIntroText, labelX + 1, labelY + 1);
                     rightG.setColor(new Color(0, 0, 0, 200));
                     rightG.drawString(bossIntroText, labelX + 2, labelY + 2);
-                    rightG.setColor(new Color(255, 225, 210));
+                    // Gradient text fill
+                    GradientPaint textGrad = new GradientPaint(
+                        labelX, labelY - 30, new Color(255, 240, 220),
+                        labelX, labelY + 5, new Color(255, 180, 140));
+                    rightG.setPaint(textGrad);
                     rightG.drawString(bossIntroText, labelX, labelY);
                 }
                 
-                // Rising fire embers on right side
-                for (int i = 0; i < 15; i++) {
+                // Rising fire embers - more with glow trails
+                for (int i = 0; i < 25; i++) {
                     double ex = width / 2 + ((i * 79.3 + time * (0.35 + i * 0.025)) % (width / 2 + 30)) - 15;
                     double ey = height - ((i * 71.3 + time * (1.1 + i * 0.04)) % (height + 80));
-                    int eSize = 2 + (i % 3);
-                    float eAlpha = (float)(0.3 + 0.3 * Math.sin(time * 0.075 + i * 2.0));
+                    int eSize = 2 + (i % 4);
+                    float eAlpha = (float)(0.25 + 0.35 * Math.sin(time * 0.075 + i * 2.0));
                     if (eAlpha < 0) eAlpha = 0;
                     int r = 255;
-                    int gr = 150 + (int)(Math.sin(i * 1.7) * 50);
-                    rightG.setColor(new Color(r, gr, 30, (int)(255 * eAlpha)));
+                    int gr = 140 + (int)(Math.sin(i * 1.7) * 60);
+                    // Soft glow around ember
+                    rightG.setColor(new Color(255, Math.min(255, gr), 15, (int)(60 * eAlpha)));
+                    rightG.fillOval((int)ex - eSize, (int)ey - eSize, eSize * 3, eSize * 3);
+                    // Bright core
+                    rightG.setColor(new Color(r, Math.min(255, gr + 30), 30, (int)(255 * eAlpha)));
                     rightG.fillOval((int)ex, (int)ey, eSize, eSize);
                 }
                 
                 rightG.dispose();
             }
             
-            // === CENTER DIVIDER (glowing diagonal slash with sparkles) - drawn over both halves ===
+            // === CENTER DIVIDER (glowing diagonal slash with sparkles and energy) ===
             if (bossIntroPhase >= 2 && splitProgress > 0.9f) {
-                for (int glow = 6; glow >= 0; glow--) {
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                // Wider glow layers for more dramatic slash
+                for (int glow = 8; glow >= 0; glow--) {
                     int glowW = 1 + glow * 5;
-                    int glowAlpha = (int)((glow == 0 ? 240 : (60 - glow * 8)) * alpha);
+                    int glowAlpha = (int)((glow == 0 ? 250 : (70 - glow * 7)) * alpha);
                     if (glowAlpha < 0) glowAlpha = 0;
                     if (glow == 0) {
-                        g.setColor(new Color(255, 250, 230, glowAlpha));
+                        g.setColor(new Color(255, 255, 240, glowAlpha));
+                    } else if (glow < 3) {
+                        g.setColor(new Color(255, 230, 150, glowAlpha));
                     } else {
-                        g.setColor(new Color(255, 200, 80, glowAlpha));
+                        g.setColor(new Color(255, 180, 60, glowAlpha));
                     }
                     g.setStroke(new BasicStroke(glowW, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                     g.drawLine(centerX + slashSkew, -80, centerX - slashSkew, height + 80);
                 }
-                // Sparkle stars along the divider
+                // Sparkle stars along the divider - more and brighter
                 g.setStroke(new BasicStroke(2));
-                for (int sp = 0; sp < 10; sp++) {
-                    double t = (sp + 0.5) / 10.0;
-                    int spX = (int)(centerX + slashSkew - slashSkew * 2 * t);
-                    int spY = (int)(-80 + (height + 160) * t);
-                    float sparkle = (float)(0.5 + 0.5 * Math.sin(time * 0.15 + sp * 1.3));
-                    int spSize = (int)(4 + 6 * sparkle);
-                    int spAlpha = (int)(220 * sparkle * alpha);
+                for (int sp = 0; sp < 14; sp++) {
+                    double t2 = (sp + 0.5) / 14.0;
+                    int spX = (int)(centerX + slashSkew - slashSkew * 2 * t2);
+                    int spY = (int)(-80 + (height + 160) * t2);
+                    float sparkle = (float)(0.4 + 0.6 * Math.sin(time * 0.18 + sp * 1.1));
+                    int spSize = (int)(5 + 8 * sparkle);
+                    int spAlpha = (int)(240 * sparkle * alpha);
+                    // Glow behind sparkle
+                    g.setColor(new Color(255, 220, 100, (int)(spAlpha * 0.3)));
+                    g.fillOval(spX - spSize * 2, spY - spSize * 2, spSize * 4, spSize * 4);
+                    // Star cross
                     g.setColor(new Color(255, 255, 255, spAlpha));
                     g.drawLine(spX - spSize, spY, spX + spSize, spY);
                     g.drawLine(spX, spY - spSize, spX, spY + spSize);
@@ -3784,25 +3964,35 @@ public class Renderer {
                     g.drawLine(spX - dSize, spY - dSize, spX + dSize, spY + dSize);
                     g.drawLine(spX + dSize, spY - dSize, spX - dSize, spY + dSize);
                 }
+                // Travelling energy spark along the divider
+                double sparkTravel = (time * 0.08) % 1.0;
+                int sparkX = (int)(centerX + slashSkew - slashSkew * 2 * sparkTravel);
+                int sparkY = (int)(-80 + (height + 160) * sparkTravel);
+                RadialGradientPaint sparkGlow = new RadialGradientPaint(
+                    new Point2D.Float(sparkX, sparkY), 25,
+                    new float[]{0f, 0.3f, 1f},
+                    new Color[]{new Color(255, 255, 255, (int)(220 * alpha)),
+                               new Color(255, 230, 150, (int)(120 * alpha)),
+                               new Color(255, 180, 60, 0)});
+                g.setPaint(sparkGlow);
+                g.fillOval(sparkX - 25, sparkY - 25, 50, 50);
             }
             
             // === SPLIT EDGE GLOW (angled bright line where the two halves meet) ===
             if (splitProgress > 0.01f && splitProgress < 1f) {
-                // Left edge glow - angled line
                 int leftEdge = splitOffset;
-                for (int glow = 4; glow >= 0; glow--) {
-                    int w2 = 2 + glow * 8;
-                    int a = (int)((glow == 0 ? 200 : 60 - glow * 12) * splitProgress);
+                for (int glow = 5; glow >= 0; glow--) {
+                    int w2 = 2 + glow * 7;
+                    int a = (int)((glow == 0 ? 220 : 70 - glow * 11) * splitProgress);
                     if (a < 0) a = 0;
                     g.setColor(new Color(100, 200, 255, a));
                     g.setStroke(new BasicStroke(w2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER));
                     g.drawLine(leftEdge + slashSkew, -shakeMargin, leftEdge - slashSkew, height + shakeMargin);
                 }
-                // Right edge glow - angled line
                 int rightEdge = width - splitOffset;
-                for (int glow = 4; glow >= 0; glow--) {
-                    int w2 = 2 + glow * 8;
-                    int a = (int)((glow == 0 ? 200 : 60 - glow * 12) * splitProgress);
+                for (int glow = 5; glow >= 0; glow--) {
+                    int w2 = 2 + glow * 7;
+                    int a = (int)((glow == 0 ? 220 : 70 - glow * 11) * splitProgress);
                     if (a < 0) a = 0;
                     g.setColor(new Color(255, 100, 30, a));
                     g.setStroke(new BasicStroke(w2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER));
@@ -3811,48 +4001,95 @@ public class Renderer {
             }
             
             // === ANIMATED LETTERBOX BARS (slide in from top/bottom) ===
-            int maxBarHeight = 85;
+            int maxBarHeight = 90;
             int barHeight = (int)(maxBarHeight * barSlideProgress);
             if (barHeight > 0) {
-                // Top bar slides down from above
-                g.setColor(new Color(0, 0, 0, 250));
+                // Bars with subtle gradient instead of flat black
+                GradientPaint topBarGrad = new GradientPaint(
+                    0, 0, new Color(0, 0, 0, 255),
+                    0, barHeight, new Color(10, 10, 15, 250));
+                g.setPaint(topBarGrad);
                 g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, barHeight + shakeMargin);
-                // Bottom bar slides up from below
+                GradientPaint botBarGrad = new GradientPaint(
+                    0, height - barHeight, new Color(10, 10, 15, 250),
+                    0, height, new Color(0, 0, 0, 255));
+                g.setPaint(botBarGrad);
                 g.fillRect(-shakeMargin, height - barHeight, width + shakeMargin * 2, barHeight + shakeMargin);
                 
-                // Gold trim with pulse
-                float trimPulse = 0.8f + (float)Math.sin(time * 0.08) * 0.2f;
-                g.setColor(new Color(255, 200, 80, (int)(180 * trimPulse * barSlideProgress)));
+                // Gold trim with pulse - double line for richness
+                float trimPulse = 0.7f + (float)Math.sin(time * 0.08) * 0.3f;
+                // Outer glow
+                g.setColor(new Color(255, 200, 80, (int)(60 * trimPulse * barSlideProgress)));
+                g.setStroke(new BasicStroke(6f));
+                g.drawLine(-shakeMargin, barHeight, width + shakeMargin, barHeight);
+                g.drawLine(-shakeMargin, height - barHeight, width + shakeMargin, height - barHeight);
+                // Main trim
+                g.setColor(new Color(255, 210, 100, (int)(200 * trimPulse * barSlideProgress)));
                 g.setStroke(new BasicStroke(2.5f));
                 g.drawLine(-shakeMargin, barHeight, width + shakeMargin, barHeight);
                 g.drawLine(-shakeMargin, height - barHeight, width + shakeMargin, height - barHeight);
-                // Inner accent line
-                g.setColor(new Color(255, 220, 120, (int)(70 * trimPulse * barSlideProgress)));
-                g.setStroke(new BasicStroke(1));
+                // Inner fine accent
+                g.setColor(new Color(255, 230, 150, (int)(80 * trimPulse * barSlideProgress)));
+                g.setStroke(new BasicStroke(1f));
                 g.drawLine(-shakeMargin, barHeight - 4, width + shakeMargin, barHeight - 4);
                 g.drawLine(-shakeMargin, height - barHeight + 4, width + shakeMargin, height - barHeight + 4);
                 
-                // === STAGE BANNER (in bottom bar) ===
+                // === STAGE BANNER (in bottom bar) - more polished ===
                 if (bossIntroPhase >= 2 && barSlideProgress > 0.8f) {
-                    g.setFont(new Font("Impact", Font.BOLD, 42));
+                    g.setFont(new Font("Impact", Font.BOLD, 44));
                     FontMetrics fm = g.getFontMetrics();
                     String levelText = "STAGE " + level;
                     int levelWidth = fm.stringWidth(levelText);
-                    int bannerX = centerX - levelWidth / 2 - 28;
-                    int bannerY = height - barHeight + 16;
-                    int bannerW = levelWidth + 56;
-                    int bannerH = barHeight - 22;
+                    int bannerX = centerX - levelWidth / 2 - 32;
+                    int bannerY = height - barHeight + 14;
+                    int bannerW = levelWidth + 64;
+                    int bannerH = barHeight - 20;
                     if (bannerH > 10) {
-                        g.setColor(new Color(15, 15, 25, (int)(200 * alpha)));
-                        g.fillRoundRect(bannerX, bannerY, bannerW, bannerH, 8, 8);
-                        g.setColor(new Color(255, 200, 80, (int)(180 * alpha)));
-                        g.setStroke(new BasicStroke(2));
-                        g.drawRoundRect(bannerX, bannerY, bannerW, bannerH, 8, 8);
-                        g.setColor(new Color(0, 0, 0, (int)(180 * alpha)));
-                        g.drawString(levelText, centerX - levelWidth / 2 + 2, bannerY + bannerH - 14 + 2);
-                        g.setColor(new Color(255, 248, 225, (int)(255 * alpha)));
-                        g.drawString(levelText, centerX - levelWidth / 2, bannerY + bannerH - 14);
+                        // Banner background with gradient
+                        GradientPaint bannerBg = new GradientPaint(
+                            bannerX, bannerY, new Color(10, 10, 20, (int)(210 * alpha)),
+                            bannerX + bannerW, bannerY, new Color(20, 15, 30, (int)(190 * alpha)));
+                        g.setPaint(bannerBg);
+                        g.fillRoundRect(bannerX, bannerY, bannerW, bannerH, 10, 10);
+                        // Gold gradient border
+                        GradientPaint bannerBorder = new GradientPaint(
+                            bannerX, bannerY, new Color(255, 200, 80, (int)(200 * alpha)),
+                            bannerX + bannerW, bannerY + bannerH, new Color(255, 240, 150, (int)(200 * alpha)));
+                        g.setPaint(bannerBorder);
+                        g.setStroke(new BasicStroke(2f));
+                        g.drawRoundRect(bannerX, bannerY, bannerW, bannerH, 10, 10);
+                        // Decorative diamond accents on sides
+                        int diamondSize = 5;
+                        g.setColor(new Color(255, 220, 120, (int)(180 * alpha)));
+                        int diamX1 = bannerX + 12;
+                        int diamX2 = bannerX + bannerW - 12;
+                        int diamY = bannerY + bannerH / 2;
+                        int[] dxPts = {diamX1, diamX1 + diamondSize, diamX1, diamX1 - diamondSize};
+                        int[] dyPts = {diamY - diamondSize, diamY, diamY + diamondSize, diamY};
+                        g.fillPolygon(dxPts, dyPts, 4);
+                        int[] dxPts2 = {diamX2, diamX2 + diamondSize, diamX2, diamX2 - diamondSize};
+                        g.fillPolygon(dxPts2, dyPts, 4);
+                        // Text shadow
+                        g.setColor(new Color(0, 0, 0, (int)(200 * alpha)));
+                        g.drawString(levelText, centerX - levelWidth / 2 + 2, bannerY + bannerH - 13 + 2);
+                        // Gradient text
+                        GradientPaint levelGrad = new GradientPaint(
+                            0, bannerY + 5, new Color(255, 255, 230, (int)(255 * alpha)),
+                            0, bannerY + bannerH - 5, new Color(255, 210, 140, (int)(255 * alpha)));
+                        g.setPaint(levelGrad);
+                        g.drawString(levelText, centerX - levelWidth / 2, bannerY + bannerH - 13);
                     }
+                }
+                
+                // === "PRESS SPACE TO SKIP" in top bar ===
+                if (bossIntroPhase >= 2 && barSlideProgress > 0.9f) {
+                    float skipAlpha = 0.4f + 0.3f * (float)Math.sin(time * 0.1);
+                    g.setFont(new Font("Arial", Font.PLAIN, 16));
+                    g.setColor(new Color(200, 200, 210, (int)(255 * skipAlpha * alpha)));
+                    String skipText = "PRESS SPACE TO SKIP";
+                    FontMetrics skipFm = g.getFontMetrics();
+                    int skipW = skipFm.stringWidth(skipText);
+                    g.drawString(skipText, width - skipW - 25, barHeight / 2 + skipFm.getAscent() / 3);
                 }
             }
             
@@ -3862,89 +4099,126 @@ public class Renderer {
                 g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
             }
             
-            // === VS TEXT with rotating cross-flare (drawn over everything) ===
+            // === VS TEXT with rotating cross-flare and outer ring ===
             if (bossIntroVsScale > 0.05 && bossIntroPhase >= 2) {
                 AffineTransform vsTransform = g.getTransform();
                 g.translate(centerX, centerY);
                 double vsScaleAnim = bossIntroVsScale;
                 g.scale(vsScaleAnim, vsScaleAnim);
                 
-                // Intense radial glow
-                int glowR = 130;
+                // Outer pulsing ring
+                float ringPulse = 0.6f + 0.4f * (float)Math.sin(time * 0.09);
+                g.setStroke(new BasicStroke(3f));
+                g.setColor(new Color(255, 200, 80, (int)(50 * ringPulse * alpha)));
+                g.drawOval(-160, -160, 320, 320);
+                g.setStroke(new BasicStroke(1.5f));
+                g.setColor(new Color(255, 240, 150, (int)(30 * ringPulse * alpha)));
+                g.drawOval(-180, -180, 360, 360);
+                
+                // Intense radial glow - more layers
+                int glowR = 150;
                 RadialGradientPaint vsGlow = new RadialGradientPaint(
                     new Point2D.Float(0, 0), glowR,
-                    new float[]{0f, 0.2f, 0.5f, 0.8f, 1f},
-                    new Color[]{new Color(255, 255, 220, (int)(230 * alpha)),
-                               new Color(255, 240, 150, (int)(160 * alpha)),
-                               new Color(255, 180, 60, (int)(90 * alpha)),
-                               new Color(255, 80, 10, (int)(40 * alpha)),
-                               new Color(255, 30, 0, 0)});
+                    new float[]{0f, 0.1f, 0.3f, 0.55f, 0.8f, 1f},
+                    new Color[]{new Color(255, 255, 240, (int)(250 * alpha)),
+                               new Color(255, 250, 200, (int)(200 * alpha)),
+                               new Color(255, 230, 130, (int)(140 * alpha)),
+                               new Color(255, 180, 60, (int)(80 * alpha)),
+                               new Color(255, 100, 20, (int)(35 * alpha)),
+                               new Color(255, 50, 0, 0)});
                 g.setPaint(vsGlow);
                 g.fillOval(-glowR, -glowR, glowR * 2, glowR * 2);
                 
-                // Rotating cross-flare arms
+                // Rotating cross-flare arms - double layered
                 AffineTransform flareTransform = g.getTransform();
-                g.rotate(time * 0.012);
-                g.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                for (int arm = 0; arm < 6; arm++) {
-                    double armAngle = arm * Math.PI / 3;
-                    float armAlpha = (float)(0.2 + 0.15 * Math.sin(time * 0.05 + arm));
-                    int armLen = 100 + (int)(Math.sin(time * 0.04 + arm * 1.1) * 20);
-                    g.setColor(new Color(255, 230, 150, (int)(255 * armAlpha * alpha)));
+                g.rotate(time * 0.01);
+                for (int arm = 0; arm < 8; arm++) {
+                    double armAngle = arm * Math.PI / 4;
+                    float armAlpha = (float)(0.15 + 0.15 * Math.sin(time * 0.05 + arm));
+                    int armLen = 110 + (int)(Math.sin(time * 0.04 + arm * 1.1) * 25);
+                    // Wide outer arm
+                    g.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setColor(new Color(255, 200, 100, (int)(100 * armAlpha * alpha)));
                     g.drawLine(0, 0, (int)(Math.cos(armAngle) * armLen), (int)(Math.sin(armAngle) * armLen));
+                    // Bright inner arm
+                    g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setColor(new Color(255, 240, 180, (int)(180 * armAlpha * alpha)));
+                    g.drawLine(0, 0, (int)(Math.cos(armAngle) * armLen * 0.8), (int)(Math.sin(armAngle) * armLen * 0.8));
                 }
                 g.setTransform(flareTransform);
                 
-                // VS text
-                g.setFont(new Font("Impact", Font.BOLD, 180));
+                // VS text - larger with better layering
+                g.setFont(new Font("Impact", Font.BOLD, 200));
                 FontMetrics fm = g.getFontMetrics();
                 String vsText = "VS";
                 int vsWidth = fm.stringWidth(vsText);
                 int vsY = fm.getAscent() / 3;
-                // Deep layered shadow
-                for (int s = 8; s >= 1; s--) {
-                    g.setColor(new Color(60, 0, 0, (int)((50 - s * 5) * alpha)));
+                // Deep layered shadow (more layers for depth)
+                for (int s = 10; s >= 1; s--) {
+                    g.setColor(new Color(80, 0, 0, (int)((55 - s * 4) * alpha)));
                     g.drawString(vsText, -vsWidth / 2 + s * 2, vsY + s * 2);
                 }
-                // Fire gradient text
+                // Outer stroke for definition
+                g.setColor(new Color(120, 30, 0, (int)(180 * alpha)));
+                for (int ox = -2; ox <= 2; ox++) {
+                    for (int oy = -2; oy <= 2; oy++) {
+                        if (ox != 0 || oy != 0) {
+                            g.drawString(vsText, -vsWidth / 2 + ox, vsY + oy);
+                        }
+                    }
+                }
+                // Fire gradient text - three-stop gradient
                 GradientPaint vsGradient = new GradientPaint(
-                    0, -60, new Color(255, 255, 210, (int)(255 * alpha)),
-                    0, 60, new Color(255, 100, 20, (int)(255 * alpha)));
+                    0, -70, new Color(255, 255, 220, (int)(255 * alpha)),
+                    0, 70, new Color(255, 80, 10, (int)(255 * alpha)));
                 g.setPaint(vsGradient);
                 g.drawString(vsText, -vsWidth / 2, vsY);
-                // Bright hot edge
-                g.setColor(new Color(255, 255, 255, (int)(220 * alpha)));
-                g.drawString(vsText, -vsWidth / 2 - 2, vsY - 2);
+                // Bright hot top edge highlight
+                g.setColor(new Color(255, 255, 255, (int)(230 * alpha)));
+                g.drawString(vsText, -vsWidth / 2 - 1, vsY - 2);
                 
                 g.setTransform(vsTransform);
             }
             
-            // === CORNER BRACKETS ===
+            // === CORNER BRACKETS with glow ===
             if (bossIntroPhase >= 2 && barHeight > 40) {
-                g.setStroke(new BasicStroke(4));
-                int cornerLen = 45;
-                g.setColor(new Color(255, 210, 100, (int)(160 * alpha)));
+                int cornerLen = 50;
                 int inset = 18;
-                int topY = barHeight + inset;
-                int botY = height - barHeight - inset;
-                g.drawLine(inset, topY, inset + cornerLen, topY);
-                g.drawLine(inset, topY, inset, topY + cornerLen);
-                g.drawLine(width - inset, topY, width - inset - cornerLen, topY);
-                g.drawLine(width - inset, topY, width - inset, topY + cornerLen);
-                g.drawLine(inset, botY, inset + cornerLen, botY);
-                g.drawLine(inset, botY, inset, botY - cornerLen);
-                g.drawLine(width - inset, botY, width - inset - cornerLen, botY);
-                g.drawLine(width - inset, botY, width - inset, botY - cornerLen);
+                int topY2 = barHeight + inset;
+                int botY2 = height - barHeight - inset;
+                // Soft glow behind brackets
+                g.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.setColor(new Color(255, 200, 80, (int)(40 * alpha)));
+                g.drawLine(inset, topY2, inset + cornerLen, topY2);
+                g.drawLine(inset, topY2, inset, topY2 + cornerLen);
+                g.drawLine(width - inset, topY2, width - inset - cornerLen, topY2);
+                g.drawLine(width - inset, topY2, width - inset, topY2 + cornerLen);
+                g.drawLine(inset, botY2, inset + cornerLen, botY2);
+                g.drawLine(inset, botY2, inset, botY2 - cornerLen);
+                g.drawLine(width - inset, botY2, width - inset - cornerLen, botY2);
+                g.drawLine(width - inset, botY2, width - inset, botY2 - cornerLen);
+                // Sharp brackets
+                g.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
+                g.setColor(new Color(255, 220, 120, (int)(180 * alpha)));
+                g.drawLine(inset, topY2, inset + cornerLen, topY2);
+                g.drawLine(inset, topY2, inset, topY2 + cornerLen);
+                g.drawLine(width - inset, topY2, width - inset - cornerLen, topY2);
+                g.drawLine(width - inset, topY2, width - inset, topY2 + cornerLen);
+                g.drawLine(inset, botY2, inset + cornerLen, botY2);
+                g.drawLine(inset, botY2, inset, botY2 - cornerLen);
+                g.drawLine(width - inset, botY2, width - inset - cornerLen, botY2);
+                g.drawLine(width - inset, botY2, width - inset, botY2 - cornerLen);
             }
             
-            // === DRAMATIC VIGNETTE over everything ===
+            // === DRAMATIC VIGNETTE over everything - stronger ===
             if (alpha > 0.1f) {
                 RadialGradientPaint vig = new RadialGradientPaint(
-                    new Point2D.Float(centerX, centerY), width * 0.7f,
-                    new float[]{0f, 0.6f, 1f},
+                    new Point2D.Float(centerX, centerY), width * 0.65f,
+                    new float[]{0f, 0.5f, 0.8f, 1f},
                     new Color[]{new Color(0, 0, 0, 0),
-                               new Color(0, 0, 0, (int)(30 * alpha)),
-                               new Color(0, 0, 0, (int)(120 * alpha))});
+                               new Color(0, 0, 0, (int)(20 * alpha)),
+                               new Color(0, 0, 0, (int)(80 * alpha)),
+                               new Color(0, 0, 0, (int)(160 * alpha))});
                 g.setPaint(vig);
                 g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
             }

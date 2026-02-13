@@ -1,3 +1,4 @@
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import javax.imageio.ImageIO;
@@ -120,6 +121,30 @@ public class AssetLoader {
         return new File(normalizedPath).exists() || new File(path).exists();
     }
     
+    /**
+     * Pre-scale a BufferedImage so that its largest dimension equals maxSize.
+     * Uses high-quality bicubic interpolation.  If the image is already smaller
+     * than maxSize it is returned unchanged.
+     */
+    public static BufferedImage prescaleImage(BufferedImage img, int maxSize) {
+        if (img == null) return null;
+        int w = img.getWidth();
+        int h = img.getHeight();
+        if (w <= maxSize && h <= maxSize) return img; // already small enough
+
+        double scale = (double) maxSize / Math.max(w, h);
+        int newW = Math.max(1, (int)(w * scale));
+        int newH = Math.max(1, (int)(h * scale));
+
+        BufferedImage scaled = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = scaled.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.drawImage(img, 0, 0, newW, newH, null);
+        g2d.dispose();
+        return scaled;
+    }
+
     /**
      * Normalize path for resource loading
      */
