@@ -4,8 +4,8 @@ public class Particle {
     private double x, y;
     private double vx, vy;
     private Color color;
-    private int lifetime;
-    private int maxLifetime;
+    private double lifetime;
+    private double maxLifetime;
     private double size;
     private ParticleType type;
     
@@ -36,7 +36,7 @@ public class Particle {
         EXHAUST     // Rocket exhaust - like SPARK but no gravity
     }
     
-    public Particle(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
+    public Particle(double x, double y, double vx, double vy, Color color, double lifetime, double size, ParticleType type) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -49,7 +49,7 @@ public class Particle {
     }
     
     // Reset particle for pooling
-    public void reset(double x, double y, double vx, double vy, Color color, int lifetime, double size, ParticleType type) {
+    public void reset(double x, double y, double vx, double vy, Color color, double lifetime, double size, ParticleType type) {
         this.x = x;
         this.y = y;
         this.vx = vx;
@@ -71,10 +71,11 @@ public class Particle {
             vy += 0.2 * deltaTime;
         }
         
-        // Fade out and slow down
+        // Fade out and slow down (frame-rate independent)
         lifetime -= deltaTime;
-        vx *= 0.98;
-        vy *= 0.98;
+        double damping = Math.pow(0.98, deltaTime);
+        vx *= damping;
+        vy *= damping;
         
         // Pre-compute progress for rendering
         progress = 1.0 - (double)lifetime / maxLifetime;
@@ -90,7 +91,7 @@ public class Particle {
     }
     
     public void draw(Graphics2D g) {
-        float alpha = Math.max(0, Math.min(1, (float)lifetime / maxLifetime));
+        float alpha = (float)Math.max(0, Math.min(1, lifetime / maxLifetime));
         int alphaIndex = (int)(alpha * 100);
         
         g.setComposite(ALPHA_CACHE[alphaIndex]);

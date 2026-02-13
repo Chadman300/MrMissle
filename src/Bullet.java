@@ -37,7 +37,7 @@ public class Bullet {
     // Cached speed for collision detection (avoid repeated sqrt)
     private double cachedSpeed = 0;
     private int speedCacheAge = 0;
-    private int warningTime;
+    private double warningTime;
     private static final int WARNING_DURATION = 120; // Frames before bullet activates
     private double age; // Frames since activation
     private double spiralAngle; // For spiral bullets
@@ -466,7 +466,7 @@ public class Bullet {
         if (warningTime > 0) {
             float alpha = Math.min(0.5f, (float)(warningTime % 20) / 20.0f + 0.2f);
             g.setColor(new Color(180, 40, 40, (int)(alpha * 180))); // Dim red with transparency
-            int warningSize = 8 + (WARNING_DURATION - warningTime) / 6;
+            int warningSize = (int)(8 + (WARNING_DURATION - warningTime) / 6);
             
             // Draw crosshair warning
             g.setStroke(new BasicStroke(2));
@@ -745,10 +745,10 @@ public class Bullet {
     public double getVY() { return vy; }
     public BulletType getType() { return type; }
     public double getAge() { return age; }
-    public int getWarningTime() { return warningTime; }
+    public double getWarningTime() { return warningTime; }
     
     public void setAge(double age) { this.age = age; }
-    public void setWarningTime(int time) { this.warningTime = time; }
+    public void setWarningTime(double time) { this.warningTime = time; }
     
     public void multiplySpeed(double factor) {
         vx *= factor;

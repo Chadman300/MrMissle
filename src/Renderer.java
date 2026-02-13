@@ -310,7 +310,7 @@ public class Renderer {
         g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
     }
     
-    public void drawMenu(Graphics2D g, int width, int height, double time, int escapeTimer, int selectedMenuItem, int currentSaveSlot) {
+    public void drawMenu(Graphics2D g, int width, int height, double time, double escapeTimer, int selectedMenuItem, int currentSaveSlot) {
         // Draw animated gradient background with palette colors
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -380,7 +380,7 @@ public class Renderer {
     
     public void drawSaveSelection(Graphics2D g, int width, int height, double time, int selectedSlot,
                                   SaveManager.SaveMetadata[] saveMetadata, boolean deletingSlot, 
-                                  int deleteConfirmTimer, int escapeTimer) {
+                                  int deleteConfirmTimer, double escapeTimer) {
         // Draw animated gradient background
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
         
@@ -2263,7 +2263,7 @@ public class Renderer {
         g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
     }
     
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, int invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, int bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, int achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, int stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, double invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, double bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, double achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, double stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles) {
         // Draw background based on mode setting
         if (Game.backgroundMode == 0) {
             // Gradient mode
@@ -3145,7 +3145,7 @@ public class Renderer {
         // Draw combo milestone announcements at fixed spawn position (where player was)
         if (comboSystem != null && comboSystem.getCurrentAnnouncement() != null) {
             String announcement = comboSystem.getCurrentAnnouncement();
-            float announcementProgress = comboSystem.getAnnouncementTimer() / 90.0f; // 1.0 = just started, 0.0 = ending
+            float announcementProgress = (float)(comboSystem.getAnnouncementTimer() / 90.0); // 1.0 = just started, 0.0 = ending
             float lifeProgress = 1.0f - announcementProgress; // 0.0 = just started, 1.0 = ending
             
             // Smooth elastic pop-in effect (overshoots then settles)
@@ -3374,23 +3374,23 @@ public class Renderer {
             float barSlideProgress = 0;
             
             if (bossIntroPhase == 0) {
-                float p = Math.min(1f, bossIntroTimer / 50f);
+                float p = (float)Math.min(1.0, bossIntroTimer / 50.0);
                 float ease = p * p * (3f - 2f * p);
                 splitProgress = ease;
                 barSlideProgress = 0;
             } else if (bossIntroPhase == 5) {
-                float p = Math.min(1f, (bossIntroTimer - 265) / 55f);
+                float p = (float)Math.min(1.0, (bossIntroTimer - 265) / 55.0);
                 float ease = p * p * (3f - 2f * p);
                 splitProgress = 1f - ease;
                 barSlideProgress = 0;
             } else if (bossIntroPhase == 3) {
                 splitProgress = 1f;
-                float barP = Math.min(1f, (bossIntroTimer - 140) / 40f);
+                float barP = (float)Math.min(1.0, (bossIntroTimer - 140) / 40.0);
                 float barEase = barP * barP * (3f - 2f * barP);
                 barSlideProgress = barEase;
             } else if (bossIntroPhase == 4) {
                 splitProgress = 1f;
-                float barP = Math.min(1f, (bossIntroTimer - 220) / 40f);
+                float barP = (float)Math.min(1.0, (bossIntroTimer - 220) / 40.0);
                 float barEase = barP * barP * (3f - 2f * barP);
                 barSlideProgress = 1f - barEase;
             } else {
@@ -4367,7 +4367,7 @@ public class Renderer {
         // Draw achievement notification
         if (pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
             Achievement ach = pendingAchievements.get(0);
-            float alpha = Math.max(0.0f, Math.min(1.0f, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30f : 1.0f));
+            float alpha = (float)Math.max(0.0, Math.min(1.0, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30.0 : 1.0));
             
             int notifX = width - 420;
             

@@ -22,7 +22,7 @@ public class ResumeState implements Serializable {
     public double bossVX, bossVY;
     public int bossLevel;
     public boolean bossMega;
-    public int bossShootTimer;
+    public double bossShootTimer;
     public int bossPatternType;
     public double bossSpiralRotation;
     public double bossHealth; // Represented as percentage (0.0 to 1.0)
@@ -35,7 +35,7 @@ public class ResumeState implements Serializable {
     public double[] bulletVY;
     public int[] bulletType; // Ordinal of BulletType enum
     public double[] bulletAge;
-    public int[] bulletWarningTime;
+    public double[] bulletWarningTime;
     public int bulletCount;
     
     // Game state
@@ -44,13 +44,13 @@ public class ResumeState implements Serializable {
     public int score;
     public int runMoney;
     public boolean bossVulnerable;
-    public int vulnerabilityTimer;
-    public int invulnerabilityTimer;
+    public double vulnerabilityTimer;
+    public double invulnerabilityTimer;
     public boolean tookDamageThisBoss;
     public int dodgeCombo;
     public boolean shieldActive;
     public int shieldHits;
-    public int comboTimer;
+    public double comboTimer;
     public int extraLives;
     
     // Risk contract state
@@ -70,7 +70,7 @@ public class ResumeState implements Serializable {
         bulletVY = new double[0];
         bulletType = new int[0];
         bulletAge = new double[0];
-        bulletWarningTime = new int[0];
+        bulletWarningTime = new double[0];
         bulletCount = 0;
     }
     
@@ -86,7 +86,7 @@ public class ResumeState implements Serializable {
             bulletVY = new double[0];
             bulletType = new int[0];
             bulletAge = new double[0];
-            bulletWarningTime = new int[0];
+            bulletWarningTime = new double[0];
             return;
         }
         
@@ -97,7 +97,7 @@ public class ResumeState implements Serializable {
         bulletVY = new double[bulletCount];
         bulletType = new int[bulletCount];
         bulletAge = new double[bulletCount];
-        bulletWarningTime = new int[bulletCount];
+        bulletWarningTime = new double[bulletCount];
         
         for (int i = 0; i < bulletCount; i++) {
             Bullet b = bullets.get(i);

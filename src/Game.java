@@ -153,12 +153,12 @@ public class Game extends JPanel implements Runnable {
     
     // Combo system
     private int dodgeCombo;
-    private int comboTimer;
+    private double comboTimer;
     private static final int COMBO_TIMEOUT = 180; // 3 seconds
     
     // Boss intro cinematics - Street Fighter / Smash Bros style
     private boolean bossIntroActive;
-    private int bossIntroTimer;
+    private double bossIntroTimer;
     private static final int BOSS_INTRO_DURATION = 320; // 6-phase split-screen + bar animations
     private String bossIntroText;
     private double bossIntroPlayerX; // Player sprite sliding in from left
@@ -194,29 +194,29 @@ public class Game extends JPanel implements Runnable {
     private double savedRiskContractMultiplier;
     private int savedSurvivalTime;
     private boolean savedBossVulnerable;
-    private int savedVulnerabilityTimer;
-    private int savedInvulnerabilityTimer;
+    private double savedVulnerabilityTimer;
+    private double savedInvulnerabilityTimer;
     private int savedBossHitCount;
     private boolean savedTookDamageThisBoss;
     private int savedDodgeCombo;
     private boolean savedShieldActive;
     private int savedShieldHits;
-    private int savedComboTimer;
+    private double savedComboTimer;
     private boolean savedBossIntroActive;
-    private int savedBossIntroTimer;
+    private double savedBossIntroTimer;
     private String savedBossIntroText;
     private boolean savedWaitingForRespawn;
-    private int savedRespawnDelayTimer;
-    private int savedRespawnInvincibilityTimer;
+    private double savedRespawnDelayTimer;
+    private double savedRespawnInvincibilityTimer;
     private boolean savedBossDeathAnimation;
-    private int savedDeathAnimationTimer;
+    private double savedDeathAnimationTimer;
     private double savedBossDeathScale;
     private double savedBossDeathRotation;
-    private int savedStoppedMovingTimer;
+    private double savedStoppedMovingTimer;
     
     // Achievement notification
     private List<Achievement> pendingAchievements;
-    private int achievementNotificationTimer;
+    private double achievementNotificationTimer;
     private static final int ACHIEVEMENT_NOTIFICATION_DURATION = 180; // 3 seconds
     
     // Boss damage numbers
@@ -229,19 +229,19 @@ public class Game extends JPanel implements Runnable {
     
     // Boss mechanics
     private boolean bossVulnerable;
-    private int vulnerabilityTimer;
-    private int invulnerabilityTimer; // Prevents boss from going vulnerable at level start
+    private double vulnerabilityTimer;
+    private double invulnerabilityTimer; // Prevents boss from going vulnerable at level start
     private int bossHitCount; // Number of times boss has been hit (max 3)
     private double bossFlashTimer; // Flash effect when boss takes damage
     private static final int BOSS_MAX_HITS = 3;
     private static final int VULNERABILITY_DURATION = 1200; // 20 second window
     private static final int INVULNERABILITY_DURATION = 180; // 3 seconds at start
     private boolean bossDeathAnimation;
-    private int deathAnimationTimer;
+    private double deathAnimationTimer;
     private static final int DEATH_ANIMATION_DURATION = 180; // 3 seconds
     private double bossDeathScale;
     private boolean waitingForRespawn; // Waiting after non-fatal boss hit
-    private int respawnDelayTimer; // Timer before respawning player
+    private double respawnDelayTimer; // Timer before respawning player
     private static final int RESPAWN_DELAY = 90; // 1.5 seconds delay
     private double bossDeathRotation;
     
@@ -287,7 +287,7 @@ public class Game extends JPanel implements Runnable {
     private static final double[] RISK_CONTRACT_MULTIPLIERS = {1.0, 2.0, 1.75, 1.5, 2.5};
     
     // Can't Stop contract tracking
-    private int stoppedMovingTimer = 0;
+    private double stoppedMovingTimer = 0;
     private boolean hasMovedOnce = false; // Track if player has moved at least once
     private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
@@ -450,7 +450,7 @@ public class Game extends JPanel implements Runnable {
     private double[] afterimageX = new double[5];
     private double[] afterimageY = new double[5];
     private double[] afterimageAlpha = new double[5];
-    private int afterimageTimer = 0;
+    private double afterimageTimer = 0;
     
     // Active item effects
     private boolean playerInvincible; // For DASH i-frames
@@ -458,7 +458,7 @@ public class Game extends JPanel implements Runnable {
     private int shieldHits; // Number of shields remaining (3 max, decrements on hit)
     private double shieldOrbitAngle = 0; // Rotation angle for orbiting shields
     private boolean shieldFirstUse = true; // Track if this is the first use (5s cooldown vs 20s)
-    private int respawnInvincibilityTimer; // Shorter invincibility after respawn
+    private double respawnInvincibilityTimer; // Shorter invincibility after respawn
     private double dashSpeedMultiplier; // For DASH item
     private double spawnProtectionX; // X position where spawn protection was activated
     private double spawnProtectionY; // Y position where spawn protection was activated
@@ -512,7 +512,7 @@ public class Game extends JPanel implements Runnable {
     private static final double CAMERA_DEADZONE = 80; // Distance from center before camera moves
     private static final double CAMERA_MAX_OFFSET = 100; // Max pixels camera can move from center
     private boolean introPanActive = false;
-    private int introPanTimer = 0;
+    private double introPanTimer = 0;
     private static final int INTRO_PAN_DURATION = 240; // 4 seconds total (2s boss entrance, 2s pan back)
     private double bossEntranceY = -200; // Boss starts above screen
     
@@ -541,7 +541,7 @@ public class Game extends JPanel implements Runnable {
     private SoundManager soundManager;
     
     // Quit confirmation
-    private int escapeTimer; // Timer for double-tap escape confirmation
+    private double escapeTimer; // Timer for double-tap escape confirmation
     private static final int ESCAPE_TIMEOUT = 120; // 2 seconds to press escape again
     
     // Timer and FPS tracking
@@ -4046,7 +4046,7 @@ public class Game extends JPanel implements Runnable {
         
         // Update afterimage trail for player
         if (player != null) {
-            afterimageTimer++;
+            afterimageTimer += deltaTime;
             if (afterimageTimer >= 3) { // Every 3 frames
                 afterimageTimer = 0;
                 // Shift old positions
@@ -4387,7 +4387,7 @@ public class Game extends JPanel implements Runnable {
             }
             screenShakeX = (Math.random() - 0.5) * screenShakeIntensity;
             screenShakeY = (Math.random() - 0.5) * screenShakeIntensity;
-            screenShakeIntensity *= 0.9;
+            screenShakeIntensity *= Math.pow(0.9, deltaTime);
             if (screenShakeIntensity < 0.1) screenShakeIntensity = 0;
         } else {
             screenShakeX = 0;
@@ -4461,7 +4461,7 @@ public class Game extends JPanel implements Runnable {
                     if (hasMovedOnce) {
                         if (playerSpeed < MIN_MOVEMENT_SPEED) {
                             // Player is not moving
-                            stoppedMovingTimer++;
+                            stoppedMovingTimer += deltaTime;
                             
                             // Show warning when timer is running low
                             if (stoppedMovingTimer >= STOPPED_GRACE_PERIOD) {
@@ -4641,7 +4641,7 @@ public class Game extends JPanel implements Runnable {
             // Update boss intro cinematic
             if (bossIntroActive) {
                 bossIntroTimer += deltaTime;
-                int t = bossIntroTimer;
+                double t = bossIntroTimer;
                 double w = WIDTH;
                 
                 // Phase 0: Split-screen closes from edges to center (0-50)
@@ -5422,7 +5422,7 @@ public class Game extends JPanel implements Runnable {
         
         // Simple invulnerability system - boss is vulnerable after timer expires
         if (invulnerabilityTimer > 0) {
-            invulnerabilityTimer -= 1.0; // Countdown at constant rate (300 frames = 5 seconds at 60fps)
+            invulnerabilityTimer -= deltaTime; // Countdown scaled by delta time
             bossVulnerable = false;
         } else {
             bossVulnerable = true; // Boss is always vulnerable when not in immunity period
@@ -5955,7 +5955,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     // Add particle with pooling and limit check
-    private void addParticle(double x, double y, double vx, double vy, Color color, int lifetime, double size, Particle.ParticleType type) {
+    private void addParticle(double x, double y, double vx, double vy, Color color, double lifetime, double size, Particle.ParticleType type) {
         if (particles.size() >= MAX_PARTICLES) return; // Limit particles
         Particle p = getParticleFromPool();
         p.reset(x, y, vx, vy, color, lifetime, size, type);

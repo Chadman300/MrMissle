@@ -5,8 +5,8 @@ public class DamageNumber {
     private String text;
     private double x, y;
     private double vy; // Velocity upward
-    private int lifetime;
-    private int maxLifetime;
+    private double lifetime;
+    private double maxLifetime;
     private Color color;
     private int fontSize;
     
@@ -23,7 +23,7 @@ public class DamageNumber {
     
     public void update(double deltaTime) {
         y += vy * deltaTime;
-        vy *= 0.95; // Slow down
+        vy *= Math.pow(0.95, deltaTime); // Slow down (frame-rate independent)
         lifetime += deltaTime;
     }
     
@@ -40,7 +40,7 @@ public class DamageNumber {
             drawBossDamage(g);
         } else {
             // Regular damage number
-            float alpha = 1.0f - ((float)lifetime / maxLifetime);
+            float alpha = 1.0f - (float)(lifetime / maxLifetime);
             Color drawColor = new Color(color.getRed(), color.getGreen(), color.getBlue(), (int)(alpha * 255));
             
             g.setColor(drawColor);
@@ -51,7 +51,7 @@ public class DamageNumber {
     }
     
     private void drawBossDamage(Graphics2D g) {
-        float progress = (float)lifetime / maxLifetime;
+        float progress = (float)(lifetime / maxLifetime);
         
         // Scale in then fade out effect (like combo announcements)
         float scale = progress > 0.8f ? 

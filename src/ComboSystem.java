@@ -1,6 +1,6 @@
 public class ComboSystem {
     private int combo;
-    private int comboTimer;
+    private double comboTimer;
     private int maxCombo;
     private double comboMultiplier;
     private int comboTimeout;
@@ -12,7 +12,7 @@ public class ComboSystem {
     
     // Combo milestone announcements
     private String currentAnnouncement;
-    private int announcementTimer;
+    private double announcementTimer;
     private double announcementSpawnX; // Fixed spawn position X
     private double announcementSpawnY; // Fixed spawn position Y
     private static final int ANNOUNCEMENT_DURATION = 90; // 1.5 seconds
@@ -138,7 +138,7 @@ public class ComboSystem {
         return (float)comboTimer / comboTimeout;
     }
     
-    public int getComboTimer() {
+    public double getComboTimer() {
         return comboTimer;
     }
     
@@ -150,7 +150,7 @@ public class ComboSystem {
         return currentAnnouncement;
     }
     
-    public int getAnnouncementTimer() {
+    public double getAnnouncementTimer() {
         return announcementTimer;
     }
     

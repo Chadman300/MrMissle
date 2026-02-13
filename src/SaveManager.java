@@ -70,6 +70,10 @@ public class SaveManager {
             currentSaveSlot = slot;
             System.out.println("Game loaded from slot " + slot);
             return data;
+        } catch (java.io.InvalidClassException e) {
+            System.err.println("Save file in slot " + slot + " is incompatible (outdated format). Deleting it.");
+            delete(slot);
+            return null;
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Failed to load game: " + e.getMessage());
             e.printStackTrace();
@@ -130,6 +134,10 @@ public class SaveManager {
                 data.bestRunLevel,
                 data.totalBossesDefeated
             );
+        } catch (java.io.InvalidClassException e) {
+            System.err.println("Save in slot " + slot + " is incompatible (outdated format). Deleting it.");
+            delete(slot);
+            return null;
         } catch (IOException | ClassNotFoundException e) {
             System.err.println("Failed to read save metadata: " + e.getMessage());
             return null;

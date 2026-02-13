@@ -9,8 +9,8 @@ public class BeamAttack {
     private double position; // X position for vertical, Y position for horizontal
     private double width;    // Width of the beam
     private BeamType type;
-    private int warningTimer; // Countdown until beam appears
-    private int beamTimer;    // How long beam stays active
+    private double warningTimer; // Countdown until beam appears
+    private double beamTimer;    // How long beam stays active
     private boolean isActive; // Whether beam is dealing damage
     private boolean warningPlayed; // Whether warning sound was played
     private boolean firePlayed; // Whether fire sound was played

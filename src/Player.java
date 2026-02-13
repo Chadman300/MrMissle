@@ -13,7 +13,7 @@ public class Player {
     private static final double ACCELERATION = 0.5;
     private static final double FRICTION = 0.85;
     private double speedMultiplier;
-    private int flickerTimer; // For Lucky Dodge animation
+    private double flickerTimer; // For Lucky Dodge animation
     private static final int FLICKER_DURATION = 15; // Frames to flicker
     
     // Cached values for performance

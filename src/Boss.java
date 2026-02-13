@@ -47,7 +47,7 @@ public class Boss {
     private static final double SHADOW_DISTANCE = 12; // Shadow distance from sprite
     private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
     
-    private int shootTimer;
+    private double shootTimer;
     private int shootInterval;
     private int patternType;
     private int maxPatterns; // Maximum attack patterns unlocked
@@ -75,8 +75,8 @@ public class Boss {
     private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
     private double targetX, targetY; // Target position for smooth movement
-    private int moveTimer; // Timer to pick new target
-    private int beamAttackTimer; // Timer for beam attacks
+    private double moveTimer; // Timer to pick new target
+    private double beamAttackTimer; // Timer for beam attacks
     private int beamAttackInterval; // How often to spawn beam attacks
     private List<BeamAttack> beamAttacks; // Active beam attacks
     
@@ -180,12 +180,12 @@ public class Boss {
     private int currentHealth;
     private int currentPhase; // 0-3 for phases (based on health: 100%, 75%, 50%, 25%)
     private boolean phaseTransitioning;
-    private int phaseTransitionTimer;
+    private double phaseTransitionTimer;
     private static final int PHASE_TRANSITION_DURATION = 90; // 1.5 seconds
     
     // Attack rhythm phases (Assault vs Recovery)
     private boolean isAssaultPhase = true; // true = aggressive, false = recovery
-    private int attackPhaseTimer = 0;
+    private double attackPhaseTimer = 0;
     private int assaultPhaseDuration = 300; // 5 seconds of assault (at 60fps)
     private int recoveryPhaseDuration = 180; // 3 seconds of recovery
     private double assaultSpeedMultiplier = 1.8; // Attack 80% faster during assault
@@ -474,9 +474,10 @@ public class Boss {
             ay = 0;
         }
         
-        // Apply friction
-        vx *= FRICTION;
-        vy *= FRICTION;
+        // Apply friction (frame-rate independent)
+        double frictionFactor = Math.pow(FRICTION, deltaTime);
+        vx *= frictionFactor;
+        vy *= frictionFactor;
         
         // Limit max speed (reduced scaling)
         double speed = Math.sqrt(vx * vx + vy * vy);
@@ -506,8 +507,8 @@ public class Boss {
         double angularAccel = rotationDiff * ANGULAR_ACCELERATION * deltaTime;
         angularVelocity += angularAccel;
         
-        // Apply angular friction
-        angularVelocity *= ANGULAR_FRICTION;
+        // Apply angular friction (frame-rate independent)
+        angularVelocity *= Math.pow(ANGULAR_FRICTION, deltaTime);
         
         // Apply angular velocity to rotation
         rotation += angularVelocity * deltaTime;
@@ -1931,12 +1932,12 @@ public class Boss {
     public int getLevel() { return level; }
     public double getVX() { return vx; }
     public double getVY() { return vy; }
-    public int getShootTimer() { return shootTimer; }
+    public double getShootTimer() { return shootTimer; }
     public int getPatternType() { return patternType; }
     public double getSpiralRotation() { return spiralRotation; }
     
     // Setters for resume state restoration
     public void setVelocity(double vx, double vy) { this.vx = vx; this.vy = vy; }
-    public void setShootTimer(int timer) { this.shootTimer = timer; }
+    public void setShootTimer(double timer) { this.shootTimer = timer; }
     public void setSpiralRotation(double rotation) { this.spiralRotation = rotation; }
 }
