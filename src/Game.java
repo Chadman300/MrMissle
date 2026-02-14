@@ -156,16 +156,19 @@ public class Game extends JPanel implements Runnable {
     private double comboTimer;
     private static final int COMBO_TIMEOUT = 180; // 3 seconds
     
-    // Boss intro cinematics - Street Fighter / Smash Bros style
+    // Boss intro cinematics - Anime shonen sequential reveal
+    private boolean demoIntroActive; // true when running intro demo from menu (U key)
     private boolean bossIntroActive;
     private double bossIntroTimer;
-    private static final int BOSS_INTRO_DURATION = 320; // 6-phase split-screen + bar animations
+    private static final int BOSS_INTRO_DURATION = 380; // 6-phase anime sequential reveal
     private String bossIntroText;
-    private double bossIntroPlayerX; // Player sprite sliding in from left
-    private double bossIntroBossX;   // Boss sprite sliding in from right
+    private double bossIntroPlayerX; // Player X position (center → left)
+    private double bossIntroPlayerY; // Player Y position (computed from phase)
+    private double bossIntroBossX;   // Boss X position (off-screen → right)
+    private double bossIntroBossY;   // Boss Y position (computed from phase)
     private double bossIntroVsScale; // VS text scale animation
-    private double bossIntroFlash;   // Flash intensity for dramatic effect
-    private int bossIntroPhase;      // 0=split close, 1=slide in, 2=VS flash, 3=bars in+hold, 4=bars out, 5=split open
+    private double bossIntroFlash;   // Flash/slash intensity
+    private int bossIntroPhase;      // 0=flash, 1=player spotlight, 2=slash transition, 3=boss reveal, 4=VS clash, 5=fade out
     
     // Pause menu
     private boolean isPaused;
@@ -944,6 +947,8 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_F3) { transitionToState(GameState.DEBUG); screenShakeIntensity = 5; }
                 // Debug attack showcase mode (F10)
                 else if (key == KeyEvent.VK_F10) { startDebugShowcase(); screenShakeIntensity = 5; }
+                // Demo boss intro cinematic (U key)
+                else if (key == KeyEvent.VK_U) { startDemoIntro(); }
                 break;
                 
             case STATS:
@@ -1405,6 +1410,14 @@ public class Game extends JPanel implements Runnable {
                         // Skip boss intro cinematic
                         bossIntroActive = false;
                         screenShakeIntensity = 5;
+                        // Reset player and boss to proper gameplay positions
+                        if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
+                        if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                        introParticles.clear();
+                        if (demoIntroActive) {
+                            demoIntroActive = false;
+                            transitionToState(GameState.MENU);
+                        }
                     } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
                         System.out.println("SPACE pressed - Attempting item activation");
@@ -3202,6 +3215,43 @@ public class Game extends JPanel implements Runnable {
     }
 
     /**
+     * Start a demo boss intro cinematic from the menu (U key).
+     * Sets up minimal player/boss for level 1 and plays the full cinematic.
+     */
+    private void startDemoIntro() {
+        demoIntroActive = true;
+        
+        // Create temporary player and boss for the cinematic
+        int speedLevel = getActiveSpeedLevel();
+        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
+        currentBoss = new Boss(WIDTH / 2, 100, 1, soundManager);
+        bullets.clear();
+        particles.clear();
+        damageNumbers.clear();
+        beamAttacks.clear();
+        introParticles.clear();
+        
+        // Set up boss intro state
+        bossIntroActive = true;
+        bossIntroTimer = 0;
+        bossIntroText = currentBoss.getVehicleName();
+        bossIntroPlayerX = WIDTH / 2.0;
+        bossIntroBossX = WIDTH + 300;
+        bossIntroVsScale = 0;
+        bossIntroFlash = 1.0;
+        bossIntroPhase = 0;
+        bossIntroFlashTimer = 25;
+        introPanActive = false;
+        isPaused = false;
+        
+        // Switch to PLAYING so the update loop and renderer handle it
+        gameState = GameState.PLAYING;
+        soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
+        screenShakeIntensity = 8;
+        System.out.println("DEBUG: Demo intro started for level 1");
+    }
+
+    /**
      * Start the debug attack showcase mode for taking screenshots.
      * Shows a selection screen where user can browse attacks and start tests.
      */
@@ -3665,21 +3715,27 @@ public class Game extends JPanel implements Runnable {
         totalGrazesThisRun = 0;
         comboSystem.resetCombo();
         
-        // Start boss intro cinematic - Street Fighter / Smash Bros style
-        bossIntroActive = true;
-        bossIntroTimer = 0;
-        introParticles.clear();
-        bossIntroText = currentBoss.getVehicleName();
-        if (currentBoss.isMegaBoss()) {
-            bossIntroText += " [MEGA]";
+        // Start boss intro cinematic — only on first encounter with each boss
+        int lvl = gameData.getCurrentLevel();
+        boolean seenBefore = (lvl >= 1 && lvl <= gameData.getDefeatedBosses().length && gameData.getDefeatedBosses()[lvl - 1]);
+        if (!seenBefore) {
+            bossIntroActive = true;
+            bossIntroTimer = 0;
+            introParticles.clear();
+            bossIntroText = currentBoss.getVehicleName();
+            if (currentBoss.isMegaBoss()) {
+                bossIntroText += " [MEGA]";
+            }
+            bossIntroPlayerX = WIDTH / 2.0; // Start at center (flies up from bottom)
+            bossIntroBossX = WIDTH + 300; // Start off-screen right
+            bossIntroVsScale = 0;
+            bossIntroFlash = 1.0; // Immediate impact flash
+            bossIntroPhase = 0;
+            bossIntroFlashTimer = 25;
+            soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
+        } else {
+            bossIntroActive = false;
         }
-        bossIntroPlayerX = -200; // Start off-screen left
-        bossIntroBossX = WIDTH + 200; // Start off-screen right
-        bossIntroVsScale = 0; // VS text starts invisible
-        bossIntroFlash = 0;
-        bossIntroPhase = 0; // Start with slide-in phase
-        bossIntroFlashTimer = 25; // Flash effect for boss intro
-        soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
         // Start intro sequence with boss entrance
         introPanActive = true;
@@ -4438,8 +4494,8 @@ public class Game extends JPanel implements Runnable {
         
         // Update player with delta time (only if alive)
         if (player != null) {
-            // Only allow player control when intro pan is complete
-            if (!introPanActive) {
+            // Only allow player control when intro pan and boss intro cinematic are complete
+            if (!introPanActive && !bossIntroActive) {
                 player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
                 
                 // Update orbiting shield rotation
@@ -4638,70 +4694,122 @@ public class Game extends JPanel implements Runnable {
                 cameraY = Math.max(-zoomAdjustedMaxOffset, Math.min(zoomAdjustedMaxOffset, cameraY));
             }
             
-            // Update boss intro cinematic
+            // Update boss intro cinematic — anime shonen sequential reveal
             if (bossIntroActive) {
                 bossIntroTimer += deltaTime;
                 double t = bossIntroTimer;
                 double w = WIDTH;
+                int cY = HEIGHT / 2;
                 
-                // Phase 0: Split-screen closes from edges to center (0-50)
-                if (t < 50) {
-                    bossIntroPlayerX = -300;
+                // Phase 0: Impact flash (0-30)
+                if (t < 30) {
+                    bossIntroPlayerX = w / 2.0;
+                    bossIntroBossX = w + 300;
+                    bossIntroVsScale = 0;
+                    bossIntroFlash = Math.max(0, 1.0 - t / 30.0);
+                    bossIntroPhase = 0;
+                }
+                // Phase 1: Player spotlight — flies up from bottom center (30-110)
+                else if (t < 110) {
+                    double progress = (t - 30) / 80.0;
+                    bossIntroPlayerX = w / 2.0;
                     bossIntroBossX = w + 300;
                     bossIntroVsScale = 0;
                     bossIntroFlash = 0;
-                    bossIntroPhase = 0;
-                }
-                // Phase 1: Sprites slide in from off-screen (50-100)
-                else if (t < 100) {
-                    double progress = (t - 50) / 50.0;
-                    double ease = 1.0 - Math.pow(1.0 - progress, 3);
-                    double overshoot = Math.sin(progress * Math.PI) * 0.03;
-                    bossIntroPlayerX = -300 + (w * 0.27 + 300) * (ease + overshoot);
-                    bossIntroBossX = w + 300 - (w * 0.27 + 300) * (ease + overshoot);
-                    bossIntroVsScale = 0;
-                    bossIntroFlash = 0;
                     bossIntroPhase = 1;
-                    if (t >= 85 && t < 88) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 8);
+                    if (t >= 50 && t < 53) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 10);
                     }
                 }
-                // Phase 2: VS text slams in with flash (100-140)
-                else if (t < 140) {
-                    double progress = (t - 100) / 40.0;
+                // Phase 2: Slash transition — player slides to left (110-155)
+                else if (t < 155) {
+                    double progress = (t - 110) / 45.0;
+                    double ease = 1.0 - Math.pow(1.0 - progress, 3);
+                    bossIntroPlayerX = w * 0.5 - (w * 0.5 - w * 0.27) * ease;
+                    bossIntroBossX = w + 300;
+                    bossIntroVsScale = 0;
+                    bossIntroFlash = ease; // slash progress 0→1
+                    bossIntroPhase = 2;
+                    if (t >= 110 && t < 113) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 12);
+                    }
+                }
+                // Phase 3: Boss reveal — crashes in from top-right (155-250)
+                else if (t < 250) {
+                    double progress = (t - 155) / 95.0;
+                    double ease = 1.0 - Math.pow(1.0 - Math.min(progress * 1.3, 1.0), 3);
                     bossIntroPlayerX = w * 0.27;
-                    bossIntroBossX = w * 0.73;
-                    double elasticEase = 1.0 + Math.sin(progress * Math.PI * 2) * 0.12 * (1.0 - progress);
-                    bossIntroVsScale = Math.min(1.0, progress * 1.8) * elasticEase;
-                    if (t < 105) {
-                        bossIntroFlash = 1.0 - (t - 100) / 5.0;
-                        if (t == 100) screenShakeIntensity = 15;
+                    bossIntroBossX = w + 300 - (w + 300 - w * 0.73) * ease;
+                    bossIntroVsScale = 0;
+                    bossIntroFlash = 0;
+                    bossIntroPhase = 3;
+                    if (t >= 155 && t < 158) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 12);
+                    }
+                    if (t >= 180 && t < 185) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 15);
+                    }
+                }
+                // Phase 4: VS clash — both slide toward center (250-320)
+                else if (t < 320) {
+                    double progress = (t - 250) / 70.0;
+                    double slideEase = 1.0 - Math.pow(1.0 - Math.min(progress * 2, 1.0), 3);
+                    bossIntroPlayerX = w * 0.27 + (w * 0.35 - w * 0.27) * slideEase;
+                    bossIntroBossX = w * 0.73 - (w * 0.73 - w * 0.65) * slideEase;
+                    double vsProgress = Math.min(1.0, progress * 2.5);
+                    double elasticEase = 1.0 + Math.sin(vsProgress * Math.PI * 2) * 0.15 * (1.0 - vsProgress);
+                    bossIntroVsScale = Math.min(1.0, vsProgress * 1.5) * elasticEase;
+                    if (t < 255) {
+                        bossIntroFlash = Math.max(0, 1.0 - (t - 250) / 5.0);
                     } else {
                         bossIntroFlash = 0;
                     }
-                    bossIntroPhase = 2;
-                }
-                // Phase 3: Letterbox bars slide in from top/bottom + hold (140-220)
-                else if (t < 220) {
-                    bossIntroPlayerX = w * 0.27;
-                    bossIntroBossX = w * 0.73;
-                    bossIntroVsScale = 1.0 + 0.015 * Math.sin((t - 140) * 0.12);
-                    bossIntroPhase = 3;
-                }
-                // Phase 4: Letterbox bars slide back out (220-265)
-                else if (t < 265) {
-                    bossIntroPlayerX = w * 0.27;
-                    bossIntroBossX = w * 0.73;
-                    bossIntroVsScale = 1.0;
                     bossIntroPhase = 4;
+                    if (t >= 250 && t < 253) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 20);
+                    }
                 }
-                // Phase 5: Split-screen opens outward (265-320)
+                // Phase 5: Fade out — sprites fly off screen (320-380)
                 else {
-                    bossIntroPlayerX = w * 0.27;
-                    bossIntroBossX = w * 0.73;
-                    bossIntroVsScale = 1.0;
+                    double progress = Math.min(1.0, (t - 320) / 60.0);
+                    // Accelerating fly-off with easeIn (slow start, fast end)
+                    double flyEase = progress * progress * progress;
+                    bossIntroPlayerX = w * 0.35 - flyEase * (w * 0.35 + 300);
+                    bossIntroBossX = w * 0.65 + flyEase * (w * 0.35 + 300);
+                    bossIntroVsScale = Math.max(0, 1.0 - progress * 1.5);
+                    bossIntroFlash = 0;
                     bossIntroPhase = 5;
+                    if (t >= 320 && t < 323) {
+                        screenShakeIntensity = Math.max(screenShakeIntensity, 10);
+                    }
                 }
+                
+                // Compute Y positions (mirrors Renderer logic so entities stay synced)
+                if (bossIntroPhase < 1) bossIntroPlayerY = HEIGHT + 200;
+                else if (bossIntroPhase == 1) {
+                    double yp = Math.min(1.0, (t - 30) / 60.0);
+                    yp = 1.0 - Math.pow(1.0 - yp, 3);
+                    bossIntroPlayerY = HEIGHT + 200 + (cY - (HEIGHT + 200)) * yp;
+                } else if (bossIntroPhase == 5) {
+                    double flyP = Math.min(1.0, (t - 320) / 60.0);
+                    double flyEase = flyP * flyP * flyP;
+                    bossIntroPlayerY = cY + flyEase * (HEIGHT + 200 - cY);
+                } else bossIntroPlayerY = cY;
+                
+                if (bossIntroPhase < 3) bossIntroBossY = -250;
+                else if (bossIntroPhase == 3) {
+                    double yp = Math.min(1.0, (t - 155) / 60.0);
+                    yp = 1.0 - Math.pow(1.0 - yp, 3);
+                    bossIntroBossY = -250 + (cY - (-250)) * yp;
+                } else if (bossIntroPhase == 5) {
+                    double flyP = Math.min(1.0, (t - 320) / 60.0);
+                    double flyEase = flyP * flyP * flyP;
+                    bossIntroBossY = cY - flyEase * (cY + 300);
+                } else bossIntroBossY = cY;
+                
+                // Sync entity positions to cinematic positions so sprites track correctly
+                if (player != null) player.setPosition(bossIntroPlayerX, bossIntroPlayerY);
+                if (currentBoss != null) currentBoss.setPosition(bossIntroBossX, bossIntroBossY);
                 
                 // Update existing intro particles
                 for (int i = introParticles.size() - 1; i >= 0; i--) {
@@ -4711,119 +4819,102 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 
-                // Spawn exhaust particles during phases 1-4 (sprites visible on screen)
-                if (bossIntroPhase >= 1 && bossIntroPhase <= 4 && enableParticles) {
-                    int centerY = HEIGHT / 2;
-                    double cos12 = Math.cos(Math.toRadians(12));
-                    double sin12 = Math.sin(Math.toRadians(12));
-                    
-                    // --- PLAYER EXHAUST (blue/cyan, behind sprite, tilt -12°) ---
-                    // Exhaust direction: sprite bottom rotated -12° -> angle 78° from east
-                    double pExAngle = Math.toRadians(78);
-                    double pExX = bossIntroPlayerX + Math.cos(pExAngle) * 40;
-                    double pExY = centerY + 10 + Math.sin(pExAngle) * 40;
-                    Color[] blueColors = {new Color(100, 200, 255), new Color(60, 160, 255), 
+                // Spawn phase-aware anime particles
+                if (enableParticles) {
+                    Color[] blueColors = {new Color(100, 200, 255), new Color(60, 160, 255),
                                           new Color(150, 220, 255), new Color(200, 240, 255)};
-                    for (int i = 0; i < 3; i++) {
-                        double speed = 1.5 + Math.random() * 2.5;
-                        double spread = (Math.random() - 0.5) * 0.7;
-                        double vx = Math.cos(pExAngle + spread) * speed;
-                        double vy = Math.sin(pExAngle + spread) * speed;
-                        introParticles.add(new Particle(
-                            pExX + (Math.random() - 0.5) * 10,
-                            pExY + (Math.random() - 0.5) * 10,
-                            vx, vy,
-                            blueColors[(int)(Math.random() * blueColors.length)],
-                            15 + (int)(Math.random() * 20),
-                            3 + Math.random() * 5,
-                            Particle.ParticleType.EXHAUST
-                        ));
-                    }
-                    // Player smoke puffs
-                    if (Math.random() < 0.3) {
-                        introParticles.add(new Particle(
-                            pExX + (Math.random() - 0.5) * 12,
-                            pExY + (Math.random() - 0.5) * 12,
-                            (Math.random() - 0.5) * 0.5,
-                            Math.sin(pExAngle) * 0.8,
-                            new Color(100, 160, 220, 80),
-                            20 + (int)(Math.random() * 15),
-                            5 + Math.random() * 4,
-                            Particle.ParticleType.SMOKE
-                        ));
-                    }
-                    // Player wing tip sparks
-                    for (int side = -1; side <= 1; side += 2) {
-                        if (Math.random() < 0.35) {
-                            // Wing at (side*20, 5) in rotated space -> transform to screen space
-                            double wsx = bossIntroPlayerX + side * 20 * cos12 + 5 * sin12;
-                            double wsy = centerY + 10 - side * 20 * sin12 + 5 * cos12;
-                            introParticles.add(new Particle(
-                                wsx, wsy,
-                                (Math.random() - 0.5) * 0.8,
-                                0.5 + Math.random() * 1.0,
-                                new Color(180, 230, 255),
-                                10 + (int)(Math.random() * 10),
-                                2 + Math.random() * 3,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                    }
-                    
-                    // --- BOSS EXHAUST (red/orange, behind sprite, tilt +12°) ---
-                    // Exhaust direction: sprite bottom rotated +12° -> angle 102° from east
-                    double bExAngle = Math.toRadians(102);
-                    double bExX = bossIntroBossX + Math.cos(bExAngle) * 45;
-                    double bExY = centerY + 10 + Math.sin(bExAngle) * 45;
-                    Color[] redColors = {new Color(255, 180, 40), new Color(255, 120, 20), 
+                    Color[] redColors = {new Color(255, 180, 40), new Color(255, 120, 20),
                                          new Color(255, 200, 60), new Color(255, 80, 10)};
-                    for (int i = 0; i < 4; i++) {
-                        double speed = 1.8 + Math.random() * 3.0;
-                        double spread = (Math.random() - 0.5) * 0.7;
-                        double vx = Math.cos(bExAngle + spread) * speed;
-                        double vy = Math.sin(bExAngle + spread) * speed;
-                        introParticles.add(new Particle(
-                            bExX + (Math.random() - 0.5) * 12,
-                            bExY + (Math.random() - 0.5) * 12,
-                            vx, vy,
-                            redColors[(int)(Math.random() * redColors.length)],
-                            15 + (int)(Math.random() * 25),
-                            3 + Math.random() * 6,
-                            Particle.ParticleType.EXHAUST
-                        ));
-                    }
-                    // Boss smoke puffs
-                    if (Math.random() < 0.4) {
-                        introParticles.add(new Particle(
-                            bExX + (Math.random() - 0.5) * 14,
-                            bExY + (Math.random() - 0.5) * 14,
-                            (Math.random() - 0.5) * 0.5,
-                            Math.sin(bExAngle) * 0.8,
-                            new Color(200, 120, 60, 80),
-                            20 + (int)(Math.random() * 15),
-                            6 + Math.random() * 5,
-                            Particle.ParticleType.SMOKE
-                        ));
-                    }
-                    // Boss wing tip sparks
-                    for (int side = -1; side <= 1; side += 2) {
-                        if (Math.random() < 0.4) {
-                            double wsx = bossIntroBossX - side * 28 * cos12 + 5 * sin12;
-                            double wsy = centerY + 10 + side * 28 * sin12 + 5 * cos12;
+                    Color[] goldColors = {new Color(255, 240, 180), new Color(255, 220, 120),
+                                          new Color(255, 255, 200), new Color(255, 200, 80)};
+                    
+                    // Phase 1: Blue energy burst radiating from player
+                    if (bossIntroPhase == 1) {
+                        for (int i = 0; i < 4; i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            double speed = 2.0 + Math.random() * 3.0;
+                            double py = cY + (t < 60 ? (HEIGHT + 200 - (HEIGHT + 200 - cY) * ((t - 30) / 30.0)) - cY : 0);
                             introParticles.add(new Particle(
-                                wsx, wsy,
-                                (Math.random() - 0.5) * 0.8,
-                                0.5 + Math.random() * 1.2,
-                                new Color(255, 200, 100),
-                                10 + (int)(Math.random() * 12),
-                                2 + Math.random() * 4,
+                                bossIntroPlayerX + (Math.random() - 0.5) * 30, py + (Math.random() - 0.5) * 30,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                blueColors[(int)(Math.random() * blueColors.length)],
+                                15 + (int)(Math.random() * 20), 3 + Math.random() * 5,
                                 Particle.ParticleType.EXHAUST
                             ));
                         }
                     }
-                    
-                    // Cap intro particles to avoid overflow
-                    while (introParticles.size() > 150) {
+                    // Phase 2: Slash sparks along diagonal cut line
+                    if (bossIntroPhase == 2) {
+                        double slashX = w * bossIntroFlash;
+                        double slashY = HEIGHT * (1.0 - bossIntroFlash);
+                        for (int i = 0; i < 3; i++) {
+                            introParticles.add(new Particle(
+                                slashX + (Math.random() - 0.5) * 40, slashY + (Math.random() - 0.5) * 40,
+                                (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4,
+                                goldColors[(int)(Math.random() * goldColors.length)],
+                                10 + (int)(Math.random() * 15), 2 + Math.random() * 4,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                    }
+                    // Phase 3: Red fire particles swirling around boss
+                    if (bossIntroPhase == 3 && bossIntroBossX < w) {
+                        for (int i = 0; i < 4; i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            double speed = 1.5 + Math.random() * 2.5;
+                            introParticles.add(new Particle(
+                                bossIntroBossX + (Math.random() - 0.5) * 40, cY + (Math.random() - 0.5) * 40,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed - 1.0,
+                                redColors[(int)(Math.random() * redColors.length)],
+                                15 + (int)(Math.random() * 25), 3 + Math.random() * 6,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                    }
+                    // Phase 4: White/gold explosion from VS impact
+                    if (bossIntroPhase == 4 && t < 265) {
+                        for (int i = 0; i < 6; i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            double speed = 3.0 + Math.random() * 5.0;
+                            introParticles.add(new Particle(
+                                w / 2.0 + (Math.random() - 0.5) * 20, cY + (Math.random() - 0.5) * 20,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                goldColors[(int)(Math.random() * goldColors.length)],
+                                12 + (int)(Math.random() * 18), 2 + Math.random() * 5,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                    }
+                    // Phase 1-4: Exhaust particles behind sprites when visible
+                    if (bossIntroPhase >= 1 && bossIntroPhase <= 4) {
+                        // Player exhaust
+                        double pExAngle = Math.toRadians(90);
+                        for (int i = 0; i < 2; i++) {
+                            double spread = (Math.random() - 0.5) * 0.8;
+                            introParticles.add(new Particle(
+                                bossIntroPlayerX + (Math.random() - 0.5) * 12, cY + 50,
+                                Math.cos(pExAngle + spread) * 1.5, Math.sin(pExAngle + spread) * 2.0,
+                                blueColors[(int)(Math.random() * blueColors.length)],
+                                12 + (int)(Math.random() * 15), 3 + Math.random() * 4,
+                                Particle.ParticleType.EXHAUST
+                            ));
+                        }
+                        // Boss exhaust (only when on-screen)
+                        if (bossIntroPhase >= 3 && bossIntroBossX < w) {
+                            for (int i = 0; i < 3; i++) {
+                                double spread = (Math.random() - 0.5) * 0.8;
+                                introParticles.add(new Particle(
+                                    bossIntroBossX + (Math.random() - 0.5) * 14, cY + 55,
+                                    Math.cos(pExAngle + spread) * 1.8, Math.sin(pExAngle + spread) * 2.5,
+                                    redColors[(int)(Math.random() * redColors.length)],
+                                    12 + (int)(Math.random() * 18), 3 + Math.random() * 5,
+                                    Particle.ParticleType.EXHAUST
+                                ));
+                            }
+                        }
+                    }
+                    // Cap intro particles
+                    while (introParticles.size() > 250) {
                         introParticles.remove(0);
                     }
                 }
@@ -4831,7 +4922,15 @@ public class Game extends JPanel implements Runnable {
                 if (bossIntroTimer >= BOSS_INTRO_DURATION) {
                     bossIntroActive = false;
                     introParticles.clear();
+                    // Reset player and boss to proper gameplay positions after cinematic
+                    if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
+                    if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                    if (demoIntroActive) {
+                        demoIntroActive = false;
+                        transitionToState(GameState.MENU);
+                    }
                 }
+                if (bossIntroActive) return; // Freeze all gameplay while boss intro is playing
             }
             
             // Update combo system
@@ -5428,8 +5527,8 @@ public class Game extends JPanel implements Runnable {
             bossVulnerable = true; // Boss is always vulnerable when not in immunity period
         }
         
-        // Update boss with delta time (but not during death animation, intro, respawn delay, or stun)
-        if (currentBoss != null && !bossDeathAnimation && !introPanActive && player != null && !bossStunned) {
+        // Update boss with delta time (but not during death animation, intro, respawn delay, stun, or boss intro cinematic)
+        if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned) {
             int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
