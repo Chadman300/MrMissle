@@ -56,6 +56,12 @@ public class Game extends JPanel implements Runnable {
     private ComboSystem comboSystem;
     private SaveManager saveManager;
     
+    // Keybind & controller systems
+    public static KeyBindManager keyBindManager;
+    private ControllerManager controllerManager;
+    public static boolean waitingForKeyBind = false;
+    public static int rebindingActionIndex = -1; // Index into controls settings list
+    
     // Game objects
     private Player player;
     private Boss currentBoss;
@@ -307,9 +313,9 @@ public class Game extends JPanel implements Runnable {
     private static final String[][] ATTACK_INTROS = {
         // {attackId, level, name, description, category}
         // Level 1 - NORMAL bullets (basic patterns only)
-        {"basic_bullets", "1", "Basic Bullets", "Simple bullets fired at you.\nDodge them by moving with WASD or Arrow keys!", "Pattern"},
+        {"basic_bullets", "1", "Basic Bullets", "Simple bullets fired at you.\nDodge them by moving!", "Pattern"},
         {"spiral_attack", "1", "Spiral Attack", "Bullets spiral outward from the boss.\nFind the gaps between the spirals!", "Pattern"},
-        {"circle_attack", "1", "Circle Attack", "Bullets fire in all directions!\nDodge them by moving with WASD or Arrow keys!", "Pattern"},
+        {"circle_attack", "1", "Circle Attack", "Bullets fire in all directions!\nDodge them by moving!", "Pattern"},
         // Level 2 - Targeted pattern (still NORMAL bullets)
         {"aimed_shots", "2", "Aimed Shots", "The boss aims directly at you!\nKeep moving to avoid being hit.", "Targeted"},
         // Level 3 - LARGE bullets + First Mega
@@ -522,12 +528,13 @@ public class Game extends JPanel implements Runnable {
     
     // Settings
     private int selectedSettingsItem;
-    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Gameplay, 3=Debug
+    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Gameplay, 3=Debug, 4=Controls
     public static boolean isFullscreen = true; // Start in fullscreen by default
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
     public static boolean enableParticles = true;
     public static boolean enableShadows = true;
+    public static int shadowQuality = 2; // 0=Off, 1=Low (3 layers), 2=Medium (6 layers), 3=High (10 layers)
     public static boolean enableBloom = true;
     public static boolean enableMotionBlur = false;
     public static boolean enableChromaticAberration = true;
@@ -568,6 +575,7 @@ public class Game extends JPanel implements Runnable {
     private boolean deletingSlot = false; // True when delete key is being held
     private int deleteConfirmTimer = 0; // Timer for delete confirmation
     private boolean deleteModeActive = false; // True when accessing save screen from Delete Save menu
+    private boolean controllerDeleteActive = false; // True when controller X button initiated delete
     private boolean showAutoSaveIndicator = false; // Show auto-save icon
     private double autoSaveIndicatorTimer = 0; // Timer for auto-save indicator fade
     private static final int AUTO_SAVE_INDICATOR_DURATION = 120; // 2 seconds
@@ -605,6 +613,10 @@ public class Game extends JPanel implements Runnable {
         pendingAchievements = new ArrayList<>();
         damageNumbers = new ArrayList<>();
         soundManager = SoundManager.getInstance();
+        
+        // Initialize keybind and controller systems
+        keyBindManager = new KeyBindManager();
+        controllerManager = new ControllerManager(keyBindManager);
         
         // Initial state - start with loading screen
         gameState = GameState.LOADING;
@@ -707,6 +719,8 @@ public class Game extends JPanel implements Runnable {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                // Switch to keyboard mode on any key press
+                if (keyBindManager != null) keyBindManager.onKeyboardInput();
                 if (e.getKeyCode() < keys.length) {
                     keys[e.getKeyCode()] = true;
                 }
@@ -718,8 +732,10 @@ public class Game extends JPanel implements Runnable {
                 if (e.getKeyCode() < keys.length) {
                     keys[e.getKeyCode()] = false;
                 }
-                // Reset SPACE key tracking on release
-                if (e.getKeyCode() == KeyEvent.VK_SPACE) {
+                // Reset item key tracking on release (USE_ITEM action key)
+                if (keyBindManager != null && keyBindManager.isAction(KeyBindManager.Action.USE_ITEM, e.getKeyCode())) {
+                    eKeyPressed = false;
+                } else if (e.getKeyCode() == KeyEvent.VK_SPACE) {
                     eKeyPressed = false;
                 }
                 // Reset delete hold when DELETE key is released
@@ -801,6 +817,29 @@ public class Game extends JPanel implements Runnable {
     
     private void handleKeyPress(KeyEvent e) {
         int key = e.getKeyCode();
+        
+        // Keybind rebinding intercept — capture the pressed key when waiting
+        if (waitingForKeyBind && gameState == GameState.SETTINGS && selectedSettingsCategory == 4) {
+            if (key == KeyEvent.VK_ESCAPE) {
+                // Cancel rebinding
+                waitingForKeyBind = false;
+                rebindingActionIndex = -1;
+                soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+            } else if (!KeyBindManager.isReservedKey(key)) {
+                // Bind the key to the action
+                // rebindingActionIndex 1-7 maps to Action values 0-6 (index 0 is preset selector, index 8 is input device)
+                int actionIndex = rebindingActionIndex - 1; // Subtract 1 for preset row
+                KeyBindManager.Action[] actions = KeyBindManager.Action.values();
+                if (actionIndex >= 0 && actionIndex < actions.length) {
+                    keyBindManager.setKey(actions[actionIndex], key);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                }
+                waitingForKeyBind = false;
+                rebindingActionIndex = -1;
+            }
+            return; // Consume the key event
+        }
         
         // Global F11 fullscreen toggle - works in all states
         if (key == KeyEvent.VK_F11) {
@@ -1050,7 +1089,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_LEFT) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 3) % 4;
+                        selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1064,7 +1103,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_RIGHT) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1078,7 +1117,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_A) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 3) % 4;
+                        selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1092,7 +1131,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_D) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1112,7 +1151,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_TAB) {
                     // Switch category and move to tabs
-                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 4;
+                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
                     selectedSettingsItem = -1;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                     screenShakeIntensity = 2;
@@ -1362,13 +1401,13 @@ public class Game extends JPanel implements Runnable {
                     }
                 } else {
                     // Regular gameplay controls
-                    if (key == KeyEvent.VK_P || key == KeyEvent.VK_ESCAPE) {
+                    if (key == KeyEvent.VK_ESCAPE || (keyBindManager != null && keyBindManager.isAction(KeyBindManager.Action.PAUSE, key))) {
                         soundManager.playSound(SoundManager.Sound.PAUSE);
                         isPaused = true;
                         selectedPauseItem = 0;
                         renderer.configurePauseMenu(debugShowcaseInGameplay);
                         screenShakeIntensity = 3;
-                    } else if (key == KeyEvent.VK_R) {
+                    } else if (keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.RESTART, key) : key == KeyEvent.VK_R) {
                         // Reset: in showcase mode just clear bullets and reset boss, otherwise restart level
                         if (debugShowcaseInGameplay) {
                             resetShowcase();
@@ -1381,13 +1420,13 @@ public class Game extends JPanel implements Runnable {
                             currentBoss.forceShoot(bullets, player);
                             soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
                         }
-                    } else if (key == KeyEvent.VK_SPACE && introPanActive) {
+                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && introPanActive) {
                         // Skip intro animation
                         introPanActive = false;
                         cameraX = 0;
                         cameraY = 0;
                         screenShakeIntensity = 8;
-                    } else if (key == KeyEvent.VK_SPACE && bossIntroActive) {
+                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && bossIntroActive) {
                         // Skip boss intro cinematic
                         bossIntroActive = false;
                         screenShakeIntensity = 5;
@@ -1399,7 +1438,7 @@ public class Game extends JPanel implements Runnable {
                             demoIntroActive = false;
                             transitionToState(GameState.MENU);
                         }
-                    } else if (key == KeyEvent.VK_SPACE && !eKeyPressed && !introPanActive && !bossIntroActive) {
+                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.USE_ITEM, key) : key == KeyEvent.VK_SPACE) && !eKeyPressed && !introPanActive && !bossIntroActive) {
                         // Activate equipped item (only once per key press, and not during intro)
                         System.out.println("SPACE pressed - Attempting item activation");
                         // Powerless contract (type 3) disables ALL active items
@@ -2024,8 +2063,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if hovering over category tabs
-            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
-            int tabWidth = 200;
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
+            int tabWidth = 160;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
             
@@ -2296,8 +2335,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if clicking on category tabs first
-            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
-            int tabWidth = 200;
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
+            int tabWidth = 160;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
             
@@ -2563,7 +2602,7 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.LEVEL_SELECT) {
             // Check if clicking on level nodes
-            int centerY = HEIGHT / 2 - 40;
+            int centerY = (int)(HEIGHT * 0.67); // Must match Renderer.drawLevelSelect
             int centerX = WIDTH / 2;
             int levelSpacing = WIDTH / 2;
             int centerNodeRadius = 80;
@@ -2572,7 +2611,7 @@ public class Game extends JPanel implements Runnable {
             // Check nodes within range
             for (int i = -2; i <= 2; i++) {
                 int level = gameData.getSelectedLevelView() + i;
-                if (level < 1 || level > 20) continue;
+                if (level < 1 || level > 28) continue;
                 
                 int baseX = centerX + i * levelSpacing;
                 int x = (int)(baseX - scrollDelta * levelSpacing);
@@ -2802,13 +2841,13 @@ public class Game extends JPanel implements Runnable {
         screenShakeIntensity = 5;
         // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
         switch (index) {
-            case 0: gameState = GameState.LEVEL_SELECT; break;
-            case 1: shopEnteredFrom = GameState.MENU; gameState = GameState.SHOP; break;
-            case 2: gameState = GameState.STATS; break;
-            case 3: gameState = GameState.ACHIEVEMENTS; break;
-            case 4: gameState = GameState.INFO; break;
-            case 5: settingsEnteredFrom = GameState.MENU; gameState = GameState.SETTINGS; break;
-            case 6: gameState = GameState.SAVE_SELECT; break; // Save Files
+            case 0: transitionToState(GameState.LEVEL_SELECT); break;
+            case 1: shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); break;
+            case 2: transitionToState(GameState.STATS); break;
+            case 3: transitionToState(GameState.ACHIEVEMENTS); break;
+            case 4: transitionToState(GameState.INFO); break;
+            case 5: settingsEnteredFrom = GameState.MENU; transitionToState(GameState.SETTINGS); break;
+            case 6: transitionToState(GameState.SAVE_SELECT); break; // Save Files
         }
     }
     
@@ -3149,7 +3188,7 @@ public class Game extends JPanel implements Runnable {
         gameData.setExtraLives(rs.extraLives);
         
         // Create new player at saved position
-        player = new Player(rs.playerX, rs.playerY, gameData.getActiveSpeedLevel());
+        player = new Player(rs.playerX, rs.playerY, gameData.getActiveSpeedLevel(), keyBindManager, controllerManager);
         
         // Create new boss at saved position with saved state
         currentBoss = new Boss(rs.bossX, rs.bossY, rs.bossLevel, soundManager);
@@ -3262,7 +3301,7 @@ public class Game extends JPanel implements Runnable {
         
         // Create temporary player and boss for the cinematic
         int speedLevel = getActiveSpeedLevel();
-        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
+        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         currentBoss = new Boss(WIDTH / 2, 100, 1, soundManager);
         bullets.clear();
         particles.clear();
@@ -3709,7 +3748,7 @@ public class Game extends JPanel implements Runnable {
         java.util.Arrays.fill(keys, false);
         
         int speedLevel = getActiveSpeedLevel();
-        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
+        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
@@ -3909,6 +3948,37 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
+        // Poll controller input
+        if (controllerManager != null) {
+            controllerManager.poll();
+            
+            // Controller rebind capture — intercept button presses when rebinding
+            if (waitingForKeyBind && gameState == GameState.SETTINGS && selectedSettingsCategory == 4
+                    && controllerManager.isConnected()) {
+                // Check for B button to cancel rebinding
+                if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.B)) {
+                    waitingForKeyBind = false;
+                    rebindingActionIndex = -1;
+                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                } else {
+                    KeyBindManager.ControllerButton pressed = controllerManager.getFirstJustPressedButton();
+                    if (pressed != null) {
+                        int actionIndex = rebindingActionIndex - 1;
+                        KeyBindManager.Action[] actions = KeyBindManager.Action.values();
+                        if (actionIndex >= 0 && actionIndex < actions.length) {
+                            keyBindManager.setControllerButton(actions[actionIndex], pressed);
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            screenShakeIntensity = 3;
+                        }
+                        waitingForKeyBind = false;
+                        rebindingActionIndex = -1;
+                    }
+                }
+            } else {
+                handleControllerInput();
+            }
+        }
+        
         // Update debug showcase mode timer
         if (debugShowcaseMode && gameState == GameState.ATTACK_INTRO) {
             updateDebugShowcase();
@@ -4038,8 +4108,9 @@ public class Game extends JPanel implements Runnable {
         
         // Update save selection state
         if (gameState == GameState.SAVE_SELECT) {
-            // Update delete confirmation timer only when mouse button is held (deletingSlot flag)
-            // No need to check keys - the mouse handler manages deletingSlot
+            // Update delete confirmation timer only when delete button is held (deletingSlot flag)
+            // Keyboard/mouse release handlers manage their own cancellation;
+            // controller release is handled in handleControllerInput()
             if (deletingSlot) {
                 deleteConfirmTimer++;
                 
@@ -4051,6 +4122,7 @@ public class Game extends JPanel implements Runnable {
                         saveMetadataCache[selectedSaveSlot] = null;
                         deletingSlot = false;
                         deleteConfirmTimer = 0;
+                        controllerDeleteActive = false;
                         soundManager.playSound(SoundManager.Sound.BOSS_HIT);
                         screenShakeIntensity = 8;
                     }
@@ -5679,7 +5751,7 @@ public class Game extends JPanel implements Runnable {
                 // Respawn player at bottom with invincibility (not shield item)
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 int speedLevel = getActiveSpeedLevel();
-                player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel);
+                player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
                 // Don't activate shield here - use invincibility instead
                 // shieldActive is only for the Shield active item
                 playerInvincible = true;
@@ -6431,11 +6503,9 @@ public class Game extends JPanel implements Runnable {
             
             // Initialize level select scroll position when entering
             if (newState == GameState.LEVEL_SELECT) {
-                // If there's a saved game, navigate to that level; otherwise current level
-                int selectedLevel = hasSavedGame ? savedLevel : gameData.getCurrentLevel();
-                // Ensure we never scroll to less than level 1
-                selectedLevel = Math.max(1, selectedLevel);
-                System.out.println("DEBUG: Entering LEVEL_SELECT - hasSavedGame: " + hasSavedGame + ", navigating to level: " + selectedLevel);
+                // Always snap to the player's current level
+                int selectedLevel = Math.max(1, gameData.getCurrentLevel());
+                System.out.println("DEBUG: Entering LEVEL_SELECT - currentLevel: " + selectedLevel + ", hasSavedGame: " + hasSavedGame);
                 gameData.setSelectedLevelView(selectedLevel);
                 levelSelectScroll = selectedLevel;
                 levelSelectScrollAnimated = selectedLevel;
@@ -6509,30 +6579,31 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        // Category 0: Graphics (11 settings)
+        // Category 0: Graphics (16 settings)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
         // Category 3: Debug (1 setting)
+        // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
-            // Graphics settings
+            // Graphics settings (reorganized: Display, Quality, Background, Effects, Camera)
             switch (settingIndex) {
-                case 0: resolutionPreset = (resolutionPreset + 1) % 6; break;
-                case 1: enableVSync = !enableVSync; break;
-                case 2: fpsLimit = (fpsLimit + 1) % 5; updateFPSLimit(); break;
-                case 3: enableAntiAliasing = !enableAntiAliasing; break;
-                case 4: backgroundMode = (backgroundMode + 1) % 3; break;
-                case 5: enableGradientAnimation = !enableGradientAnimation; break;
-                case 6: gradientQuality = (gradientQuality + 1) % 3; break;
-                case 7: enableGrainEffect = !enableGrainEffect; break;
-                case 8: enableParticles = !enableParticles; break;
-                case 9: enableShadows = !enableShadows; break;
-                case 10: enableBloom = !enableBloom; break;
+                case 0: toggleFullscreen(); break;
+                case 1: resolutionPreset = (resolutionPreset + 1) % 6; break;
+                case 2: enableVSync = !enableVSync; break;
+                case 3: fpsLimit = (fpsLimit + 1) % 5; updateFPSLimit(); break;
+                case 4: enableAntiAliasing = !enableAntiAliasing; break;
+                case 5: shadowQuality = (shadowQuality + 1) % 4; enableShadows = shadowQuality > 0; break;
+                case 6: enableParticles = !enableParticles; break;
+                case 7: enableBloom = !enableBloom; break;
+                case 8: backgroundMode = (backgroundMode + 1) % 3; break;
+                case 9: enableGradientAnimation = !enableGradientAnimation; break;
+                case 10: gradientQuality = (gradientQuality + 1) % 3; break;
                 case 11: enableMotionBlur = !enableMotionBlur; break;
                 case 12: enableChromaticAberration = !enableChromaticAberration; break;
                 case 13: enableVignette = !enableVignette; break;
-                case 14: /* Camera Zoom - handled by adjustSetting */ break;
-                case 15: toggleFullscreen(); break;
+                case 14: enableGrainEffect = !enableGrainEffect; break;
+                case 15: /* Camera Zoom - handled by adjustSetting */ break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -6551,45 +6622,58 @@ public class Game extends JPanel implements Runnable {
             if (settingIndex == 0) {
                 enableHitboxes = !enableHitboxes;
             }
+        } else if (selectedSettingsCategory == 4) {
+            // Controls settings
+            if (settingIndex == 0) {
+                // Preset - cycle forward
+                keyBindManager.nextPreset(controllerManager != null && controllerManager.isConnected());
+            } else if (settingIndex == 1) {
+                // Input Device - read only, no toggle
+            } else if (settingIndex >= 2 && settingIndex <= 10) {
+                // Action rebinding - enter rebind mode
+                waitingForKeyBind = true;
+                rebindingActionIndex = settingIndex - 1; // Maps to Action ordinal + 1 offset
+            }
         }
     }
     
     private boolean adjustSetting(int settingIndex, int direction) {
-        // Graphics sliders for zoom
+        // Graphics sliders (reorganized: Display, Quality, Background, Effects, Camera)
         if (selectedSettingsCategory == 0) {
-            if (settingIndex == 0) { // Resolution Preset
+            if (settingIndex == 0) { // Fullscreen (toggle)
+                toggleFullscreen();
+                return true;
+            } else if (settingIndex == 1) { // Resolution Preset
                 resolutionPreset = Math.max(0, Math.min(5, resolutionPreset + direction));
                 return true;
-            } else if (settingIndex == 1) { // VSync (toggle)
+            } else if (settingIndex == 2) { // VSync (toggle)
                 enableVSync = !enableVSync;
                 return true;
-            } else if (settingIndex == 2) { // FPS Limit
+            } else if (settingIndex == 3) { // FPS Limit
                 fpsLimit = Math.max(0, Math.min(4, fpsLimit + direction));
                 updateFPSLimit();
                 return true;
-            } else if (settingIndex == 3) { // Anti-Aliasing (toggle)
+            } else if (settingIndex == 4) { // Anti-Aliasing (toggle)
                 enableAntiAliasing = !enableAntiAliasing;
                 return true;
-            } else if (settingIndex == 4) { // Background Mode
-                backgroundMode = (backgroundMode + direction + 3) % 3;
+            } else if (settingIndex == 5) { // Shadow Quality (slider)
+                shadowQuality = Math.max(0, Math.min(3, shadowQuality + direction));
+                enableShadows = shadowQuality > 0;
                 return true;
-            } else if (settingIndex == 5) { // Gradient Animation (toggle)
-                enableGradientAnimation = !enableGradientAnimation;
-                return true;
-            } else if (settingIndex == 6) { // Gradient Quality
-                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
-                return true;
-            } else if (settingIndex == 7) { // Grain Effect (toggle)
-                enableGrainEffect = !enableGrainEffect;
-                return true;
-            } else if (settingIndex == 8) { // Particle Effects (toggle)
+            } else if (settingIndex == 6) { // Particle Effects (toggle)
                 enableParticles = !enableParticles;
                 return true;
-            } else if (settingIndex == 9) { // Shadows (toggle)
-                enableShadows = !enableShadows;
-                return true;
-            } else if (settingIndex == 10) { // Bloom (toggle)
+            } else if (settingIndex == 7) { // Bloom (toggle)
                 enableBloom = !enableBloom;
+                return true;
+            } else if (settingIndex == 8) { // Background Mode
+                backgroundMode = (backgroundMode + direction + 3) % 3;
+                return true;
+            } else if (settingIndex == 9) { // Gradient Animation (toggle)
+                enableGradientAnimation = !enableGradientAnimation;
+                return true;
+            } else if (settingIndex == 10) { // Gradient Quality
+                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
                 return true;
             } else if (settingIndex == 11) { // Motion Blur (toggle)
                 enableMotionBlur = !enableMotionBlur;
@@ -6600,12 +6684,12 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 13) { // Vignette (toggle)
                 enableVignette = !enableVignette;
                 return true;
-            } else if (settingIndex == 14) { // Camera Zoom
+            } else if (settingIndex == 14) { // Grain Effect (toggle)
+                enableGrainEffect = !enableGrainEffect;
+                return true;
+            } else if (settingIndex == 15) { // Camera Zoom
                 double step = 0.05 * direction;
                 cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
-                return true;
-            } else if (settingIndex == 15) { // Fullscreen (toggle)
-                toggleFullscreen();
                 return true;
             }
         }
@@ -6650,6 +6734,20 @@ public class Game extends JPanel implements Runnable {
                 enableHitboxes = !enableHitboxes;
                 return true;
             }
+        } else if (selectedSettingsCategory == 4) {
+            // Controls settings
+            if (settingIndex == 0) { // Preset
+                if (direction > 0) keyBindManager.nextPreset(controllerManager != null && controllerManager.isConnected());
+                else keyBindManager.prevPreset(controllerManager != null && controllerManager.isConnected());
+                return true;
+            } else if (settingIndex == 1) { // Input Device (read only)
+                return false;
+            } else if (settingIndex >= 2 && settingIndex <= 10) {
+                // Action rebinding - enter rebind mode on left/right press too
+                waitingForKeyBind = true;
+                rebindingActionIndex = settingIndex - 1;
+                return true;
+            }
         }
         // Setting not adjustable with left/right
         return false;
@@ -6660,6 +6758,7 @@ public class Game extends JPanel implements Runnable {
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 0; // Debug: 1 item (0)
+        if (selectedSettingsCategory == 4) return 10; // Controls: 11 items (0-10) - Preset, Input Device, 9 actions
         return 0;
     }
     
@@ -6676,6 +6775,7 @@ public class Game extends JPanel implements Runnable {
         enableGrainEffect = false;
         enableParticles = true;
         enableShadows = true;
+        shadowQuality = 2; // Medium
         enableBloom = true;
         enableMotionBlur = false;
         enableChromaticAberration = true;
@@ -6701,7 +6801,263 @@ public class Game extends JPanel implements Runnable {
         // Reset debug settings to defaults
         enableHitboxes = false;
         
+        // Reset keybinds to defaults
+        if (keyBindManager != null) keyBindManager.resetDefaults();
+        
         System.out.println("All settings reset to defaults");
+    }
+    
+    /**
+     * Translate controller button presses into game actions each frame.
+     * This mirrors handleKeyPress() for controller input.
+     */
+    /** Get display text for an action key (dynamic based on current keybinds) */
+    private String keyText(KeyBindManager.Action action) {
+        if (keyBindManager != null) return keyBindManager.getKeyDisplayText(action);
+        switch (action) {
+            case CONFIRM: return "SPACE"; case BACK: return "ESC";
+            case USE_ITEM: return "E"; case PAUSE: return "P";
+            case RESTART: return "R"; default: return "?";
+        }
+    }
+    
+    /** Get movement keys display text */
+    private String moveKeysText() {
+        if (keyBindManager != null) return keyBindManager.getMovementKeysText();
+        return "WASD/Arrows";
+    }
+    
+    private void handleControllerInput() {
+        if (controllerManager == null || !controllerManager.isConnected()) return;
+        
+        switch (gameState) {
+            case MENU:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    selectedMenuItem = Math.max(0, selectedMenuItem - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    selectedMenuItem = Math.min(6, selectedMenuItem + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    activateMenuItem(selectedMenuItem);
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    if (escapeTimer > 0) {
+                        System.exit(0);
+                    } else {
+                        escapeTimer = ESCAPE_TIMEOUT;
+                        screenShakeIntensity = 3;
+                    }
+                }
+                break;
+                
+            case SAVE_SELECT:
+                // Handle controller X button hold for delete
+                if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.X)) {
+                    int slot = selectedSaveSlot + 1;
+                    if (saveManager.saveExists(slot) && !deletingSlot) {
+                        deletingSlot = true;
+                        deleteConfirmTimer = 0;
+                        controllerDeleteActive = true;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    }
+                }
+                // Cancel controller delete when X button released
+                if (controllerDeleteActive && !controllerManager.isPressed(KeyBindManager.ControllerButton.X)) {
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                    controllerDeleteActive = false;
+                }
+                
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    selectedSaveSlot = Math.max(0, selectedSaveSlot - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                    controllerDeleteActive = false;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    selectedSaveSlot = Math.min(2, selectedSaveSlot + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                    deletingSlot = false;
+                    deleteConfirmTimer = 0;
+                    controllerDeleteActive = false;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    // Simulate Enter key press for save slot selection
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    if (escapeTimer > 0) {
+                        System.exit(0);
+                    } else {
+                        escapeTimer = ESCAPE_TIMEOUT;
+                        screenShakeIntensity = 3;
+                    }
+                }
+                break;
+                
+            case LEVEL_SELECT:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_LEFT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+                
+            case SETTINGS:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_LEFT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
+                    // Tab switch with RB
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
+                } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.Y)) {
+                    // Reset settings to defaults with Y button
+                    resetSettingsToDefaults();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 5;
+                }
+                break;
+                
+            case PLAYING:
+                if (isPaused) {
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                        selectedPauseItem = Math.max(0, selectedPauseItem - 1);
+                        screenShakeIntensity = 1;
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                        int maxPauseIndex = renderer.getActivePauseButtonCount() - 1;
+                        selectedPauseItem = Math.min(maxPauseIndex, selectedPauseItem + 1);
+                        screenShakeIntensity = 1;
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        screenShakeIntensity = 3;
+                        activatePauseMenuItem(selectedPauseItem);
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                        isPaused = false;
+                        if (gameData.getCountdownMode() == 2) {
+                            unpauseCountdownActive = true;
+                            unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                        }
+                        soundManager.playSound(SoundManager.Sound.UNPAUSE);
+                        screenShakeIntensity = 2;
+                    }
+                } else {
+                    // Gameplay - pause with Start
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.PAUSE)) {
+                        soundManager.playSound(SoundManager.Sound.PAUSE);
+                        isPaused = true;
+                        selectedPauseItem = 0;
+                        renderer.configurePauseMenu(debugShowcaseInGameplay);
+                        screenShakeIntensity = 3;
+                    }
+                    // Use item with A button
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.USE_ITEM) && !eKeyPressed && !introPanActive && !bossIntroActive) {
+                        eKeyPressed = true;
+                        ActiveItem item = gameData.getEquippedItem();
+                        if (item != null && item.canActivate()) {
+                            item.activate();
+                            screenShakeIntensity = 3;
+                            if (item.getActiveDuration() == 0) {
+                                handleActiveItemEffects(item, 1.0);
+                            }
+                        }
+                    }
+                    // Skip intros
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        if (introPanActive) {
+                            introPanActive = false;
+                            cameraX = 0;
+                            cameraY = 0;
+                            screenShakeIntensity = 8;
+                        } else if (bossIntroActive) {
+                            bossIntroActive = false;
+                            screenShakeIntensity = 5;
+                            if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
+                            if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                            introParticles.clear();
+                            if (demoIntroActive) {
+                                demoIntroActive = false;
+                                transitionToState(GameState.MENU);
+                            }
+                        }
+                    }
+                    // Restart with Y
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.RESTART)) {
+                        if (debugShowcaseInGameplay) {
+                            resetShowcase();
+                        } else {
+                            startGame();
+                        }
+                    }
+                }
+                break;
+                
+            case GAME_OVER:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+                
+            case WIN:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                }
+                break;
+                
+            case SHOP:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+                
+            case ATTACK_INTRO:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    dismissAttackIntro();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                }
+                break;
+                
+            case ACHIEVEMENTS:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+                
+            default:
+                // For other states, map confirm/back to their equivalent keys
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+        }
     }
     
     private void toggleFullscreen() {
@@ -6818,6 +7174,11 @@ public class Game extends JPanel implements Runnable {
                 });
                 targetLoadingProgress = 90;
                 repaint();
+                
+                // Load controller sprites if available
+                if (keyBindManager != null) {
+                    keyBindManager.loadControllerSprites();
+                }
                 
                 // Small delay to ensure everything is ready
                 Thread.sleep(200);
@@ -7467,7 +7828,7 @@ public class Game extends JPanel implements Runnable {
         int promptFontSize = Math.min(26, boxWidth / 24);
         g.setFont(new Font("Arial", Font.BOLD, promptFontSize));
         g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
-        String prompt = "Press SPACE to continue";
+        String prompt = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
         fm = g.getFontMetrics();
         int promptX = boxX + (boxWidth - fm.stringWidth(prompt)) / 2;
         int promptY = boxY + boxHeight - boxPaddingV - 5;
@@ -7882,7 +8243,7 @@ public class Game extends JPanel implements Runnable {
         // Instructions at bottom
         g.setFont(new Font("Arial", Font.PLAIN, 16));
         g.setColor(new Color(130, 140, 160));
-        String instructions = "WASD to navigate  |  SPACE/CLICK to start  |  ESC to exit";
+        String instructions = moveKeysText() + " to navigate  |  " + keyText(KeyBindManager.Action.CONFIRM) + "/CLICK to start  |  " + keyText(KeyBindManager.Action.BACK) + " to exit";
         fm = g.getFontMetrics();
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
     }
@@ -8187,7 +8548,7 @@ public class Game extends JPanel implements Runnable {
                 } else {
                     System.out.println("DEBUG: Drawing continue hint - showEquipPrompt=" + showEquipPrompt + ", timer=" + itemUnlockTimer);
                     g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
-                    String hintText = "Press SPACE to continue";
+                    String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
                     FontMetrics hintFm = g.getFontMetrics();
                     int hintX = centerX - hintFm.stringWidth(hintText) / 2;
                     int hintY = currentY + (int)(100 * scale);
@@ -8380,7 +8741,7 @@ public class Game extends JPanel implements Runnable {
         if (progress > 0.7f) {
             float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
             g.setFont(new Font("Arial", Font.PLAIN, (int)(18 * scale)));
-            String hintText = "Press SPACE to continue";
+            String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
             FontMetrics hintFm = g.getFontMetrics();
             int hintX = centerX - hintFm.stringWidth(hintText) / 2;
             int hintY = currentY + (int)(160 * scale);

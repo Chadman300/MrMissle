@@ -42,10 +42,12 @@ public class Boss {
     private static final double ANGULAR_ACCELERATION = 0.015; // How fast to turn (reduced from 0.03 for smoother rotation)
     private static final double ANGULAR_FRICTION = 0.85; // Rotation damping (increased from 0.7 for smoother rotation)
     
-    // Sun angle for directional shadows (top-left, about 135 degrees)
-    private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 12; // Shadow distance from sprite
-    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
+    // Dark glow shadow settings (centered underneath)
+    private static final double SHADOW_GLOW_OFFSET_Y = 5; // Slight downward offset for "underneath" feel
+    private static final double SHADOW_MIN_SCALE = 1.05; // Innermost layer scale
+    private static final double SHADOW_MAX_SCALE = 1.7; // Outermost layer scale
+    private static final float SHADOW_MAX_ALPHA = 0.18f; // Alpha of innermost (most opaque) layer
+    private static final float SHADOW_MIN_ALPHA = 0.03f; // Alpha of outermost (most transparent) layer
     
     private double shootTimer;
     private int shootInterval;
@@ -1665,18 +1667,8 @@ public class Boss {
             int spriteWidth = (int)(nativeWidth * scale);
             int spriteHeight = (int)(nativeHeight * scale);
             
-            // Draw shadow sprite with directional offset in world space (before rotation)
+            // Draw dark glow shadow centered underneath
             if (Game.enableShadows && shadow != null) {
-                // Calculate shadow offset in world space based on sun angle and object rotation
-                // Shadow appears to move as object rotates relative to fixed sun direction
-                double relativeAngle = SUN_ANGLE - (rotation - Math.PI / 2);
-                double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
-                double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
-                
-                // Shadow is larger and more transparent
-                int shadowWidth = (int)(spriteWidth * SHADOW_SCALE);
-                int shadowHeight = (int)(spriteHeight * SHADOW_SCALE);
-                
                 // Apply z-axis rotation to shadow
                 double shadowScaleX;
                 if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
@@ -1689,18 +1681,31 @@ public class Boss {
                     shadowScaleX = 1.0;
                 }
                 
-                if (Math.abs(shadowScaleX - 1.0) > 0.001) {
-                    shadowWidth = (int)(shadowWidth * Math.abs(shadowScaleX));
-                }
-                
                 // Rotate to match object orientation
                 g2d.rotate(rotation - Math.PI / 2);
                 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-                g2d.drawImage(shadow, 
-                    (int)(-shadowWidth/2 + shadowOffsetX), 
-                    (int)(-shadowHeight/2 + shadowOffsetY), 
-                    shadowWidth, shadowHeight, null);
+                // Number of layers based on shadow quality: Low=3, Medium=6, High=10
+                int layerCount = Game.shadowQuality == 1 ? 3 : Game.shadowQuality == 2 ? 6 : 10;
+                
+                // Draw layers from outermost (largest, most transparent) to innermost
+                for (int i = 0; i < layerCount; i++) {
+                    double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
+                    double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
+                    float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
+                    
+                    int layerW = (int)(spriteWidth * layerScale);
+                    int layerH = (int)(spriteHeight * layerScale);
+                    
+                    if (Math.abs(shadowScaleX - 1.0) > 0.001) {
+                        layerW = (int)(layerW * Math.abs(shadowScaleX));
+                    }
+                    
+                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha));
+                    g2d.drawImage(shadow,
+                        (int)(-layerW / 2), (int)(-layerH / 2 + SHADOW_GLOW_OFFSET_Y),
+                        layerW, layerH, null);
+                }
+                
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
                 
                 // Reset rotation for sprite

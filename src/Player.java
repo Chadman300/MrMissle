@@ -4,6 +4,9 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 
 public class Player {
+    // Keybind and controller references
+    private KeyBindManager keyBindManager;
+    private ControllerManager controllerManager;
     private double x, y;
     private double vx, vy; // Velocity
     private double prevVX, prevVY; // Previous velocity for squash/stretch
@@ -30,10 +33,12 @@ public class Player {
     private int dashFrames = 0;
     private static final int DASH_DURATION = 15; // Frames to ignore speed limit
     
-    // Sun angle for directional shadows (top-left, about 135 degrees)
-    private static final double SUN_ANGLE = Math.PI * 0.75; // 135 degrees
-    private static final double SHADOW_DISTANCE = 12; // Shadow distance from sprite
-    private static final double SHADOW_SCALE = 1.0; // Shadow is 1:1 scale with sprite
+    // Dark glow shadow settings (centered underneath)
+    private static final double SHADOW_GLOW_OFFSET_Y = 4; // Slight downward offset for "underneath" feel
+    private static final double SHADOW_MIN_SCALE = 1.05; // Innermost layer scale
+    private static final double SHADOW_MAX_SCALE = 1.7; // Outermost layer scale
+    private static final float SHADOW_MAX_ALPHA = 0.18f; // Alpha of innermost (most opaque) layer
+    private static final float SHADOW_MIN_ALPHA = 0.03f; // Alpha of outermost (most transparent) layer
     
     private static BufferedImage missileSprite;
     private static BufferedImage missileShadow;
@@ -43,10 +48,16 @@ public class Player {
     }
     
     public Player(double x, double y, int speedUpgradeLevel) {
+        this(x, y, speedUpgradeLevel, null, null);
+    }
+    
+    public Player(double x, double y, int speedUpgradeLevel, KeyBindManager keyBindManager, ControllerManager controllerManager) {
         this.x = x;
         this.y = y;
         this.vx = 0;
         this.vy = 0;
+        this.keyBindManager = keyBindManager;
+        this.controllerManager = controllerManager;
         this.prevVX = 0;
         this.prevVY = 0;
         this.speedMultiplier = 1.0 + (speedUpgradeLevel * 0.15);
@@ -130,10 +141,10 @@ public class Player {
         // Acceleration-based movement
         double ax = 0, ay = 0;
         
-        if (keys[KeyEvent.VK_W] || keys[KeyEvent.VK_UP]) ay -= ACCELERATION;
-        if (keys[KeyEvent.VK_S] || keys[KeyEvent.VK_DOWN]) ay += ACCELERATION;
-        if (keys[KeyEvent.VK_A] || keys[KeyEvent.VK_LEFT]) ax -= ACCELERATION;
-        if (keys[KeyEvent.VK_D] || keys[KeyEvent.VK_RIGHT]) ax += ACCELERATION;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_UP)) ay -= ACCELERATION;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_DOWN)) ay += ACCELERATION;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_LEFT)) ax -= ACCELERATION;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_RIGHT)) ax += ACCELERATION;
         
         // Normalize diagonal acceleration
         if (ax != 0 && ay != 0) {
@@ -279,29 +290,30 @@ public class Player {
             spriteHeight = SIZE * 2;
         }
         
-        // Draw shadow sprite first with directional offset that moves with rotation
+        // Draw dark glow shadow centered underneath
         if (Game.enableShadows && missileShadow != null) {
-            // Calculate shadow offset relative to object rotation
             double objectRotation = angle + Math.PI / 2;
-            double relativeAngle = SUN_ANGLE - objectRotation;
-            double shadowOffsetX = Math.cos(relativeAngle) * SHADOW_DISTANCE;
-            double shadowOffsetY = Math.sin(relativeAngle) * SHADOW_DISTANCE;
-            
-            // Shadow same size as sprite
-            int shadowWidth = (int)(spriteWidth * SHADOW_SCALE);
-            int shadowHeight = (int)(spriteHeight * SHADOW_SCALE);
-            
-            // Rotate to match object
             g2d.rotate(objectRotation);
             
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
-            g2d.drawImage(missileShadow, 
-                (int)(-shadowWidth/2 + shadowOffsetX), 
-                (int)(-shadowHeight/2 + shadowOffsetY), 
-                shadowWidth, shadowHeight, null);
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            // Number of layers based on shadow quality: Low=3, Medium=6, High=10
+            int layerCount = Game.shadowQuality == 1 ? 3 : Game.shadowQuality == 2 ? 6 : 10;
             
-            // Reset rotation for sprite
+            // Draw layers from outermost (largest, most transparent) to innermost
+            for (int i = 0; i < layerCount; i++) {
+                // t goes from 0.0 (outermost) to 1.0 (innermost)
+                double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
+                double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
+                float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
+                
+                int lw = (int)(spriteWidth * layerScale);
+                int lh = (int)(spriteHeight * layerScale);
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * layerAlpha));
+                g2d.drawImage(missileShadow,
+                    (int)(-lw / 2), (int)(-lh / 2 + SHADOW_GLOW_OFFSET_Y),
+                    lw, lh, null);
+            }
+            
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
             g2d.rotate(-objectRotation);
         }
         
@@ -402,15 +414,42 @@ public class Player {
         }
     }
     
+    public void setKeyBindManager(KeyBindManager keyBindManager) { this.keyBindManager = keyBindManager; }
+    public void setControllerManager(ControllerManager controllerManager) { this.controllerManager = controllerManager; }
+
+    /**
+     * Check if a movement direction is pressed (keyboard or controller).
+     */
+    private boolean isMovementPressed(boolean[] keys, KeyBindManager.Action action) {
+        if (keyBindManager != null) {
+            int keyCode = keyBindManager.getKey(action);
+            if (keyCode >= 0 && keyCode < keys.length && keys[keyCode]) return true;
+        } else {
+            // Fallback to hardcoded WASD/Arrows if no keybind manager
+            switch (action) {
+                case MOVE_UP: return keys[KeyEvent.VK_W] || keys[KeyEvent.VK_UP];
+                case MOVE_DOWN: return keys[KeyEvent.VK_S] || keys[KeyEvent.VK_DOWN];
+                case MOVE_LEFT: return keys[KeyEvent.VK_A] || keys[KeyEvent.VK_LEFT];
+                case MOVE_RIGHT: return keys[KeyEvent.VK_D] || keys[KeyEvent.VK_RIGHT];
+                default: return false;
+            }
+        }
+        // Also check controller
+        if (controllerManager != null && controllerManager.isConnected()) {
+            if (controllerManager.isActionPressed(action)) return true;
+        }
+        return false;
+    }
+
     public void applyDashImpulse(double multiplier, boolean[] keys) {
         // Get current input direction
         double dashX = 0;
         double dashY = 0;
         
-        if (keys[KeyEvent.VK_W] || keys[KeyEvent.VK_UP]) dashY -= 1;
-        if (keys[KeyEvent.VK_S] || keys[KeyEvent.VK_DOWN]) dashY += 1;
-        if (keys[KeyEvent.VK_A] || keys[KeyEvent.VK_LEFT]) dashX -= 1;
-        if (keys[KeyEvent.VK_D] || keys[KeyEvent.VK_RIGHT]) dashX += 1;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_UP)) dashY -= 1;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_DOWN)) dashY += 1;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_LEFT)) dashX -= 1;
+        if (isMovementPressed(keys, KeyBindManager.Action.MOVE_RIGHT)) dashX += 1;
         
         // If no input, use current velocity direction
         if (dashX == 0 && dashY == 0) {

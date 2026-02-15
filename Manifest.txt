@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
 Main-Class: App
-Class-Path: lib/flatlaf-3.2.5.jar
+Class-Path: lib/flatlaf-3.2.5.jar lib/jinput.jar
 

@@ -783,11 +783,7 @@ public class Renderer {
 
             g.setFont(FONT_MEDIUM_BOLD);
 
-            String quitText = "Press ESC again to Quit";
-
-            fm = g.getFontMetrics();
-
-            g.drawString(quitText, (width - fm.stringWidth(quitText)) / 2, height - 210);
+            drawPromptWithIcons(g, width / 2, height - 210, "Press ", KeyBindManager.Action.BACK, " again to Quit");
 
         }
 
@@ -961,13 +957,7 @@ public class Renderer {
 
                 g2.setColor(new Color(216, 222, 233, 150));
 
-                String emptyText = "[ Empty Slot - Press Enter to Create ]";
-
-                fm = g2.getFontMetrics();
-
-                int emptyX = slotX + (slotWidth - fm.stringWidth(emptyText)) / 2;
-
-                g2.drawString(emptyText, emptyX, slotY + 85);
+                drawPromptWithIcons(g2, slotX + slotWidth / 2, slotY + 85, "[ Empty Slot - Press ", KeyBindManager.Action.CONFIRM, " to Create ]");
 
             } else {
 
@@ -1105,7 +1095,9 @@ public class Renderer {
 
                     g2.setFont(FONT_TINY);
 
-                    String deleteText = "HOLD DELETE...";
+                    boolean ctrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
+
+                    String deleteText = ctrlMode ? "HOLD X..." : "HOLD DELETE...";
 
                     fm = g2.getFontMetrics();
 
@@ -1129,11 +1121,17 @@ public class Renderer {
 
         g.setColor(new Color(216, 222, 233, 200));
 
-        String instructions = "↑/↓: Navigate  |  ENTER: Select/Create  |  DELETE: Hold to Delete Save";
+        boolean isCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
 
-        fm = g.getFontMetrics();
+        if (isCtrlMode) {
 
-        g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 100);
+            drawPromptWithIcons(g, width / 2, height - 100, "↑/↓: Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
+
+        } else {
+
+            drawPromptWithIcons(g, width / 2, height - 100, "↑/↓: Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
+
+        }
 
         
 
@@ -1145,11 +1143,7 @@ public class Renderer {
 
             g.setFont(FONT_MEDIUM_BOLD);
 
-            String quitText = "Press ESC again to Quit";
-
-            fm = g.getFontMetrics();
-
-            g.drawString(quitText, (width - fm.stringWidth(quitText)) / 2, height - 60);
+            drawPromptWithIcons(g, width / 2, height - 60, "Press ", KeyBindManager.Action.BACK, " again to Quit");
 
         }
 
@@ -1999,7 +1993,7 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.BOLD, 18));
 
-        g.drawString("CONTROLS: WASD/Arrows = Move  |  E = Use Item  |  ESC = Pause  |  Mouse = Navigate Menus", width / 2 - 450, height - 30);
+        g.drawString("CONTROLS: " + moveKeysText() + " = Move  |  " + keyText(KeyBindManager.Action.USE_ITEM) + " = Use Item  |  " + keyText(KeyBindManager.Action.PAUSE) + " = Pause  |  Mouse = Navigate Menus", width / 2 - 450, height - 30);
 
         g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - 420, height - 10);
 
@@ -2323,11 +2317,9 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 20));
 
-        String hint = "Press ESC to return to menu | UP/DOWN to scroll";
+        drawPromptWithIcons(g, width / 2, height - 40,
 
-        fm = g.getFontMetrics();
-
-        g.drawString(hint, (width - fm.stringWidth(hint)) / 2, height - 40);
+            "Press ", KeyBindManager.Action.BACK, " to return to menu | ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to scroll");
 
     }
 
@@ -2415,7 +2407,7 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 16));
 
-        String inst = "UP/DOWN to select | LEFT/RIGHT to adjust | ESC to return";
+        String inst = keyText(KeyBindManager.Action.MOVE_UP) + "/" + keyText(KeyBindManager.Action.MOVE_DOWN) + " to select | " + keyText(KeyBindManager.Action.MOVE_LEFT) + "/" + keyText(KeyBindManager.Action.MOVE_RIGHT) + " to adjust | " + keyText(KeyBindManager.Action.BACK) + " to return";
 
         fm = g.getFontMetrics();
 
@@ -3411,7 +3403,7 @@ public class Renderer {
 
             if (i < currentLevel) {
 
-                g.setColor(new Color(100, 180, 100)); // Completed
+                g.setColor(new Color(220, 180, 50)); // Completed - gold
 
             } else if (i == currentLevel) {
 
@@ -3589,15 +3581,35 @@ public class Renderer {
 
             
 
+            // Completed level: golden completion ring behind the node
+
+            if (isCompleted) {
+
+                float ringPulse = (float)(0.6 + 0.4 * Math.sin(time * 2 + level * 0.3));
+
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, ringPulse * alpha));
+
+                g.setColor(new Color(255, 200, 50));
+
+                g.setStroke(new BasicStroke(4));
+
+                g.drawOval(x - nodeRadius - 8, centerY - nodeRadius - 8, (nodeRadius + 8) * 2, (nodeRadius + 8) * 2);
+
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            }
+
+            
+
             // Node fill color
 
             if (isMegaBoss) {
 
                 if (isCompleted) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(100, 50, 120), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(120, 80, 40), 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(140, 80, 160));
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(170, 130, 60));
 
                     g.setPaint(grad);
 
@@ -3619,9 +3631,9 @@ public class Renderer {
 
                 if (isCompleted) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(50, 100, 60), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(90, 75, 30), 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(70, 130, 80));
+                                                           x + nodeRadius, centerY + nodeRadius, new Color(130, 110, 50));
 
                     g.setPaint(grad);
 
@@ -3661,9 +3673,9 @@ public class Renderer {
 
             } else if (isCompleted) {
 
-                g.setColor(new Color(100, 160, 100));
+                g.setColor(new Color(220, 180, 60));
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(new BasicStroke(3));
 
             } else {
 
@@ -4013,21 +4025,41 @@ public class Renderer {
 
             
 
-            // Checkmark for completed
+            // Checkmark badge for completed
 
             if (isCompleted) {
 
-                int checkSize = (int)(22 * scale);
+                int badgeSize = (int)(28 * scale);
 
-                g.setFont(new Font("Arial", Font.BOLD, checkSize));
+                int badgeX = x + nodeRadius - badgeSize / 2;
 
-                g.setColor(new Color(100, 255, 100));
+                int badgeY = centerY - nodeRadius - badgeSize / 4;
 
-                String check = "V";
+                // Green circle background
+
+                g.setColor(new Color(40, 160, 60));
+
+                g.fillOval(badgeX - 2, badgeY - 2, badgeSize + 4, badgeSize + 4);
+
+                // White border
+
+                g.setColor(Color.WHITE);
+
+                g.setStroke(new BasicStroke(2));
+
+                g.drawOval(badgeX - 2, badgeY - 2, badgeSize + 4, badgeSize + 4);
+
+                // Checkmark symbol
+
+                g.setFont(new Font("Arial", Font.BOLD, (int)(badgeSize * 0.8)));
+
+                g.setColor(Color.WHITE);
 
                 fm = g.getFontMetrics();
 
-                g.drawString(check, x + nodeRadius - checkSize / 2, centerY - nodeRadius + checkSize);
+                String check = "\u2713";
+
+                g.drawString(check, badgeX + (badgeSize - fm.stringWidth(check)) / 2, badgeY + badgeSize - fm.getDescent());
 
             }
 
@@ -4048,6 +4080,26 @@ public class Renderer {
                 fm = g.getFontMetrics();
 
                 g.drawString(lock, x - fm.stringWidth(lock) / 2, centerY + nodeRadius + lockSize + 5);
+
+            }
+
+            
+
+            // "CLEARED" label below completed nodes
+
+            if (isCompleted) {
+
+                int labelSize = (int)(14 * scale);
+
+                g.setFont(new Font("Arial", Font.BOLD, labelSize));
+
+                g.setColor(new Color(220, 190, 60, (int)(220 * alpha)));
+
+                String cleared = "CLEARED";
+
+                fm = g.getFontMetrics();
+
+                g.drawString(cleared, x - fm.stringWidth(cleared) / 2, centerY + nodeRadius + labelSize + 5);
 
             }
 
@@ -4165,9 +4217,9 @@ public class Renderer {
 
         if (isCompleted) {
 
-            g.setColor(new Color(100, 200, 100));
+            g.setColor(new Color(220, 190, 60));
 
-            String status = "V DEFEATED";
+            String status = "\u2713 DEFEATED";
 
             fm = g.getFontMetrics();
 
@@ -4331,11 +4383,9 @@ public class Renderer {
 
             g.setColor(new Color((int)(100 * pulse + 100), (int)(200 * pulse + 55), (int)(100 * pulse + 100)));
 
-            String startText = "> PRESS SPACE TO START <";
+            drawPromptWithIcons(g, panelX + panelWidth / 2, infoY,
 
-            fm = g.getFontMetrics();
-
-            g.drawString(startText, panelX + (panelWidth - fm.stringWidth(startText)) / 2, infoY);
+                "> PRESS ", KeyBindManager.Action.CONFIRM, " TO START <");
 
         } else {
 
@@ -4357,11 +4407,9 @@ public class Renderer {
 
         g.setColor(new Color(100, 110, 130));
 
-        String navHint = "<- -> or CLICK  Navigate    SPACE or CLICK  Start    ESC  Back";
+        drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - 15,
 
-        fm = g.getFontMetrics();
-
-        g.drawString(navHint, panelX + (panelWidth - fm.stringWidth(navHint)) / 2, panelY + panelHeight - 15);
+            "<- -> or CLICK  Navigate    ", KeyBindManager.Action.CONFIRM, " or CLICK  Start    ", KeyBindManager.Action.BACK, "  Back");
 
     }
 
@@ -4697,11 +4745,9 @@ public class Renderer {
 
         g.setColor(new Color(150, 150, 150));
 
-        String hint = "<  > or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        drawPromptWithIcons(g, width / 2, height - 40,
 
-        FontMetrics hintFm = g.getFontMetrics();
-
-        g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
+            "<  > or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
         
 
@@ -4965,11 +5011,9 @@ public class Renderer {
 
         g.setColor(new Color(150, 150, 150));
 
-        String hint = "<  > or CLICK  Select   |   SPACE or CLICK  Confirm   |   ESC  Back";
+        drawPromptWithIcons(g, width / 2, height - 40,
 
-        FontMetrics hintFm = g.getFontMetrics();
-
-        g.drawString(hint, (width - hintFm.stringWidth(hint)) / 2, height - 40);
+            "<  > or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
     }
 
@@ -7175,7 +7219,7 @@ public class Renderer {
 
             g.setColor(Color.WHITE);
 
-            String keyHint = equippedItem.canActivate() ? "Press [SPACE]" : 
+            String keyHint = equippedItem.canActivate() ? "Press [" + keyText(KeyBindManager.Action.USE_ITEM) + "]" : 
 
                            equippedItem.isActive() ? "ACTIVE" :
 
@@ -7195,12 +7239,6 @@ public class Renderer {
 
             g.setColor(new Color(255, 255, 255, 180));
 
-            String skipText = "Press SPACE to skip";
-
-            FontMetrics fm = g.getFontMetrics();
-
-            int textX = (width - fm.stringWidth(skipText)) / 2;
-
             int textY = height - 30;
 
             
@@ -7209,11 +7247,15 @@ public class Renderer {
 
             g.setColor(new Color(0, 0, 0, 150));
 
-            g.drawString(skipText, textX + 2, textY + 2);
+            drawPromptWithIcons(g, width / 2 + 2, textY + 2,
+
+                "Press ", KeyBindManager.Action.CONFIRM, " to skip");
 
             g.setColor(new Color(255, 255, 255, 180));
 
-            g.drawString(skipText, textX, textY);
+            drawPromptWithIcons(g, width / 2, textY,
+
+                "Press ", KeyBindManager.Action.CONFIRM, " to skip");
 
         }
 
@@ -8323,11 +8365,9 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 20));
 
-        String inst1 = "Use UP/DOWN or MOUSE to select | SPACE or CLICK to purchase | ESC to continue";
+        drawPromptWithIcons(g, width / 2, height - 50,
 
-        fm = g.getFontMetrics();
-
-        g.drawString(inst1, (width - fm.stringWidth(inst1)) / 2, height - 50);
+            "Use UP/DOWN or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
 
     }
 
@@ -8577,11 +8617,9 @@ public class Renderer {
 
         g.setColor(new Color(216, 222, 233));
 
-        String retry = "SPACE - New Run  |  ESC - Main Menu";
+        drawPromptWithIcons(g, width / 2, statsY,
 
-        fm = g.getFontMetrics();
-
-        g.drawString(retry, (width - fm.stringWidth(retry)) / 2, statsY);
+            KeyBindManager.Action.CONFIRM, " - New Run  |  ", KeyBindManager.Action.BACK, " - Main Menu");
 
         statsY += 30;
 
@@ -8867,15 +8905,13 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 24));
 
-        String inst = "Press SPACE to Visit Shop";
-
-        fm = g.getFontMetrics();
-
         // Position instruction text below stats, with minimum at height/2 + 160
 
         int instructionY = Math.max(height / 2 + 160, statsY + 30);
 
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, instructionY);
+        drawPromptWithIcons(g, width / 2, instructionY,
+
+            "Press ", KeyBindManager.Action.CONFIRM, " to Visit Shop");
 
     }
 
@@ -8943,9 +8979,9 @@ public class Renderer {
 
         // Category tabs
 
-        String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG"};
+        String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
 
-        int tabWidth = 200;
+        int tabWidth = 160;
 
         int tabStartX = (width - categories.length * tabWidth) / 2;
 
@@ -9023,7 +9059,12 @@ public class Renderer {
 
         g.setColor(new Color(216, 222, 233));
 
-        String subtitle = "W/S to navigate | TAB / A-D / Arrows to switch tabs when selected | R to reset | ESC to exit";
+        String subtitle;
+        if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
+            subtitle = "D-Pad to navigate | RB to switch tabs | " + keyText(KeyBindManager.Action.BACK) + " to exit";
+        } else {
+            subtitle = keyText(KeyBindManager.Action.MOVE_UP) + "/" + keyText(KeyBindManager.Action.MOVE_DOWN) + " to navigate | TAB to switch tabs | " + keyText(KeyBindManager.Action.BACK) + " to exit";
+        }
 
         fm = g.getFontMetrics();
 
@@ -9057,6 +9098,10 @@ public class Renderer {
 
             drawDebugSettings(g, width, height, selectedItem, time, scrollOffset);
 
+        } else if (selectedCategory == 4) {
+
+            drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
+
         }
 
         
@@ -9073,11 +9118,21 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 18));
 
-        String inst = "Press ESC to return to menu";
+        boolean settingsCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
 
-        fm = g.getFontMetrics();
+        if (settingsCtrlMode) {
 
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, height - 30);
+            drawPromptWithIcons(g, width / 2, height - 30,
+
+                KeyBindManager.ControllerButton.Y, ": Reset Defaults  |  ", KeyBindManager.Action.BACK, " : Return to Menu");
+
+        } else {
+
+            drawPromptWithIcons(g, width / 2, height - 30,
+
+                "R: Reset Defaults  |  ", KeyBindManager.Action.BACK, ": Return to Menu");
+
+        }
 
     }
 
@@ -9085,9 +9140,13 @@ public class Renderer {
 
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
 
-        String[] settingNames = {"Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Background Mode", "Gradient Animation", "Gradient Quality", "Grain Effect", "Particle Effects", "Shadows", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Camera Zoom", "Fullscreen Mode"};
+        // Reorganized into logical groups: Display, Quality, Background, Effects, Camera
+
+        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Background Mode", "Gradient Animation", "Gradient Quality", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom"};
 
         String[] settingValues = {
+
+            Game.isFullscreen ? "Fullscreen" : "Windowed",
 
             Game.resolutionPreset == 0 ? "1280x720" : Game.resolutionPreset == 1 ? "1366x768" : Game.resolutionPreset == 2 ? "1600x900" : Game.resolutionPreset == 3 ? "1920x1080" : Game.resolutionPreset == 4 ? "2560x1440" : "3840x2160",
 
@@ -9097,19 +9156,17 @@ public class Renderer {
 
             Game.enableAntiAliasing ? "ON" : "OFF",
 
+            Game.shadowQuality == 0 ? "Off" : Game.shadowQuality == 1 ? "Low" : Game.shadowQuality == 2 ? "Medium" : "High",
+
+            Game.enableParticles ? "ON" : "OFF",
+
+            Game.enableBloom ? "ON" : "OFF",
+
             Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
 
             Game.enableGradientAnimation ? "ON" : "OFF",
 
             Game.gradientQuality == 0 ? "Low" : Game.gradientQuality == 1 ? "Medium" : "High",
-
-            Game.enableGrainEffect ? "ON" : "OFF",
-
-            Game.enableParticles ? "ON" : "OFF",
-
-            Game.enableShadows ? "ON" : "OFF",
-
-            Game.enableBloom ? "ON" : "OFF",
 
             Game.enableMotionBlur ? "ON" : "OFF",
 
@@ -9117,15 +9174,17 @@ public class Renderer {
 
             Game.enableVignette ? "ON" : "OFF",
 
-            String.format("%.0f%%", Game.cameraZoom * 100),
+            Game.enableGrainEffect ? "ON" : "OFF",
 
-            Game.isFullscreen ? "Fullscreen" : "Windowed"
+            String.format("%.0f%%", Game.cameraZoom * 100)
 
         };
 
         
 
         String[] descriptions = {
+
+            "Toggle between fullscreen and windowed mode (F11)",
 
             "Display resolution (restart required for changes to take effect)",
 
@@ -9135,19 +9194,17 @@ public class Renderer {
 
             "Smooth edges of graphics (better quality, slight performance impact)",
 
+            "Shadow quality - more layers = smoother glow (Off/Low/Medium/High)",
+
+            "Enable particle effects (trails, explosions, etc.)",
+
+            "Glow effect on bright objects (performance impact)",
+
             "Choose between gradient, parallax images, or static image background",
 
             "Animate gradient backgrounds (may affect performance)",
 
             "Number of gradient layers (higher = better but slower)",
-
-            "Add grain texture overlay (performance impact)",
-
-            "Enable particle effects (trails, explosions, etc.)",
-
-            "Enable shadows for all objects (planes, bullets)",
-
-            "Glow effect on bright objects (performance impact)",
 
             "Blur effect on fast moving objects (performance impact)",
 
@@ -9155,9 +9212,9 @@ public class Renderer {
 
             "Darken screen edges (focuses attention on center)",
 
-            "How zoomed in the camera is during gameplay (75% - 150%)",
+            "Add grain texture overlay (performance impact)",
 
-            "Toggle between fullscreen and windowed mode (F11)"
+            "How zoomed in the camera is during gameplay (75% - 150%)"
 
         };
 
@@ -9167,27 +9224,27 @@ public class Renderer {
 
         float[][] sliders = new float[settingNames.length][4];
 
-        sliders[0] = new float[]{1, 0, 5, Game.resolutionPreset}; // Resolution
+        sliders[0] = new float[]{0, 0, 0, 0}; // Fullscreen (toggle)
 
-        sliders[1] = new float[]{0, 0, 0, 0}; // VSync (toggle)
+        sliders[1] = new float[]{1, 0, 5, Game.resolutionPreset}; // Resolution
 
-        sliders[2] = new float[]{1, 0, 4, Game.fpsLimit}; // FPS Limit
+        sliders[2] = new float[]{0, 0, 0, 0}; // VSync (toggle)
 
-        sliders[3] = new float[]{0, 0, 0, 0}; // Anti-aliasing (toggle)
+        sliders[3] = new float[]{1, 0, 4, Game.fpsLimit}; // FPS Limit
 
-        sliders[4] = new float[]{1, 0, 2, Game.backgroundMode}; // Background Mode
+        sliders[4] = new float[]{0, 0, 0, 0}; // Anti-aliasing (toggle)
 
-        sliders[5] = new float[]{0, 0, 0, 0}; // Gradient Animation (toggle)
+        sliders[5] = new float[]{1, 0, 3, Game.shadowQuality}; // Shadow Quality
 
-        sliders[6] = new float[]{1, 0, 2, Game.gradientQuality}; // Gradient Quality
+        sliders[6] = new float[]{0, 0, 0, 0}; // Particles (toggle)
 
-        sliders[7] = new float[]{0, 0, 0, 0}; // Grain (toggle)
+        sliders[7] = new float[]{0, 0, 0, 0}; // Bloom (toggle)
 
-        sliders[8] = new float[]{0, 0, 0, 0}; // Particles (toggle)
+        sliders[8] = new float[]{1, 0, 2, Game.backgroundMode}; // Background Mode
 
-        sliders[9] = new float[]{0, 0, 0, 0}; // Shadows (toggle)
+        sliders[9] = new float[]{0, 0, 0, 0}; // Gradient Animation (toggle)
 
-        sliders[10] = new float[]{0, 0, 0, 0}; // Bloom (toggle)
+        sliders[10] = new float[]{1, 0, 2, Game.gradientQuality}; // Gradient Quality
 
         sliders[11] = new float[]{0, 0, 0, 0}; // Motion Blur (toggle)
 
@@ -9195,23 +9252,21 @@ public class Renderer {
 
         sliders[13] = new float[]{0, 0, 0, 0}; // Vignette (toggle)
 
-        sliders[14] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom}; // Camera Zoom
+        sliders[14] = new float[]{0, 0, 0, 0}; // Grain (toggle)
 
-        sliders[15] = new float[]{0, 0, 0, 0}; // Fullscreen (toggle)
+        sliders[15] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom}; // Camera Zoom
 
         
 
         boolean[] toggles = {
 
-            false, Game.enableVSync, false, Game.enableAntiAliasing, false,
+            Game.isFullscreen, false, Game.enableVSync, false, Game.enableAntiAliasing,
 
-            Game.enableGradientAnimation, false, Game.enableGrainEffect,
+            Game.shadowQuality > 0, Game.enableParticles, Game.enableBloom, false,
 
-            Game.enableParticles, Game.enableShadows, Game.enableBloom,
+            Game.enableGradientAnimation, false, Game.enableMotionBlur, Game.enableChromaticAberration,
 
-            Game.enableMotionBlur, Game.enableChromaticAberration,
-
-            Game.enableVignette, false, Game.isFullscreen
+            Game.enableVignette, Game.enableGrainEffect, false
 
         };
 
@@ -9298,6 +9353,324 @@ public class Renderer {
         
 
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, false);
+
+    }
+
+    
+
+    private void drawControlsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
+
+        KeyBindManager kbm = Game.keyBindManager;
+
+        if (kbm == null) return;
+
+        
+
+        KeyBindManager.Action[] actions = KeyBindManager.Action.values();
+
+        // 11 items: Preset, Input Device, then 9 actions
+
+        String[] settingNames = new String[11];
+
+        String[] settingValues = new String[11];
+
+        String[] descriptions = new String[11];
+
+        
+
+        // Item 0: Preset
+
+        settingNames[0] = "Preset";
+
+        settingValues[0] = "< " + kbm.getCurrentPreset().name().replace("_", " ") + " >";
+
+        descriptions[0] = "Choose a keybinding preset (Left/Right to change)";
+
+        
+
+        // Item 1: Input Device (read-only)
+
+        settingNames[1] = "Input Device";
+
+        settingValues[1] = kbm.getInputMode() == KeyBindManager.InputMode.CONTROLLER ? "Controller" : "Keyboard";
+
+        descriptions[1] = "Current input device (auto-detected when controller is connected)";
+
+        
+
+        // Items 2-10: Actions
+
+        for (int i = 0; i < actions.length; i++) {
+
+            KeyBindManager.Action action = actions[i];
+
+            settingNames[i + 2] = action.name().replace("_", " ");
+
+            
+
+            // Check if this action is currently being rebound
+
+            if (Game.waitingForKeyBind && Game.rebindingActionIndex == i + 1) {
+
+                if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
+
+                    settingValues[i + 2] = ">> Press a button <<";
+
+                } else {
+
+                    settingValues[i + 2] = ">> Press a key <<";
+
+                }
+
+            } else {
+
+                settingValues[i + 2] = kbm.getKeyDisplayText(action);
+
+            }
+
+            if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
+                descriptions[i + 2] = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to rebind | " + keyText(KeyBindManager.Action.BACK) + " to cancel";
+            } else {
+                descriptions[i + 2] = "Press SPACE or ENTER to rebind | ESC to cancel";
+            }
+
+        }
+
+        
+
+        // Custom rendering for controls (key display boxes instead of toggles/sliders)
+
+        int y = 240 - (int)scrollOffset;
+
+        FontMetrics fm;
+
+        
+
+        for (int i = 0; i < settingNames.length; i++) {
+
+            boolean isSelected = i == selectedItem;
+
+            
+
+            int boxX = (width - 700) / 2;
+
+            int boxY = y - 20;
+
+            int boxWidth = 700;
+
+            int boxHeight = 70;
+
+            
+
+            // Update settings button position for click detection
+
+            if (i < settingsButtons.length && settingsButtons[i] != null) {
+
+                settingsButtons[i].setPosition(boxX, boxY);
+
+                settingsButtons[i].setSize(boxWidth, boxHeight);
+
+            }
+
+            
+
+            // Skip rendering if outside visible area
+
+            if (y < 180 || y > height - 90) {
+
+                y += 120;
+
+                continue;
+
+            }
+
+            
+
+            if (isSelected) {
+
+                g.setColor(new Color(88, 91, 112, 200));
+
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+
+                
+
+                // Special border for rebinding
+
+                if (Game.waitingForKeyBind && Game.rebindingActionIndex == i - 1) {
+
+                    g.setColor(new Color(191, 97, 106)); // Red border when rebinding
+
+                } else {
+
+                    g.setColor(new Color(235, 203, 139));
+
+                }
+
+                g.setStroke(new BasicStroke(2));
+
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+
+            } else {
+
+                g.setColor(new Color(67, 76, 94, 150));
+
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+
+            }
+
+            
+
+            // Setting name
+
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+
+            g.drawString(settingNames[i], boxX + 20, boxY + 28);
+
+            
+
+            // Value rendering
+
+            if (i == 0) {
+
+                // Preset - draw with arrows
+
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+
+                fm = g.getFontMetrics();
+
+                g.setColor(new Color(163, 190, 140));
+
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 20, boxY + 28);
+
+            } else if (i == 1) {
+
+                // Input device - draw with icon
+
+                g.setFont(new Font("Arial", Font.BOLD, 20));
+
+                fm = g.getFontMetrics();
+
+                g.setColor(new Color(136, 192, 208));
+
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 20, boxY + 28);
+
+            } else {
+
+                // Action keybind - draw key in a styled box
+
+                boolean isRebinding = Game.waitingForKeyBind && Game.rebindingActionIndex == i - 1;
+
+                
+
+                // Check if we should show a controller button sprite
+
+                KeyBindManager.Action action = KeyBindManager.Action.values()[i - 2];
+
+                java.awt.image.BufferedImage btnSprite = null;
+
+                if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode() && !isRebinding) {
+
+                    btnSprite = Game.keyBindManager.getActionIcon(action);
+
+                }
+
+                
+
+                String keyText = settingValues[i];
+
+                g.setFont(new Font("Arial", Font.BOLD, 18));
+
+                fm = g.getFontMetrics();
+
+                int keyBoxWidth = Math.max(80, fm.stringWidth(keyText) + 30);
+
+                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, 60);
+
+                int keyBoxX = boxX + boxWidth - keyBoxWidth - 20;
+
+                int keyBoxY = boxY + 10;
+
+                int keyBoxHeight = 50;
+
+                
+
+                if (isRebinding) {
+
+                    // Flashing background for rebinding
+
+                    float alpha = (float)(0.5 + 0.5 * Math.sin(time * 6));
+
+                    g.setColor(new Color(191, 97, 106, (int)(150 * alpha)));
+
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+
+                    g.setColor(new Color(191, 97, 106));
+
+                    g.setStroke(new BasicStroke(2));
+
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+
+                    g.setColor(new Color(235, 203, 139));
+
+                } else {
+
+                    // Normal key box
+
+                    g.setColor(new Color(59, 66, 82, 200));
+
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+
+                    g.setColor(new Color(136, 192, 208, 150));
+
+                    g.setStroke(new BasicStroke(1));
+
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+
+                    g.setColor(new Color(216, 222, 233));
+
+                }
+
+                
+
+                // Draw controller button sprite or key text
+
+                if (btnSprite != null) {
+
+                    int spriteSize = 36;
+
+                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteSize) / 2, keyBoxY + (keyBoxHeight - spriteSize) / 2, spriteSize, spriteSize, null);
+
+                } else {
+
+                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + 6);
+
+                }
+
+            }
+
+            
+
+            // Draw description below if selected
+
+            if (isSelected) {
+
+                g.setFont(new Font("Arial", Font.ITALIC, 14));
+
+                g.setColor(new Color(216, 222, 233));
+
+                fm = g.getFontMetrics();
+
+                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+
+            }
+
+            
+
+            y += 120;
+
+        }
 
     }
 
@@ -10868,6 +11241,274 @@ public class Renderer {
     public void drawParallaxBackgroundPublic(Graphics2D g, int width, int height, int level) {
 
         drawParallaxBackground(g, width, height, level, 0);
+
+    }
+
+    
+
+    // Dynamic keybind text helpers
+
+    /** Get display text for an action key (e.g., "SPACE", "W", "A Button") */
+
+    private String keyText(KeyBindManager.Action action) {
+
+        if (Game.keyBindManager != null) {
+
+            return Game.keyBindManager.getKeyDisplayText(action);
+
+        }
+
+        // Fallback if keyBindManager not initialized
+
+        switch (action) {
+
+            case MOVE_UP: return "W";
+
+            case MOVE_DOWN: return "S";
+
+            case MOVE_LEFT: return "A";
+
+            case MOVE_RIGHT: return "D";
+
+            case USE_ITEM: return "E";
+
+            case PAUSE: return "P";
+
+            case RESTART: return "R";
+
+            case CONFIRM: return "SPACE";
+
+            case BACK: return "ESC";
+
+            default: return "?";
+
+        }
+
+    }
+
+    
+
+    /** Get movement keys text like "WASD" or custom description */
+
+    private String moveKeysText() {
+
+        if (Game.keyBindManager != null) {
+
+            return Game.keyBindManager.getMovementKeysText();
+
+        }
+
+        return "WASD/Arrows";
+
+    }
+
+    
+
+    /**
+
+     * Draw prompt text centered at (centerX, y) with inline controller button icons.
+
+     * Segments alternate: text, action, text, action, ... ending with text.
+
+     * Supports String, KeyBindManager.Action, and KeyBindManager.ControllerButton segments.
+
+     * Example: drawPromptWithIcons(g, centerX, y, "Press ", Action.CONFIRM, " to start | ", Action.BACK, " to quit")
+
+     * In keyboard mode, actions render as text, ControllerButton segments are hidden.
+
+     * In controller mode, actions and ControllerButtons render as sprites.
+
+     */
+
+    private void drawPromptWithIcons(Graphics2D g, int centerX, int y, Object... segments) {
+
+        boolean controllerMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
+
+        FontMetrics fm = g.getFontMetrics();
+
+        int iconSize = fm.getHeight() - 2;
+
+        
+
+        // First pass: measure total width
+
+        int totalWidth = 0;
+
+        for (Object seg : segments) {
+
+            if (seg instanceof String) {
+
+                totalWidth += fm.stringWidth((String) seg);
+
+            } else if (seg instanceof KeyBindManager.Action) {
+
+                if (controllerMode) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon((KeyBindManager.Action) seg);
+
+                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+
+                } else {
+
+                    totalWidth += fm.stringWidth(keyText((KeyBindManager.Action) seg));
+
+                }
+
+            } else if (seg instanceof KeyBindManager.ControllerButton) {
+
+                if (controllerMode && Game.keyBindManager != null) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite((KeyBindManager.ControllerButton) seg);
+
+                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+
+                }
+
+                // In keyboard mode, ControllerButton segments are hidden (zero width)
+
+            }
+
+        }
+
+        
+
+        // Second pass: draw from left
+
+        int drawX = centerX - totalWidth / 2;
+
+        Color savedColor = g.getColor();
+
+        for (Object seg : segments) {
+
+            if (seg instanceof String) {
+
+                g.setColor(savedColor);
+
+                g.drawString((String) seg, drawX, y);
+
+                drawX += fm.stringWidth((String) seg);
+
+            } else if (seg instanceof KeyBindManager.Action) {
+
+                KeyBindManager.Action action = (KeyBindManager.Action) seg;
+
+                if (controllerMode) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon(action);
+
+                    if (icon != null) {
+
+                        g.drawImage(icon, drawX, y - iconSize + 2, iconSize, iconSize, null);
+
+                        drawX += iconSize + 2;
+
+                    } else {
+
+                        String text = keyText(action);
+
+                        g.drawString(text, drawX, y);
+
+                        drawX += fm.stringWidth(text);
+
+                    }
+
+                } else {
+
+                    String text = keyText(action);
+
+                    g.drawString(text, drawX, y);
+
+                    drawX += fm.stringWidth(text);
+
+                }
+
+            } else if (seg instanceof KeyBindManager.ControllerButton) {
+
+                KeyBindManager.ControllerButton btn = (KeyBindManager.ControllerButton) seg;
+
+                if (controllerMode && Game.keyBindManager != null) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite(btn);
+
+                    if (icon != null) {
+
+                        g.drawImage(icon, drawX, y - iconSize + 2, iconSize, iconSize, null);
+
+                        drawX += iconSize + 2;
+
+                    } else {
+
+                        String text = btn.getDisplayName();
+
+                        g.drawString(text, drawX, y);
+
+                        drawX += fm.stringWidth(text);
+
+                    }
+
+                }
+
+                // In keyboard mode, ControllerButton segments are hidden
+
+            }
+
+        }
+
+    }
+
+    
+
+    /**
+
+     * Get the total width of prompt segments for layout calculations.
+
+     */
+
+    private int measurePromptWidth(Graphics2D g, Object... segments) {
+
+        boolean controllerMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
+
+        FontMetrics fm = g.getFontMetrics();
+
+        int iconSize = fm.getHeight() - 2;
+
+        int totalWidth = 0;
+
+        for (Object seg : segments) {
+
+            if (seg instanceof String) {
+
+                totalWidth += fm.stringWidth((String) seg);
+
+            } else if (seg instanceof KeyBindManager.Action) {
+
+                if (controllerMode) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon((KeyBindManager.Action) seg);
+
+                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+
+                } else {
+
+                    totalWidth += fm.stringWidth(keyText((KeyBindManager.Action) seg));
+
+                }
+
+            } else if (seg instanceof KeyBindManager.ControllerButton) {
+
+                if (controllerMode && Game.keyBindManager != null) {
+
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite((KeyBindManager.ControllerButton) seg);
+
+                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+
+                }
+
+            }
+
+        }
+
+        return totalWidth;
 
     }
 
@@ -12761,11 +13402,11 @@ public class Renderer {
 
                 g.setColor(new Color(216, 222, 233, clampA((int)(180 * skipPulse * masterAlpha))));
 
-                String skipText = "PRESS SPACE TO SKIP";
+                Object[] skipSegs = {"PRESS ", KeyBindManager.Action.CONFIRM, " TO SKIP"};
 
-                FontMetrics fm = g.getFontMetrics();
+                int skipW = measurePromptWidth(g, skipSegs);
 
-                g.drawString(skipText, width - fm.stringWidth(skipText) - 20, barH / 2 + fm.getAscent() / 2 - 2);
+                drawPromptWithIcons(g, width - 20 - skipW / 2, barH / 2 + g.getFontMetrics().getAscent() / 2 - 2, skipSegs);
 
             }
 

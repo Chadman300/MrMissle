@@ -86,6 +86,7 @@ public class SaveData implements Serializable {
     public boolean enableGrainEffect;
     public boolean enableParticles;
     public boolean enableShadows;
+    public int shadowQuality;
     public boolean enableBloom;
     public boolean enableMotionBlur;
     public boolean enableChromaticAberration;
@@ -100,6 +101,10 @@ public class SaveData implements Serializable {
     
     // Debug settings
     public boolean enableHitboxes;
+    
+    // Keybind settings
+    public int[] keyBinds; // Array of key codes for each action
+    public int keyBindPreset; // Ordinal of the Preset enum
     
     // Achievements data (we'll add this if needed)
     public List<String> unlockedAchievements;
@@ -204,6 +209,7 @@ public class SaveData implements Serializable {
         this.enableGrainEffect = false;
         this.enableParticles = true;
         this.enableShadows = true;
+        this.shadowQuality = 2;
         this.enableBloom = true;
         this.enableMotionBlur = false;
         this.enableChromaticAberration = true;
@@ -235,6 +241,7 @@ public class SaveData implements Serializable {
             enableGrainEffect = false;
             enableParticles = true;
             enableShadows = true;
+            shadowQuality = 2;
             enableBloom = true;
             enableMotionBlur = false;
             enableChromaticAberration = true;
@@ -248,6 +255,14 @@ public class SaveData implements Serializable {
             enableAntiAliasing = false;
             enableHitboxes = false;
         }
+        
+        // Backwards compatibility: old saves with shadows but no shadowQuality
+        if (enableShadows && shadowQuality == 0) {
+            shadowQuality = 2; // Default to Medium if shadows were on
+        }
+        
+        // Keybinds: null means old save without keybind data - use defaults
+        // (keyBinds will be null from deserialization of old saves)
     }
     
     /**
@@ -320,6 +335,7 @@ public class SaveData implements Serializable {
         data.enableGrainEffect = Game.enableGrainEffect;
         data.enableParticles = Game.enableParticles;
         data.enableShadows = Game.enableShadows;
+        data.shadowQuality = Game.shadowQuality;
         data.enableBloom = Game.enableBloom;
         data.enableMotionBlur = Game.enableMotionBlur;
         data.enableChromaticAberration = Game.enableChromaticAberration;
@@ -332,6 +348,12 @@ public class SaveData implements Serializable {
         data.fpsLimit = Game.fpsLimit;
         data.enableAntiAliasing = Game.enableAntiAliasing;
         data.enableHitboxes = Game.enableHitboxes;
+        
+        // Keybind settings
+        if (Game.keyBindManager != null) {
+            data.keyBinds = Game.keyBindManager.exportKeyBinds();
+            data.keyBindPreset = Game.keyBindManager.exportPresetOrdinal();
+        }
         
         // Achievements
         if (achievementManager != null) {
@@ -459,6 +481,7 @@ public class SaveData implements Serializable {
         Game.enableGrainEffect = enableGrainEffect;
         Game.enableParticles = enableParticles;
         Game.enableShadows = enableShadows;
+        Game.shadowQuality = shadowQuality;
         Game.enableBloom = enableBloom;
         Game.enableMotionBlur = enableMotionBlur;
         Game.enableChromaticAberration = enableChromaticAberration;
@@ -471,6 +494,12 @@ public class SaveData implements Serializable {
         Game.fpsLimit = fpsLimit;
         Game.enableAntiAliasing = enableAntiAliasing;
         Game.enableHitboxes = enableHitboxes;
+        
+        // Keybind settings
+        if (Game.keyBindManager != null && keyBinds != null) {
+            Game.keyBindManager.importPresetOrdinal(keyBindPreset);
+            Game.keyBindManager.importKeyBinds(keyBinds);
+        }
         
         // Achievements - reset all first to prevent leaking from previous save
         if (achievementManager != null) {

@@ -1,0 +1,8 @@
+Picked up JAVA_TOOL_OPTIONS: -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8
+Feb 14, 2026 6:18:24 PM net.java.games.input.ControllerEnvironment log
+INFO: Failed to initialize device Wired Gaming Mouse because of: java.io.IOException: Failed to acquire device (8007001e)
+Feb 14, 2026 6:18:24 PM net.java.games.input.ControllerEnvironment log
+INFO: Failed to initialize device Wired Gaming Mouse because of: java.io.IOException: Failed to acquire device (8007001e)
+Controller found: Controller (Xbox One For Windows)
+Parallax backgrounds loaded successfully! (38 layers)
+Overlay image loaded successfully
