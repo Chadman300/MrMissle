@@ -30,6 +30,12 @@ public class Renderer {
 
     private UIButton[] pauseButtons;
 
+    private boolean showcasePauseMode = false;
+
+    private int activePauseButtonCount = 3;
+
+    private int statsActiveItemDisplayIndex = 0;
+
     
 
     // Number of background sets available
@@ -71,6 +77,8 @@ public class Renderer {
     };
 
     private double[][] introStars = null;
+    private BufferedImage introBuf = null;
+    private int introBufW, introBufH;
 
 
 
@@ -158,7 +166,7 @@ public class Renderer {
 
     
 
-    public Renderer(GameData gameData, ShopManager shopManager, PassiveUpgradeManager passiveUpgradeManager) {
+    public Renderer(GameData gameData, ShopManager shopManager, PassiveUpgradeManager passiveUpgradeManager, java.util.function.IntConsumer bgProgressCallback) {
 
         this.gameData = gameData;
 
@@ -170,7 +178,7 @@ public class Renderer {
 
         // Load background layers
 
-        loadBackgroundLayers();
+        loadBackgroundLayers(bgProgressCallback);
 
         
 
@@ -242,11 +250,11 @@ public class Renderer {
 
         
 
-        // Initialize pause buttons
+        // Initialize pause buttons (4 buttons - labels set dynamically by configurePauseMenu)
 
         pauseButtons = new UIButton[4];
 
-        String[] pauseLabels = {"Resume", "Settings", "Restart", "Main Menu"};
+        String[] pauseLabels = {"Resume", "Settings", "Main Menu", ""};
 
         for (int i = 0; i < 4; i++) {
 
@@ -258,7 +266,7 @@ public class Renderer {
 
     
 
-    private void loadBackgroundLayers() {
+    private void loadBackgroundLayers(java.util.function.IntConsumer progressCallback) {
 
         if (backgroundsLoaded) return;
 
@@ -298,6 +306,8 @@ public class Renderer {
 
                     backgroundLayers[set][layer] = image;
 
+                    if (progressCallback != null) progressCallback.accept((int)((set * 6 + layer + 1) * 100.0 / 48));
+
                 }
 
             }
@@ -331,6 +341,15 @@ public class Renderer {
     }
 
     
+
+
+    /**
+     * Load backgrounds with a progress callback (called from loading thread).
+     */
+    public void loadBackgroundsWithProgress(java.util.function.IntConsumer progressCallback) {
+        loadBackgroundLayers(progressCallback);
+    }
+
 
     private void loadOverlay() {
 
@@ -2440,107 +2459,517 @@ public class Renderer {
 
         
 
-        // Draw active item card
+        // All active items data: {ItemType, unlockLevel, name, description}
 
-        g.setColor(new Color(0, 0, 0, 120));
+        Object[][] allItems = {
 
-        g.fillRoundRect(itemX + 3, y + 3, cardWidth, cardHeight + 30, 15, 15);
+            {ActiveItem.ItemType.LUCKY_CHARM, 3, "Pool of Loot", "Spawn money circle for bonus cash"},
 
-        
+            {ActiveItem.ItemType.SHIELD, 6, "Shield", "3 orbiting shields block bullets"},
 
-        Color cardColor = isSelected ? new Color(163, 190, 140, 230) : new Color(76, 86, 106, 200);
+            {ActiveItem.ItemType.BOMBS, 7, "Bombs", "Rain explosive bombs on screen"},
 
-        g.setColor(cardColor);
+            {ActiveItem.ItemType.STUN, 9, "Stun", "Freeze the boss temporarily"},
 
-        g.fillRoundRect(itemX, y, cardWidth, cardHeight + 30, 15, 15);
+            {ActiveItem.ItemType.TYPE_PURGE, 12, "Chromatic Purge", "Erase all bullets of a random type"},
 
-        
+            {ActiveItem.ItemType.TIME_SLOW, 15, "Time Slow", "Slow bullets & beams by 70%"},
 
-        if (isSelected) {
+            {ActiveItem.ItemType.DASH, 18, "Dash", "Quick dash with invincibility"},
 
-            g.setColor(new Color(235, 203, 139, 180));
+            {ActiveItem.ItemType.IMPULSE, 21, "Impulse", "Push all bullets away from you"},
 
-            g.setStroke(new BasicStroke(3f));
+            {ActiveItem.ItemType.FROST_BEAM, 24, "Frost Beam", "Freeze bullets in an icy beam"},
 
-            g.drawRoundRect(itemX, y, cardWidth, cardHeight + 30, 15, 15);
-
-            g.setStroke(new BasicStroke(1f));
-
-        }
+        };
 
         
 
-        // Icon
+        java.util.List<ActiveItem.ItemType> unlockedItems = gameData.getUnlockedItems();
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
-
-        g.setColor(new Color(235, 203, 139));
-
-        g.drawString("I", itemX + 20, y + 40);
+        ActiveItem equippedItem = gameData.getEquippedItem();
 
         
 
-        if (gameData.hasActiveItems()) {
+        // Single card carousel view - navigate with left/right arrows
 
-            ActiveItem equippedItem = gameData.getEquippedItem();
 
-            if (equippedItem != null) {
+        int displayIndex = statsActiveItemDisplayIndex;
 
-                // Item name
 
-                g.setFont(new Font("Arial", Font.BOLD, 22));
+        if (displayIndex < 0) displayIndex = 0;
 
-                g.setColor(Color.WHITE);
 
-                g.drawString(equippedItem.getName(), itemX + 75, y + 30);
+        if (displayIndex >= allItems.length) displayIndex = allItems.length - 1;
 
-                
 
-                // Item description
+        
 
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
 
-                g.setColor(new Color(200, 200, 200));
+        ActiveItem.ItemType itemType = (ActiveItem.ItemType) allItems[displayIndex][0];
 
-                g.drawString(equippedItem.getDescription(), itemX + 75, y + 50);
 
-                
+        int unlockLevel = (int) allItems[displayIndex][1];
 
-                // Switch indicator
 
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
+        String itemName = (String) allItems[displayIndex][2];
 
-                g.setColor(new Color(180, 180, 180));
 
-                g.drawString("ÃƒÂ¢Ã¢â‚¬Â Ã‚Â ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ to switch", itemX + 75, y + 70);
+        String itemDesc = (String) allItems[displayIndex][3];
 
-                
 
-                // Unlock count
+        boolean isUnlocked = unlockedItems.contains(itemType);
 
-                g.setFont(new Font("Arial", Font.BOLD, 16));
 
-                g.setColor(new Color(136, 192, 208));
+        boolean isEquipped = equippedItem != null && equippedItem.getType() == itemType;
 
-                String unlockText = "Unlocked: " + gameData.getUnlockedItems().size() + "/10";
 
-                g.drawString(unlockText, itemX + 780, y + 45);
+        
 
-            }
+
+        int singleCardH = 120;
+
+
+        
+
+
+        // Card shadow
+
+
+        g.setColor(new Color(0, 0, 0, 100));
+
+
+        g.fillRoundRect(itemX + 3, y + 3, cardWidth, singleCardH, 12, 12);
+
+
+        
+
+
+        // Card background
+
+
+        Color cardBg;
+
+
+        if (isSelected && isEquipped) {
+
+
+            cardBg = new Color(50, 80, 50, 230);
+
+
+        } else if (isSelected) {
+
+
+            cardBg = new Color(86, 96, 120, 230);
+
+
+        } else if (isEquipped) {
+
+
+            cardBg = new Color(60, 90, 55, 230);
+
+
+        } else if (isUnlocked) {
+
+
+            cardBg = new Color(76, 86, 106, 200);
+
 
         } else {
 
-            g.setFont(new Font("Arial", Font.ITALIC, 18));
 
-            g.setColor(new Color(150, 150, 150));
+            cardBg = new Color(35, 35, 45, 220);
 
-            g.drawString("No active items unlocked - defeat mega bosses on levels 3, 6, 9...", itemX + 75, y + 45);
 
         }
 
+
+        g.setColor(cardBg);
+
+
+        g.fillRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+
+
         
 
-        y += cardHeight + 30 + cardSpacing;
+
+        // Selection highlight border
+
+
+        if (isSelected) {
+
+
+            g.setColor(new Color(235, 203, 139, 200));
+
+
+            g.setStroke(new BasicStroke(2.5f));
+
+
+            g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+
+
+            g.setStroke(new BasicStroke(1f));
+
+
+        } else if (isEquipped) {
+
+
+            g.setColor(new Color(163, 210, 140, 180));
+
+
+            g.setStroke(new BasicStroke(2f));
+
+
+            g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+
+
+            g.setStroke(new BasicStroke(1f));
+
+
+        }
+
+
+        
+
+
+        // Left arrow
+
+
+        if (displayIndex > 0) {
+
+
+            g.setFont(new Font("Arial", Font.BOLD, 28));
+
+
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(150, 150, 150));
+
+
+            g.drawString("<", itemX + 14, y + singleCardH / 2 + 10);
+
+
+        }
+
+
+        
+
+
+        // Right arrow
+
+
+        if (displayIndex < allItems.length - 1) {
+
+
+            g.setFont(new Font("Arial", Font.BOLD, 28));
+
+
+            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(150, 150, 150));
+
+
+            String rightArrow = ">";
+
+
+            FontMetrics arrowFm = g.getFontMetrics();
+
+
+            g.drawString(rightArrow, itemX + cardWidth - arrowFm.stringWidth(rightArrow) - 12, y + singleCardH / 2 + 10);
+
+
+        }
+
+
+        
+
+
+        // Content area (between arrows)
+
+
+        int contentX = itemX + 50;
+
+
+        int contentW = cardWidth - 100;
+
+
+        
+
+
+        if (isUnlocked) {
+
+
+
+            // --- Item icon (color-coded circular icon with symbol) ---
+
+            int iconSize = 56;
+
+            int iconX = contentX + 15;
+
+            int iconY = y + (singleCardH - iconSize) / 2;
+
+
+
+            // Get item-specific color and symbol
+
+            Color itemIconColor = new Color(100, 200, 255);
+
+            String itemSymbol = "?";
+
+            switch (itemType) {
+
+                case LUCKY_CHARM: itemIconColor = new Color(255, 215, 80); itemSymbol = "$"; break;
+
+                case SHIELD: itemIconColor = new Color(100, 180, 255); itemSymbol = "O"; break;
+
+                case BOMBS: itemIconColor = new Color(255, 110, 80); itemSymbol = "*"; break;
+
+                case STUN: itemIconColor = new Color(255, 240, 100); itemSymbol = "!"; break;
+
+                case TYPE_PURGE: itemIconColor = new Color(200, 130, 255); itemSymbol = "X"; break;
+
+                case TIME_SLOW: itemIconColor = new Color(160, 200, 255); itemSymbol = "~"; break;
+
+                case DASH: itemIconColor = new Color(100, 255, 180); itemSymbol = ">"; break;
+
+                case IMPULSE: itemIconColor = new Color(140, 200, 255); itemSymbol = "@"; break;
+
+                case FROST_BEAM: itemIconColor = new Color(150, 230, 255); itemSymbol = "#"; break;
+
+            }
+
+
+
+            // Circular background with glow
+
+            g.setColor(new Color(itemIconColor.getRed() / 6, itemIconColor.getGreen() / 6, itemIconColor.getBlue() / 6, 160));
+
+            g.fillOval(iconX - 3, iconY - 3, iconSize + 6, iconSize + 6);
+
+            g.setColor(new Color(40, 45, 55));
+
+            g.fillOval(iconX, iconY, iconSize, iconSize);
+
+            g.setColor(new Color(itemIconColor.getRed(), itemIconColor.getGreen(), itemIconColor.getBlue(), isEquipped ? 255 : 200));
+
+            g.setStroke(new BasicStroke(2f));
+
+            g.drawOval(iconX, iconY, iconSize, iconSize);
+
+            g.setStroke(new BasicStroke(1f));
+
+
+
+            // Draw symbol centered in circle
+
+            g.setFont(new Font("Arial", Font.BOLD, 24));
+
+            g.setColor(itemIconColor);
+
+            FontMetrics symFm = g.getFontMetrics();
+
+            g.drawString(itemSymbol, iconX + iconSize / 2 - symFm.stringWidth(itemSymbol) / 2, iconY + iconSize / 2 + symFm.getAscent() / 3);
+
+
+
+            // --- Text info (right of icon) ---
+
+            int textX = iconX + iconSize + 24;
+
+            int textRightEdge = itemX + cardWidth - 60;
+
+
+
+            // Item name (large, bold)
+
+            g.setFont(new Font("Arial", Font.BOLD, 18));
+
+            g.setColor(isEquipped ? new Color(163, 210, 140) : Color.WHITE);
+
+            String displayName = itemName;
+
+            g.drawString(displayName, textX, y + 35);
+
+
+
+            // Equipped badge (inline, smaller)
+
+            if (isEquipped) {
+
+                FontMetrics nameFm = g.getFontMetrics();
+
+                int badgeX = textX + nameFm.stringWidth(displayName) + 12;
+
+                g.setFont(new Font("Arial", Font.BOLD, 11));
+
+                FontMetrics badgeFm = g.getFontMetrics();
+
+                String badge = "EQUIPPED";
+
+                int badgeW = badgeFm.stringWidth(badge) + 12;
+
+                int badgeH = 18;
+
+                int badgeY = y + 22;
+
+                g.setColor(new Color(163, 210, 140, 40));
+
+                g.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 8, 8);
+
+                g.setColor(new Color(163, 210, 140, 160));
+
+                g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 8, 8);
+
+                g.setColor(new Color(163, 210, 140));
+
+                g.drawString(badge, badgeX + 6, badgeY + 13);
+
+            }
+
+
+
+            // Description (medium, light)
+
+            g.setFont(new Font("Arial", Font.PLAIN, 13));
+
+            g.setColor(new Color(175, 185, 200));
+
+            g.drawString(itemDesc, textX, y + 56);
+
+
+
+            // Unlock level (small, teal, with dot separator)
+
+            g.setFont(new Font("Arial", Font.PLAIN, 13));
+
+            g.setColor(new Color(120, 175, 200));
+
+            String lvlStr = "Unlocked at Level " + unlockLevel;
+
+            g.drawString(lvlStr, textX, y + 74);
+
+
+
+            // Subtle separator line under item info
+
+
+
+
+
+
+
+        } else {
+
+
+
+            // --- Locked item ---
+
+            int iconSize = 56;
+
+            int iconX = contentX + 15;
+
+            int iconY = y + (singleCardH - iconSize) / 2;
+
+
+
+            // Dark locked circle
+
+            g.setColor(new Color(20, 20, 28, 160));
+
+            g.fillOval(iconX - 3, iconY - 3, iconSize + 6, iconSize + 6);
+
+            g.setColor(new Color(30, 30, 38));
+
+            g.fillOval(iconX, iconY, iconSize, iconSize);
+
+            g.setColor(new Color(100, 90, 70, 120));
+
+            g.setStroke(new BasicStroke(2f));
+
+            g.drawOval(iconX, iconY, iconSize, iconSize);
+
+            g.setStroke(new BasicStroke(1f));
+
+
+
+            // Lock symbol in circle
+
+            g.setFont(new Font("Arial", Font.BOLD, 28));
+
+            g.setColor(new Color(200, 180, 140));
+
+            FontMetrics lockFm = g.getFontMetrics();
+
+            String lockSym = "[X]";
+
+            g.drawString(lockSym, iconX + iconSize / 2 - lockFm.stringWidth(lockSym) / 2, iconY + iconSize / 2 + lockFm.getAscent() / 3);
+
+
+
+            // --- Locked text info ---
+
+            int textX = iconX + iconSize + 24;
+
+
+
+            // Encrypted name
+
+            g.setFont(new Font("Arial", Font.BOLD, 16));
+
+            g.setColor(new Color(190, 180, 160));
+
+            String lockedName = encryptItemName(itemName);
+
+            g.drawString(lockedName, textX, y + 40);
+
+
+
+            // Unlock requirement (prominent, golden)
+
+            g.setFont(new Font("Arial", Font.BOLD, 15));
+
+            g.setColor(new Color(235, 210, 140));
+
+            String reqStr = "Defeat Level " + unlockLevel + " Boss to Unlock";
+
+            g.drawString(reqStr, textX, y + 62);
+
+
+
+            // Subtle locked separator
+
+
+
+
+
+
+
+        }
+
+
+
+
+        
+
+
+        // Counter: X / 9
+
+
+        g.setFont(new Font("Arial", Font.BOLD, 14));
+
+
+        g.setColor(new Color(136, 192, 208));
+
+
+        String counter = (displayIndex + 1) + " / " + allItems.length;
+
+
+        FontMetrics ctrFm = g.getFontMetrics();
+
+
+        g.drawString(counter, itemX + (cardWidth - ctrFm.stringWidth(counter)) / 2, y + singleCardH + 20);
+
+
+        
+
+
+        y += singleCardH + 30 + cardSpacing;
 
         currentIndex++;
 
@@ -2674,7 +3103,7 @@ public class Renderer {
 
         if (current >= max && max > 0) {
 
-            cardColor = new Color(160, 145, 100, 180); // Muted gold for maxed - easier on eyes
+            cardColor = new Color(85, 75, 45, 200); // Dark gold for maxed - better text contrast
 
         } else if (isSelected && !isReadOnly) {
 
@@ -5230,9 +5659,9 @@ public class Renderer {
 
         
 
-        // Draw player (only if not in death animation)
+        // Draw player (only if not in death animation, and not during boss intro cinematic)
 
-        if (player != null) {
+        if (player != null && !bossIntroActive) {
 
             // Draw resurrection glow if animation is active
 
@@ -5448,7 +5877,7 @@ public class Renderer {
 
         // Draw boss with special handling during death animation
 
-        if (boss != null) {
+        if (boss != null && !bossIntroActive) {
 
         if (bossDeathAnimation) {
 
@@ -5608,31 +6037,147 @@ public class Renderer {
 
             if (!bossVulnerable && !bossDeathAnimation && invulnerabilityTimer > 0) {
 
-                // Pulsing ring around boss during invulnerability
+                // Orbiting arc shields similar to player shield, scaled up for boss
 
-                // Calculate color based on time remaining (red -> yellow)
-
-                double timeRatio = invulnerabilityTimer / 300.0; // Normalize to 0-1 (300 frames = 5 seconds)
-
-                Color circleColor;
-
-                // Red to Yellow transition (red stays at 255, green increases as timer decreases)
-
-                int red = 255;
-
-                int green = Math.max(0, Math.min(255, (int)(255 * (1 - timeRatio))));
-
-                circleColor = new Color(red, green, 0, 150);
+                double timeRatio = invulnerabilityTimer / 300.0; // Normalize to 0-1
 
                 
 
-                double pulseSize = 160 + Math.sin(time * 10) * 20; // Bigger circle (160 base, +/- 20 pulse)
+                // Blink and fade when disappearing (last 25% of duration)
 
-                g.setColor(circleColor);
+                float shieldAlpha;
 
-                g.setStroke(new BasicStroke(5f)); // Slightly thicker stroke
+                if (timeRatio < 0.25) {
 
-                g.drawOval((int)(boss.getX() - pulseSize/2), (int)(boss.getY() - pulseSize/2), (int)pulseSize, (int)pulseSize);
+                    // Blink rapidly (faster as it gets closer to 0)
+
+                    double blinkSpeed = 15.0 + (1.0 - timeRatio / 0.25) * 35.0; // 15 -> 50
+
+                    double blink = Math.sin(time * blinkSpeed);
+
+                    float fadeBase = (float)(timeRatio / 0.25); // 0->1 over last 25%
+
+                    shieldAlpha = blink > 0 ? fadeBase : fadeBase * 0.15f;
+
+                } else {
+
+                    shieldAlpha = 1.0f;
+
+                }
+
+                
+
+                int bossShieldRadius = (int)(boss.getSize() * 1.4); // Bigger - fully outside the boss
+
+                double TWO_PI_B = Math.PI * 2;
+
+                double bossArcSpan = 35; // Degrees each arc covers (smaller per segment)
+
+                int numArcs = 8; // 8 shield arcs around boss
+
+                double bossShieldAngle = time * 0.12; // Much faster rotation
+
+                int bx = (int)boss.getX();
+
+                int by = (int)boss.getY();
+
+                
+
+                // Color transitions from blue (full) to red/yellow (low time)
+
+                int sr = (int)(100 + 155 * (1 - timeRatio)); // 100 -> 255
+
+                int sg = (int)(210 * timeRatio); // 210 -> 0
+
+                int sb = (int)(255 * timeRatio); // 255 -> 0
+
+                
+
+                for (int i = 0; i < numArcs; i++) {
+
+                    double angleRad = bossShieldAngle + (i * TWO_PI_B / numArcs);
+
+                    double angleDeg = Math.toDegrees(angleRad);
+
+                    double startAngle = angleDeg - bossArcSpan / 2;
+
+                    
+
+                    // Outer glow arc
+
+                    int glowPulse = (int)(Math.sin(time * 0.08 + i * 1.3) * 5);
+
+                    int glowR = bossShieldRadius + 12 + glowPulse;
+
+                    g.setColor(new Color(sr, sg, sb, (int)(50 * shieldAlpha)));
+
+                    g.setStroke(new BasicStroke(18f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    g.drawArc(bx - glowR, by - glowR, glowR * 2, glowR * 2, (int)startAngle, (int)bossArcSpan);
+
+                    
+
+                    // Mid glow arc
+
+                    g.setColor(new Color(sr, sg, sb, (int)(90 * shieldAlpha)));
+
+                    g.setStroke(new BasicStroke(14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    g.drawArc(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2, (int)startAngle, (int)bossArcSpan);
+
+                    
+
+                    // Main shield body
+
+                    g.setColor(new Color(sr, sg, sb, (int)(200 * shieldAlpha)));
+
+                    g.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    g.drawArc(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2, (int)startAngle, (int)bossArcSpan);
+
+                    
+
+                    // Inner edge highlight
+
+                    int innerR = bossShieldRadius - 5;
+
+                    g.setColor(new Color(Math.min(255, sr + 100), Math.min(255, sg + 40), Math.min(255, sb + 40), (int)(220 * shieldAlpha)));
+
+                    g.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                    g.drawArc(bx - innerR, by - innerR, innerR * 2, innerR * 2, (int)startAngle, (int)bossArcSpan);
+
+                    
+
+                    // Bright tips at arc ends
+
+                    double tipAngle1 = Math.toRadians(startAngle);
+
+                    double tipAngle2 = Math.toRadians(startAngle + bossArcSpan);
+
+                    int tipSize = 8;
+
+                    g.setColor(new Color(255, Math.min(255, sg + 40), Math.min(255, sb + 40), (int)(240 * shieldAlpha)));
+
+                    g.fillOval(bx + (int)(Math.cos(tipAngle1) * bossShieldRadius) - tipSize/2,
+
+                              by - (int)(Math.sin(tipAngle1) * bossShieldRadius) - tipSize/2, tipSize, tipSize);
+
+                    g.fillOval(bx + (int)(Math.cos(tipAngle2) * bossShieldRadius) - tipSize/2,
+
+                              by - (int)(Math.sin(tipAngle2) * bossShieldRadius) - tipSize/2, tipSize, tipSize);
+
+                }
+
+                
+
+                // Subtle inner ring connecting all arcs
+
+                g.setColor(new Color(sr, sg, sb, (int)(25 * shieldAlpha)));
+
+                g.setStroke(new BasicStroke(1.5f));
+
+                g.drawOval(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2);
 
             }
 
@@ -6762,17 +7307,33 @@ public class Renderer {
 
                 // Scale factor: starts at 0.15 (heavy blur) → 1.0 (sharp) as phase progresses
 
-                double scaleFactor = 0.15 + 0.85 * blurProgress;
+                double scaleFactor = 0.25 + 0.75 * blurProgress;
 
-                if (scaleFactor < 0.95) {
+                if (scaleFactor < 0.85) {
 
                     int sw = Math.max(1, (int)(width * scaleFactor));
 
                     int sh = Math.max(1, (int)(height * scaleFactor));
 
-                    BufferedImage small = new BufferedImage(sw, sh, BufferedImage.TYPE_INT_ARGB);
+                    // Reuse cached buffer if same size, otherwise allocate
 
-                    Graphics2D sg = small.createGraphics();
+                    if (introBuf == null || introBufW != sw || introBufH != sh) {
+
+                        introBuf = new BufferedImage(sw, sh, BufferedImage.TYPE_INT_ARGB);
+
+                        introBufW = sw;
+
+                        introBufH = sh;
+
+                    }
+
+                    Graphics2D sg = introBuf.createGraphics();
+
+                    sg.setComposite(AlphaComposite.Clear);
+
+                    sg.fillRect(0, 0, sw, sh);
+
+                    sg.setComposite(AlphaComposite.SrcOver);
 
                     sg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
@@ -6788,7 +7349,7 @@ public class Renderer {
 
                     g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-                    g.drawImage(small, 0, 0, width, height, null);
+                    g.drawImage(introBuf, 0, 0, width, height, null);
 
                 } else {
 
@@ -6809,6 +7370,10 @@ public class Renderer {
                     bossIntroFlash, bossIntroPhase, introParticles, time, level, bossIntroFlashTimer);
 
             }
+
+        } else {
+
+            introBuf = null; // Release blur buffer when intro is done
 
         }
 
@@ -6934,7 +7499,7 @@ public class Renderer {
 
             g.setColor(Color.WHITE);
 
-            String pauseText = "PAUSED";
+            String pauseText = showcasePauseMode ? "SHOWCASE PAUSED" : "PAUSED";
 
             FontMetrics fm = g.getFontMetrics();
 
@@ -6946,7 +7511,7 @@ public class Renderer {
 
             int buttonY = height / 2 - 30;
 
-            for (int i = 0; i < pauseButtons.length; i++) {
+            for (int i = 0; i < activePauseButtonCount; i++) {
 
                 pauseButtons[i].setPosition((width - 300) / 2, buttonY + i * 80);
 
@@ -7534,7 +8099,7 @@ public class Renderer {
 
                 } else if (isMaxed) {
 
-                    cardColor = new Color(180, 160, 100, 200); // Muted gold for maxed - check before affordability
+                    cardColor = new Color(85, 75, 45, 200); // Dark gold for maxed - better text contrast
 
                 } else if (!canAfford) {
 
@@ -7712,13 +8277,25 @@ public class Renderer {
 
                         g.setColor(new Color(235, 203, 139));
 
-                        g.drawString("MAXED", itemX + 820, scrolledY + 10);
+                        FontMetrics costFm = g.getFontMetrics();
+
+                        String maxedStr = "MAXED";
+
+                        int maxedW = costFm.stringWidth(maxedStr);
+
+                        g.drawString(maxedStr, itemX + 900 - maxedW - 20, scrolledY + 10);
 
                     } else {
 
                         g.setColor(canAfford ? new Color(163, 190, 140) : new Color(191, 97, 106));
 
-                        g.drawString("$" + cost, itemX + 800, scrolledY + 10);
+                        FontMetrics costFm = g.getFontMetrics();
+
+                        String costStr = "$" + cost;
+
+                        int costW = costFm.stringWidth(costStr);
+
+                        g.drawString(costStr, itemX + 900 - costW - 20, scrolledY + 10);
 
                     }
 
@@ -9318,7 +9895,9 @@ public class Renderer {
 
             "[6] Unlock All Active Items",
 
-            "[7] Unlock Risk Contracts"
+            "[7] Unlock Risk Contracts",
+
+            "[8] Toggle Showcase Unlock All"
 
         };
 
@@ -9338,11 +9917,55 @@ public class Renderer {
 
             new Color(163, 190, 140), // Green for active items
 
-            new Color(255, 99, 71)   // Tomato red for risk contracts
+            new Color(255, 99, 71),  // Tomato red for risk contracts
+
+            new Color(255, 215, 100) // Yellow for showcase unlock
 
         };
 
         
+
+        // Show last played SFX name
+
+        SoundManager sm = SoundManager.getInstance();
+
+        String lastSfx = sm.getLastPlayedSound();
+
+        long elapsed = System.currentTimeMillis() - sm.getLastPlayedTime();
+
+        if (lastSfx != null && !lastSfx.isEmpty() && elapsed < 3000) {
+
+            float alpha = Math.min(1f, Math.max(0f, 1f - (elapsed / 3000f)));
+
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            g.setFont(new Font("Arial", Font.BOLD, 22));
+
+            FontMetrics sfxFm = g.getFontMetrics();
+
+            String sfxLabel = "SFX: " + lastSfx;
+
+            int sfxW = sfxFm.stringWidth(sfxLabel) + 24;
+
+            int sfxH = 36;
+
+            int sfxX = (width - sfxW) / 2;
+
+            int sfxY = 140;
+
+            g.setColor(new Color(0, 0, 0, 160));
+
+            g.fillRoundRect(sfxX, sfxY, sfxW, sfxH, 12, 12);
+
+            g.setColor(new Color(255, 120, 120));
+
+            g.drawString(sfxLabel, sfxX + 12, sfxY + 25);
+
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+
+        }
+
+
 
         for (int i = 0; i < options.length; i++) {
 
@@ -9868,6 +10491,34 @@ public class Renderer {
 
     
 
+    private String encryptItemName(String name) {
+
+        // Generate a "corrupted data" string based on the item name length
+
+        StringBuilder sb = new StringBuilder();
+
+        String glitchChars = "#$%&@!?*^~";
+
+        for (int i = 0; i < name.length(); i++) {
+
+            if (name.charAt(i) == ' ') {
+
+                sb.append(' ');
+
+            } else {
+
+                sb.append(glitchChars.charAt((i * 7 + name.length()) % glitchChars.length()));
+
+            }
+
+        }
+
+        return sb.toString();
+
+    }
+
+    
+
     private int getUpgradeLevel(int itemIndex) {
 
         if (itemIndex == 0) return 0;
@@ -10230,7 +10881,45 @@ public class Renderer {
 
     public UIButton[] getPauseButtons() { return pauseButtons; }
 
+    public void configurePauseMenu(boolean isShowcase) {
+
+        showcasePauseMode = isShowcase;
+
+        if (isShowcase) {
+
+            activePauseButtonCount = 4;
+
+            pauseButtons[0].setText("Settings");
+
+            pauseButtons[1].setText("Restart");
+
+            pauseButtons[2].setText("Main Menu");
+
+            pauseButtons[3].setText("Back to Showcase");
+
+        } else {
+
+            activePauseButtonCount = 3;
+
+            pauseButtons[0].setText("Resume");
+
+            pauseButtons[1].setText("Settings");
+
+            pauseButtons[2].setText("Main Menu");
+
+        }
+
+    }
+
+    public boolean isShowcasePauseMode() { return showcasePauseMode; }
+
+    public int getActivePauseButtonCount() { return activePauseButtonCount; }
+
     public UIButton[] getShopButtons() { return shopButtons; }
+
+    public int getStatsActiveItemDisplayIndex() { return statsActiveItemDisplayIndex; }
+
+    public void setStatsActiveItemDisplayIndex(int index) { statsActiveItemDisplayIndex = index; }
 
     public UIButton[] getStatsButtons() { return statsButtons; }
 
@@ -10534,7 +11223,7 @@ public class Renderer {
 
         int barH = (int)(70 * barSlide);
 
-
+        boolean isPhase5 = (bossIntroPhase == 5);
 
         // ===== BACKGROUND: deep space =====
 
@@ -10546,7 +11235,7 @@ public class Renderer {
 
         // Nebula wash
 
-        if (masterAlpha > 0.05f) {
+        if (masterAlpha > 0.05f && !isPhase5) {
 
             RadialGradientPaint neb = new RadialGradientPaint(
 
@@ -10572,9 +11261,10 @@ public class Renderer {
 
         // ===== ANIMATED STARFIELD =====
 
-        if (introStars != null && masterAlpha > 0.05f) {
+        if (introStars != null && masterAlpha > 0.05f && !isPhase5) {
 
-            for (int i = 0; i < introStars.length; i++) {
+            int starStep = 1;
+            for (int i = 0; i < introStars.length; i += starStep) {
 
                 double sx = introStars[i][0];
 
@@ -10598,9 +11288,9 @@ public class Renderer {
 
                 g.fillOval((int)sx - ssz/2, (int)sy - ssz/2, ssz, ssz);
 
-                // Larger stars get a cross-shaped glint
+                // Larger stars get a cross-shaped glint (skip in phase 5 - invisible through blur)
 
-                if (sz > 1.8 && twinkle > 0.3f) {
+                if (!isPhase5 && sz > 1.8 && twinkle > 0.3f) {
 
                     g.setColor(new Color(200, 220, 255, clampA((int)(80 * twinkle))));
 
@@ -10620,7 +11310,7 @@ public class Renderer {
 
         // ===== RADIAL SPEED LINES (anime power-up) =====
 
-        if (masterAlpha > 0.15f) {
+        if (masterAlpha > 0.15f && !isPhase5) {
 
             Graphics2D slg = (Graphics2D) g.create();
 
@@ -10660,11 +11350,35 @@ public class Renderer {
 
             g.fillRect(-M, -M, width + M * 2, height + M * 2);
 
-            // Anamorphic streak
+            // Anamorphic lens flares
 
             g.setColor(new Color(200, 220, 255, clampA((int)(200 * bossIntroFlash))));
 
-            g.fillRect(-M, cy - 3, width + M * 2, 6);
+            g.fillRect(-M, cy - 4, width + M * 2, 8);
+
+            // Diagonal cross flares + circular lens ghosts
+            {
+                Graphics2D flg = (Graphics2D) g.create();
+                if (Game.enableAntiAliasing)
+                    flg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                float flAlpha = Math.max(0f, Math.min(1f, (float)(bossIntroFlash * 0.5)));
+                flg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flAlpha));
+                flg.setStroke(new BasicStroke(3f));
+                flg.setColor(new Color(180, 210, 255));
+                flg.drawLine(cx - width, cy - (int)(width * 0.12), cx + width, cy + (int)(width * 0.12));
+                flg.drawLine(cx - width, cy + (int)(width * 0.12), cx + width, cy - (int)(width * 0.12));
+                flg.setColor(new Color(255, 245, 210));
+                flg.setStroke(new BasicStroke(1.5f));
+                flg.drawLine(cx - width, cy - (int)(width * 0.06), cx + width, cy + (int)(width * 0.06));
+                flg.drawLine(cx - width, cy + (int)(width * 0.06), cx + width, cy - (int)(width * 0.06));
+                for (int lr = 0; lr < 5; lr++) {
+                    int lrX = cx + (int)((lr - 2) * width * 0.16);
+                    int lrR = 12 + lr * 7;
+                    flg.setColor(new Color(200, 225, 255, clampA((int)(25 * bossIntroFlash))));
+                    flg.drawOval(lrX - lrR, cy - lrR, lrR * 2, lrR * 2);
+                }
+                flg.dispose();
+            }
 
             // VFX explosion overlay (effect 0 = 652.png)
 
@@ -10694,9 +11408,9 @@ public class Renderer {
 
 
 
-            // Blue aura
+            // Blue aura (skip in phase 5 - blurred away)
 
-            if (auraI > 0.01f) {
+            if (auraI > 0.01f && !isPhase5) {
 
                 float breathe = 0.85f + 0.15f * (float)Math.sin(time * 3);
 
@@ -10760,11 +11474,27 @@ public class Renderer {
 
             }
 
-
+            // Horizontal wind streaks (anime power rush)
+            if (bossIntroPhase == 1 && t > 35 && auraI > 0.1f) {
+                Graphics2D wsg = (Graphics2D) g.create();
+                for (int i = 0; i < 22; i++) {
+                    double lineY = py - 220 + i * 20 + Math.sin(time * 3.5 + i) * 12;
+                    double lineLen = 50 + Math.abs(Math.sin(time * 5 + i * 1.3)) * 50;
+                    float wAlpha = (float)(0.04 + 0.03 * Math.sin(time * 6 + i * 0.8));
+                    wAlpha = Math.max(0f, Math.min(1f, wAlpha * auraI));
+                    wsg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, wAlpha));
+                    wsg.setColor(new Color(140, 210, 255));
+                    wsg.setStroke(new BasicStroke(1.2f + (float)(Math.sin(time * 4 + i) * 0.5)));
+                    double drift = (time * (70 + i * 10)) % 500;
+                    int sx = (int)(px - 250 + drift);
+                    wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
+                }
+                wsg.dispose();
+            }
 
             // 16 rotating energy rays
 
-            if (auraI > 0.1f) {
+            if (auraI > 0.1f && !isPhase5) {
 
                 Graphics2D rayG = (Graphics2D) g.create();
 
@@ -10796,7 +11526,7 @@ public class Renderer {
 
             // Ground energy reflection pool under player
 
-            if (auraI > 0.1f) {
+            if (auraI > 0.1f && !isPhase5) {
 
                 float grAlpha = auraI * 0.25f * masterAlpha;
 
@@ -10838,7 +11568,7 @@ public class Renderer {
 
             // VFX energy behind player (effect 4 = 662.png, effect 7 = 665.png)
 
-            if (bossIntroPhase >= 1 && bossIntroPhase <= 3 && auraI > 0.15f) {
+            if (bossIntroPhase >= 1 && bossIntroPhase <= 3 && auraI > 0.15f && !isPhase5) {
 
                 int ef = getVFXFrame(4, t, 30, 80);
 
@@ -10897,7 +11627,7 @@ public class Renderer {
                 pg.dispose();
 
                 // White highlight rim pulse
-                if (auraI > 0.3f) {
+                if (auraI > 0.3f && !isPhase5) {
                     float rimPulse = 0.15f + 0.1f * (float)Math.sin(time * 5);
                     Graphics2D rimg = (Graphics2D) g.create();
                     rimg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
@@ -10913,54 +11643,90 @@ public class Renderer {
 
 
 
-            // Player name plate "CHALLENGER"
-
+            // Player name plate "CHALLENGER" - anime style
             if (bossIntroPhase >= 1 && bossIntroPhase <= 4) {
-
                 double ns = (bossIntroPhase == 1) ?
-
                     Math.min(1.0, Math.max(0, (t - 50) / 40.0)) : 1.0;
-
                 ns = 1.0 - Math.pow(1.0 - ns, 3);
-
                 float na = Math.max(0f, Math.min(1f, (float)ns * masterAlpha));
-
                 if (na > 0.05f) {
-
-                    g.setFont(new Font("Impact", Font.BOLD, 42));
-
-                    FontMetrics fm = g.getFontMetrics();
-
+                    Graphics2D npg = (Graphics2D) g.create();
+                    if (Game.enableAntiAliasing)
+                        npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     String pName = "CHALLENGER";
-
+                    npg.setFont(new Font("Impact", Font.BOLD, 48));
+                    FontMetrics fm = npg.getFontMetrics();
                     int nw = fm.stringWidth(pName);
-
                     int nx = (int)(px - nw / 2 + (1.0 - ns) * -200);
-
-                    int ny = py + 100;
-
-                    int pad = 15;
-
-                    g.setColor(new Color(0, 0, 0, clampA((int)(180 * na))));
-
-                    g.fillRect(nx - pad, ny - fm.getAscent() - 5, nw + pad * 2, fm.getHeight() + 10);
-
-                    g.setColor(new Color(80, 180, 255, clampA((int)(200 * na))));
-
-                    g.setStroke(new BasicStroke(2f));
-
-                    g.drawRect(nx - pad, ny - fm.getAscent() - 5, nw + pad * 2, fm.getHeight() + 10);
-
-                    GradientPaint np = new GradientPaint(nx, ny - fm.getAscent(),
-
-                        new Color(180, 230, 255), nx, ny, new Color(100, 200, 255));
-
-                    g.setPaint(np);
-
-                    g.drawString(pName, nx, ny);
-
+                    int ny = py + 105;
+                    int pad = 22;
+                    // Skewed parallelogram background panel
+                    int skew = 10;
+                    Path2D panelBg = new Path2D.Double();
+                    panelBg.moveTo(nx - pad + skew, ny - fm.getAscent() - 10);
+                    panelBg.lineTo(nx + nw + pad + skew, ny - fm.getAscent() - 10);
+                    panelBg.lineTo(nx + nw + pad - skew, ny + 10);
+                    panelBg.lineTo(nx - pad - skew, ny + 10);
+                    panelBg.closePath();
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na))));
+                    GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
+                        new Color(5, 20, 50, 230), nx, ny + 10, new Color(10, 30, 70, 200));
+                    npg.setPaint(panelGrad);
+                    npg.fill(panelBg);
+                    // Bright cyan border
+                    npg.setStroke(new BasicStroke(2.5f));
+                    npg.setColor(new Color(80, 210, 255, clampA((int)(240 * na))));
+                    npg.draw(panelBg);
+                    // Inner highlight line
+                    npg.setStroke(new BasicStroke(1f));
+                    npg.setColor(new Color(120, 220, 255, clampA((int)(100 * na))));
+                    npg.drawLine(nx - pad + skew + 4, ny - fm.getAscent() - 8,
+                                 nx + nw + pad + skew - 4, ny - fm.getAscent() - 8);
+                    // Extending horizontal accent lines from corners
+                    float lineExt = (float)(ns * 140);
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.7f))));
+                    npg.setStroke(new BasicStroke(2f));
+                    npg.setColor(new Color(80, 210, 255));
+                    npg.drawLine((int)(nx - pad - skew), ny + 10,
+                                 (int)(nx - pad - skew - lineExt), ny + 10);
+                    npg.drawLine((int)(nx + nw + pad + skew), ny - fm.getAscent() - 10,
+                                 (int)(nx + nw + pad + skew + lineExt), ny - fm.getAscent() - 10);
+                    // Diamond end-caps
+                    int dSz = 5;
+                    int leftEndX = (int)(nx - pad - skew - lineExt);
+                    int rightEndX = (int)(nx + nw + pad + skew + lineExt);
+                    npg.fillPolygon(new int[]{leftEndX, leftEndX - dSz, leftEndX, leftEndX + dSz},
+                        new int[]{ny + 10 - dSz, ny + 10, ny + 10 + dSz, ny + 10}, 4);
+                    npg.fillPolygon(new int[]{rightEndX, rightEndX - dSz, rightEndX, rightEndX + dSz},
+                        new int[]{ny - fm.getAscent() - 10 - dSz, ny - fm.getAscent() - 10,
+                                  ny - fm.getAscent() - 10 + dSz, ny - fm.getAscent() - 10}, 4);
+                    // Text drop shadow
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.5f))));
+                    npg.setColor(new Color(0, 40, 90));
+                    npg.drawString(pName, nx + 2, ny + 2);
+                    // Text outline
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na))));
+                    npg.setColor(new Color(0, 20, 60, clampA((int)(255 * na))));
+                    for (int ox = -2; ox <= 2; ox++)
+                        for (int oy = -2; oy <= 2; oy++)
+                            if (ox * ox + oy * oy <= 5)
+                                npg.drawString(pName, nx + ox, ny + oy);
+                    // Gradient text fill
+                    GradientPaint textGrad = new GradientPaint(nx, ny - fm.getAscent(),
+                        new Color(230, 248, 255), nx, ny, new Color(100, 215, 255));
+                    npg.setPaint(textGrad);
+                    npg.drawString(pName, nx, ny);
+                    // White highlight pass
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.45f))));
+                    npg.setColor(Color.WHITE);
+                    npg.drawString(pName, nx, ny - 1);
+                    npg.dispose();
                 }
-
             }
 
 
@@ -11117,9 +11883,9 @@ public class Renderer {
 
 
 
-            // Menacing red aura
+            // Menacing red aura (skip in phase 5 - blurred away)
 
-            if (ba > 0.01f) {
+            if (ba > 0.01f && !isPhase5) {
 
                 float breath = 0.8f + 0.2f * (float)Math.sin(time * 3);
 
@@ -11155,7 +11921,7 @@ public class Renderer {
 
             // 22 energy spikes (rotating opposite)
 
-            if (ba > 0.2f) {
+            if (ba > 0.2f && !isPhase5) {
 
                 Graphics2D spG = (Graphics2D) g.create();
 
@@ -11225,11 +11991,29 @@ public class Renderer {
 
             }
 
+            // Wind streaks (boss power entrance)
+            if (bossIntroPhase == 3 && t > 160 && ba > 0.1f) {
+                Graphics2D wsg = (Graphics2D) g.create();
+                for (int i = 0; i < 24; i++) {
+                    double lineY = by - 250 + i * 21 + Math.sin(time * 2.8 + i * 0.7) * 14;
+                    double lineLen = 55 + Math.abs(Math.sin(time * 4.5 + i * 1.5)) * 55;
+                    float wAlpha = (float)(0.05 + 0.04 * Math.sin(time * 5 + i * 1.1));
+                    wAlpha = Math.max(0f, Math.min(1f, wAlpha * ba));
+                    wsg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, wAlpha));
+                    wsg.setColor(new Color(255, 150, 60));
+                    wsg.setStroke(new BasicStroke(1.3f + (float)(Math.sin(time * 3.5 + i) * 0.6)));
+                    double drift = (time * (75 + i * 11)) % 520;
+                    int sx = (int)(bx - 260 + drift);
+                    wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
+                }
+                wsg.dispose();
+            }
+
 
 
             // Ground energy reflection pool under boss
 
-            if (ba > 0.1f) {
+            if (ba > 0.1f && !isPhase5) {
 
                 float grAlpha = ba * 0.2f * masterAlpha;
 
@@ -11271,7 +12055,7 @@ public class Renderer {
 
             // VFX fire behind boss (effect 8 = 672.png, effect 9 = 673.png)
 
-            if (bossIntroPhase >= 3 && ba > 0.15f) {
+            if (bossIntroPhase >= 3 && ba > 0.15f && !isPhase5) {
 
                 int ef = getVFXFrame(8, t, 155, 95);
 
@@ -11294,7 +12078,7 @@ public class Renderer {
                 double bBaseAngle = 15 + bTiltOsc;
 
                 // Afterimage trails (red-tinted ghosts)
-                if (bossIntroPhase >= 3 && ba > 0.3f) {
+                if (bossIntroPhase >= 3 && bossIntroPhase <= 4 && ba > 0.3f) {
                     for (int ai = 3; ai >= 1; ai--) {
                         float aiAlpha = Math.max(0f, Math.min(1f, (0.14f - ai * 0.035f) * ba * masterAlpha));
                         double aiDelay = ai * 0.07;
@@ -11329,7 +12113,7 @@ public class Renderer {
                 bg.dispose();
 
                 // Red rim highlight pulse
-                if (ba > 0.3f) {
+                if (ba > 0.3f && !isPhase5) {
                     float rimPulse = 0.12f + 0.08f * (float)Math.sin(time * 4);
                     Graphics2D rimg = (Graphics2D) g.create();
                     rimg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
@@ -11345,54 +12129,100 @@ public class Renderer {
 
 
 
-            // Boss name plate
-
+            // Boss name plate - anime style
             if (bossIntroPhase >= 3 && bossIntroPhase <= 4) {
-
                 double ns = (bossIntroPhase == 3) ?
-
                     Math.min(1.0, Math.max(0, (t - 175) / 40.0)) : 1.0;
-
                 ns = 1.0 - Math.pow(1.0 - ns, 3);
-
                 float na = Math.max(0f, Math.min(1f, (float)ns * masterAlpha));
-
                 if (na > 0.05f) {
-
+                    Graphics2D npg = (Graphics2D) g.create();
+                    if (Game.enableAntiAliasing)
+                        npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     int fs = bossIntroText.length() > 14 ? 38 : bossIntroText.length() > 10 ? 44 : 52;
-
-                    g.setFont(new Font("Impact", Font.BOLD, fs));
-
-                    FontMetrics fm = g.getFontMetrics();
-
+                    npg.setFont(new Font("Impact", Font.BOLD, fs));
+                    FontMetrics fm = npg.getFontMetrics();
                     int nw = fm.stringWidth(bossIntroText);
-
                     int nx = (int)(bx - nw / 2 + (1.0 - ns) * 200);
-
                     int ny = by + 120;
-
-                    int pad = 15;
-
-                    g.setColor(new Color(0, 0, 0, clampA((int)(180 * na))));
-
-                    g.fillRect(nx - pad, ny - fm.getAscent() - 5, nw + pad * 2, fm.getHeight() + 10);
-
-                    g.setColor(new Color(255, 120, 40, clampA((int)(200 * na))));
-
-                    g.setStroke(new BasicStroke(2f));
-
-                    g.drawRect(nx - pad, ny - fm.getAscent() - 5, nw + pad * 2, fm.getHeight() + 10);
-
-                    GradientPaint np = new GradientPaint(nx, ny - fm.getAscent(),
-
-                        new Color(255, 220, 150), nx, ny, new Color(255, 140, 60));
-
-                    g.setPaint(np);
-
-                    g.drawString(bossIntroText, nx, ny);
-
+                    int pad = 22;
+                    // Skewed parallelogram panel (opposite skew from player)
+                    int skew = 10;
+                    Path2D panelBg = new Path2D.Double();
+                    panelBg.moveTo(nx - pad - skew, ny - fm.getAscent() - 10);
+                    panelBg.lineTo(nx + nw + pad - skew, ny - fm.getAscent() - 10);
+                    panelBg.lineTo(nx + nw + pad + skew, ny + 10);
+                    panelBg.lineTo(nx - pad + skew, ny + 10);
+                    panelBg.closePath();
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na))));
+                    GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
+                        new Color(50, 10, 5, 230), nx, ny + 10, new Color(70, 15, 10, 200));
+                    npg.setPaint(panelGrad);
+                    npg.fill(panelBg);
+                    // Red-orange border
+                    npg.setStroke(new BasicStroke(2.5f));
+                    npg.setColor(new Color(255, 130, 40, clampA((int)(240 * na))));
+                    npg.draw(panelBg);
+                    // Inner highlight line
+                    npg.setStroke(new BasicStroke(1f));
+                    npg.setColor(new Color(255, 180, 80, clampA((int)(100 * na))));
+                    npg.drawLine(nx - pad - skew + 4, ny - fm.getAscent() - 8,
+                                 nx + nw + pad - skew - 4, ny - fm.getAscent() - 8);
+                    // Extending horizontal accent lines
+                    float lineExt = (float)(ns * 140);
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.7f))));
+                    npg.setStroke(new BasicStroke(2f));
+                    npg.setColor(new Color(255, 130, 40));
+                    npg.drawLine((int)(nx - pad - skew), ny - fm.getAscent() - 10,
+                                 (int)(nx - pad - skew - lineExt), ny - fm.getAscent() - 10);
+                    npg.drawLine((int)(nx + nw + pad + skew), ny + 10,
+                                 (int)(nx + nw + pad + skew + lineExt), ny + 10);
+                    // Diamond end-caps
+                    int dSz = 5;
+                    int leftEndX = (int)(nx - pad - skew - lineExt);
+                    int rightEndX = (int)(nx + nw + pad + skew + lineExt);
+                    npg.fillPolygon(new int[]{leftEndX, leftEndX - dSz, leftEndX, leftEndX + dSz},
+                        new int[]{ny - fm.getAscent() - 10 - dSz, ny - fm.getAscent() - 10,
+                                  ny - fm.getAscent() - 10 + dSz, ny - fm.getAscent() - 10}, 4);
+                    npg.fillPolygon(new int[]{rightEndX, rightEndX - dSz, rightEndX, rightEndX + dSz},
+                        new int[]{ny + 10 - dSz, ny + 10, ny + 10 + dSz, ny + 10}, 4);
+                    // "WARNING" subtitle above boss name
+                    npg.setFont(new Font("Impact", Font.PLAIN, 16));
+                    FontMetrics sfm = npg.getFontMetrics();
+                    String subtitle = "WARNING";
+                    int subW = sfm.stringWidth(subtitle);
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.6f))));
+                    npg.setColor(new Color(255, 200, 100));
+                    npg.drawString(subtitle, nx + nw / 2 - subW / 2, ny - fm.getAscent() - 18);
+                    // Text drop shadow
+                    npg.setFont(new Font("Impact", Font.BOLD, fs));
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.5f))));
+                    npg.setColor(new Color(100, 20, 0));
+                    npg.drawString(bossIntroText, nx + 2, ny + 2);
+                    // Text outline
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na))));
+                    npg.setColor(new Color(60, 10, 0, clampA((int)(255 * na))));
+                    for (int ox = -2; ox <= 2; ox++)
+                        for (int oy = -2; oy <= 2; oy++)
+                            if (ox * ox + oy * oy <= 5)
+                                npg.drawString(bossIntroText, nx + ox, ny + oy);
+                    // Gradient text fill
+                    GradientPaint textGrad = new GradientPaint(nx, ny - fm.getAscent(),
+                        new Color(255, 235, 180), nx, ny, new Color(255, 150, 60));
+                    npg.setPaint(textGrad);
+                    npg.drawString(bossIntroText, nx, ny);
+                    // White highlight pass
+                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                        Math.max(0f, Math.min(1f, na * 0.4f))));
+                    npg.setColor(Color.WHITE);
+                    npg.drawString(bossIntroText, nx, ny - 1);
+                    npg.dispose();
                 }
-
             }
 
 
@@ -11447,7 +12277,7 @@ public class Renderer {
 
         // ===== PHASE 4: VS CLASH =====
 
-        if (bossIntroPhase >= 4 && bossIntroVsScale > 0.05) {
+        if (bossIntroPhase >= 4 && bossIntroVsScale > 0.05 && !isPhase5) {
 
             // Energy beam connection between player and boss
             int pDrawX = (int)bossIntroPlayerX;
@@ -11809,7 +12639,7 @@ public class Renderer {
 
         // ===== INTRO PARTICLES (thread-safe snapshot) =====
 
-        try {
+        if (!isPhase5) try {
 
             java.util.List<Particle> pCopy = new java.util.ArrayList<>(introParticles);
 
@@ -11944,7 +12774,7 @@ public class Renderer {
 
 
         // ===== ANIME SCANLINE OVERLAY =====
-        if (masterAlpha > 0.2f && bossIntroPhase >= 1) {
+        if (masterAlpha > 0.2f && bossIntroPhase >= 1 && !isPhase5) {
             Graphics2D slg2 = (Graphics2D) g.create();
             float scanAlpha = Math.max(0f, Math.min(1f, 0.04f * masterAlpha));
             slg2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, scanAlpha));
@@ -11958,7 +12788,7 @@ public class Renderer {
 
         // ===== CORNER BRACKETS (phases 3+) =====
 
-        if (bossIntroPhase >= 3 && barH > 30) {
+        if (bossIntroPhase >= 3 && bossIntroPhase <= 4 && barH > 30) {
 
             Graphics2D cg = (Graphics2D) g.create();
 
@@ -12022,7 +12852,7 @@ public class Renderer {
 
         // ===== DRAMATIC VIGNETTE =====
 
-        if (masterAlpha > 0.1f) {
+        if (masterAlpha > 0.1f && !isPhase5) {
 
             RadialGradientPaint vig = new RadialGradientPaint(
 
@@ -12044,21 +12874,60 @@ public class Renderer {
 
 
 
-            // Subtle edge color tint - blue left, red right
-            if (bossIntroPhase >= 1 && bossIntroPhase <= 4) {
-                float edgeAlpha = Math.max(0f, Math.min(1f, 0.08f * masterAlpha));
-                // Blue edge (player side)
+            // Phase-based color temperature overlay
+            if (bossIntroPhase >= 1) {
+                Color tempColor;
+                float tempAlpha;
+                if (bossIntroPhase <= 2) {
+                    tempColor = new Color(30, 80, 180);
+                    tempAlpha = 0.035f;
+                } else if (bossIntroPhase == 3) {
+                    tempColor = new Color(180, 60, 20);
+                    tempAlpha = 0.035f;
+                } else if (bossIntroPhase == 4) {
+                    tempColor = new Color(200, 170, 80);
+                    tempAlpha = 0.025f;
+                } else {
+                    tempColor = new Color(80, 80, 100);
+                    tempAlpha = 0.02f;
+                }
+                tempAlpha = Math.max(0f, Math.min(1f, tempAlpha * masterAlpha));
+                g.setColor(new Color(tempColor.getRed(), tempColor.getGreen(), tempColor.getBlue(),
+                    clampA((int)(255 * tempAlpha))));
+                g.fillRect(-M, -M, width + M * 2, height + M * 2);
+            }
+
+            // Edge color tint - blue left, red right (wider reach)
+            if (bossIntroPhase >= 1 && bossIntroPhase <= 4 && !isPhase5) {
+                float edgeAlpha = Math.max(0f, Math.min(1f, 0.1f * masterAlpha));
                 GradientPaint leftEdge = new GradientPaint(
-                    -M, cy, new Color(60, 140, 255, clampA((int)(40 * edgeAlpha * 255))),
-                    width / 4, cy, new Color(0, 0, 0, 0));
+                    -M, cy, new Color(50, 130, 255, clampA((int)(50 * edgeAlpha * 255))),
+                    width / 3, cy, new Color(0, 0, 0, 0));
                 g.setPaint(leftEdge);
-                g.fillRect(-M, -M, width / 4 + M, height + M * 2);
-                // Red edge (boss side)
+                g.fillRect(-M, -M, width / 3 + M, height + M * 2);
                 GradientPaint rightEdge = new GradientPaint(
-                    width * 3 / 4, cy, new Color(0, 0, 0, 0),
-                    width + M, cy, new Color(255, 100, 30, clampA((int)(35 * edgeAlpha * 255))));
+                    width * 2 / 3, cy, new Color(0, 0, 0, 0),
+                    width + M, cy, new Color(255, 90, 20, clampA((int)(45 * edgeAlpha * 255))));
                 g.setPaint(rightEdge);
-                g.fillRect(width * 3 / 4, -M, width / 4 + M, height + M * 2);
+                g.fillRect(width * 2 / 3, -M, width / 3 + M, height + M * 2);
+            }
+
+            // Film grain overlay (cinematic noise)
+            if (!isPhase5) {
+                Graphics2D grg = (Graphics2D) g.create();
+                grg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                    Math.max(0f, Math.min(1f, 0.025f * masterAlpha))));
+                int seed = (int)(time * 60);
+                for (int gy = 0; gy < height; gy += 12) {
+                    for (int gx = 0; gx < width; gx += 12) {
+                        int hash = ((gx * 73 + gy * 137 + seed * 41) ^ 0x5F3759DF) & 0xFF;
+                        if (hash > 220) {
+                            grg.setColor(hash > 240 ? Color.WHITE : Color.BLACK);
+                            grg.fillRect(gx, gy, 2, 2);
+                        }
+                    }
+                }
+                grg.dispose();
             }
 
         }

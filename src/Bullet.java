@@ -93,7 +93,7 @@ public class Bullet {
         this.hasGrazed = false;
         this.fadeOutTimer = -1;
         this.markedForFadeOut = false;
-        loadSprites();
+        loadSprites(null);
     }
     
     public static void setBulletSizeMultiplier(double multiplier) {
@@ -107,40 +107,63 @@ public class Bullet {
      * Preload all bullet sprites (called from background loading thread).
      */
     public static void preloadSprites() {
-        loadSprites();
+        preloadSprites(null);
+    }
+    
+    public static void preloadSprites(java.util.function.IntConsumer progressCallback) {
+        loadSprites(progressCallback);
     }
 
-    private static void loadSprites() {
+
+    private static void loadSprites(java.util.function.IntConsumer progressCallback) {
         if (spritesLoaded) return;
         try {
+            int totalAssets = 16;
+            int[] loaded = {0};
             // Load all bullet sprites
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 1 Purple.png", 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 2 Purple.png", 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 1.png", 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 2.png", 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 3.png", 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 1.png", 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 2.png", 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Red 1.png", 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load explosive projectiles (bombs, grenades, nuke)
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 1.png", 
                                         "sprites/Missle Man Assets/Projectiles/Bomb 1 Shadow.png", 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 2.png",
                                         "sprites/Missle Man Assets/Projectiles/Bomb 2 Shadow.png", 9);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 1.png",
                                         "sprites/Missle Man Assets/Projectiles/Grenade 1 Shadow.png", 10);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 2.png",
                                         "sprites/Missle Man Assets/Projectiles/Grenade 2 Shadow.png", 11);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 3.png",
                                         "sprites/Missle Man Assets/Projectiles/Grenade 3 Shadow.png", 12);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Mini Nuke.png",
                                         "sprites/Missle Man Assets/Projectiles/Mini Nuke Shadow.png", 13);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 1.png", 14);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 2.png", 15);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             spritesLoaded = true;
         } catch (IOException e) {

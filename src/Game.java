@@ -410,6 +410,7 @@ public class Game extends JPanel implements Runnable {
     private int savedRealLevel = 1; // Save the actual game level before entering showcase
     private ActiveItem savedEquippedItem = null; // Save the equipped item before entering showcase
     private int showcaseTab = 0; // 0 = Attacks, 1 = Items
+    private boolean debugShowcaseUnlockAll = false; // Unlock all showcase content for viewing
     
     // Active Items showcase data: {itemTypeName, level, name, description}
     // Ordered by power level (worst to best)
@@ -965,9 +966,15 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 1; 
                 }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
-                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
-                        // Active item selection (now at index 0)
-                        gameData.equipPreviousItem();
+                    if (selectedStatItem == 0) {
+                        // Browse active items (all 9 including locked)
+                        int idx = renderer.getStatsActiveItemDisplayIndex();
+                        if (idx > 0) {
+                            idx--;
+                            renderer.setStatsActiveItemDisplayIndex(idx);
+                            // Auto-equip if unlocked
+                            autoEquipStatsItem(idx);
+                        }
                         screenShakeIntensity = 2;
                     } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
                         // All upgrades are now in PassiveUpgradeManager (index 1+)
@@ -984,9 +991,15 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    if (selectedStatItem == 0 && gameData.hasActiveItems()) {
-                        // Active item selection (now at index 0)
-                        gameData.equipNextItem();
+                    if (selectedStatItem == 0) {
+                        // Browse active items (all 9 including locked)
+                        int idx = renderer.getStatsActiveItemDisplayIndex();
+                        if (idx < 8) {
+                            idx++;
+                            renderer.setStatsActiveItemDisplayIndex(idx);
+                            // Auto-equip if unlocked
+                            autoEquipStatsItem(idx);
+                        }
                         screenShakeIntensity = 2;
                     } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
                         // All upgrades are now in PassiveUpgradeManager (index 1+)
@@ -1183,7 +1196,7 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_A || key == KeyEvent.VK_LEFT) {
-                    // Move left within row OR scroll carousel if on arrows
+                    // Move left within row OR scroll carousel immediately
                     if (showcaseHoveredButton == 1) {
                         // On Items tab -> switch to Attacks tab immediately
                         showcaseHoveredButton = 0;
@@ -1194,24 +1207,18 @@ public class Game extends JPanel implements Runnable {
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                     } else if (showcaseHoveredButton == 0) {
                         // Already on Attacks tab, do nothing
-                    } else if (showcaseHoveredButton == 3) {
-                        showcaseHoveredButton = 2; // Right arrow -> Left arrow
-                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    } else if (showcaseHoveredButton == 2) {
-                        // On left arrow - scroll to previous item (no loop)
+                    } else {
+                        // Anywhere else (arrows, no selection, center) - scroll to previous item
                         if (debugShowcaseIndex > 0) {
                             debugShowcaseIndex--;
                             showcaseCarouselOffset = -1.0; // Start animation from left
                             updateShowcaseInfo();
                             soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         }
-                    } else if (showcaseHoveredButton == -1) {
-                        showcaseHoveredButton = 2; // Enter at left arrow
-                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     }
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_D || key == KeyEvent.VK_RIGHT) {
-                    // Move right within row OR scroll carousel if on arrows
+                    // Move right within row OR scroll carousel immediately
                     int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
                     if (showcaseHoveredButton == 0) {
                         // On Attacks tab -> switch to Items tab immediately
@@ -1224,49 +1231,21 @@ public class Game extends JPanel implements Runnable {
                         maxIndex = ITEM_SHOWCASE.length; // Update maxIndex for new tab
                     } else if (showcaseHoveredButton == 1) {
                         // Already on Items tab, do nothing
-                    } else if (showcaseHoveredButton == 2) {
-                        showcaseHoveredButton = 3; // Left arrow -> Right arrow
-                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    } else if (showcaseHoveredButton == 3) {
-                        // On right arrow - scroll to next item (no loop)
+                    } else {
+                        // Anywhere else (arrows, no selection, center) - scroll to next item
                         if (debugShowcaseIndex < maxIndex - 1) {
                             debugShowcaseIndex++;
                             showcaseCarouselOffset = 1.0; // Start animation from right
                             updateShowcaseInfo();
                             soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         }
-                    } else if (showcaseHoveredButton == -1) {
-                        showcaseHoveredButton = 3; // Enter at right arrow
-                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     }
                     screenShakeIntensity = 1;
                 } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                    // Activate selected element or start test
-                    if (showcaseHoveredButton == 2) {
-                        // Left arrow - previous item (no loop)
-                        if (debugShowcaseIndex > 0) {
-                            debugShowcaseIndex--;
-                            showcaseCarouselOffset = -1.0;
-                            updateShowcaseInfo();
-                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                            screenShakeIntensity = 1;
-                        }
-                    } else if (showcaseHoveredButton == 3) {
-                        // Right arrow - next item (no loop)
-                        int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
-                        if (debugShowcaseIndex < maxIndex - 1) {
-                            debugShowcaseIndex++;
-                            showcaseCarouselOffset = 1.0;
-                            updateShowcaseInfo();
-                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                            screenShakeIntensity = 1;
-                        }
-                    } else {
-                        // Anywhere else (tabs, no selection) - start test with current card
-                        startShowcaseTest();
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        screenShakeIntensity = 3;
-                    }
+                    // Space/Enter always starts the test with the current card
+                    startShowcaseTest();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
                 } else if (key == KeyEvent.VK_TAB) {
                     // Quick tab switch
                     showcaseTab = (showcaseTab + 1) % 2;
@@ -1364,7 +1343,8 @@ public class Game extends JPanel implements Runnable {
                         selectedPauseItem = Math.max(0, selectedPauseItem - 1);
                         screenShakeIntensity = 1;
                     } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                        selectedPauseItem = Math.min(3, selectedPauseItem + 1);
+                        int maxPauseIndex = renderer.getActivePauseButtonCount() - 1;
+                        selectedPauseItem = Math.min(maxPauseIndex, selectedPauseItem + 1);
                         screenShakeIntensity = 1;
                     } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                         screenShakeIntensity = 3;
@@ -1386,6 +1366,7 @@ public class Game extends JPanel implements Runnable {
                         soundManager.playSound(SoundManager.Sound.PAUSE);
                         isPaused = true;
                         selectedPauseItem = 0;
+                        renderer.configurePauseMenu(debugShowcaseInGameplay);
                         screenShakeIntensity = 3;
                     } else if (key == KeyEvent.VK_R) {
                         // Reset: in showcase mode just clear bullets and reset boss, otherwise restart level
@@ -1733,6 +1714,12 @@ public class Game extends JPanel implements Runnable {
                     // Unlock risk contracts
                     gameData.unlockContracts();
                     screenShakeIntensity = 5;
+                }
+                else if (key == KeyEvent.VK_8) {
+                    // Toggle unlock all showcase content
+                    debugShowcaseUnlockAll = !debugShowcaseUnlockAll;
+                    screenShakeIntensity = 5;
+                    System.out.println("DEBUG: Showcase unlock all = " + debugShowcaseUnlockAll);
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
                     transitionToState(GameState.MENU);
@@ -2090,7 +2077,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
             UIButton[] buttons = renderer.getPauseButtons();
-            for (int i = 0; i < buttons.length; i++) {
+            int activeCount = renderer.getActivePauseButtonCount();
+            for (int i = 0; i < activeCount; i++) {
                 if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                     if (selectedPauseItem != i) {
                         selectedPauseItem = i;
@@ -2394,7 +2382,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
             UIButton[] buttons = renderer.getPauseButtons();
-            for (int i = 0; i < buttons.length; i++) {
+            int activeCount = renderer.getActivePauseButtonCount();
+            for (int i = 0; i < activeCount; i++) {
                 if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                     selectedPauseItem = i;
                     activatePauseMenuItem(selectedPauseItem);
@@ -2696,12 +2685,20 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 2;
                     }
                 }
-                // Check center card click (start test)
+                // Check center card click - only the image area starts the test (not the whole card)
                 else if (mouseX >= cCardX && mouseX <= cCardX + centerCardWidth &&
                          mouseY >= cCardY && mouseY <= cCardY + centerCardHeight) {
-                    startShowcaseTest();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 5;
+                    // Only start if clicking in the middle portion of the card (image area)
+                    int startBtnY = cCardY + centerCardHeight - 80;
+                    int startBtnH = 50;
+                    int startBtnW = 200;
+                    int startBtnX = centerX - startBtnW / 2;
+                    if (mouseX >= startBtnX && mouseX <= startBtnX + startBtnW &&
+                        mouseY >= startBtnY && mouseY <= startBtnY + startBtnH) {
+                        startShowcaseTest();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 5;
+                    }
                 }
                 // Check left arrow box click
                 else if (mouseX <= 95 && mouseY >= HEIGHT / 2 - 60 && mouseY <= HEIGHT / 2 + 60) {
@@ -2816,44 +2813,86 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void activatePauseMenuItem(int index) {
-        switch (index) {
-            case 0: // Resume
-                soundManager.playSound(SoundManager.Sound.UNPAUSE);
-                isPaused = false;
-                // Start countdown based on mode: 2 = Always (both pause and resume)
-                if (gameData.getCountdownMode() == 2) {
-                    unpauseCountdownActive = true;
-                    unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
-                    System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
-                }
-                break;
-            case 1: // Settings
-                soundManager.playSound(SoundManager.Sound.MENU_OPEN);
-                settingsEnteredFrom = GameState.PLAYING; // Track that we came from pause menu
-                gameState = GameState.SETTINGS;
-                break;
-            case 2: // Restart
-                isPaused = false;
-                hasSavedGame = false; // Clear saved game when restarting
-                startGame();
-                break;
-            case 3: // Main Menu
-                System.out.println("DEBUG: Going to main menu from pause - saving game state");
-                isPaused = false;
-                // Don't save game state in showcase mode - it shouldn't affect campaign
-                if (!debugShowcaseMode) {
-                    saveGameState(); // Save the game state before going to menu
-                } else {
-                    // Restore the real level and equipped item when exiting showcase via pause menu
+        if (renderer.isShowcasePauseMode()) {
+            // Showcase pause menu: Settings, Restart, Main Menu, Back to Showcase
+            switch (index) {
+                case 0: // Settings
+                    soundManager.playSound(SoundManager.Sound.MENU_OPEN);
+                    settingsEnteredFrom = GameState.PLAYING;
+                    gameState = GameState.SETTINGS;
+                    break;
+                case 1: // Restart
+                    isPaused = false;
+                    resetShowcase();
+                    break;
+                case 2: // Main Menu
+                    System.out.println("DEBUG SHOWCASE: Going to main menu from showcase pause");
+                    isPaused = false;
                     gameData.setCurrentLevel(savedRealLevel);
-                    gameData.restoreEquippedItem(savedEquippedItem); // Restore original item
+                    gameData.restoreEquippedItem(savedEquippedItem);
                     debugShowcaseMode = false;
                     debugShowcaseInGameplay = false;
-                    System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
-                }
-                transitionToState(GameState.MENU);
-                selectedMenuItem = 0;
-                break;
+                    transitionToState(GameState.MENU);
+                    selectedMenuItem = 0;
+                    break;
+                case 3: // Back to Showcase
+                    isPaused = false;
+                    // Restore the real level and equipped item when exiting showcase
+                    gameData.setCurrentLevel(savedRealLevel);
+                    gameData.restoreEquippedItem(savedEquippedItem);
+                    debugShowcaseInGameplay = false;
+                    transitionToState(GameState.ATTACK_SHOWCASE);
+                    System.out.println("DEBUG SHOWCASE: Back to showcase selection - restored level to " + savedRealLevel);
+                    break;
+            }
+        } else {
+            // Normal pause menu: Resume, Settings, Main Menu
+            switch (index) {
+                case 0: // Resume
+                    soundManager.playSound(SoundManager.Sound.UNPAUSE);
+                    isPaused = false;
+                    if (gameData.getCountdownMode() == 2) {
+                        unpauseCountdownActive = true;
+                        unpauseCountdownTimer = UNPAUSE_COUNTDOWN_DURATION;
+                        System.out.println("DEBUG: Starting unpause countdown - timer: " + unpauseCountdownTimer);
+                    }
+                    break;
+                case 1: // Settings
+                    soundManager.playSound(SoundManager.Sound.MENU_OPEN);
+                    settingsEnteredFrom = GameState.PLAYING;
+                    gameState = GameState.SETTINGS;
+                    break;
+                case 2: // Main Menu
+                    System.out.println("DEBUG: Going to main menu from pause - saving game state");
+                    isPaused = false;
+                    if (!debugShowcaseMode) {
+                        saveGameState();
+                    } else {
+                        gameData.setCurrentLevel(savedRealLevel);
+                        gameData.restoreEquippedItem(savedEquippedItem);
+                        debugShowcaseMode = false;
+                        debugShowcaseInGameplay = false;
+                        System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
+                    }
+                    transitionToState(GameState.MENU);
+                    selectedMenuItem = 0;
+                    break;
+            }
+        }
+    }
+    
+    // Auto-equip the active item at the given display index if it's unlocked
+    private void autoEquipStatsItem(int displayIndex) {
+        ActiveItem.ItemType[] allItemTypes = {
+            ActiveItem.ItemType.LUCKY_CHARM, ActiveItem.ItemType.SHIELD, ActiveItem.ItemType.BOMBS,
+            ActiveItem.ItemType.STUN, ActiveItem.ItemType.TYPE_PURGE, ActiveItem.ItemType.TIME_SLOW,
+            ActiveItem.ItemType.DASH, ActiveItem.ItemType.IMPULSE, ActiveItem.ItemType.FROST_BEAM
+        };
+        if (displayIndex >= 0 && displayIndex < allItemTypes.length) {
+            ActiveItem.ItemType itemType = allItemTypes[displayIndex];
+            if (gameData.getUnlockedItems().contains(itemType)) {
+                gameData.equipItemByType(itemType);
+            }
         }
     }
     
@@ -3407,6 +3446,16 @@ public class Game extends JPanel implements Runnable {
      * Start the gameplay test for the currently selected attack or item
      */
     private void startShowcaseTest() {
+        // Check if this item is locked
+        String levelStr = (showcaseTab == 0) ? ATTACK_INTROS[debugShowcaseIndex][1] : ITEM_SHOWCASE[debugShowcaseIndex][1];
+        int checkLevel = Integer.parseInt(levelStr);
+        if (!debugShowcaseUnlockAll && checkLevel > gameData.getMaxUnlockedLevel()) {
+            // Item is locked, can't start
+            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
+            screenShakeIntensity = 3;
+            return;
+        }
+        
         debugShowcaseInGameplay = true;
         debugShowcaseTimer = 0;
         
@@ -5075,6 +5124,23 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // Check if player touches boss invulnerability shield (instant death)
+        if (currentBoss != null && player != null && !bossVulnerable && !bossDeathAnimation 
+                && invulnerabilityTimer > 0 && !playerInvincible && !resurrectionAnimation && !debugShowcaseMode) {
+            double sdx = player.getX() - currentBoss.getX();
+            double sdy = player.getY() - currentBoss.getY();
+            double distToShield = Math.sqrt(sdx * sdx + sdy * sdy);
+            double shieldRadius = currentBoss.getSize() * 1.4; // Must match Renderer shield radius
+            double shieldThickness = 25; // Detection band around the shield ring
+            
+            if (distToShield >= (shieldRadius - shieldThickness) && distToShield <= (shieldRadius + shieldThickness)) {
+                // Player touched the shield - instant death
+                screenShakeIntensity = Math.max(screenShakeIntensity, 12);
+                soundManager.playSound(SoundManager.Sound.ELECTRIC_ZAP);
+                handlePlayerDeath();
+            }
+        }
+        
         // Check if player hit boss (only vulnerable during special window)
         // In showcase mode, boss cannot be damaged
         if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation && !debugShowcaseMode) {
@@ -6713,26 +6779,43 @@ public class Game extends JPanel implements Runnable {
     private void startAssetLoading() {
         Thread loadingThread = new Thread(() -> {
             try {
-                targetLoadingProgress = 10;
+                targetLoadingProgress = 2;
                 repaint();
                 
-                // Preload sounds
-                soundManager.preloadSounds();
+                // Preload sounds (0% to 30%) - reports progress every few sounds
+                soundManager.preloadSounds((int soundPercent) -> {
+                    targetLoadingProgress = (int)(soundPercent * 0.30);
+                    repaint();
+                });
                 targetLoadingProgress = 30;
                 repaint();
                 
                 // Preload game sprites (Boss, Bullet, Player) on background thread
                 // so they are ready before first level starts
-                Boss.preloadSprites();
-                targetLoadingProgress = 50;
+                // Preload boss sprites (30% to 45%) - reports per-sprite progress
+                Boss.preloadSprites((int bossPercent) -> {
+                    targetLoadingProgress = 30 + (int)(bossPercent * 0.15);
+                    repaint();
+                });
+                targetLoadingProgress = 45;
                 repaint();
-                Bullet.preloadSprites();
+                // Preload bullet sprites (45% to 55%) - reports per-sprite progress
+                Bullet.preloadSprites((int bulletPercent) -> {
+                    targetLoadingProgress = 45 + (int)(bulletPercent * 0.10);
+                    repaint();
+                });
+                targetLoadingProgress = 55;
+                repaint();
                 Player.preloadSprites();
-                targetLoadingProgress = 60;
+                targetLoadingProgress = 65;
                 repaint();
                 
                 // Create renderer (this loads backgrounds and overlay)
-                renderer = new Renderer(gameData, shopManager, passiveUpgradeManager);
+                // Create renderer with background progress (65% to 90%)
+                renderer = new Renderer(gameData, shopManager, passiveUpgradeManager, (int bgPercent) -> {
+                    targetLoadingProgress = 65 + (int)(bgPercent * 0.25);
+                    repaint();
+                });
                 targetLoadingProgress = 90;
                 repaint();
                 
@@ -7502,6 +7585,10 @@ public class Game extends JPanel implements Runnable {
                 cardImage = loadItemShowcaseImage(itemId);
             }
             
+            // Check if this item is locked (level not yet reached)
+            int itemUnlockLevel = Integer.parseInt(itemLevel);
+            boolean isShowcaseLocked = !debugShowcaseUnlockAll && itemUnlockLevel > gameData.getMaxUnlockedLevel();
+            
             // Apply alpha for fading effect
             Composite originalComposite = g.getComposite();
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
@@ -7532,6 +7619,35 @@ public class Game extends JPanel implements Runnable {
             g.setColor(offset == 0 ? new Color(120, 170, 255, 200) : new Color(80, 100, 140, 150));
             g.setStroke(new BasicStroke(offset == 0 ? 3 : 2));
             g.drawRoundRect(cardX, cardY, cardW, cardH, 20, 20);
+            
+            if (isShowcaseLocked) {
+                // === LOCKED CARD OVERLAY ===
+                // Dark tint over card
+                g.setColor(new Color(0, 0, 0, (int)(120 * alpha)));
+                g.fillRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 18, 18);
+                
+                // Lock icon
+                int lockSize = (int)(60 * scale);
+                g.setFont(new Font("Arial", Font.BOLD, lockSize));
+                g.setColor(new Color(220, 180, 100, (int)(220 * alpha)));
+                fm = g.getFontMetrics();
+                String lockStr = "[X]";
+                int lockX = cardX + (cardW - fm.stringWidth(lockStr)) / 2;
+                int lockY = cardY + cardH / 2 - (int)(20 * scale);
+                g.drawString(lockStr, lockX, lockY);
+                
+                // "Unlocks at Level X" text
+                int unlockFontSize = (int)(18 * scale);
+                g.setFont(new Font("Arial", Font.BOLD, Math.max(10, unlockFontSize)));
+                g.setColor(new Color(240, 210, 150, (int)(200 * alpha)));
+                fm = g.getFontMetrics();
+                String unlockStr = "Unlocks at Level " + itemLevel;
+                int unlockX = cardX + (cardW - fm.stringWidth(unlockStr)) / 2;
+                g.drawString(unlockStr, unlockX, lockY + (int)(40 * scale));
+                
+                g.setComposite(originalComposite);
+                continue; // Skip normal card content
+            }
             
             // Item name at top
             int fontSize = (int)(28 * scale);
@@ -7637,6 +7753,36 @@ public class Game extends JPanel implements Runnable {
                 g.setFont(new Font("Arial", Font.BOLD, 14));
                 fm = g.getFontMetrics();
                 g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 12, cardY + cardH - 12);
+                
+                // "START" button at bottom of center card
+                int startBtnW = 200;
+                int startBtnH = 50;
+                int startBtnX = cardCenterX - startBtnW / 2;
+                int startBtnY = cardY + cardH - 80;
+                boolean startHover = mouseX >= startBtnX && mouseX <= startBtnX + startBtnW &&
+                                     mouseY >= startBtnY && mouseY <= startBtnY + startBtnH;
+                float btnPulse = (float)(0.6 + 0.4 * Math.sin(time * 3));
+                if (startHover) {
+                    g.setColor(new Color(80, 200, 120, (int)(60 * btnPulse)));
+                    g.fillRoundRect(startBtnX - 4, startBtnY - 4, startBtnW + 8, startBtnH + 8, 18, 18);
+                    g.setColor(new Color(50, 180, 100));
+                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                    g.setColor(new Color(120, 255, 160));
+                    g.setStroke(new BasicStroke(2.5f));
+                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                } else {
+                    g.setColor(new Color(40, 120, 70));
+                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                    g.setColor(new Color(80, 180, 120, (int)(150 + 80 * btnPulse)));
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                }
+                g.setFont(new Font("Arial", Font.BOLD, 22));
+                g.setColor(new Color(220, 255, 230));
+                fm = g.getFontMetrics();
+                String startLabel = "START";
+                g.drawString(startLabel, startBtnX + (startBtnW - fm.stringWidth(startLabel)) / 2,
+                             startBtnY + startBtnH / 2 + fm.getAscent() / 2 - 2);
             }
             
             g.setComposite(originalComposite);

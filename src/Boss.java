@@ -95,8 +95,12 @@ public class Boss {
      * Creates a temporary Boss instance to trigger the static sprite loading.
      */
     public static void preloadSprites() {
+        preloadSprites(null);
+    }
+    
+    public static void preloadSprites(java.util.function.IntConsumer progressCallback) {
         if (!spritesLoaded) {
-            new Boss(0, 0, 1, null);
+            loadSpritesWithProgress(progressCallback);
         }
     }
 
@@ -273,7 +277,7 @@ public class Boss {
         loadSprites();
     }
     
-    private BufferedImage rotateImage180(BufferedImage img) {
+    private static BufferedImage rotateImage180(BufferedImage img) {
         int w = img.getWidth();
         int h = img.getHeight();
         BufferedImage rotated = new BufferedImage(w, h, img.getType());
@@ -285,80 +289,143 @@ public class Boss {
     }
     
     private void loadSprites() {
+        loadSpritesWithProgress(null);
+    }
+    
+    private static void loadSpritesWithProgress(java.util.function.IntConsumer progressCallback) {
         if (spritesLoaded) return;
         try {
+            int totalAssets = 58;
+            int[] loaded = {0};
             // Load mini boss planes: Planes 1-9, 11-15 (14 planes)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1.png", miniBossPlaneSprites, 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 2.png", miniBossPlaneSprites, 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 3.png", miniBossPlaneSprites, 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 4.png", miniBossPlaneSprites, 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 5.png", miniBossPlaneSprites, 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 6.png", miniBossPlaneSprites, 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 7.png", miniBossPlaneSprites, 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 8.png", miniBossPlaneSprites, 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 9.png", miniBossPlaneSprites, 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 11.png", miniBossPlaneSprites, 9);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 12.png", miniBossPlaneSprites, 10);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 13.png", miniBossPlaneSprites, 11);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 14.png", miniBossPlaneSprites, 12);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 15.png", miniBossPlaneSprites, 13);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             // Helicopters 2, 3, 4 for mini bosses
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2.png", miniBossPlaneSprites, 14);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3.png", miniBossPlaneSprites, 15);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", miniBossPlaneSprites, 16);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load mini boss shadows
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1 Shadow.png", miniBossPlaneShadows, 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 2 Shadow.png", miniBossPlaneShadows, 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 3 Shadow.png", miniBossPlaneShadows, 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 4 Shadow.png", miniBossPlaneShadows, 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 5 Shadow.png", miniBossPlaneShadows, 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 6 Shadow.png", miniBossPlaneShadows, 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 7 Shadow.png", miniBossPlaneShadows, 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 8 Shadow.png", miniBossPlaneShadows, 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 9 Shadow.png", miniBossPlaneShadows, 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 11 Shadow.png", miniBossPlaneShadows, 9);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 12 Shadow.png", miniBossPlaneShadows, 10);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 13 Shadow.png", miniBossPlaneShadows, 11);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 14 Shadow.png", miniBossPlaneShadows, 12);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 15 Shadow.png", miniBossPlaneShadows, 13);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", miniBossPlaneShadows, 14);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", miniBossPlaneShadows, 15);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", miniBossPlaneShadows, 16);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load mega boss planes: Boss Planes 1-8 (8 boss planes)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png", megaBossPlaneSprites, 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2.png", megaBossPlaneSprites, 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3.png", megaBossPlaneSprites, 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4.png", megaBossPlaneSprites, 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5.png", megaBossPlaneSprites, 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6.png", megaBossPlaneSprites, 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7.png", megaBossPlaneSprites, 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             // Helicopter 1 for mega bosses (swapped with Boss Plane 8 for level 24/27)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1.png", megaBossPlaneSprites, 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load mega boss shadows
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png", megaBossPlaneShadows, 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png", megaBossPlaneShadows, 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png", megaBossPlaneShadows, 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4 Shadow.png", megaBossPlaneShadows, 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png", megaBossPlaneShadows, 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png", megaBossPlaneShadows, 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png", megaBossPlaneShadows, 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", megaBossPlaneShadows, 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load helicopter blade sprites
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png", helicopterBlades, 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Wings.png", helicopterBlades, 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png", helicopterBlades, 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load final boss
             finalBossSprite = AssetLoader.prescaleImage(
                 rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png")), SPRITE_PRESCALE_SIZE);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             finalBossShadow = AssetLoader.prescaleImage(
                 rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss Shadow.png")), SPRITE_PRESCALE_SIZE);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             spritesLoaded = true;
         } catch (IOException e) {
@@ -370,7 +437,7 @@ public class Boss {
     // Maximum rendered size for any boss sprite (mega boss: BASE_SIZE*1.5*2 = 300)
     private static final int SPRITE_PRESCALE_SIZE = (int)(BASE_SIZE * 1.5 * 2);
 
-    private void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
+    private static void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
         try {
             array[index] = AssetLoader.prescaleImage(
                 rotateImage180(AssetLoader.loadImage(path)), SPRITE_PRESCALE_SIZE);
@@ -646,8 +713,8 @@ public class Boss {
             justChangedPhase = true;
             
             // When entering recovery phase, randomly spawn shockwave (only if boss has been hit at least once)
-            // Shockwave attack only available from level 5 onwards (or forced for debug showcase)
-            boolean shouldShockwave = !disableShockwave && (level >= 5 || forceShockwave) && 
+            // Shockwave attack only available from level 12 onwards (or forced for debug showcase)
+            boolean shouldShockwave = !disableShockwave && (level >= 12 || forceShockwave) && 
                                       (!isAssaultPhase) && 
                                       (forceShockwave || (currentHealth < maxHealth && Math.random() < 0.4));
             if (shouldShockwave && !shockwaveActive) {
@@ -737,9 +804,9 @@ public class Boss {
         // Update spiral attack sequence (spawns bullets one at a time)
         updateSpiralAttack(bullets, deltaTime);
         
-        // Beam attacks (at higher levels - starting at level 4, or forced for debug showcase)
+        // Beam attacks (at higher levels - starting at level 10, or forced for debug showcase)
         // Don't fire beams if a specific non-beam pattern is forced or if beams are disabled
-        boolean shouldFireBeams = !disableBeamAttacks && (forceBeamAttack || (level >= 4 && forcedPatternType < 0 && forcedMegaAttack < 0));
+        boolean shouldFireBeams = !disableBeamAttacks && (forceBeamAttack || (level >= 10 && forcedPatternType < 0 && forcedMegaAttack < 0));
         if (shouldFireBeams) {
             beamAttackTimer += deltaTime;
             // Use faster interval when forced for debug showcase
@@ -1355,7 +1422,7 @@ public class Boss {
         
         if (isVertical) {
             // Spawn 1-3 vertical beams depending on level
-            int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
+            int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
                 double width = 40 + level * 5; // Wider beams at higher levels
                 double position = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10);
@@ -1365,7 +1432,7 @@ public class Boss {
             }
         } else {
             // Spawn 1-3 horizontal beams depending on level
-            int numBeams = 1 + (level >= 5 ? 1 : 0) + (level >= 8 ? 1 : 0);
+            int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
                 double width = 40 + level * 5; // Wider beams at higher levels
                 double position = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10);

@@ -13,15 +13,17 @@ public class SoundManager {
     private Map<String, Long> soundCooldowns; // Track last play time for throttling
     private static final long SOUND_COOLDOWN_MS = 50; // Minimum time between same sounds
     private static final int SOUND_POOL_SIZE = 5; // Clips per pooled sound
-    private float masterVolume = 0.7f;
-    private float sfxVolume = 0.8f;
-    private float uiVolume = 0.8f;
+    private float masterVolume = 0.5f;
+    private float sfxVolume = 0.6f;
+    private float uiVolume = 0.45f;
     private float musicVolume = 0.5f;
     private boolean soundEnabled = true;
     private boolean soundsReady = false; // Track if sounds are preloaded
     private Clip ambientClip; // For looping ambient sound
     private Clip musicClip; // For looping background music (WAV only - convert MP3 to WAV)
     private String currentMusic = null; // Track which music is playing
+    private String lastPlayedSound = ""; // Track last played SFX for debug
+    private long lastPlayedTime = 0; // When it was played
     
     // Sound paths
     private static final String UI_PATH = "SFX/UI SFX/Mono/wav (SD)/";
@@ -132,7 +134,7 @@ public class SoundManager {
         
         // Game Sounds - UI Navigation and Transitions
         LEVEL_SWITCH(GAME_PATH + "Swoosh/Retro Swooosh 07.wav"),
-        MENU_OPEN(GAME_PATH + "Events/Retro Event Complex 03.wav"),
+        MENU_OPEN(GAME_PATH + "Events/Retro Event UI 13.wav"),
         PAUSE(GAME_PATH + "Events/Retro Event Echo 12.wav"),
         UNPAUSE(GAME_PATH + "Bounce Jump/Retro Jump Simple B 05.wav"),
         
@@ -195,12 +197,21 @@ public class SoundManager {
     }
     
     public void preloadSounds() {
+        preloadSounds(null);
+    }
+    
+    public void preloadSounds(java.util.function.IntConsumer progressCallback) {
         // Preload common sounds
-        for (Sound sound : Sound.values()) {
+        Sound[] allSounds = Sound.values();
+        int total = allSounds.length;
+        for (int i = 0; i < total; i++) {
             try {
-                loadSound(sound);
+                loadSound(allSounds[i]);
             } catch (Exception e) {
-                System.err.println("Failed to preload sound: " + sound.name() + " - " + e.getMessage());
+                System.err.println("Failed to preload sound: " + allSounds[i].name() + " - " + e.getMessage());
+            }
+            if (progressCallback != null && (i % 5 == 0 || i == total - 1)) {
+                progressCallback.accept((int)((i + 1) * 100.0 / total));
             }
         }
         soundsReady = true; // Mark sounds as ready
@@ -271,11 +282,13 @@ public class SoundManager {
             }
             
             if (clip != null) {
-                // For pooled clips, don't stop - just use next in pool
-                // For non-pooled, stop and restart if already playing
-                if (!shouldPool && clip.isRunning()) {
+                // Always stop and flush for a clean restart
+                // Pooled clips still overlap (up to SOUND_POOL_SIZE-1 simultaneous)
+                // since only the reused slot gets stopped on wrap-around
+                if (clip.isRunning()) {
                     clip.stop();
                 }
+                clip.flush();
                 clip.setFramePosition(0);
                 
                 // Set volume based on sound type
@@ -298,6 +311,8 @@ public class SoundManager {
                 
                 setVolume(clip, volume);
                 clip.start();
+                lastPlayedSound = sound.name();
+                lastPlayedTime = System.currentTimeMillis();
             }
         } catch (Exception e) {
             System.err.println("Error playing sound " + sound.name() + ": " + e.getMessage());
@@ -391,6 +406,8 @@ public class SoundManager {
     }
     
     public boolean isSoundEnabled() { return soundEnabled; }
+    public String getLastPlayedSound() { return lastPlayedSound; }
+    public long getLastPlayedTime() { return lastPlayedTime; }
     
     public void startAmbientSound() {
         if (!soundEnabled) return;

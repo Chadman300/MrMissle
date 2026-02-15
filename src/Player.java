@@ -321,10 +321,12 @@ public class Player {
         
         g2d.dispose();
         
-        // Draw hitbox (small red dot at center)
-        g.setColor(Color.RED);
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
-        g.fillOval((int)x - 2, (int)y - 2, 4, 4);
+        // Draw hitbox (small red dot at center) - only when hitboxes enabled
+        if (Game.enableHitboxes) {
+            g.setColor(Color.RED);
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
+            g.fillOval((int)x - 2, (int)y - 2, 4, 4);
+        }
         
         // Reset alpha
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
