@@ -70,7 +70,7 @@ public class ActiveItem {
                 name = "Pool of Loot";
                 description = "Spawn permanent money circle (35s cooldown)";
                 cooldownFrames = 2100; // 35 seconds
-                activeDuration = 300; // 5 seconds duration (item active state)
+                activeDuration = 6; // Near-instant (circle is permanent, just need brief activation)
                 currentCooldown = 0; // Starts ready to use
                 break;
             case SHIELD:

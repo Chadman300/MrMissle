@@ -540,6 +540,7 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableChromaticAberration = true;
     public static boolean enableVignette = true;
     public static boolean enableHitboxes = false; // Debug: show hitboxes for all objects
+    public static boolean showTrackName = false; // Debug: show current music track name on screen
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
     public static double cameraZoom = 1.0; // 0.75 to 1.5 - zoom level during gameplay
@@ -1059,6 +1060,7 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SETTINGS:
+                clampSettingsItem();
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
                     if (selectedSettingsItem == 0) {
                         // Move from first item to tabs
@@ -1090,6 +1092,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
                         selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
+                        clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1104,6 +1107,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
                         selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                        clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1118,6 +1122,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
                         selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
+                        clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1132,6 +1137,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
                         selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                        clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
                     } else {
@@ -1152,6 +1158,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_TAB) {
                     // Switch category and move to tabs
                     selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                    clampSettingsItem();
                     selectedSettingsItem = -1;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                     screenShakeIntensity = 2;
@@ -1811,15 +1818,25 @@ public class Game extends JPanel implements Runnable {
             return;
         }
         
-        int itemY = 200 + selectedSettingsItem * 150 - (int)settingsScroll;
+        // Calculate item position accounting for section headers in graphics tab
+        int headerOffset = 0;
+        if (selectedSettingsCategory == 0) {
+            // Graphics has section headers at indices 0, 4, 8, 11, 15
+            int[] headerIndices = {0, 4, 8, 11, 15};
+            for (int h : headerIndices) {
+                if (selectedSettingsItem >= h) headerOffset += 24;
+            }
+        }
+        
+        int itemY = 200 + selectedSettingsItem * 78 + headerOffset - (int)settingsScroll;
         
         // If item is above visible area, scroll up
         if (itemY < 180) {
-            settingsScroll = Math.max(0, 200 + selectedSettingsItem * 150 - 180);
+            settingsScroll = Math.max(0, 200 + selectedSettingsItem * 78 + headerOffset - 180);
         }
         // If item is below visible area, scroll down
         else if (itemY > HEIGHT - 250) {
-            settingsScroll = 200 + selectedSettingsItem * 150 - (HEIGHT - 400);
+            settingsScroll = 200 + selectedSettingsItem * 78 + headerOffset - (HEIGHT - 400);
         }
     }
     
@@ -2347,6 +2364,7 @@ public class Game extends JPanel implements Runnable {
                     mouseY >= tabY && mouseY <= tabY + 40) {
                     if (selectedSettingsCategory != i) {
                         selectedSettingsCategory = i;
+                        clampSettingsItem();
                         selectedSettingsItem = -1; // Select tabs when switching
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -2358,52 +2376,46 @@ public class Game extends JPanel implements Runnable {
             
             // If didn't click tab, check settings items
             if (!clickedTab) {
-                // Check for volume slider clicks (Audio category only)
-                if (selectedSettingsCategory == 1) {
-                    int boxX = (WIDTH - 700) / 2;
-                    int boxWidth = 700;
-                    int itemHeight = 120;
-                    int startY = 240 - (int)settingsScroll;
-                    
-                    // Check each volume slider (items 1-4)
-                    for (int i = 1; i <= 4; i++) {
-                        int boxY = startY + i * itemHeight - 20;
-                        int sliderX = boxX + 20;
-                        int sliderY = boxY + 40;
-                        int sliderWidth = boxWidth - 40;
-                        int sliderHeight = 10;
-                        
-                        // Check if clicking on this slider
-                        if (mouseX >= sliderX && mouseX <= sliderX + sliderWidth &&
-                            mouseY >= sliderY && mouseY <= sliderY + sliderHeight) {
-                            // Calculate new volume based on click position
-                            float newVolume = (float)(mouseX - sliderX) / sliderWidth;
-                            newVolume = Math.max(0, Math.min(1, newVolume));
-                            
-                            // Set the appropriate volume
-                            switch (i) {
-                                case 1: // Master Volume
-                                    gameData.setMasterVolume(newVolume);
-                                    soundManager.setMasterVolume(newVolume);
-                                    break;
-                                case 2: // SFX Volume
-                                    gameData.setSfxVolume(newVolume);
-                                    soundManager.setSfxVolume(newVolume);
-                                    break;
-                                case 3: // UI Volume
-                                    gameData.setUiVolume(newVolume);
-                                    soundManager.setUiVolume(newVolume);
-                                    break;
-                                case 4: // Music Volume
-                                    gameData.setMusicVolume(newVolume);
-                                    soundManager.setMusicVolume(newVolume);
-                                    break;
+                // Check for pill selector clicks (Graphics category)
+                if (selectedSettingsCategory == 0) {
+                    UIButton[] buttons = renderer.getSettingsButtons();
+                    for (int i = 0; i < buttons.length; i++) {
+                        if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                            int pillIdx = renderer.getPillClickIndex(i, mouseX, mouseY);
+                            if (pillIdx >= 0) {
+                                selectedSettingsItem = i;
+                                setGraphicsPillValue(i, pillIdx);
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                                screenShakeIntensity = 2;
+                                return;
                             }
-                            
-                            selectedSettingsItem = i;
-                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                            screenShakeIntensity = 1;
-                            return; // Exit after handling slider click
+                            // Check +/- button clicks
+                            int btnClick = renderer.getSliderButtonClick(i, mouseX, mouseY);
+                            if (btnClick != 0) {
+                                selectedSettingsItem = i;
+                                adjustSetting(i, btnClick);
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                                screenShakeIntensity = 1;
+                                return;
+                            }
+                            break;
+                        }
+                    }
+                }
+                
+                // Check for volume slider +/- button clicks (Audio category)
+                if (selectedSettingsCategory == 1) {
+                    UIButton[] buttons = renderer.getSettingsButtons();
+                    for (int i = 1; i <= 4; i++) {
+                        if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                            int btnClick = renderer.getSliderButtonClick(i, mouseX, mouseY);
+                            if (btnClick != 0) {
+                                selectedSettingsItem = i;
+                                adjustSetting(i, btnClick);
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                                screenShakeIntensity = 1;
+                                return;
+                            }
                         }
                     }
                 }
@@ -3168,15 +3180,14 @@ public class Game extends JPanel implements Runnable {
         soundManager.startAmbientSound();
         
         // Resume music
-        int[] themes = {1, 5, 6, 7, 8};
-        int theme = themes[(int)(Math.random() * themes.length)];
-        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+        soundManager.playMusic(getRandomBattleMusicPath());
     }
     
     /**
      * Restore game state from serialized ResumeState (cross-session resume)
      * Creates new game objects from saved primitive data
      */
+
     private void restoreFromResumeState() {
         ResumeState rs = savedResumeState;
         
@@ -3246,9 +3257,7 @@ public class Game extends JPanel implements Runnable {
         
         // Start ambient background sound and music
         soundManager.startAmbientSound();
-        int[] themes = {1, 5, 6, 7, 8};
-        int theme = themes[(int)(Math.random() * themes.length)];
-        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+        soundManager.playMusic(getRandomBattleMusicPath());
         
         System.out.println("DEBUG: Cross-session resume complete - Level " + rs.level + 
             ", Boss HP: " + (int)(rs.bossHealth * 100) + "%, Bullets: " + bullets.size());
@@ -3486,9 +3495,25 @@ public class Game extends JPanel implements Runnable {
      */
     private void startShowcaseTest() {
         // Check if this item is locked
-        String levelStr = (showcaseTab == 0) ? ATTACK_INTROS[debugShowcaseIndex][1] : ITEM_SHOWCASE[debugShowcaseIndex][1];
-        int checkLevel = Integer.parseInt(levelStr);
-        if (!debugShowcaseUnlockAll && checkLevel > gameData.getMaxUnlockedLevel()) {
+        boolean testLocked;
+        if (debugShowcaseUnlockAll) {
+            testLocked = false;
+        } else if (showcaseTab == 1) {
+            // For items tab, check against actual unlocked items list
+            String itemTypeId = ITEM_SHOWCASE[debugShowcaseIndex][0];
+            try {
+                ActiveItem.ItemType checkType = ActiveItem.ItemType.valueOf(itemTypeId);
+                testLocked = !gameData.getUnlockedItems().contains(checkType);
+            } catch (Exception e) {
+                testLocked = true;
+            }
+        } else {
+            // For attacks tab, check against max unlocked level
+            String levelStr = ATTACK_INTROS[debugShowcaseIndex][1];
+            int checkLevel = Integer.parseInt(levelStr);
+            testLocked = checkLevel > gameData.getMaxUnlockedLevel();
+        }
+        if (testLocked) {
             // Item is locked, can't start
             soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
             screenShakeIntensity = 3;
@@ -3779,9 +3804,7 @@ public class Game extends JPanel implements Runnable {
         soundManager.startAmbientSound();
         
         // Start boss fight music
-        int[] themes = {1, 5, 6, 7, 8};
-        int theme = themes[(int)(Math.random() * themes.length)];
-        soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+        soundManager.playMusic(getRandomBattleMusicPath());
         
         invulnerabilityTimer = 300; // 5 seconds of immunity at boss start
         bossHitCount = 0;
@@ -4537,7 +4560,7 @@ public class Game extends JPanel implements Runnable {
             if (wasItemActive && !isActiveNow && equippedItem.getActiveDuration() > 0) {
                 // Item effect just finished - trigger flash effect
                 itemCompleteFlashTimer = 15;
-                soundManager.playSound(SoundManager.Sound.ITEM_END);
+                soundManager.playSound(SoundManager.Sound.ITEM_END, 0.4f);
                 
                 // Start frost beam retraction animation
                 if (equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
@@ -5607,9 +5630,16 @@ public class Game extends JPanel implements Runnable {
                     // We'll show the contract animation in the WIN state
                 }
                 
-                if (currentLevel % 3 == 0 && !gameData.getDefeatedBosses()[currentLevel - 1]) {
-                    // Unlock item before transitioning
-                    gameData.unlockNextItem();
+                // Use max unlocked level to determine item unlocks (not current level)
+                int maxLevel = Math.max(gameData.getMaxUnlockedLevel(), currentLevel);
+                int expectedItems = maxLevel / 3; // Items unlock every 3 levels
+                int currentItemCount = gameData.getUnlockedItems().size();
+                if (expectedItems > currentItemCount) {
+                    // Unlock all missing items up to the max level
+                    int toUnlock = expectedItems - currentItemCount;
+                    for (int u = 0; u < toUnlock; u++) {
+                        gameData.unlockNextItem();
+                    }
                     // Get the newly unlocked item for display
                     java.util.List<ActiveItem.ItemType> unlockedItems = gameData.getUnlockedItems();
                     if (!unlockedItems.isEmpty()) {
@@ -5618,7 +5648,7 @@ public class Game extends JPanel implements Runnable {
                         unlockedItemDescription = newItem.getDescription(); // Store description
                     }
                     // Equip first item if this is the first unlock
-                    if (unlockedItems.size() == 1) {
+                    if (currentItemCount == 0 && unlockedItems.size() >= 1) {
                         System.out.println("DEBUG: First item unlocked, auto-equipping");
                         gameData.equipItem(0);
                         showEquipPrompt = false;
@@ -6363,6 +6393,23 @@ public class Game extends JPanel implements Runnable {
         if (showAutoSaveIndicator) {
             drawAutoSaveIndicator(g2d, WIDTH, HEIGHT);
         }
+        
+        // Draw current track name overlay (debug)
+        if (showTrackName) {
+            String trackName = soundManager.getCurrentMusicName();
+            if (trackName != null) {
+                g2d.setFont(new Font("Monospaced", Font.PLAIN, 11));
+                FontMetrics fm = g2d.getFontMetrics();
+                String label = "Now Playing: " + trackName;
+                int textW = fm.stringWidth(label);
+                int px = WIDTH - textW - 12;
+                int py = 18;
+                g2d.setColor(new Color(0, 0, 0, 140));
+                g2d.fillRoundRect(px - 6, py - 12, textW + 12, 16, 6, 6);
+                g2d.setColor(new Color(180, 255, 180));
+                g2d.drawString(label, px, py);
+            }
+        }
     }
     
     private void drawState(Graphics2D g2d, GameState state) {
@@ -6488,17 +6535,89 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    // Chill menu tracks (light - first half of levels unlocked, 1-14)
+    private static final String[] CHILL_MENU_TRACKS = {
+        "SFX/Music Tracks/Main/Burning Grounds.wav",
+        "SFX/Music Tracks/Main/Chilling Outside.wav",
+        "SFX/Music Tracks/Main/Made to Build.wav",
+        "SFX/Music Tracks/Main/Planet Hell.wav",
+        "SFX/Music Tracks/Main/Prepare to Fight.wav"
+    };
+    
+    // Intense menu tracks (heavy - second half of levels unlocked, 15-28)
+    private static final String[] HEAVY_MENU_TRACKS = {
+        "SFX/Music Tracks/Main/Planet Hell.wav",
+        "SFX/Music Tracks/Main/Prepare to Fight.wav",
+        "SFX/Music Tracks/Main/Rock Battle Menu.wav",
+        "SFX/Music Tracks/Main/Rock Factory.wav",
+        "SFX/Music Tracks/Main/Rock Combat Theme.wav"
+    };
+    
+    // Boss fight tracks (gameplay)
+    private static final String[] BOSS_TRACKS = {
+        "SFX/Music Tracks/Short/Burning Grounds Short Speed Increase.wav",
+        "SFX/Music Tracks/Short/Chilling Outside Short Speed Increase.wav",
+        "SFX/Music Tracks/Main/Heavy Rock Menu Theme.wav",
+        "SFX/Music Tracks/Main/Rock Battle Theme.wav",
+        "SFX/Music Tracks/Main/Conflict.wav",
+        "SFX/Music Tracks/Main/Fantasy Rock Night.wav",
+        "SFX/Music Tracks/Main/Hell and Demons.wav",
+        "SFX/Music Tracks/Main/Rock Synth.wav",
+        "SFX/Music Tracks/Main/Synthwave Metal.wav",
+        "SFX/Music Tracks/Main/Time to Fight.wav",
+        "SFX/Music Tracks/Main/Under Attack.wav"
+    };
+    
+    // Helper method to get menu music path based on level progression
+    private String getMenuMusicPath() {
+        // Chill menu music for first half of levels (1-14), intense for second half (15-28)
+        if (gameData.getMaxUnlockedLevel() <= 14) {
+            return CHILL_MENU_TRACKS[(int)(Math.random() * CHILL_MENU_TRACKS.length)];
+        } else {
+            return HEAVY_MENU_TRACKS[(int)(Math.random() * HEAVY_MENU_TRACKS.length)];
+        }
+    }
+    
+    // Helper method to get a random boss fight music path
+    private String getRandomBattleMusicPath() {
+        return BOSS_TRACKS[(int)(Math.random() * BOSS_TRACKS.length)];
+    }
+    
+    // Check if a given music path is a menu track (from either chill or heavy pool)
+    private boolean isMenuTrack(String path) {
+        if (path == null) return false;
+        String wavPath = path.replace(".mp3", ".wav");
+        for (String track : CHILL_MENU_TRACKS) {
+            if (track.replace(".mp3", ".wav").equals(wavPath)) return true;
+        }
+        for (String track : HEAVY_MENU_TRACKS) {
+            if (track.replace(".mp3", ".wav").equals(wavPath)) return true;
+        }
+        return false;
+    }
+    
+    // Check if a state is a "menu-like" state where menu music should play
+    private boolean isMenuState(GameState state) {
+        return state == GameState.MENU || state == GameState.LEVEL_SELECT ||
+               state == GameState.SHOP || state == GameState.STATS ||
+               state == GameState.ACHIEVEMENTS || state == GameState.INFO ||
+               state == GameState.SETTINGS || state == GameState.SAVE_SELECT ||
+               state == GameState.DEBUG || state == GameState.LEVEL_CONFIRM ||
+               state == GameState.ATTACK_SHOWCASE || state == GameState.ATTACK_INTRO;
+    }
+    
     // Helper method to transition to a new state
     private void transitionToState(GameState newState) {
         if (gameState != newState) {
             // Handle music transitions
-            if (newState == GameState.MENU) {
-                soundManager.playMusic("SFX/Music Tracks/Main menu theme.mp3");
+            if (isMenuState(newState)) {
+                // Only start menu music if not already playing a menu track
+                String currentTrack = soundManager.getCurrentMusic();
+                if (!isMenuTrack(currentTrack)) {
+                    soundManager.playMusic(getMenuMusicPath());
+                }
             } else if (newState == GameState.PLAYING) {
-                // Pick random boss fight theme (1, 5, 6, 7, 8)
-                int[] themes = {1, 5, 6, 7, 8};
-                int theme = themes[(int)(Math.random() * themes.length)];
-                soundManager.playMusic("SFX/Music Tracks/Boss Fight Theme (" + theme + ").mp3");
+                soundManager.playMusic(getRandomBattleMusicPath());
             }
             
             // Initialize level select scroll position when entering
@@ -6582,7 +6701,7 @@ public class Game extends JPanel implements Runnable {
         // Category 0: Graphics (16 settings)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
-        // Category 3: Debug (1 setting)
+        // Category 3: Debug (2 settings)
         // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
@@ -6621,6 +6740,8 @@ public class Game extends JPanel implements Runnable {
             // Debug settings
             if (settingIndex == 0) {
                 enableHitboxes = !enableHitboxes;
+            } else if (settingIndex == 1) {
+                showTrackName = !showTrackName;
             }
         } else if (selectedSettingsCategory == 4) {
             // Controls settings
@@ -6733,6 +6854,9 @@ public class Game extends JPanel implements Runnable {
             if (settingIndex == 0) { // Show Hitboxes (toggle)
                 enableHitboxes = !enableHitboxes;
                 return true;
+            } else if (settingIndex == 1) { // Show Track Name (toggle)
+                showTrackName = !showTrackName;
+                return true;
             }
         } else if (selectedSettingsCategory == 4) {
             // Controls settings
@@ -6753,13 +6877,50 @@ public class Game extends JPanel implements Runnable {
         return false;
     }
     
+    /** Set a graphics setting directly by pill option index */
+    private void setGraphicsPillValue(int settingIndex, int pillIndex) {
+        switch (settingIndex) {
+            case 0: // Fullscreen: 0=Windowed, 1=Fullscreen
+                boolean wantFull = pillIndex == 1;
+                if (wantFull != isFullscreen) toggleFullscreen();
+                break;
+            case 1: // Resolution
+                resolutionPreset = Math.max(0, Math.min(5, pillIndex));
+                break;
+            case 3: // FPS Limit
+                fpsLimit = Math.max(0, Math.min(4, pillIndex));
+                updateFPSLimit();
+                break;
+            case 5: // Shadow Quality
+                shadowQuality = Math.max(0, Math.min(3, pillIndex));
+                enableShadows = shadowQuality > 0;
+                break;
+            case 8: // Background Mode
+                backgroundMode = Math.max(0, Math.min(2, pillIndex));
+                break;
+            case 10: // Gradient Quality
+                gradientQuality = Math.max(0, Math.min(2, pillIndex));
+                break;
+        }
+    }
+    
     private int getMaxSettingsItems() {
         if (selectedSettingsCategory == 0) return 15; // Graphics: 16 items (0-15)
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
-        if (selectedSettingsCategory == 3) return 0; // Debug: 1 item (0)
+        if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
         if (selectedSettingsCategory == 4) return 10; // Controls: 11 items (0-10) - Preset, Input Device, 9 actions
         return 0;
+    }
+
+    /** Clamp selectedSettingsItem so it never exceeds the new tab's item count. */
+    private void clampSettingsItem() {
+        if (selectedSettingsItem > 0) {
+            int max = getMaxSettingsItems();
+            if (selectedSettingsItem > max) {
+                selectedSettingsItem = max;
+            }
+        }
     }
     
     private void resetSettingsToDefaults() {
@@ -6800,6 +6961,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset debug settings to defaults
         enableHitboxes = false;
+        showTrackName = false;
         
         // Reset keybinds to defaults
         if (keyBindManager != null) keyBindManager.resetDefaults();
@@ -7175,9 +7337,10 @@ public class Game extends JPanel implements Runnable {
                 targetLoadingProgress = 90;
                 repaint();
                 
-                // Load controller sprites if available
+                // Load controller and keyboard sprites if available
                 if (keyBindManager != null) {
                     keyBindManager.loadControllerSprites();
+                    keyBindManager.loadKeyboardSprites();
                 }
                 
                 // Small delay to ensure everything is ready
@@ -7946,9 +8109,23 @@ public class Game extends JPanel implements Runnable {
                 cardImage = loadItemShowcaseImage(itemId);
             }
             
-            // Check if this item is locked (level not yet reached)
+            // Check if this item is locked
             int itemUnlockLevel = Integer.parseInt(itemLevel);
-            boolean isShowcaseLocked = !debugShowcaseUnlockAll && itemUnlockLevel > gameData.getMaxUnlockedLevel();
+            boolean isShowcaseLocked;
+            if (debugShowcaseUnlockAll) {
+                isShowcaseLocked = false;
+            } else if (showcaseTab == 1) {
+                // For items tab, check against actual unlocked items list
+                try {
+                    ActiveItem.ItemType checkType = ActiveItem.ItemType.valueOf(itemId);
+                    isShowcaseLocked = !gameData.getUnlockedItems().contains(checkType);
+                } catch (Exception e) {
+                    isShowcaseLocked = true;
+                }
+            } else {
+                // For attacks tab, check against max unlocked level
+                isShowcaseLocked = itemUnlockLevel > gameData.getMaxUnlockedLevel();
+            }
             
             // Apply alpha for fading effect
             Composite originalComposite = g.getComposite();

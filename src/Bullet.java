@@ -10,10 +10,12 @@ public class Bullet {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 2; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_MIN_SCALE = 0.8; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.3; // Outermost layer scale
-    private static final float SHADOW_MAX_ALPHA = 0.18f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.03f; // Alpha of outermost (most transparent) layer
+    private static final double SHADOW_BULK_OFFSET_Y = -2; // Shift shadow toward the nose/top of the sprite
+    private static final double SHADOW_MIN_SCALE = 0.9; // Innermost layer scale
+    private static final double SHADOW_MAX_SCALE = 1.45; // Outermost layer scale
+    private static final double SHADOW_WIDTH_STRETCH = 1.25; // Make shadow wider than tall
+    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
+    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
     
     // Bullet sprites
     private static BufferedImage[] bulletSprites = new BufferedImage[17];
@@ -623,11 +625,11 @@ public class Bullet {
                         double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
                         float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
                         
-                        int drawShadowWidth = (int)(nativeShadowWidth * shadowScaleW * layerScale);
+                        int drawShadowWidth = (int)(nativeShadowWidth * shadowScaleW * layerScale * SHADOW_WIDTH_STRETCH);
                         int drawShadowHeight = (int)(nativeShadowHeight * shadowScaleH * layerScale);
                         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha * finalAlpha));
                         g2d.drawImage(shadowSprite,
-                            (int)(-drawShadowWidth / 2), (int)(-drawShadowHeight / 2 + SHADOW_GLOW_OFFSET_Y),
+                            (int)(-drawShadowWidth / 2), (int)(-drawShadowHeight / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
                             drawShadowWidth, drawShadowHeight, null);
                     }
                 } else {
@@ -644,11 +646,11 @@ public class Bullet {
                         double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
                         float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
                         
-                        int shadowW = (int)(bulletDrawW * layerScale);
+                        int shadowW = (int)(bulletDrawW * layerScale * SHADOW_WIDTH_STRETCH);
                         int shadowH = (int)(bulletDrawH * layerScale);
                         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha * finalAlpha));
                         g2d.fillOval(
-                            (int)(-shadowW / 2), (int)(-shadowH / 2 + SHADOW_GLOW_OFFSET_Y),
+                            (int)(-shadowW / 2), (int)(-shadowH / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
                             shadowW, shadowH);
                     }
                 }

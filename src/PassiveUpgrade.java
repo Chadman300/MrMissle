@@ -64,8 +64,8 @@ public class PassiveUpgrade {
         if (useLinearCost) {
             return baseCost + (currentLevel * costIncrement);
         } else {
-            // Exponential cost: base * 1.5^level
-            return (int)(baseCost * Math.pow(1.5, currentLevel));
+            // Exponential cost: base * 1.8^level
+            return (int)(baseCost * Math.pow(1.8, currentLevel));
         }
     }
     

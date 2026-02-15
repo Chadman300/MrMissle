@@ -35,19 +35,24 @@ public class KeyBindManager {
         B("B", "Digital Buttons/ABXY/button_xbox_digital_b_1.png"),
         X("X", "Digital Buttons/ABXY/button_xbox_digital_x_1.png"),
         Y("Y", "Digital Buttons/ABXY/button_xbox_digital_y_1.png"),
-        LB("LB", "Digital Buttons/Shoulder/button_xbox_digital_bumper_dark_1.png"),
-        RB("RB", "Digital Buttons/Shoulder/button_xbox_digital_bumper_dark_2.png"),
+        LB("LB", "Digital Buttons/Shoulder/button_xbox_digital_bumper_dark_2.png"),
+        RB("RB", "Digital Buttons/Shoulder/button_xbox_digital_bumper_dark_1.png"),
         START("Start", "Digital Buttons/System/button_xbox_digital_start_1.png"),
         BACK_BTN("Back", "Digital Buttons/System/button_xbox_digital_back_1.png"),
-        DPAD_UP("D-Pad Up", "D-Pad/button_xbox_dpad_dark_2.png"),
+        DPAD_UP("D-Pad Up", "D-Pad/button_xbox_dpad_dark_1.png"),
         DPAD_DOWN("D-Pad Down", "D-Pad/button_xbox_dpad_dark_3.png"),
         DPAD_LEFT("D-Pad Left", "D-Pad/button_xbox_dpad_dark_4.png"),
-        DPAD_RIGHT("D-Pad Right", "D-Pad/button_xbox_dpad_dark_5.png"),
-        LEFT_STICK_UP("Left Stick Up", "Analog Sticks/Left/button_xbox_analog_l_direction_1.png"),
-        LEFT_STICK_DOWN("Left Stick Down", "Analog Sticks/Left/button_xbox_analog_l_direction_5.png"),
-        LEFT_STICK_LEFT("Left Stick Left", "Analog Sticks/Left/button_xbox_analog_l_direction_9.png"),
-        LEFT_STICK_RIGHT("Left Stick Right", "Analog Sticks/Left/button_xbox_analog_l_direction_3.png");
+        DPAD_RIGHT("D-Pad Right", "D-Pad/button_xbox_dpad_dark_2.png"),
+        LEFT_STICK_UP("Left Stick Up", "Analog Sticks/Left/button_xbox_analog_l_direction_3.png"),
+        LEFT_STICK_DOWN("Left Stick Down", "Analog Sticks/Left/button_xbox_analog_l_direction_1.png"),
+        LEFT_STICK_LEFT("Left Stick Left", "Analog Sticks/Left/button_xbox_analog_l_direction_2.png"),
+        LEFT_STICK_RIGHT("Left Stick Right", "Analog Sticks/Left/button_xbox_analog_l_direction_4.png"),
+        LT("LT", "Analog Triggers/button_xbox_analog_trigger_dark_1.png"),
+        RT("RT", "Analog Triggers/button_xbox_analog_trigger_dark_2.png"),
+        LEFT_STICK_PRESS("L3", "Digital Buttons/Analog/button_xbox_digital_analog_click_dark_1.png"),
+        RIGHT_STICK_PRESS("R3", "Digital Buttons/Analog/button_xbox_digital_analog_click_dark_4.png");
 
+        private static final String XBOX_BASE = "sprites/UI/XBOX BUTTONS - Premium Assets/";
         private final String displayName;
         private final String spritePath;
 
@@ -56,9 +61,7 @@ public class KeyBindManager {
             this.spritePath = spritePath;
         }
         public String getDisplayName() { return displayName; }
-        public String getSpritePath() {
-            return "sprites/UI/Controller/XBOX BUTTONS - Premium Assets/" + spritePath;
-        }
+        public String getSpritePath() { return XBOX_BASE + spritePath; }
     }
 
     // ── Presets ───────────────────────────────────────────────────────
@@ -129,9 +132,43 @@ public class KeyBindManager {
     private InputMode inputMode = InputMode.KEYBOARD;
     private Preset lastKeyboardPreset = Preset.WASD; // Remember keyboard preset when switching to controller
 
-    // Controller button sprites (loaded lazily)
+    // Controller button sprites (loaded from individual PNGs)
     private final Map<ControllerButton, BufferedImage> buttonSprites = new HashMap<>();
     private boolean spritesLoaded = false;
+
+    // Keyboard key sprites (loaded from individual PNGs)
+    private final Map<Integer, BufferedImage> keyboardSprites = new HashMap<>(); // VK_code -> sprite
+    private boolean keyboardSpritesLoaded = false;
+
+    // Keyboard sprite base path and VK_code -> filename mappings
+    private static final String KB_BASE = "sprites/UI/SimpleKeys/Classic/Dark/Single PNGs/";
+    private static final Object[][] KEYBOARD_FILE_MAP = {
+        // Letters
+        {KeyEvent.VK_A, "A"}, {KeyEvent.VK_B, "B"}, {KeyEvent.VK_C, "C"}, {KeyEvent.VK_D, "D"},
+        {KeyEvent.VK_E, "E"}, {KeyEvent.VK_F, "F"}, {KeyEvent.VK_G, "G"}, {KeyEvent.VK_H, "H"},
+        {KeyEvent.VK_I, "I"}, {KeyEvent.VK_J, "J"}, {KeyEvent.VK_K, "K"}, {KeyEvent.VK_L, "L"},
+        {KeyEvent.VK_M, "M"}, {KeyEvent.VK_N, "N"}, {KeyEvent.VK_O, "O"}, {KeyEvent.VK_P, "P"},
+        {KeyEvent.VK_Q, "Q"}, {KeyEvent.VK_R, "R"}, {KeyEvent.VK_S, "S"}, {KeyEvent.VK_T, "T"},
+        {KeyEvent.VK_U, "U"}, {KeyEvent.VK_V, "V"}, {KeyEvent.VK_W, "W"}, {KeyEvent.VK_X, "X"},
+        {KeyEvent.VK_Y, "Y"}, {KeyEvent.VK_Z, "Z"},
+        // Numbers
+        {KeyEvent.VK_0, "0"}, {KeyEvent.VK_1, "1"}, {KeyEvent.VK_2, "2"}, {KeyEvent.VK_3, "3"},
+        {KeyEvent.VK_4, "4"}, {KeyEvent.VK_5, "5"}, {KeyEvent.VK_6, "6"}, {KeyEvent.VK_7, "7"},
+        {KeyEvent.VK_8, "8"}, {KeyEvent.VK_9, "9"},
+        // Arrows
+        {KeyEvent.VK_UP, "ARROWUP"}, {KeyEvent.VK_DOWN, "ARROWDOWN"},
+        {KeyEvent.VK_LEFT, "ARROWLEFT"}, {KeyEvent.VK_RIGHT, "ARROWRIGHT"},
+        // Modifiers & special
+        {KeyEvent.VK_SPACE, "SPACE"}, {KeyEvent.VK_ENTER, "ENTER"},
+        {KeyEvent.VK_SHIFT, "SHIFT"}, {KeyEvent.VK_CONTROL, "CTRL"},
+        {KeyEvent.VK_ALT, "ALT"}, {KeyEvent.VK_TAB, "TAB"},
+        {KeyEvent.VK_BACK_SPACE, "BACKSPACE"}, {KeyEvent.VK_CAPS_LOCK, "CAPS"},
+        // Punctuation
+        {KeyEvent.VK_PLUS, "PLUS"}, {KeyEvent.VK_QUOTE, "QUOTE"},
+        {KeyEvent.VK_BACK_SLASH, "PIPE"}, {KeyEvent.VK_PERIOD, "GREATERTHAN"},
+        {KeyEvent.VK_COMMA, "LESSTHAN"}, {KeyEvent.VK_SEMICOLON, "COLON"},
+        {KeyEvent.VK_SLASH, "QUESTIONMARK"}, {KeyEvent.VK_BACK_QUOTE, "TILDE"}
+    };
 
     // ── Constructor ──────────────────────────────────────────────────
     public KeyBindManager() {
@@ -385,7 +422,8 @@ public class KeyBindManager {
     // ── Controller Button Sprites ────────────────────────────────────
 
     /**
-     * Load all controller button sprites. Called during asset loading.
+     * Load all controller button sprites from individual Xbox premium PNGs.
+     * Called during asset loading.
      */
     public void loadControllerSprites() {
         if (spritesLoaded) return;
@@ -393,25 +431,48 @@ public class KeyBindManager {
             try {
                 BufferedImage img = AssetLoader.loadImage(btn.getSpritePath());
                 if (img != null) {
-                    // Pre-scale to 32x32 for inline rendering
-                    img = AssetLoader.prescaleImage(img, 32);
                     buttonSprites.put(btn, img);
                 }
             } catch (IOException e) {
-                System.err.println("Could not load controller sprite: " + btn.getSpritePath());
+                System.err.println("Could not load controller sprite for " + btn.name() + ": " + e.getMessage());
             }
         }
         spritesLoaded = true;
     }
 
     /**
-     * Get the sprite image for the controller button bound to an action.
-     * Returns null if in keyboard mode or sprite not loaded.
+     * Load all keyboard key sprites from individual SimpleKeys PNGs.
+     * Called during asset loading.
+     */
+    public void loadKeyboardSprites() {
+        if (keyboardSpritesLoaded) return;
+        for (Object[] mapping : KEYBOARD_FILE_MAP) {
+            int vkCode = (Integer) mapping[0];
+            String fileName = (String) mapping[1];
+            try {
+                BufferedImage img = AssetLoader.loadImage(KB_BASE + fileName + ".png");
+                if (img != null) {
+                    keyboardSprites.put(vkCode, img);
+                }
+            } catch (IOException e) {
+                System.err.println("Could not load keyboard sprite for " + fileName + ": " + e.getMessage());
+            }
+        }
+        keyboardSpritesLoaded = true;
+    }
+
+    /**
+     * Get the sprite image for the button/key bound to an action.
+     * Returns controller button sprite in controller mode, keyboard icon in keyboard mode.
      */
     public BufferedImage getActionIcon(Action action) {
-        if (inputMode != InputMode.CONTROLLER) return null;
-        ControllerButton btn = getControllerButton(action);
-        return buttonSprites.get(btn);
+        if (inputMode == InputMode.CONTROLLER) {
+            ControllerButton btn = getControllerButton(action);
+            return buttonSprites.get(btn);
+        } else {
+            int keyCode = getKey(action);
+            return keyboardSprites.get(keyCode);
+        }
     }
 
     /**
@@ -421,7 +482,15 @@ public class KeyBindManager {
         return buttonSprites.get(button);
     }
 
+    /**
+     * Get the sprite image for a specific keyboard key code.
+     */
+    public BufferedImage getKeySprite(int vkCode) {
+        return keyboardSprites.get(vkCode);
+    }
+
     public boolean areSpritesLoaded() { return spritesLoaded; }
+    public boolean areKeyboardSpritesLoaded() { return keyboardSpritesLoaded; }
 
     // ── Reset ────────────────────────────────────────────────────────
 

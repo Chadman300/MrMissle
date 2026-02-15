@@ -21,9 +21,13 @@ public class SoundManager {
     private boolean soundsReady = false; // Track if sounds are preloaded
     private Clip ambientClip; // For looping ambient sound
     private Clip musicClip; // For looping background music (WAV only - convert MP3 to WAV)
+    private Clip fadingOutClip; // Second clip for crossfade transitions
     private String currentMusic = null; // Track which music is playing
     private String lastPlayedSound = ""; // Track last played SFX for debug
     private long lastPlayedTime = 0; // When it was played
+    private volatile boolean isCrossfading = false; // Track if crossfade is in progress
+    private static final int CROSSFADE_DURATION_MS = 2000; // 2 second crossfade
+    private static final int CROSSFADE_STEPS = 40; // Number of volume steps during crossfade
     
     // Sound paths
     private static final String UI_PATH = "SFX/UI SFX/Mono/wav (SD)/";
@@ -105,6 +109,16 @@ public class SoundManager {
         SHOOT_MULTI(GAME_PATH + "Weapon/Retro Gun Multishots 6 Delay9 03.wav"),
         LASER_CHARGE(GAME_PATH + "Charge/Retro Charge Electric Off 07.wav"),
         BOSS_SHOOT(GAME_PATH + "Weapon/Retro Gun SingleShot 04.wav"),
+        BOSS_SHOOT_FAST(GAME_PATH + "Weapon/laser/Retro Gun Laser SingleShot 01.wav"),
+        BOSS_SHOOT_LARGE(GAME_PATH + "Weapon/various/Retro Missile Launcher 01.wav"),
+        BOSS_SHOOT_HOMING(GAME_PATH + "Charge/Retro Charge Electric Off StereoUP 03.wav"),
+        BOSS_SHOOT_BOUNCING(GAME_PATH + "Bounce Jump/Retro Jump Classic 08.wav"),
+        BOSS_SHOOT_SPIRAL(GAME_PATH + "Electric/Retro Electric Short 17.wav"),
+        BOSS_SHOOT_WAVE(GAME_PATH + "Swoosh/Retro Swooosh 16.wav"),
+        BOSS_SHOOT_BOMB(GAME_PATH + "Weapon/various/Retro Weapon Bomb 06.wav"),
+        BOSS_SHOOT_GRENADE(GAME_PATH + "Weapon/various/Retro Granade Launcher 03.wav"),
+        BOSS_SHOOT_NUKE(GAME_PATH + "Weapon/various/Retro Weapon Plasma Type B 03.wav"),
+        BOSS_SHOOT_ACCELERATING(GAME_PATH + "Charge/Retro Charge StereoUP 01.wav"),
         GRENADE_EXPLODE(GAME_PATH + "Explosion/Retro Explosion Long 02.wav"),
         BEAM_WARNING(GAME_PATH + "Alarms Blip Beeps/Retro Alarm 02.wav"),
         
@@ -261,8 +275,8 @@ public class SoundManager {
             // Use sound pool for frequently played sounds to allow simultaneous playback
             boolean shouldPool = sound.name().startsWith("UI_") ||
                                 sound.name().startsWith("EXPL_") ||
+                                sound.name().startsWith("BOSS_SHOOT") ||
                                 sound.name().equals("BOSS_HIT") ||
-                                sound.name().equals("BOSS_SHOOT") ||
                                 sound.name().equals("GRENADE_EXPLODE") ||
                                 sound.name().equals("BEAM_WARNING") ||
                                 sound.name().equals("SCREEN_SHAKE") ||
@@ -386,7 +400,7 @@ public class SoundManager {
         this.masterVolume = Math.max(0, Math.min(1, volume)); 
         // Update currently playing music volume
         if (musicClip != null && musicClip.isRunning()) {
-            setVolume(musicClip, masterVolume * musicVolume * 0.6f);
+            setVolume(musicClip, masterVolume * musicVolume * 1.5f);
         }
     }
     
@@ -401,7 +415,7 @@ public class SoundManager {
         this.musicVolume = Math.max(0, Math.min(1, volume)); 
         // Update currently playing music volume
         if (musicClip != null && musicClip.isRunning()) {
-            setVolume(musicClip, masterVolume * musicVolume * 0.6f);
+            setVolume(musicClip, masterVolume * musicVolume * 1.5f);
         }
     }
     
@@ -446,14 +460,23 @@ public class SoundManager {
             return;
         }
         
-        stopMusic();
-        
+        // If music is currently playing, crossfade to new track
+        if (musicClip != null && musicClip.isRunning()) {
+            crossfadeToNewTrack(wavPath);
+        } else {
+            // No music playing, just start fresh
+            stopMusic();
+            startMusicClip(wavPath);
+        }
+    }
+    
+    private void startMusicClip(String wavPath) {
         try {
             AudioInputStream audioStream = AssetLoader.getAudioInputStream(wavPath);
             musicClip = AudioSystem.getClip();
             musicClip.open(audioStream);
             musicClip.loop(Clip.LOOP_CONTINUOUSLY);
-            setVolume(musicClip, masterVolume * musicVolume * 0.6f);
+            setVolume(musicClip, masterVolume * musicVolume * 1.5f);
             currentMusic = wavPath;
         } catch (Exception e) {
             System.err.println("Error playing music: " + e.getMessage());
@@ -461,13 +484,106 @@ public class SoundManager {
         }
     }
     
+    private void crossfadeToNewTrack(String newWavPath) {
+        // Move current clip to fading out
+        if (fadingOutClip != null) {
+            fadingOutClip.stop();
+            fadingOutClip.close();
+        }
+        fadingOutClip = musicClip;
+        musicClip = null;
+        
+        // Start new track at zero volume
+        try {
+            AudioInputStream audioStream = AssetLoader.getAudioInputStream(newWavPath);
+            musicClip = AudioSystem.getClip();
+            musicClip.open(audioStream);
+            musicClip.loop(Clip.LOOP_CONTINUOUSLY);
+            setVolume(musicClip, 0.0001f); // Start nearly silent
+            currentMusic = newWavPath;
+        } catch (Exception e) {
+            System.err.println("Error starting crossfade music: " + e.getMessage());
+            // If new track fails, keep the old one playing
+            musicClip = fadingOutClip;
+            fadingOutClip = null;
+            return;
+        }
+        
+        // Perform crossfade in a background thread
+        final Clip fadeOut = fadingOutClip;
+        final Clip fadeIn = musicClip;
+        final float targetVolume = masterVolume * musicVolume * 1.5f;
+        
+        isCrossfading = true;
+        Thread crossfadeThread = new Thread(() -> {
+            try {
+                int stepDelay = CROSSFADE_DURATION_MS / CROSSFADE_STEPS;
+                for (int i = 1; i <= CROSSFADE_STEPS; i++) {
+                    float progress = (float) i / CROSSFADE_STEPS;
+                    
+                    // Fade out old track
+                    if (fadeOut != null && fadeOut.isOpen()) {
+                        float fadeOutVol = targetVolume * (1.0f - progress);
+                        setVolume(fadeOut, Math.max(0.0001f, fadeOutVol));
+                    }
+                    
+                    // Fade in new track
+                    if (fadeIn != null && fadeIn.isOpen()) {
+                        float fadeInVol = targetVolume * progress;
+                        setVolume(fadeIn, Math.max(0.0001f, fadeInVol));
+                    }
+                    
+                    Thread.sleep(stepDelay);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                // Clean up the faded-out clip
+                if (fadeOut != null) {
+                    try {
+                        fadeOut.stop();
+                        fadeOut.close();
+                    } catch (Exception e) {
+                        // Ignore cleanup errors
+                    }
+                }
+                if (fadingOutClip == fadeOut) {
+                    fadingOutClip = null;
+                }
+                isCrossfading = false;
+            }
+        }, "Music-Crossfade");
+        crossfadeThread.setDaemon(true);
+        crossfadeThread.start();
+    }
+    
     public void stopMusic() {
+        if (fadingOutClip != null) {
+            fadingOutClip.stop();
+            fadingOutClip.close();
+            fadingOutClip = null;
+        }
         if (musicClip != null) {
             musicClip.stop();
             musicClip.close();
             musicClip = null;
             currentMusic = null;
         }
+    }
+    
+    public String getCurrentMusicName() {
+        if (currentMusic == null) return null;
+        // Extract just the track name from the full path (e.g. "SFX/Music Tracks/Main/Rock Battle Menu.wav" -> "Rock Battle Menu")
+        String name = currentMusic;
+        int lastSlash = name.lastIndexOf('/');
+        if (lastSlash >= 0) name = name.substring(lastSlash + 1);
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot >= 0) name = name.substring(0, lastDot);
+        return name;
+    }
+    
+    public String getCurrentMusic() {
+        return currentMusic;
     }
     
     public void setSoundEnabled(boolean enabled) { 

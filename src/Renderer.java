@@ -30,6 +30,24 @@ public class Renderer {
 
     private UIButton[] pauseButtons;
 
+    
+
+    // Settings UI click target tracking (populated during rendering)
+
+    private int[][] pillClickTargets;  // [settingIndex] = {x0, w0, x1, w1, ...} or null
+
+    private int[] pillClickTargetY;    // [settingIndex] = screen Y of pill row
+
+    private int pillClickH = 26;       // pill option height
+
+    private int[] sliderMinusBtnX;     // [settingIndex] = screen X of minus button
+
+    private int[] sliderPlusBtnX;      // [settingIndex] = screen X of plus button
+
+    private int[] sliderBtnYPos;       // [settingIndex] = screen Y of buttons
+
+    private int sliderBtnSize = 26;    // +/- button size
+
     private boolean showcasePauseMode = false;
 
     private int activePauseButtonCount = 3;
@@ -244,7 +262,7 @@ public class Renderer {
 
         for (int i = 0; i < 16; i++) {
 
-            settingsButtons[i] = new UIButton("", 0, 0, 700, 70, new Color(76, 86, 106), new Color(235, 203, 139));
+            settingsButtons[i] = new UIButton("", 0, 0, 900, 50, new Color(76, 86, 106), new Color(235, 203, 139));
 
         }
 
@@ -1125,11 +1143,11 @@ public class Renderer {
 
         if (isCtrlMode) {
 
-            drawPromptWithIcons(g, width / 2, height - 100, "↑/↓: Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
+            drawPromptWithIcons(g, width / 2, height - 100, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
 
         } else {
 
-            drawPromptWithIcons(g, width / 2, height - 100, "↑/↓: Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
+            drawPromptWithIcons(g, width / 2, height - 100, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
 
         }
 
@@ -1993,7 +2011,7 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.BOLD, 18));
 
-        g.drawString("CONTROLS: " + moveKeysText() + " = Move  |  " + keyText(KeyBindManager.Action.USE_ITEM) + " = Use Item  |  " + keyText(KeyBindManager.Action.PAUSE) + " = Pause  |  Mouse = Navigate Menus", width / 2 - 450, height - 30);
+        drawPromptWithIcons(g, width / 2, height - 30, "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_DOWN, "/", KeyBindManager.Action.MOVE_RIGHT, " = Move  |  ", KeyBindManager.Action.USE_ITEM, " = Use Item  |  ", KeyBindManager.Action.PAUSE, " = Pause  |  Mouse = Navigate Menus");
 
         g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - 420, height - 10);
 
@@ -2407,11 +2425,7 @@ public class Renderer {
 
         g.setFont(new Font("Arial", Font.PLAIN, 16));
 
-        String inst = keyText(KeyBindManager.Action.MOVE_UP) + "/" + keyText(KeyBindManager.Action.MOVE_DOWN) + " to select | " + keyText(KeyBindManager.Action.MOVE_LEFT) + "/" + keyText(KeyBindManager.Action.MOVE_RIGHT) + " to adjust | " + keyText(KeyBindManager.Action.BACK) + " to return";
-
-        fm = g.getFontMetrics();
-
-        g.drawString(inst, (width - fm.stringWidth(inst)) / 2, 145);
+        drawPromptWithIcons(g, width / 2, 145, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to select | ", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT, " to adjust | ", KeyBindManager.Action.BACK, " to return");
 
     }
 
@@ -4409,7 +4423,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - 15,
 
-            "<- -> or CLICK  Navigate    ", KeyBindManager.Action.CONFIRM, " or CLICK  Start    ", KeyBindManager.Action.BACK, "  Back");
+            "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Navigate    ", KeyBindManager.Action.CONFIRM, " or CLICK  Start    ", KeyBindManager.Action.BACK, "  Back");
 
     }
 
@@ -4747,7 +4761,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, width / 2, height - 40,
 
-            "<  > or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
+            "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
         
 
@@ -5013,7 +5027,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, width / 2, height - 40,
 
-            "<  > or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
+            "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
     }
 
@@ -7219,13 +7233,17 @@ public class Renderer {
 
             g.setColor(Color.WHITE);
 
-            String keyHint = equippedItem.canActivate() ? "Press [" + keyText(KeyBindManager.Action.USE_ITEM) + "]" : 
+            String keyHint = equippedItem.canActivate() ? null : 
 
                            equippedItem.isActive() ? "ACTIVE" :
 
                            String.format("%.1fs", equippedItem.getCurrentCooldown() / 60.0);
 
+            if (keyHint != null) {
             g.drawString(keyHint, itemUIX + 10, itemUIY + 68);
+            } else {
+                drawPromptWithIcons(g, itemUIX + 45, itemUIY + 68, "Press ", KeyBindManager.Action.USE_ITEM, "");
+            }
 
         }
 
@@ -8367,7 +8385,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, width / 2, height - 50,
 
-            "Use UP/DOWN or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
+            "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
 
     }
 
@@ -9059,16 +9077,11 @@ public class Renderer {
 
         g.setColor(new Color(216, 222, 233));
 
-        String subtitle;
         if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
-            subtitle = "D-Pad to navigate | RB to switch tabs | " + keyText(KeyBindManager.Action.BACK) + " to exit";
+            drawPromptWithIcons(g, width / 2, 185, "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         } else {
-            subtitle = keyText(KeyBindManager.Action.MOVE_UP) + "/" + keyText(KeyBindManager.Action.MOVE_DOWN) + " to navigate | TAB to switch tabs | " + keyText(KeyBindManager.Action.BACK) + " to exit";
+            drawPromptWithIcons(g, width / 2, 185, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to navigate | TAB to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         }
-
-        fm = g.getFontMetrics();
-
-        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 185);
 
         
 
@@ -9220,41 +9233,11 @@ public class Renderer {
 
         
 
-        // Create slider info: [hasSlider, min, max, current]
+        // Only Camera Zoom (15) uses a continuous slider now
 
         float[][] sliders = new float[settingNames.length][4];
 
-        sliders[0] = new float[]{0, 0, 0, 0}; // Fullscreen (toggle)
-
-        sliders[1] = new float[]{1, 0, 5, Game.resolutionPreset}; // Resolution
-
-        sliders[2] = new float[]{0, 0, 0, 0}; // VSync (toggle)
-
-        sliders[3] = new float[]{1, 0, 4, Game.fpsLimit}; // FPS Limit
-
-        sliders[4] = new float[]{0, 0, 0, 0}; // Anti-aliasing (toggle)
-
-        sliders[5] = new float[]{1, 0, 3, Game.shadowQuality}; // Shadow Quality
-
-        sliders[6] = new float[]{0, 0, 0, 0}; // Particles (toggle)
-
-        sliders[7] = new float[]{0, 0, 0, 0}; // Bloom (toggle)
-
-        sliders[8] = new float[]{1, 0, 2, Game.backgroundMode}; // Background Mode
-
-        sliders[9] = new float[]{0, 0, 0, 0}; // Gradient Animation (toggle)
-
-        sliders[10] = new float[]{1, 0, 2, Game.gradientQuality}; // Gradient Quality
-
-        sliders[11] = new float[]{0, 0, 0, 0}; // Motion Blur (toggle)
-
-        sliders[12] = new float[]{0, 0, 0, 0}; // Chromatic Aberration (toggle)
-
-        sliders[13] = new float[]{0, 0, 0, 0}; // Vignette (toggle)
-
-        sliders[14] = new float[]{0, 0, 0, 0}; // Grain (toggle)
-
-        sliders[15] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom}; // Camera Zoom
+        sliders[15] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom};
 
         
 
@@ -9272,7 +9255,67 @@ public class Renderer {
 
         
 
-        drawSettingsListWithSliders(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, sliders, toggles);
+        // Section headers: which setting index starts a new section
+
+        String[] sectionHeaders = new String[settingNames.length];
+
+        sectionHeaders[0] = "DISPLAY";
+
+        sectionHeaders[4] = "QUALITY";
+
+        sectionHeaders[8] = "BACKGROUND";
+
+        sectionHeaders[11] = "EFFECTS";
+
+        sectionHeaders[15] = "CAMERA";
+
+        
+
+        // Pill selector options for discrete multi-option settings
+
+        String[][] pillOptions = new String[settingNames.length][];
+
+        int[] pillSelected = new int[settingNames.length];
+
+        
+
+        pillOptions[0] = new String[]{"Windowed", "Fullscreen"};
+
+        pillSelected[0] = Game.isFullscreen ? 1 : 0;
+
+        
+
+        pillOptions[1] = new String[]{"1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"};
+
+        pillSelected[1] = Game.resolutionPreset;
+
+        
+
+        pillOptions[3] = new String[]{"30", "60", "120", "144", "Unlimited"};
+
+        pillSelected[3] = Game.fpsLimit;
+
+        
+
+        pillOptions[5] = new String[]{"Off", "Low", "Medium", "High"};
+
+        pillSelected[5] = Game.shadowQuality;
+
+        
+
+        pillOptions[8] = new String[]{"Gradient", "Parallax", "Static"};
+
+        pillSelected[8] = Game.backgroundMode;
+
+        
+
+        pillOptions[10] = new String[]{"Low", "Medium", "High"};
+
+        pillSelected[10] = Game.gradientQuality;
+
+        
+
+        drawSettingsListWithSliders(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, sliders, toggles, sectionHeaders, pillOptions, pillSelected);
 
     }
 
@@ -9344,11 +9387,11 @@ public class Renderer {
 
     private void drawDebugSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
 
-        String[] settingNames = {"Show Hitboxes"};
+        String[] settingNames = {"Show Hitboxes", "Show Track Name"};
 
-        String[] settingValues = {Game.enableHitboxes ? "ON" : "OFF"};
+        String[] settingValues = {Game.enableHitboxes ? "ON" : "OFF", Game.showTrackName ? "ON" : "OFF"};
 
-        String[] descriptions = {"Debug: Show collision hitboxes for player, boss, and bullets"};
+        String[] descriptions = {"Debug: Show collision hitboxes for player, boss, and bullets", "Debug: Show the currently playing music track name on screen"};
 
         
 
@@ -9384,7 +9427,7 @@ public class Renderer {
 
         settingValues[0] = "< " + kbm.getCurrentPreset().name().replace("_", " ") + " >";
 
-        descriptions[0] = "Choose a keybinding preset (Left/Right to change)";
+        descriptions[0] = "Choose a keybinding preset (use arrows to change)";
 
         
 
@@ -9440,7 +9483,7 @@ public class Renderer {
 
         // Custom rendering for controls (key display boxes instead of toggles/sliders)
 
-        int y = 240 - (int)scrollOffset;
+        int y = 230 - (int)scrollOffset;
 
         FontMetrics fm;
 
@@ -9452,13 +9495,13 @@ public class Renderer {
 
             
 
-            int boxX = (width - 700) / 2;
+            int boxWidth = width - 200;
 
-            int boxY = y - 20;
+            int boxX = (width - boxWidth) / 2;
 
-            int boxWidth = 700;
+            int boxY = y - 10;
 
-            int boxHeight = 70;
+            int boxHeight = 50;
 
             
 
@@ -9476,9 +9519,9 @@ public class Renderer {
 
             // Skip rendering if outside visible area
 
-            if (y < 180 || y > height - 90) {
+            if (y < 170 || y > height - 80) {
 
-                y += 120;
+                y += 78;
 
                 continue;
 
@@ -9490,7 +9533,7 @@ public class Renderer {
 
                 g.setColor(new Color(88, 91, 112, 200));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
                 
 
@@ -9508,13 +9551,13 @@ public class Renderer {
 
                 g.setStroke(new BasicStroke(2));
 
-                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             } else {
 
                 g.setColor(new Color(67, 76, 94, 150));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             }
 
@@ -9522,11 +9565,11 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setFont(new Font("Arial", Font.BOLD, 17));
 
             g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
 
-            g.drawString(settingNames[i], boxX + 20, boxY + 28);
+            g.drawString(settingNames[i], boxX + 16, boxY + boxHeight / 2 + 6);
 
             
 
@@ -9536,25 +9579,25 @@ public class Renderer {
 
                 // Preset - draw with arrows
 
-                g.setFont(new Font("Arial", Font.BOLD, 20));
+                g.setFont(new Font("Arial", Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
                 g.setColor(new Color(163, 190, 140));
 
-                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 20, boxY + 28);
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
 
             } else if (i == 1) {
 
                 // Input device - draw with icon
 
-                g.setFont(new Font("Arial", Font.BOLD, 20));
+                g.setFont(new Font("Arial", Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
                 g.setColor(new Color(136, 192, 208));
 
-                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 20, boxY + 28);
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
 
             } else {
 
@@ -9564,13 +9607,13 @@ public class Renderer {
 
                 
 
-                // Check if we should show a controller button sprite
+                // Check if we should show a button/key sprite
 
                 KeyBindManager.Action action = KeyBindManager.Action.values()[i - 2];
 
                 java.awt.image.BufferedImage btnSprite = null;
 
-                if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode() && !isRebinding) {
+                if (Game.keyBindManager != null && !isRebinding) {
 
                     btnSprite = Game.keyBindManager.getActionIcon(action);
 
@@ -9580,19 +9623,19 @@ public class Renderer {
 
                 String keyText = settingValues[i];
 
-                g.setFont(new Font("Arial", Font.BOLD, 18));
+                g.setFont(new Font("Arial", Font.BOLD, 15));
 
                 fm = g.getFontMetrics();
 
-                int keyBoxWidth = Math.max(80, fm.stringWidth(keyText) + 30);
+                int keyBoxWidth = Math.max(70, fm.stringWidth(keyText) + 24);
 
-                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, 60);
+                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, 76);
 
-                int keyBoxX = boxX + boxWidth - keyBoxWidth - 20;
+                int keyBoxX = boxX + boxWidth - keyBoxWidth - 16;
 
-                int keyBoxY = boxY + 10;
+                int keyBoxY = boxY + 4;
 
-                int keyBoxHeight = 50;
+                int keyBoxHeight = boxHeight - 8;
 
                 
 
@@ -9634,13 +9677,13 @@ public class Renderer {
 
                 
 
-                // Draw controller button sprite or key text
+                // Draw button/key sprite or key text
 
                 if (btnSprite != null) {
 
-                    int spriteSize = 36;
+                    int spriteH = 30; int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
 
-                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteSize) / 2, keyBoxY + (keyBoxHeight - spriteSize) / 2, spriteSize, spriteSize, null);
+                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteW) / 2, keyBoxY + (keyBoxHeight - spriteH) / 2, spriteW, spriteH, null);
 
                 } else {
 
@@ -9656,19 +9699,21 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setFont(new Font("Arial", Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(new Color(216, 222, 233, 180));
 
                 fm = g.getFontMetrics();
 
-                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+
+                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
 
             }
 
             
 
-            y += 120;
+            y += 78;
 
         }
 
@@ -9686,9 +9731,39 @@ public class Renderer {
 
     private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders, float[] sliderValues) {
 
-        int y = 240 - (int)scrollOffset;
+        int boxWidth = width - 200;
+
+        int boxHeight = 50;
+
+        int itemSpacing = 78;
+
+        int boxX = (width - boxWidth) / 2;
+
+        int y = 230 - (int)scrollOffset;
 
         FontMetrics fm;
+
+        
+
+        // Reset slider click targets for this tab
+
+        if (sliderMinusBtnX == null || sliderMinusBtnX.length < names.length) {
+
+            sliderMinusBtnX = new int[names.length];
+
+            sliderPlusBtnX = new int[names.length];
+
+            sliderBtnYPos = new int[names.length];
+
+        }
+
+        for (int i = 0; i < names.length; i++) {
+
+            sliderMinusBtnX[i] = -1;
+
+            sliderPlusBtnX[i] = -1;
+
+        }
 
         
 
@@ -9696,21 +9771,11 @@ public class Renderer {
 
             boolean isSelected = i == selectedItem;
 
-            
-
-            // Background box
-
-            int boxX = (width - 700) / 2;
-
-            int boxY = y - 20;
-
-            int boxWidth = 700;
-
-            int boxHeight = 70;
+            int boxY = y - 10;
 
             
 
-            // Update settings button position for click detection
+            // Update button position for click detection
 
             if (i < settingsButtons.length && settingsButtons[i] != null) {
 
@@ -9722,11 +9787,11 @@ public class Renderer {
 
             
 
-            // Skip rendering if outside visible area
+            // Skip if outside visible area
 
-            if (y < 180 || y > height - 90) {
+            if (y < 170 || y > height - 80) {
 
-                y += 120;
+                y += itemSpacing;
 
                 continue;
 
@@ -9738,21 +9803,19 @@ public class Renderer {
 
                 g.setColor(new Color(88, 91, 112, 200));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
-
-                
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
                 g.setColor(new Color(235, 203, 139));
 
                 g.setStroke(new BasicStroke(2));
 
-                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             } else {
 
                 g.setColor(new Color(67, 76, 94, 150));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             }
 
@@ -9760,11 +9823,13 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setFont(new Font("Arial", Font.BOLD, 17));
 
             g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
 
-            g.drawString(names[i], boxX + 20, boxY + 28);
+            int textYBase = boxY + boxHeight / 2 + 6;
+
+            g.drawString(names[i], boxX + 16, textYBase);
 
             
 
@@ -9772,119 +9837,135 @@ public class Renderer {
 
             if (showSliders && sliderValues != null && i > 0) {
 
-                // Draw volume slider
+                // Volume slider with +/- buttons
 
-                int sliderX = boxX + 20;
+                float progress = sliderValues[i];
 
-                int sliderY = boxY + 40;
+                int btnSize = sliderBtnSize;
 
-                int sliderWidth = boxWidth - 40;
+                int centerY = boxY + boxHeight / 2;
 
-                int sliderHeight = 10;
+                int rightMargin = 16;
 
                 
 
-                // Slider background
+                g.setFont(new Font("Arial", Font.BOLD, 15));
+
+                fm = g.getFontMetrics();
+
+                int valueW = fm.stringWidth(values[i]) + 12;
+
+                
+
+                int plusBtnX = boxX + boxWidth - rightMargin - valueW - btnSize;
+
+                int sliderEndX = plusBtnX - 8;
+
+                int sliderStartX = boxX + boxWidth / 2 - 20;
+
+                int minusBtnX = sliderStartX - btnSize - 8;
+
+                int sliderW = sliderEndX - sliderStartX;
+
+                
+
+                // Store for click detection
+
+                sliderMinusBtnX[i] = minusBtnX;
+
+                sliderPlusBtnX[i] = plusBtnX;
+
+                sliderBtnYPos[i] = centerY - btnSize / 2;
+
+                
+
+                // [-] button
+
+                g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+
+                g.fillRoundRect(minusBtnX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
+
+                g.setColor(new Color(216, 222, 233));
+
+                g.setFont(new Font("Arial", Font.BOLD, 16));
+
+                fm = g.getFontMetrics();
+
+                g.drawString("\u2212", minusBtnX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + 6);
+
+                
+
+                // Slider bar
+
+                int sliderH = 6;
+
+                int sliderY = centerY - sliderH / 2;
 
                 g.setColor(new Color(46, 52, 64));
 
-                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
+                g.fillRoundRect(sliderStartX, sliderY, sliderW, sliderH, 3, 3);
 
-                
-
-                // Slider fill
-
-                int fillWidth = (int)(sliderWidth * sliderValues[i]);
+                int fillW = (int)(sliderW * progress);
 
                 g.setColor(new Color(163, 190, 140));
 
-                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
+                g.fillRoundRect(sliderStartX, sliderY, Math.max(fillW, 3), sliderH, 3, 3);
+
+                
+
+                // Handle
+
+                int handleX = sliderStartX + fillW - 5;
+
+                g.setColor(new Color(235, 203, 139));
+
+                g.fillOval(handleX, centerY - 7, 10, 14);
+
+                
+
+                // [+] button
+
+                g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+
+                g.fillRoundRect(plusBtnX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
+
+                g.setColor(new Color(216, 222, 233));
+
+                g.setFont(new Font("Arial", Font.BOLD, 16));
+
+                fm = g.getFontMetrics();
+
+                g.drawString("+", plusBtnX + (btnSize - fm.stringWidth("+")) / 2, centerY + 6);
 
                 
 
                 // Value text
 
-                g.setFont(new Font("Arial", Font.PLAIN, 16));
+                g.setFont(new Font("Arial", Font.BOLD, 15));
 
                 g.setColor(new Color(216, 222, 233));
 
                 fm = g.getFontMetrics();
 
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+                g.drawString(values[i], boxX + boxWidth - rightMargin - fm.stringWidth(values[i]), centerY + 6);
 
             } else if (values[i].equals("ON") || values[i].equals("OFF")) {
 
-                // Draw toggle switch for ON/OFF settings
+                // Draw toggle switch
 
-                int toggleX = boxX + boxWidth - 80;
-
-                int toggleY = boxY + 10;
-
-                int toggleWidth = 60;
-
-                int toggleHeight = 30;
-
-                
-
-                boolean isOn = values[i].equals("ON");
-
-                
-
-                // Toggle background
-
-                if (isOn) {
-
-                    g.setColor(new Color(163, 190, 140, 200));
-
-                } else {
-
-                    g.setColor(new Color(76, 86, 106, 200));
-
-                }
-
-                g.fillRoundRect(toggleX, toggleY, toggleWidth, toggleHeight, 15, 15);
-
-                
-
-                // Toggle circle
-
-                int circleX = isOn ? toggleX + toggleWidth - 28 : toggleX + 2;
-
-                int circleY = toggleY + 2;
-
-                g.setColor(new Color(236, 239, 244));
-
-                g.fillOval(circleX, circleY, 26, 26);
-
-                g.setColor(new Color(216, 222, 233));
-
-                g.setStroke(new BasicStroke(2));
-
-                g.drawOval(circleX, circleY, 26, 26);
-
-                
-
-                // ON/OFF text
-
-                g.setFont(new Font("Arial", Font.BOLD, 14));
-
-                g.setColor(new Color(216, 222, 233));
-
-                String toggleText = isOn ? "ON" : "OFF";
-
-                fm = g.getFontMetrics();
-
-                g.drawString(toggleText, toggleX - fm.stringWidth(toggleText) - 10, toggleY + 21);
+                drawToggleSwitch(g, boxX, boxY, boxWidth, boxHeight, values[i].equals("ON"), isSelected);
 
             } else {
 
                 // Regular value text
 
-                g.setFont(new Font("Arial", Font.BOLD, 20));
+                g.setFont(new Font("Arial", Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+                g.setColor(new Color(163, 190, 140));
+
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 16, textYBase);
 
             }
 
@@ -9894,19 +9975,21 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setFont(new Font("Arial", Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(new Color(216, 222, 233, 180));
 
                 fm = g.getFontMetrics();
 
-                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+
+                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
 
             }
 
             
 
-            y += 120;
+            y += itemSpacing;
 
         }
 
@@ -9916,31 +9999,103 @@ public class Renderer {
 
     private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles) {
 
-        int y = 240 - (int)scrollOffset;
+        drawSettingsListWithSliders(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, sliders, toggles, null, null, null);
+
+    }
+
+    
+
+    private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles, String[] sectionHeaders) {
+
+        drawSettingsListWithSliders(g, width, height, selectedItem, time, scrollOffset, names, values, descriptions, sliders, toggles, sectionHeaders, null, null);
+
+    }
+
+    
+
+    private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles, String[] sectionHeaders, String[][] pillOptions, int[] pillSelected) {
+
+        int boxWidth = width - 200;
+
+        int boxHeight = 50;
+
+        int itemSpacing = 78;
+
+        int boxX = (width - boxWidth) / 2;
+
+        int y = 230 - (int)scrollOffset;
 
         FontMetrics fm;
 
         
 
+        // Initialize click target arrays if needed
+
+        if (pillClickTargets == null || pillClickTargets.length < names.length) {
+
+            pillClickTargets = new int[names.length][];
+
+            pillClickTargetY = new int[names.length];
+
+            sliderMinusBtnX = new int[names.length];
+
+            sliderPlusBtnX = new int[names.length];
+
+            sliderBtnYPos = new int[names.length];
+
+        }
+
         for (int i = 0; i < names.length; i++) {
+
+            pillClickTargets[i] = null;
+
+            sliderMinusBtnX[i] = -1;
+
+            sliderPlusBtnX[i] = -1;
+
+        }
+
+        
+
+        for (int i = 0; i < names.length; i++) {
+
+            // Draw section header if this item starts a new section
+
+            if (sectionHeaders != null && i < sectionHeaders.length && sectionHeaders[i] != null) {
+
+                if (y >= 170 && y <= height - 80) {
+
+                    g.setFont(new Font("Arial", Font.BOLD, 13));
+
+                    if (i > 0) {
+
+                        g.setColor(new Color(76, 86, 106, 120));
+
+                        g.setStroke(new BasicStroke(1));
+
+                        g.drawLine(boxX, y - 14, boxX + boxWidth, y - 14);
+
+                    }
+
+                    g.setColor(new Color(163, 190, 140, 220));
+
+                    g.drawString(sectionHeaders[i], boxX + 4, y + 2);
+
+                }
+
+                y += 24;
+
+            }
+
+            
 
             boolean isSelected = i == selectedItem;
 
-            
-
-            // Background box
-
-            int boxX = (width - 700) / 2;
-
-            int boxY = y - 20;
-
-            int boxWidth = 700;
-
-            int boxHeight = 70;
+            int boxY = y - 10;
 
             
 
-            // Update settings button position for click detection
+            // Update button position for click detection
 
             if (i < settingsButtons.length && settingsButtons[i] != null) {
 
@@ -9952,11 +10107,11 @@ public class Renderer {
 
             
 
-            // Skip rendering if outside visible area
+            // Skip if outside visible area
 
-            if (y < 180 || y > height - 90) {
+            if (y < 170 || y > height - 80) {
 
-                y += 120;
+                y += itemSpacing;
 
                 continue;
 
@@ -9964,25 +10119,25 @@ public class Renderer {
 
             
 
+            // Background
+
             if (isSelected) {
 
                 g.setColor(new Color(88, 91, 112, 200));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
-
-                
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
                 g.setColor(new Color(235, 203, 139));
 
                 g.setStroke(new BasicStroke(2));
 
-                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             } else {
 
                 g.setColor(new Color(67, 76, 94, 150));
 
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 10, 10);
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
             }
 
@@ -9990,183 +10145,367 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setFont(new Font("Arial", Font.BOLD, 17));
 
             g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
 
-            g.drawString(names[i], boxX + 20, boxY + 28);
+            int textY = boxY + boxHeight / 2 + 6;
+
+            g.drawString(names[i], boxX + 16, textY);
 
             
 
-            // Check if this setting has a slider
+            // Determine widget type and render
 
-            if (sliders[i][0] == 1) {
+            boolean hasPill = pillOptions != null && i < pillOptions.length && pillOptions[i] != null;
 
-                // Draw slider
+            boolean hasSlider = !hasPill && sliders[i][0] == 1;
 
-                int sliderX = boxX + 20;
+            
 
-                int sliderY = boxY + 40;
+            if (hasPill) {
 
-                int sliderWidth = boxWidth - 40;
+                drawPillSelector(g, i, boxX, boxY, boxWidth, boxHeight, pillOptions[i], pillSelected[i], isSelected);
 
-                int sliderHeight = 10;
+            } else if (hasSlider) {
 
-                
-
-                float min = sliders[i][1];
-
-                float max = sliders[i][2];
-
-                float current = sliders[i][3];
-
-                float progress = (current - min) / (max - min);
-
-                
-
-                // Slider background
-
-                g.setColor(new Color(46, 52, 64));
-
-                g.fillRoundRect(sliderX, sliderY, sliderWidth, sliderHeight, 5, 5);
-
-                
-
-                // Slider fill
-
-                int fillWidth = (int)(sliderWidth * progress);
-
-                g.setColor(new Color(163, 190, 140));
-
-                g.fillRoundRect(sliderX, sliderY, fillWidth, sliderHeight, 5, 5);
-
-                
-
-                // Slider handle
-
-                int handleX = sliderX + fillWidth - 8;
-
-                int handleY = sliderY - 6;
-
-                g.setColor(new Color(235, 203, 139));
-
-                g.fillOval(handleX, handleY, 16, 22);
-
-                g.setColor(new Color(216, 222, 233));
-
-                g.setStroke(new BasicStroke(2));
-
-                g.drawOval(handleX, handleY, 16, 22);
-
-                
-
-                // Value text
-
-                g.setFont(new Font("Arial", Font.PLAIN, 16));
-
-                g.setColor(new Color(216, 222, 233));
-
-                fm = g.getFontMetrics();
-
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
-
-            } else if (toggles[i] || (values[i].equals("ON") || values[i].equals("OFF"))) {
-
-                // Draw toggle switch
-
-                int toggleX = boxX + boxWidth - 80;
-
-                int toggleY = boxY + 10;
-
-                int toggleWidth = 60;
-
-                int toggleHeight = 30;
-
-                
-
-                boolean isOn = toggles[i];
-
-                
-
-                // Toggle background
-
-                if (isOn) {
-
-                    g.setColor(new Color(163, 190, 140, 200));
-
-                } else {
-
-                    g.setColor(new Color(76, 86, 106, 200));
-
-                }
-
-                g.fillRoundRect(toggleX, toggleY, toggleWidth, toggleHeight, 15, 15);
-
-                
-
-                // Toggle circle
-
-                int circleX = isOn ? toggleX + toggleWidth - 28 : toggleX + 2;
-
-                int circleY = toggleY + 2;
-
-                g.setColor(new Color(236, 239, 244));
-
-                g.fillOval(circleX, circleY, 26, 26);
-
-                g.setColor(new Color(216, 222, 233));
-
-                g.setStroke(new BasicStroke(2));
-
-                g.drawOval(circleX, circleY, 26, 26);
-
-                
-
-                // ON/OFF text
-
-                g.setFont(new Font("Arial", Font.BOLD, 14));
-
-                g.setColor(new Color(216, 222, 233));
-
-                String toggleText = isOn ? "ON" : "OFF";
-
-                fm = g.getFontMetrics();
-
-                g.drawString(toggleText, toggleX - fm.stringWidth(toggleText) - 10, toggleY + 21);
+                drawSliderWithButtons(g, i, boxX, boxY, boxWidth, boxHeight, sliders[i], values[i], isSelected);
 
             } else {
 
-                // Regular value text
-
-                g.setFont(new Font("Arial", Font.BOLD, 20));
-
-                fm = g.getFontMetrics();
-
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 20, boxY + 28);
+                drawToggleSwitch(g, boxX, boxY, boxWidth, boxHeight, toggles[i], isSelected);
 
             }
 
             
 
-            // Draw description below if selected
+            // Description below when selected
 
-            if (isSelected) {
+            if (isSelected && descriptions != null && i < descriptions.length) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 14));
+                g.setFont(new Font("Arial", Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(new Color(216, 222, 233, 180));
 
                 fm = g.getFontMetrics();
 
-                g.drawString(descriptions[i], (width - fm.stringWidth(descriptions[i])) / 2, y + 75);
+                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+
+                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
 
             }
 
             
 
-            y += 120;
+            y += itemSpacing;
 
         }
+
+    }
+
+    
+
+    private void drawPillSelector(Graphics2D g, int settingIndex, int boxX, int boxY, int boxWidth, int boxHeight, String[] options, int selected, boolean isRowSelected) {
+
+        g.setFont(new Font("Arial", Font.BOLD, 12));
+
+        FontMetrics fm = g.getFontMetrics();
+
+        
+
+        int pillH = pillClickH;
+
+        int pillGap = 3;
+
+        int pillPadding = 12;
+
+        
+
+        // Calculate pill widths
+
+        int[] pillW = new int[options.length];
+
+        int totalW = 0;
+
+        for (int j = 0; j < options.length; j++) {
+
+            pillW[j] = fm.stringWidth(options[j]) + pillPadding * 2;
+
+            totalW += pillW[j];
+
+        }
+
+        totalW += (options.length - 1) * pillGap;
+
+        
+
+        int startX = boxX + boxWidth - totalW - 16;
+
+        int pillY = boxY + (boxHeight - pillH) / 2;
+
+        int px = startX;
+
+        
+
+        // Store click targets
+
+        int[] targets = new int[options.length * 2];
+
+        pillClickTargetY[settingIndex] = pillY;
+
+        
+
+        for (int j = 0; j < options.length; j++) {
+
+            boolean isSel = j == selected;
+
+            targets[j * 2] = px;
+
+            targets[j * 2 + 1] = pillW[j];
+
+            
+
+            // Pill background
+
+            if (isSel) {
+
+                g.setColor(new Color(163, 190, 140, 220));
+
+            } else if (isRowSelected) {
+
+                g.setColor(new Color(76, 86, 106, 200));
+
+            } else {
+
+                g.setColor(new Color(59, 66, 82, 180));
+
+            }
+
+            g.fillRoundRect(px, pillY, pillW[j], pillH, 6, 6);
+
+            
+
+            // Border for selected pill
+
+            if (isSel) {
+
+                g.setColor(new Color(163, 190, 140, 255));
+
+                g.setStroke(new BasicStroke(1));
+
+                g.drawRoundRect(px, pillY, pillW[j], pillH, 6, 6);
+
+            }
+
+            
+
+            // Text
+
+            g.setFont(new Font("Arial", isSel ? Font.BOLD : Font.PLAIN, 12));
+
+            fm = g.getFontMetrics();
+
+            if (isSel) {
+
+                g.setColor(new Color(46, 52, 64));
+
+            } else {
+
+                g.setColor(new Color(216, 222, 233, isRowSelected ? 200 : 140));
+
+            }
+
+            int textX = px + (pillW[j] - fm.stringWidth(options[j])) / 2;
+
+            int textYPos = pillY + (pillH + fm.getAscent() - fm.getDescent()) / 2;
+
+            g.drawString(options[j], textX, textYPos);
+
+            
+
+            px += pillW[j] + pillGap;
+
+        }
+
+        
+
+        pillClickTargets[settingIndex] = targets;
+
+    }
+
+    
+
+    private void drawSliderWithButtons(Graphics2D g, int settingIndex, int boxX, int boxY, int boxWidth, int boxHeight, float[] sliderInfo, String value, boolean isSelected) {
+
+        float min = sliderInfo[1];
+
+        float max = sliderInfo[2];
+
+        float current = sliderInfo[3];
+
+        float progress = (current - min) / (max - min);
+
+        
+
+        int btnSize = sliderBtnSize;
+
+        int centerY = boxY + boxHeight / 2;
+
+        int rightMargin = 16;
+
+        
+
+        // Layout from right: value text, [+], slider bar, [-]
+
+        g.setFont(new Font("Arial", Font.BOLD, 15));
+
+        FontMetrics fm = g.getFontMetrics();
+
+        int valueW = fm.stringWidth(value) + 12;
+
+        
+
+        int plusX = boxX + boxWidth - rightMargin - valueW - btnSize;
+
+        int sliderEndX = plusX - 8;
+
+        int sliderStartX = boxX + boxWidth / 2 - 20;
+
+        int minusX = sliderStartX - btnSize - 8;
+
+        int sliderWidth = sliderEndX - sliderStartX;
+
+        
+
+        // Store for click detection
+
+        sliderMinusBtnX[settingIndex] = minusX;
+
+        sliderPlusBtnX[settingIndex] = plusX;
+
+        sliderBtnYPos[settingIndex] = centerY - btnSize / 2;
+
+        
+
+        // [-] button
+
+        g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+
+        g.fillRoundRect(minusX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
+
+        g.setColor(new Color(216, 222, 233));
+
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+
+        fm = g.getFontMetrics();
+
+        g.drawString("\u2212", minusX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + 6);
+
+        
+
+        // Slider bar
+
+        int sliderH = 6;
+
+        int sliderY = centerY - sliderH / 2;
+
+        g.setColor(new Color(46, 52, 64));
+
+        g.fillRoundRect(sliderStartX, sliderY, sliderWidth, sliderH, 3, 3);
+
+        int fillW = (int)(sliderWidth * progress);
+
+        g.setColor(new Color(163, 190, 140));
+
+        g.fillRoundRect(sliderStartX, sliderY, Math.max(fillW, 3), sliderH, 3, 3);
+
+        
+
+        // Handle
+
+        int handleX = sliderStartX + fillW - 5;
+
+        g.setColor(new Color(235, 203, 139));
+
+        g.fillOval(handleX, centerY - 7, 10, 14);
+
+        
+
+        // [+] button
+
+        g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+
+        g.fillRoundRect(plusX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
+
+        g.setColor(new Color(216, 222, 233));
+
+        g.setFont(new Font("Arial", Font.BOLD, 16));
+
+        fm = g.getFontMetrics();
+
+        g.drawString("+", plusX + (btnSize - fm.stringWidth("+")) / 2, centerY + 6);
+
+        
+
+        // Value text
+
+        g.setFont(new Font("Arial", Font.BOLD, 15));
+
+        g.setColor(new Color(216, 222, 233));
+
+        fm = g.getFontMetrics();
+
+        g.drawString(value, boxX + boxWidth - rightMargin - fm.stringWidth(value), centerY + 6);
+
+    }
+
+    
+
+    private void drawToggleSwitch(Graphics2D g, int boxX, int boxY, int boxWidth, int boxHeight, boolean isOn, boolean isSelected) {
+
+        int toggleW = 44;
+
+        int toggleH = 22;
+
+        int toggleX = boxX + boxWidth - toggleW - 16;
+
+        int toggleY = boxY + (boxHeight - toggleH) / 2;
+
+        
+
+        // Background
+
+        g.setColor(isOn ? new Color(163, 190, 140, 200) : new Color(76, 86, 106, 200));
+
+        g.fillRoundRect(toggleX, toggleY, toggleW, toggleH, 11, 11);
+
+        
+
+        // Circle
+
+        int circleSize = 18;
+
+        int circleX = isOn ? toggleX + toggleW - circleSize - 2 : toggleX + 2;
+
+        int circleY = toggleY + 2;
+
+        g.setColor(new Color(236, 239, 244));
+
+        g.fillOval(circleX, circleY, circleSize, circleSize);
+
+        
+
+        // ON/OFF label
+
+        g.setFont(new Font("Arial", Font.BOLD, 12));
+
+        FontMetrics fm = g.getFontMetrics();
+
+        String label = isOn ? "ON" : "OFF";
+
+        g.setColor(new Color(216, 222, 233, 180));
+
+        g.drawString(label, toggleX - fm.stringWidth(label) - 8, toggleY + 15);
 
     }
 
@@ -11326,7 +11665,7 @@ public class Renderer {
 
         FontMetrics fm = g.getFontMetrics();
 
-        int iconSize = fm.getHeight() - 2;
+        int iconH = fm.getHeight() - 2;
 
         
 
@@ -11342,11 +11681,13 @@ public class Renderer {
 
             } else if (seg instanceof KeyBindManager.Action) {
 
-                if (controllerMode) {
+                if (Game.keyBindManager != null) {
 
                     java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon((KeyBindManager.Action) seg);
 
-                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
 
                 } else {
 
@@ -11360,7 +11701,9 @@ public class Renderer {
 
                     java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite((KeyBindManager.ControllerButton) seg);
 
-                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+                    int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
 
                 }
 
@@ -11392,15 +11735,17 @@ public class Renderer {
 
                 KeyBindManager.Action action = (KeyBindManager.Action) seg;
 
-                if (controllerMode) {
+                if (Game.keyBindManager != null) {
 
                     java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon(action);
 
                     if (icon != null) {
 
-                        g.drawImage(icon, drawX, y - iconSize + 2, iconSize, iconSize, null);
+                        int iW = iconH * icon.getWidth() / icon.getHeight();
 
-                        drawX += iconSize + 2;
+                        g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+
+                        drawX += iW + 2;
 
                     } else {
 
@@ -11432,9 +11777,11 @@ public class Renderer {
 
                     if (icon != null) {
 
-                        g.drawImage(icon, drawX, y - iconSize + 2, iconSize, iconSize, null);
+                        int iW = iconH * icon.getWidth() / icon.getHeight();
 
-                        drawX += iconSize + 2;
+                        g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+
+                        drawX += iW + 2;
 
                     } else {
 
@@ -11470,7 +11817,7 @@ public class Renderer {
 
         FontMetrics fm = g.getFontMetrics();
 
-        int iconSize = fm.getHeight() - 2;
+        int iconH = fm.getHeight() - 2;
 
         int totalWidth = 0;
 
@@ -11482,11 +11829,13 @@ public class Renderer {
 
             } else if (seg instanceof KeyBindManager.Action) {
 
-                if (controllerMode) {
+                if (Game.keyBindManager != null) {
 
                     java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon((KeyBindManager.Action) seg);
 
-                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
 
                 } else {
 
@@ -11500,7 +11849,9 @@ public class Renderer {
 
                     java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite((KeyBindManager.ControllerButton) seg);
 
-                    totalWidth += (icon != null) ? iconSize + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+                    int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
 
                 }
 
@@ -11521,6 +11872,58 @@ public class Renderer {
     public UIButton[] getSettingsButtons() { return settingsButtons; }
 
     public UIButton[] getPauseButtons() { return pauseButtons; }
+
+    
+
+    /** Returns which pill option was clicked for a given setting, or -1 if none */
+
+    public int getPillClickIndex(int settingIndex, int mouseX, int mouseY) {
+
+        if (pillClickTargets == null || settingIndex >= pillClickTargets.length || pillClickTargets[settingIndex] == null) return -1;
+
+        int[] targets = pillClickTargets[settingIndex];
+
+        int py = pillClickTargetY[settingIndex];
+
+        if (mouseY < py || mouseY > py + pillClickH) return -1;
+
+        for (int j = 0; j < targets.length / 2; j++) {
+
+            int px = targets[j * 2];
+
+            int pw = targets[j * 2 + 1];
+
+            if (mouseX >= px && mouseX <= px + pw) return j;
+
+        }
+
+        return -1;
+
+    }
+
+    
+
+    /** Returns -1 for minus click, +1 for plus click, 0 for neither */
+
+    public int getSliderButtonClick(int settingIndex, int mouseX, int mouseY) {
+
+        if (sliderMinusBtnX == null || settingIndex >= sliderMinusBtnX.length) return 0;
+
+        int by = sliderBtnYPos[settingIndex];
+
+        int bs = sliderBtnSize;
+
+        if (mouseY >= by && mouseY <= by + bs) {
+
+            if (mouseX >= sliderMinusBtnX[settingIndex] && mouseX <= sliderMinusBtnX[settingIndex] + bs) return -1;
+
+            if (mouseX >= sliderPlusBtnX[settingIndex] && mouseX <= sliderPlusBtnX[settingIndex] + bs) return 1;
+
+        }
+
+        return 0;
+
+    }
 
     public void configurePauseMenu(boolean isShowcase) {
 

@@ -35,10 +35,11 @@ public class Player {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 4; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_MIN_SCALE = 1.05; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.7; // Outermost layer scale
-    private static final float SHADOW_MAX_ALPHA = 0.18f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.03f; // Alpha of outermost (most transparent) layer
+    private static final double SHADOW_MIN_SCALE = 0.75; // Innermost layer scale
+    private static final double SHADOW_MAX_SCALE = 1.15; // Outermost layer scale
+    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
+    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
+    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
     
     private static BufferedImage missileSprite;
     private static BufferedImage missileShadow;
@@ -307,6 +308,12 @@ public class Player {
                 
                 int lw = (int)(spriteWidth * layerScale);
                 int lh = (int)(spriteHeight * layerScale);
+                // Stretch the shorter side slightly so the shadow is more rounded
+                if (lw < lh) {
+                    lw = (int)(lw * SHADOW_WIDTH_STRETCH);
+                } else {
+                    lh = (int)(lh * SHADOW_WIDTH_STRETCH);
+                }
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * layerAlpha));
                 g2d.drawImage(missileShadow,
                     (int)(-lw / 2), (int)(-lh / 2 + SHADOW_GLOW_OFFSET_Y),

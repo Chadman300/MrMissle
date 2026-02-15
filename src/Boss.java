@@ -44,10 +44,11 @@ public class Boss {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 5; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_MIN_SCALE = 1.05; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.7; // Outermost layer scale
-    private static final float SHADOW_MAX_ALPHA = 0.18f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.03f; // Alpha of outermost (most transparent) layer
+    private static final double SHADOW_MIN_SCALE = 0.75; // Innermost layer scale
+    private static final double SHADOW_MAX_SCALE = 1.15; // Outermost layer scale
+    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
+    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
+    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
     
     private double shootTimer;
     private int shootInterval;
@@ -945,9 +946,47 @@ public class Boss {
                 break;
         }
         
-        // Play boss shoot sound if bullets were actually spawned
+        // Play type-specific boss shoot sound if bullets were actually spawned
         if (soundManager != null && bullets.size() > bulletCountBefore) {
-            soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
+            SoundManager.Sound shootSound;
+            switch (currentPattern) {
+                case 5:  // Fast bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_FAST;
+                    break;
+                case 6:  // Large bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_LARGE;
+                    break;
+                case 15: // Homing bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_HOMING;
+                    break;
+                case 16: // Bouncing bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_BOUNCING;
+                    break;
+                case 0:  // Spiral pattern
+                case 8:  // Spiral bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_SPIRAL;
+                    break;
+                case 10: // Accelerating bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_ACCELERATING;
+                    break;
+                case 3:  // Wave pattern
+                case 11: // Wave bullets
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_WAVE;
+                    break;
+                case 12: // Bombs
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_BOMB;
+                    break;
+                case 13: // Grenades
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_GRENADE;
+                    break;
+                case 14: // Nukes
+                    shootSound = SoundManager.Sound.BOSS_SHOOT_NUKE;
+                    break;
+                default: // Normal, circle, aimed, random, mixed
+                    shootSound = SoundManager.Sound.BOSS_SHOOT;
+                    break;
+            }
+            soundManager.playSound(shootSound, 0.25f);
         }
     }
     
@@ -1695,6 +1734,12 @@ public class Boss {
                     
                     int layerW = (int)(spriteWidth * layerScale);
                     int layerH = (int)(spriteHeight * layerScale);
+                    // Stretch the shorter side slightly so the shadow is more rounded
+                    if (layerW < layerH) {
+                        layerW = (int)(layerW * SHADOW_WIDTH_STRETCH);
+                    } else {
+                        layerH = (int)(layerH * SHADOW_WIDTH_STRETCH);
+                    }
                     
                     if (Math.abs(shadowScaleX - 1.0) > 0.001) {
                         layerW = (int)(layerW * Math.abs(shadowScaleX));

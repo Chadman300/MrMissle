@@ -177,6 +177,7 @@ public class ControllerManager {
             Object[] components = (Object[]) controllerGetComponents.invoke(controller);
             
             float leftX = 0, leftY = 0;
+            float zVal = 0, rzVal = 0;
             float pov = 0;
             Map<String, Boolean> rawButtons = new HashMap<>();
 
@@ -187,6 +188,8 @@ public class ControllerManager {
                 // Axes
                 if (id.equals(xAxis)) leftX = value;
                 else if (id.equals(yAxis)) leftY = value;
+                else if (zAxis != null && id.equals(zAxis)) zVal = value;
+                else if (rzAxis != null && id.equals(rzAxis)) rzVal = value;
                 else if (povIdentifier != null && id.equals(povIdentifier)) pov = value;
                 // Buttons (check by identifier toString)
                 else {
@@ -234,6 +237,18 @@ public class ControllerManager {
                 currentState.put(KeyBindManager.ControllerButton.BACK_BTN, true);
             if (rawButtons.containsKey("7"))
                 currentState.put(KeyBindManager.ControllerButton.START, true);
+            // Map L3/R3 (stick click buttons: 8=L3, 9=R3)
+            if (rawButtons.containsKey("8"))
+                currentState.put(KeyBindManager.ControllerButton.LEFT_STICK_PRESS, true);
+            if (rawButtons.containsKey("9"))
+                currentState.put(KeyBindManager.ControllerButton.RIGHT_STICK_PRESS, true);
+
+            // Map analog triggers (Z axis: positive=LT, negative=RT on most Xbox controllers)
+            // Some controllers use separate RZ axis for one trigger
+            if (zVal > DEADZONE) currentState.put(KeyBindManager.ControllerButton.LT, true);
+            if (zVal < -DEADZONE) currentState.put(KeyBindManager.ControllerButton.RT, true);
+            if (rzVal > DEADZONE) currentState.put(KeyBindManager.ControllerButton.RT, true);
+            if (rzVal < -DEADZONE) currentState.put(KeyBindManager.ControllerButton.LT, true);
 
             // Auto-detect input mode: if any button/stick is active, switch to controller
             boolean anyActive = false;
