@@ -815,5 +815,8 @@ public class Bullet {
     public void applyForce(double fx, double fy) {
         vx += fx;
         vy += fy;
+        // Invalidate speed cache so spiral/homing bullets pick up the new velocity
+        speedCacheAge = 999;
+        cachedSpeed = 0;
     }
 }

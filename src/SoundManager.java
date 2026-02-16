@@ -385,6 +385,26 @@ public class SoundManager {
         }
     }
     
+    /**
+     * Stop a specific sound if it's currently playing.
+     * Checks both the main cache and pooled clips.
+     */
+    public void stopSound(Sound sound) {
+        Clip clip = soundCache.get(sound.name());
+        if (clip != null && clip.isRunning()) {
+            clip.stop();
+        }
+        // Also stop any pooled clips for this sound
+        List<Clip> pool = soundPoolCache.get(sound.name());
+        if (pool != null) {
+            for (Clip pooledClip : pool) {
+                if (pooledClip != null && pooledClip.isRunning()) {
+                    pooledClip.stop();
+                }
+            }
+        }
+    }
+    
     public void cleanup() {
         for (Clip clip : soundCache.values()) {
             if (clip != null) {
@@ -450,6 +470,17 @@ public class SoundManager {
     }
     
     public void playMusic(String musicPath) {
+        playMusic(musicPath, CROSSFADE_DURATION_MS);
+    }
+    
+    /**
+     * Play music with a fast crossfade (~1 second) - used when entering a level.
+     */
+    public void playMusicFast(String musicPath) {
+        playMusic(musicPath, 1000);
+    }
+    
+    private void playMusic(String musicPath, int crossfadeDurationMs) {
         if (!soundEnabled || !soundsReady) return;
         
         // Convert MP3 path to WAV path automatically
@@ -462,12 +493,30 @@ public class SoundManager {
         
         // If music is currently playing, crossfade to new track
         if (musicClip != null && musicClip.isRunning()) {
-            crossfadeToNewTrack(wavPath);
+            crossfadeToNewTrack(wavPath, crossfadeDurationMs);
         } else {
             // No music playing, just start fresh
             stopMusic();
             startMusicClip(wavPath);
         }
+    }
+    
+    /**
+     * Play music immediately, bypassing the soundsReady check.
+     * Used for loading screen music before sounds are fully preloaded.
+     */
+    public void playMusicEarly(String musicPath) {
+        if (!soundEnabled) return;
+        
+        String wavPath = musicPath.replace(".mp3", ".wav");
+        
+        // Don't restart if same music is already playing
+        if (wavPath.equals(currentMusic) && musicClip != null && musicClip.isRunning()) {
+            return;
+        }
+        
+        stopMusic();
+        startMusicClip(wavPath);
     }
     
     private void startMusicClip(String wavPath) {
@@ -484,7 +533,7 @@ public class SoundManager {
         }
     }
     
-    private void crossfadeToNewTrack(String newWavPath) {
+    private void crossfadeToNewTrack(String newWavPath, int durationMs) {
         // Move current clip to fading out
         if (fadingOutClip != null) {
             fadingOutClip.stop();
@@ -517,7 +566,7 @@ public class SoundManager {
         isCrossfading = true;
         Thread crossfadeThread = new Thread(() -> {
             try {
-                int stepDelay = CROSSFADE_DURATION_MS / CROSSFADE_STEPS;
+                int stepDelay = durationMs / CROSSFADE_STEPS;
                 for (int i = 1; i <= CROSSFADE_STEPS; i++) {
                     float progress = (float) i / CROSSFADE_STEPS;
                     

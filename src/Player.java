@@ -404,6 +404,24 @@ public class Player {
         vy *= multiplier;
     }
     
+    /**
+     * Nudge velocity angle toward a target angle without changing speed.
+     * Used for soft aim assist during dash.
+     * @param targetAngle the angle to nudge toward (radians)
+     * @param strength how much to nudge (0.0 = none, 1.0 = snap to target)
+     */
+    public void nudgeAngle(double targetAngle, double strength) {
+        double speed = Math.sqrt(vx * vx + vy * vy);
+        if (speed < 0.1) return;
+        double currentAngle = Math.atan2(vy, vx);
+        double angleDiff = targetAngle - currentAngle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        double newAngle = currentAngle + angleDiff * strength;
+        vx = Math.cos(newAngle) * speed;
+        vy = Math.sin(newAngle) * speed;
+    }
+    
     // Apply knockback from shockwave or other effects
     public void applyKnockback(double sourceX, double sourceY, double strength) {
         // Calculate direction away from source

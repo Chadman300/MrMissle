@@ -10,13 +10,17 @@
  * 
  * UNLOCK PROGRESSION:
  * - Level 3: Pool of Loot (spawn money circle)
- * - Level 6: Shield (tank hits)
+ * - Level 6: Shield (orbiting shields)
+ * - Level 7: Bombs (explosive barrage)
  * - Level 9: Stun (freeze boss)
  * - Level 12: Chromatic Purge (delete random bullet type)
  * - Level 15: Time Slow (slow bullets/beams)
- * - Level 18: Dash (invincibility frames)
+ * - Level 18: Dash (invincibility frames + aim assist)
  * - Level 21: Impulse (push bullets)
  * - Level 24: Frost Beam (freeze bullets)
+ * 
+ * POWER RANKING (weakest to strongest):
+ * Pool of Loot < Shield < Bombs < Stun < Impulse < Time Slow < Chromatic Purge < Dash < Frost Beam
  * - Level 27: Bombs (explosive barrage)
  * 
  * BALANCING:
@@ -34,18 +38,18 @@
 public class ActiveItem {
     /**
      * All available active item types.
-     * Ordered by power level (unlock progression, weakest to strongest).
+     * Ordered by power level (weakest to strongest).
      */
     public enum ItemType {
         // Ordered by power level (weakest to strongest)
         LUCKY_CHARM,    // Spawn money circle for bonus money - Level 3
-        SHIELD,         // Tank one hit - Level 6
+        SHIELD,         // Orbiting shields that block bullets - Level 6
         BOMBS,          // Explosive barrage on screen - Level 7
         STUN,           // Stun the boss temporarily - Level 9
-        TYPE_PURGE,     // Delete all bullets of a random type - Level 12
-        TIME_SLOW,      // Slow bullets + beams temporarily - Level 15
-        DASH,           // Dash with I-frames - Level 18
         IMPULSE,        // Push bullets away in radius - Level 21
+        TIME_SLOW,      // Slow bullets + beams temporarily - Level 15
+        TYPE_PURGE,     // Delete all bullets of a random type - Level 12
+        DASH,           // Dash with I-frames + aim assist - Level 18
         FROST_BEAM      // Freeze bullets in a beam - Level 24
     }
     
@@ -68,9 +72,9 @@ public class ActiveItem {
         switch (type) {
             case LUCKY_CHARM:
                 name = "Pool of Loot";
-                description = "Spawn permanent money circle (35s cooldown)";
+                description = "Spawn money circle lasting 20s (35s cooldown)";
                 cooldownFrames = 2100; // 35 seconds
-                activeDuration = 6; // Near-instant (circle is permanent, just need brief activation)
+                activeDuration = 6; // Near-instant (circle is spawned, just need brief activation)
                 currentCooldown = 0; // Starts ready to use
                 break;
             case SHIELD:
@@ -81,8 +85,8 @@ public class ActiveItem {
                 break;
             case TYPE_PURGE:
                 name = "Chromatic Purge";
-                description = "Erase random bullet type (5s cooldown)";
-                cooldownFrames = 300; // 5 seconds
+                description = "Erase random bullet type (15s cooldown)";
+                cooldownFrames = 900; // 15 seconds (was 5)
                 activeDuration = 0; // Instant
                 break;
             case IMPULSE:
@@ -105,9 +109,9 @@ public class ActiveItem {
                 break;
             case TIME_SLOW:
                 name = "Time Slow";
-                description = "Slow bullets 70% (7.5s cooldown)";
+                description = "Slow bullets 85% (7.5s cooldown)";
                 cooldownFrames = 450; // 7.5 seconds (was 15)
-                activeDuration = 120; // 2 seconds (reduced from 4)
+                activeDuration = 240; // 4 seconds (was 2s)
                 break;
             case FROST_BEAM:
                 name = "Frost Beam";
@@ -117,9 +121,9 @@ public class ActiveItem {
                 break;
             case STUN:
                 name = "Stun";
-                description = "Stun the boss (10s cooldown)";
+                description = "Stun the boss for 1s (10s cooldown)";
                 cooldownFrames = 600; // 10 seconds
-                activeDuration = 90; // 1.5 seconds stun duration
+                activeDuration = 60; // 1 second stun duration (was 1.5s)
                 break;
         }
     }

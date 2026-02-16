@@ -2477,13 +2477,13 @@ public class Renderer {
 
             {ActiveItem.ItemType.STUN, 9, "Stun", "Freeze the boss temporarily"},
 
-            {ActiveItem.ItemType.TYPE_PURGE, 12, "Chromatic Purge", "Erase all bullets of a random type"},
+            {ActiveItem.ItemType.IMPULSE, 12, "Impulse", "Push all bullets away from you"},
 
-            {ActiveItem.ItemType.TIME_SLOW, 15, "Time Slow", "Slow bullets & beams by 70%"},
+            {ActiveItem.ItemType.TIME_SLOW, 15, "Time Slow", "Slow bullets & beams by 85%"},
 
-            {ActiveItem.ItemType.DASH, 18, "Dash", "Quick dash with invincibility"},
+            {ActiveItem.ItemType.TYPE_PURGE, 18, "Chromatic Purge", "Erase all bullets of a random type"},
 
-            {ActiveItem.ItemType.IMPULSE, 21, "Impulse", "Push all bullets away from you"},
+            {ActiveItem.ItemType.DASH, 21, "Dash", "Quick dash with invincibility"},
 
             {ActiveItem.ItemType.FROST_BEAM, 24, "Frost Beam", "Freeze bullets in an icy beam"},
 
@@ -6823,87 +6823,7 @@ public class Renderer {
 
         
 
-        // Draw UI with better contrast
-
-        g.setColor(new Color(0, 0, 0, 150));
-
-        g.fillRoundRect(10, 10, 280, 140, 10, 10);
-
-        
-
-        g.setColor(Color.WHITE);
-
-        g.setFont(new Font("Arial", Font.BOLD, 24));
-
-        g.drawString("Level: " + level, 20, 35);
-
-        g.drawString("Score: " + (int)displayedScore, 20, 65);
-
-        g.drawString("Money: $" + (int)displayedMoney, 20, 95);
-
-        
-
-        // Display timer and FPS
-
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
-
-        int minutes = (int)(gameTime / 60);
-
-        int seconds = (int)(gameTime % 60);
-
-        int milliseconds = (int)((gameTime % 1) * 100);
-
-        String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
-
-        g.drawString(timeStr, 20, 120);
-
-        g.drawString("FPS: " + fps, 20, 145);
-
-        
-
-        // Draw combo counter with pulse effect
-
-        if (showCombo && dodgeCombo > 1) {
-
-            g.setColor(new Color(0, 0, 0, 150));
-
-            g.fillRoundRect(width - 210, 10, 200, 60, 10, 10);
-
-            
-
-            // Apply pulse scale to combo text
-
-            AffineTransform comboTransform = g.getTransform();
-
-            int comboX = width - 110;
-
-            int comboY = 50;
-
-            g.translate(comboX, comboY);
-
-            g.scale(comboPulseScale, comboPulseScale);
-
-            g.translate(-comboX, -comboY);
-
-            
-
-            g.setColor(new Color(163, 190, 140));
-
-            g.setFont(new Font("Arial", Font.BOLD, 32));
-
-            String comboText = "COMBO x" + dodgeCombo;
-
-            FontMetrics comboFm = g.getFontMetrics();
-
-            g.drawString(comboText, width - 205 + (190 - comboFm.stringWidth(comboText)) / 2, 50);
-
-            
-
-            // Reset transform after pulse
-
-            g.setTransform(comboTransform);
-
-        }
+        // [UI HUD and top-right stack moved below overlay for proper layering]
 
         
 
@@ -7093,159 +7013,9 @@ public class Renderer {
 
         
 
-        // Draw close call / perfect dodge indicators below combo
-
-        if (comboSystem != null && (comboSystem.getCloseCallCount() > 0 || comboSystem.getPerfectDodgeCount() > 0)) {
-
-            int indicatorY = showCombo && dodgeCombo > 1 ? 70 : 10;
-
-            g.setFont(new Font("Arial", Font.BOLD, 14));
-
-            
-
-            if (comboSystem.getPerfectDodgeCount() > 0) {
-
-                g.setColor(new Color(255, 215, 0)); // Gold for perfect
-
-                g.drawString("ÃƒÂ¢Ã…Â¡Ã‚Â¡ PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, indicatorY);
-
-                indicatorY += 18;
-
-            }
-
-            if (comboSystem.getCloseCallCount() > 0) {
-
-                g.setColor(new Color(163, 190, 140)); // Green for close call
-
-                g.drawString("ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ CLOSE x" + comboSystem.getCloseCallCount(), width - 200, indicatorY);
-
-            }
-
-        }
-
         
 
-        // Draw extra lives indicator (top right, above active item)
-
-        if (gameData.getExtraLives() > 0) {
-
-            int livesUIX = width - 210;
-
-            int livesUIY = showCombo && dodgeCombo > 1 ? 170 : 100;
-
-            
-
-            g.setColor(new Color(0, 0, 0, 150));
-
-            g.fillRoundRect(livesUIX, livesUIY, 200, 40, 10, 10);
-
-            
-
-            g.setFont(new Font("Arial", Font.BOLD, 20));
-
-            g.setColor(new Color(255, 215, 0)); // Gold
-
-            String livesText = "Lives: " + gameData.getExtraLives();
-
-            g.drawString(livesText, livesUIX + 10, livesUIY + 27);
-
-        }
-
         
-
-        // Draw active item UI
-
-        equippedItem = gameData.getEquippedItem();
-
-        if (equippedItem != null) {
-
-            int itemUIX = width - 210;
-
-            int itemUIY = showCombo && dodgeCombo > 1 ? 80 : 10;
-
-            
-
-            // Background
-
-            g.setColor(new Color(0, 0, 0, 150));
-
-            g.fillRoundRect(itemUIX, itemUIY, 200, 80, 10, 10);
-
-            
-
-            // Item name
-
-            g.setFont(new Font("Arial", Font.BOLD, 20));
-
-            if (equippedItem.canActivate()) {
-
-                g.setColor(new Color(163, 190, 140)); // Green when ready
-
-            } else if (equippedItem.isActive()) {
-
-                g.setColor(new Color(235, 203, 139)); // Yellow when active
-
-            } else {
-
-                g.setColor(new Color(150, 150, 150)); // Gray when on cooldown
-
-            }
-
-            g.drawString(equippedItem.getName(), itemUIX + 10, itemUIY + 25);
-
-            
-
-            // Cooldown bar
-
-            g.setColor(new Color(60, 60, 60));
-
-            g.fillRect(itemUIX + 10, itemUIY + 35, 180, 15);
-
-            
-
-            if (equippedItem.isActive()) {
-
-                // Active duration bar (yellow)
-
-                float activePercent = (float)equippedItem.getActiveTimer() / (float)equippedItem.getActiveDuration();
-
-                g.setColor(new Color(235, 203, 139));
-
-                g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * activePercent), 15);
-
-            } else {
-
-                // Cooldown progress bar (green)
-
-                float cooldownPercent = equippedItem.getCooldownPercent();
-
-                g.setColor(new Color(163, 190, 140));
-
-                g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * cooldownPercent), 15);
-
-            }
-
-            
-
-            // Key hint
-
-            g.setFont(new Font("Arial", Font.PLAIN, 14));
-
-            g.setColor(Color.WHITE);
-
-            String keyHint = equippedItem.canActivate() ? null : 
-
-                           equippedItem.isActive() ? "ACTIVE" :
-
-                           String.format("%.1fs", equippedItem.getCurrentCooldown() / 60.0);
-
-            if (keyHint != null) {
-            g.drawString(keyHint, itemUIX + 10, itemUIY + 68);
-            } else {
-                drawPromptWithIcons(g, itemUIX + 45, itemUIY + 68, "Press ", KeyBindManager.Action.USE_ITEM, "");
-            }
-
-        }
 
         
 
@@ -7278,66 +7048,6 @@ public class Renderer {
         }
 
         
-
-        // Draw combo display
-
-        if (comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
-
-            int comboX = width - 250;
-
-            int comboY = 100;
-
-            
-
-            // Combo background
-
-            g.setColor(new Color(0, 0, 0, 180));
-
-            g.fillRoundRect(comboX, comboY, 200, 80, 15, 15);
-
-            
-
-            // Combo number
-
-            g.setFont(new Font("Arial", Font.BOLD, 48));
-
-            g.setColor(new Color(235, 203, 139));
-
-            String comboText = comboSystem.getCombo() + "x";
-
-            FontMetrics fm = g.getFontMetrics();
-
-            g.drawString(comboText, comboX + (200 - fm.stringWidth(comboText)) / 2, comboY + 45);
-
-            
-
-            // Multiplier
-
-            g.setFont(new Font("Arial", Font.PLAIN, 14));
-
-            g.setColor(new Color(216, 222, 233));
-
-            String multText = String.format("%.1fx Score", comboSystem.getMultiplier());
-
-            fm = g.getFontMetrics();
-
-            g.drawString(multText, comboX + (200 - fm.stringWidth(multText)) / 2, comboY + 65);
-
-            
-
-            // Timeout bar
-
-            float timeoutProgress = comboSystem.getTimeoutProgress();
-
-            g.setColor(new Color(60, 60, 60));
-
-            g.fillRect(comboX + 10, comboY + 72, 180, 3);
-
-            g.setColor(new Color(163, 190, 140));
-
-            g.fillRect(comboX + 10, comboY + 72, (int)(180 * timeoutProgress), 3);
-
-        }
 
         
 
@@ -7699,106 +7409,6 @@ public class Renderer {
 
         
 
-        // Draw achievement notification
-
-        if (pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
-
-            Achievement ach = pendingAchievements.get(0);
-
-            float alpha = (float)Math.max(0.0, Math.min(1.0, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30.0 : 1.0));
-
-            
-
-            int notifX = width - 420;
-
-            
-
-            // Calculate Y position based on what UI is showing
-
-            int notifY = 10; // Start at top
-
-            
-
-            // Check if combo is showing (takes priority)
-
-            if (showCombo && dodgeCombo > 1) {
-
-                notifY = 80; // Below combo
-
-            }
-
-            
-
-            // Check if lives are showing
-
-            if (gameData.getExtraLives() > 0) {
-
-                int livesY = showCombo && dodgeCombo > 1 ? 10 : 10;
-
-                notifY = Math.max(notifY, livesY + 50); // Below lives (40px height + 10px padding)
-
-            }
-
-            
-
-            // Check if active item is showing
-
-            if (equippedItem != null) {
-
-                int itemUIY = showCombo && dodgeCombo > 1 ? 80 : 10;
-
-                notifY = Math.max(notifY, itemUIY + 90); // Below item (80px height + 10px padding)
-
-            }
-
-            
-
-            Graphics2D g2d = (Graphics2D) g.create();
-
-            
-
-            // Background
-
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-
-            g2d.setColor(new Color(46, 52, 64, 230));
-
-            g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
-
-            
-
-            // Title
-
-            g2d.setFont(new Font("Arial", Font.BOLD, 20));
-
-            g2d.setColor(new Color(235, 203, 139));
-
-            g2d.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
-
-            
-
-            // Achievement name
-
-            g2d.setFont(new Font("Arial", Font.BOLD, 24));
-
-            g2d.setColor(new Color(216, 222, 233));
-
-            g2d.drawString(ach.getName(), notifX + 20, notifY + 60);
-
-            
-
-            // Description
-
-            g2d.setFont(new Font("Arial", Font.PLAIN, 14));
-
-            g2d.drawString(ach.getDescription(), notifX + 20, notifY + 85);
-
-            
-
-            g2d.dispose();
-
-        }
-
         
 
         // Draw overlay on top of everything (not affected by camera shake)
@@ -7807,6 +7417,302 @@ public class Renderer {
 
             g.drawImage(overlayImage, 0, 0, width, height, null);
 
+        }
+
+        // ==========================================
+        // TOP-RIGHT UI STACK (above overlay for visibility)
+        // Uses cumulative topRightY for proper stacking
+        // ==========================================
+
+        // Draw UI with better contrast (top-left HUD)
+        g.setColor(new Color(0, 0, 0, 150));
+        g.fillRoundRect(10, 10, 280, 140, 10, 10);
+
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.drawString("Level: " + level, 20, 35);
+        g.drawString("Score: " + (int)displayedScore, 20, 65);
+        g.drawString("Money: $" + (int)displayedMoney, 20, 95);
+
+        // Display timer and FPS
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        int minutes = (int)(gameTime / 60);
+        int seconds = (int)(gameTime % 60);
+        int milliseconds = (int)((gameTime % 1) * 100);
+        String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
+        g.drawString(timeStr, 20, 120);
+        g.drawString("FPS: " + fps, 20, 145);
+
+        // Top-right UI stack with cumulative Y positioning
+        int topRightY = 10;
+
+        // 1. Dodge combo counter
+        if (showCombo && dodgeCombo > 1) {
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRoundRect(width - 210, topRightY, 200, 60, 10, 10);
+
+            AffineTransform comboTransform = g.getTransform();
+            int comboX = width - 110;
+            int comboCenterY = topRightY + 40;
+            g.translate(comboX, comboCenterY);
+            g.scale(comboPulseScale, comboPulseScale);
+            g.translate(-comboX, -comboCenterY);
+
+            g.setColor(new Color(163, 190, 140));
+            g.setFont(new Font("Arial", Font.BOLD, 32));
+            String dodgeComboText = "COMBO x" + dodgeCombo;
+            FontMetrics comboFm = g.getFontMetrics();
+            g.drawString(dodgeComboText, width - 205 + (190 - comboFm.stringWidth(dodgeComboText)) / 2, comboCenterY);
+
+            g.setTransform(comboTransform);
+            topRightY += 65;
+        }
+
+        // 2. Close call / perfect dodge indicators
+        if (comboSystem != null && (comboSystem.getCloseCallCount() > 0 || comboSystem.getPerfectDodgeCount() > 0)) {
+            g.setFont(new Font("Arial", Font.BOLD, 14));
+            if (comboSystem.getPerfectDodgeCount() > 0) {
+                g.setColor(new Color(255, 215, 0));
+                g.drawString("\u2721 PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, topRightY + 12);
+                topRightY += 18;
+            }
+            if (comboSystem.getCloseCallCount() > 0) {
+                g.setColor(new Color(163, 190, 140));
+                g.drawString("\u22C6 CLOSE x" + comboSystem.getCloseCallCount(), width - 200, topRightY + 12);
+                topRightY += 18;
+            }
+        }
+
+        // 3. Active item UI
+        equippedItem = gameData.getEquippedItem();
+        if (equippedItem != null) {
+            int itemUIX = width - 210;
+            int itemUIY = topRightY;
+            int itemUIW = 200;
+            int itemUIH = 80;
+            // Determine if any popup/flash is active for glow effect
+
+            boolean popupGlow = itemReadyFlickerTimer > 0 || itemCompleteFlashTimer > 0
+
+                || achievementFlashTimer > 0 || bossHitFlashTimer > 0 || countdownFlashTimer > 0;
+
+            
+
+            // Background
+
+            g.setColor(new Color(0, 0, 0, 150));
+
+            g.fillRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
+
+            
+
+            // Glow border when popup events are active or item is ready
+
+            if (popupGlow || equippedItem.canActivate()) {
+
+                Graphics2D g2d = (Graphics2D) g.create();
+
+                Color glowColor;
+
+                float glowAlpha;
+
+                if (itemReadyFlickerTimer > 0) {
+
+                    glowColor = new Color(163, 190, 140);
+
+                    glowAlpha = Math.min(0.8f, (float)itemReadyFlickerTimer / 20.0f);
+
+                } else if (itemCompleteFlashTimer > 0) {
+
+                    glowColor = new Color(80, 180, 255);
+
+                    glowAlpha = Math.min(0.8f, (float)itemCompleteFlashTimer / 15.0f);
+
+                } else if (achievementFlashTimer > 0) {
+
+                    glowColor = new Color(235, 203, 139);
+
+                    glowAlpha = Math.min(0.7f, (float)achievementFlashTimer / 20.0f);
+
+                } else if (bossHitFlashTimer > 0) {
+
+                    glowColor = new Color(255, 80, 80);
+
+                    glowAlpha = Math.min(0.6f, (float)bossHitFlashTimer / 15.0f);
+
+                } else if (equippedItem.canActivate()) {
+
+                    glowColor = new Color(163, 190, 140);
+
+                    glowAlpha = (float)(0.3 + 0.2 * Math.sin(time * 4));
+
+                } else {
+
+                    glowColor = Color.WHITE;
+
+                    glowAlpha = 0.3f;
+
+                }
+
+                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, glowAlpha))));
+
+                g2d.setColor(glowColor);
+
+                g2d.setStroke(new BasicStroke(2.5f));
+
+                g2d.drawRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
+
+                g2d.dispose();
+
+            }
+
+            
+
+            // Item name
+
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+
+            if (equippedItem.canActivate()) {
+
+                g.setColor(new Color(163, 190, 140)); // Green when ready
+
+            } else if (equippedItem.isActive()) {
+
+                g.setColor(new Color(235, 203, 139)); // Yellow when active
+
+            } else {
+
+                g.setColor(new Color(150, 150, 150)); // Gray when on cooldown
+
+            }
+
+            g.drawString(equippedItem.getName(), itemUIX + 10, itemUIY + 25);
+
+            
+
+            // Cooldown bar
+
+            g.setColor(new Color(60, 60, 60));
+
+            g.fillRect(itemUIX + 10, itemUIY + 35, 180, 15);
+
+            
+
+            if (equippedItem.isActive()) {
+
+                // Active duration bar (yellow)
+
+                float activePercent = (float)equippedItem.getActiveTimer() / (float)equippedItem.getActiveDuration();
+
+                g.setColor(new Color(235, 203, 139));
+
+                g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * activePercent), 15);
+
+            } else {
+
+                // Cooldown progress bar (green)
+
+                float cooldownPercent = equippedItem.getCooldownPercent();
+
+                g.setColor(new Color(163, 190, 140));
+
+                g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * cooldownPercent), 15);
+
+            }
+
+            
+
+            // Key hint - left-aligned inside the box to prevent overflow
+
+            g.setFont(new Font("Arial", Font.PLAIN, 13));
+
+            g.setColor(Color.WHITE);
+
+            String keyHint = equippedItem.canActivate() ? null : 
+
+                           equippedItem.isActive() ? "ACTIVE" :
+
+                           String.format("%.1fs", equippedItem.getCurrentCooldown() / 60.0);
+
+            if (keyHint != null) {
+                g.drawString(keyHint, itemUIX + 10, itemUIY + 68);
+            } else {
+                // Left-align instead of center to keep text inside the box
+                drawLeftAlignedPromptWithIcons(g, itemUIX + 10, itemUIY + 68, "Press ", KeyBindManager.Action.USE_ITEM, "");
+            }
+
+            topRightY += 85;
+        }
+
+        // 4. Extra lives indicator
+        if (gameData.getExtraLives() > 0) {
+            int livesUIX = width - 210;
+            int livesUIY = topRightY;
+
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRoundRect(livesUIX, livesUIY, 200, 40, 10, 10);
+
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setColor(new Color(255, 215, 0));
+            String livesText = "Lives: " + gameData.getExtraLives();
+            g.drawString(livesText, livesUIX + 10, livesUIY + 27);
+            topRightY += 45;
+        }
+
+        // 5. Combo display (score multiplier)
+        if (comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
+            int comboDispX = width - 250;
+            int comboDispY = topRightY;
+
+            g.setColor(new Color(0, 0, 0, 180));
+            g.fillRoundRect(comboDispX, comboDispY, 200, 80, 15, 15);
+
+            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setColor(new Color(235, 203, 139));
+            String comboDispText = comboSystem.getCombo() + "x";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(comboDispText, comboDispX + (200 - fm.stringWidth(comboDispText)) / 2, comboDispY + 45);
+
+            g.setFont(new Font("Arial", Font.PLAIN, 14));
+            g.setColor(new Color(216, 222, 233));
+            String multText = String.format("%.1fx Score", comboSystem.getMultiplier());
+            fm = g.getFontMetrics();
+            g.drawString(multText, comboDispX + (200 - fm.stringWidth(multText)) / 2, comboDispY + 65);
+
+            float timeoutProgress = comboSystem.getTimeoutProgress();
+            g.setColor(new Color(60, 60, 60));
+            g.fillRect(comboDispX + 10, comboDispY + 72, 180, 3);
+            g.setColor(new Color(163, 190, 140));
+            g.fillRect(comboDispX + 10, comboDispY + 72, (int)(180 * timeoutProgress), 3);
+            topRightY += 85;
+        }
+
+        // 6. Achievement notification
+        if (pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
+            Achievement ach = pendingAchievements.get(0);
+            float achAlpha = (float)Math.max(0.0, Math.min(1.0, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30.0 : 1.0));
+
+            int notifX = width - 420;
+            int notifY = topRightY;
+
+            Graphics2D g2d = (Graphics2D) g.create();
+
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, achAlpha));
+            g2d.setColor(new Color(46, 52, 64, 230));
+            g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
+
+            g2d.setFont(new Font("Arial", Font.BOLD, 20));
+            g2d.setColor(new Color(235, 203, 139));
+            g2d.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
+
+            g2d.setFont(new Font("Arial", Font.BOLD, 24));
+            g2d.setColor(new Color(216, 222, 233));
+            g2d.drawString(ach.getName(), notifX + 20, notifY + 60);
+
+            g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+            g2d.drawString(ach.getDescription(), notifX + 20, notifY + 85);
+
+            g2d.dispose();
         }
 
         
@@ -11658,6 +11564,54 @@ public class Renderer {
      * In controller mode, actions and ControllerButtons render as sprites.
 
      */
+
+    /** Left-aligned version of drawPromptWithIcons - draws from startX instead of centering */
+    private void drawLeftAlignedPromptWithIcons(Graphics2D g, int startX, int y, Object... segments) {
+        boolean controllerMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
+        FontMetrics fm = g.getFontMetrics();
+        int iconH = fm.getHeight() - 2;
+        int drawX = startX;
+        Color savedColor = g.getColor();
+        for (Object seg : segments) {
+            if (seg instanceof String) {
+                g.setColor(savedColor);
+                g.drawString((String) seg, drawX, y);
+                drawX += fm.stringWidth((String) seg);
+            } else if (seg instanceof KeyBindManager.Action) {
+                KeyBindManager.Action action = (KeyBindManager.Action) seg;
+                if (Game.keyBindManager != null) {
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon(action);
+                    if (icon != null) {
+                        int iW = iconH * icon.getWidth() / icon.getHeight();
+                        g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+                        drawX += iW + 2;
+                    } else {
+                        String text = keyText(action);
+                        g.drawString(text, drawX, y);
+                        drawX += fm.stringWidth(text);
+                    }
+                } else {
+                    String text = keyText(action);
+                    g.drawString(text, drawX, y);
+                    drawX += fm.stringWidth(text);
+                }
+            } else if (seg instanceof KeyBindManager.ControllerButton) {
+                KeyBindManager.ControllerButton btn = (KeyBindManager.ControllerButton) seg;
+                if (controllerMode && Game.keyBindManager != null) {
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getButtonSprite(btn);
+                    if (icon != null) {
+                        int iW = iconH * icon.getWidth() / icon.getHeight();
+                        g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+                        drawX += iW + 2;
+                    } else {
+                        String text = btn.getDisplayName();
+                        g.drawString(text, drawX, y);
+                        drawX += fm.stringWidth(text);
+                    }
+                }
+            }
+        }
+    }
 
     private void drawPromptWithIcons(Graphics2D g, int centerX, int y, Object... segments) {
 

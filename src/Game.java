@@ -12,6 +12,9 @@ public class Game extends JPanel implements Runnable {
     // Game constants
     public static final int WIDTH;
     public static final int HEIGHT;
+    // World bounds - larger than screen for expanded play area
+    public static final int WORLD_WIDTH;
+    public static final int WORLD_HEIGHT;
     private static final int FPS = 60;
     
     static {
@@ -19,6 +22,8 @@ public class Game extends JPanel implements Runnable {
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
         WIDTH = screenSize.width;
         HEIGHT = screenSize.height;
+        WORLD_WIDTH = (int)(WIDTH * 1.15);
+        WORLD_HEIGHT = (int)(HEIGHT * 1.15);
     }
     
     // Game state
@@ -136,7 +141,7 @@ public class Game extends JPanel implements Runnable {
     private int newItemIndex; // Index of newly unlocked item
     private UIButton[] equipButtons; // [Yes, No] buttons
     private int selectedEquipButton; // 0 = Yes, 1 = No
-    private static final int ITEM_UNLOCK_DURATION = 180; // 3 seconds
+    private static final int ITEM_UNLOCK_DURATION = 300; // 5 seconds (smooth reveal)
     private static final int ITEM_DISMISS_DURATION = 30; // 0.5 seconds fade out
     
     // Contract unlock animation
@@ -144,7 +149,7 @@ public class Game extends JPanel implements Runnable {
     private boolean contractUnlockDismissing;
     private double contractUnlockTimer;
     private double contractUnlockDismissTimer;
-    private static final int CONTRACT_UNLOCK_DURATION = 240; // 4 seconds (longer for more info)
+    private static final int CONTRACT_UNLOCK_DURATION = 360; // 6 seconds (smooth reveal with more info)
     private static final int CONTRACT_DISMISS_DURATION = 30;
     
     // UI Transitions
@@ -298,7 +303,7 @@ public class Game extends JPanel implements Runnable {
     // Can't Stop contract tracking
     private double stoppedMovingTimer = 0;
     private boolean hasMovedOnce = false; // Track if player has moved at least once
-    private static final int STOPPED_GRACE_PERIOD = 90; // 1.5 seconds before death
+    private static final int STOPPED_GRACE_PERIOD = 60; // 1 second before death
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
     
     // Game version
@@ -421,14 +426,14 @@ public class Game extends JPanel implements Runnable {
     // Active Items showcase data: {itemTypeName, level, name, description}
     // Ordered by power level (worst to best)
     private static final String[][] ITEM_SHOWCASE = {
-        {"LUCKY_CHARM", "3", "Pool of Loot", "Spawn a permanent money circle - stand in it for bonus money!\n35 second cooldown"},
+        {"LUCKY_CHARM", "3", "Pool of Loot", "Spawn a money circle that lasts 20 seconds!\nStand in it for bonus money. 35 second cooldown"},
         {"SHIELD", "6", "Shield", "Summon 3 orbiting shields that block bullets!\nShields persist until hit. 5s first use, then 20s cooldown"},
         {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
-        {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1.5 seconds"},
-        {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n5 second cooldown, screen flashes their color"},
-        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 70%\n7.5 second cooldown, lasts 2 seconds"},
-        {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown"},
+        {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1 second"},
         {"IMPULSE", "21", "Impulse", "Push all bullets away from you\n5 second cooldown, instant effect"},
+        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 85%\n7.5 second cooldown, lasts 4 seconds"},
+        {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n15 second cooldown, screen flashes their color"},
+        {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown, soft aim assist near boss"},
         {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"}
     };
     
@@ -511,16 +516,16 @@ public class Game extends JPanel implements Runnable {
     
     // LUCKY_CHARM money circle effect - supports multiple circles
     private java.util.List<double[]> moneyCircles = new java.util.ArrayList<>(); // Each: {x, y, timer}
-    private static final int MONEY_CIRCLE_DURATION = -1; // Permanent (no timer)
-    private static final double MONEY_CIRCLE_RADIUS = 120; // Bigger circle
+    private static final int MONEY_CIRCLE_DURATION = 1200; // 20 seconds at 60fps (was permanent)
+    private static final double MONEY_CIRCLE_RADIUS = 160; // Bigger circle (was 120)
     private static final int MONEY_CIRCLE_BONUS = 1; // Money per tick while standing in circle (reduced)
     
     // Camera tracking with smooth interpolation
     private double cameraX = 0;
     private double cameraY = 0;
-    private static final double CAMERA_SMOOTHING = 0.02; // Slower and smoother (was 0.05)
-    private static final double CAMERA_DEADZONE = 80; // Distance from center before camera moves
-    private static final double CAMERA_MAX_OFFSET = 100; // Max pixels camera can move from center
+    private static final double CAMERA_SMOOTHING = 0.03; // Smooth camera follow
+    private static final double CAMERA_DEADZONE = 50; // Distance from center before camera moves
+    private static final double CAMERA_MAX_OFFSET = 150; // Max pixels camera can move from center
     private boolean introPanActive = false;
     private double introPanTimer = 0;
     private static final int INTRO_PAN_DURATION = 240; // 4 seconds total (2s boss entrance, 2s pan back)
@@ -1430,16 +1435,16 @@ public class Game extends JPanel implements Runnable {
                     } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && introPanActive) {
                         // Skip intro animation
                         introPanActive = false;
-                        cameraX = 0;
-                        cameraY = 0;
+                        cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                        cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                         screenShakeIntensity = 8;
                     } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && bossIntroActive) {
                         // Skip boss intro cinematic
                         bossIntroActive = false;
                         screenShakeIntensity = 5;
                         // Reset player and boss to proper gameplay positions
-                        if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
-                        if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                        if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                        if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
                         introParticles.clear();
                         if (demoIntroActive) {
                             demoIntroActive = false;
@@ -1721,7 +1726,7 @@ public class Game extends JPanel implements Runnable {
                     
                     gameData.setCurrentLevel(currentLevel + 1);
                     shopEnteredFrom = GameState.PLAYING; // Came from beating a boss
-                    gameState = GameState.SHOP;
+                    transitionToState(GameState.SHOP);
                 }
                 break;
                 
@@ -2492,6 +2497,10 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         gameData.equipNextItem();
                     }
+                    // Sync display index to newly equipped item
+                    if (renderer != null) {
+                        renderer.setStatsActiveItemDisplayIndex(getEquippedItemDisplayIndex());
+                    }
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
@@ -2933,18 +2942,32 @@ public class Game extends JPanel implements Runnable {
     }
     
     // Auto-equip the active item at the given display index if it's unlocked
+    private static final ActiveItem.ItemType[] STATS_ITEM_ORDER = {
+        ActiveItem.ItemType.LUCKY_CHARM, ActiveItem.ItemType.SHIELD, ActiveItem.ItemType.BOMBS,
+        ActiveItem.ItemType.STUN, ActiveItem.ItemType.IMPULSE, ActiveItem.ItemType.TIME_SLOW,
+        ActiveItem.ItemType.TYPE_PURGE, ActiveItem.ItemType.DASH, ActiveItem.ItemType.FROST_BEAM
+    };
+    
     private void autoEquipStatsItem(int displayIndex) {
-        ActiveItem.ItemType[] allItemTypes = {
-            ActiveItem.ItemType.LUCKY_CHARM, ActiveItem.ItemType.SHIELD, ActiveItem.ItemType.BOMBS,
-            ActiveItem.ItemType.STUN, ActiveItem.ItemType.TYPE_PURGE, ActiveItem.ItemType.TIME_SLOW,
-            ActiveItem.ItemType.DASH, ActiveItem.ItemType.IMPULSE, ActiveItem.ItemType.FROST_BEAM
-        };
-        if (displayIndex >= 0 && displayIndex < allItemTypes.length) {
-            ActiveItem.ItemType itemType = allItemTypes[displayIndex];
+        if (displayIndex >= 0 && displayIndex < STATS_ITEM_ORDER.length) {
+            ActiveItem.ItemType itemType = STATS_ITEM_ORDER[displayIndex];
             if (gameData.getUnlockedItems().contains(itemType)) {
                 gameData.equipItemByType(itemType);
             }
         }
+    }
+    
+    // Get the stats display index for the currently equipped item type
+    private int getEquippedItemDisplayIndex() {
+        ActiveItem equipped = gameData.getEquippedItem();
+        if (equipped != null) {
+            for (int i = 0; i < STATS_ITEM_ORDER.length; i++) {
+                if (STATS_ITEM_ORDER[i] == equipped.getType()) {
+                    return i;
+                }
+            }
+        }
+        return 0;
     }
     
     // Handle player death - check for extra life first
@@ -2970,7 +2993,7 @@ public class Game extends JPanel implements Runnable {
             beamAttacks.clear();
             
             // Teleport player to spawn point
-            player.setPosition(WIDTH / 2, HEIGHT - 200);
+            player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
             player.resetVelocity();
             
             // Give boss 5 seconds of immunity after player resurrection
@@ -3179,8 +3202,8 @@ public class Game extends JPanel implements Runnable {
         // Start ambient background sound
         soundManager.startAmbientSound();
         
-        // Resume music
-        soundManager.playMusic(getRandomBattleMusicPath());
+        // Resume music (fast crossfade for snappy level entry)
+        soundManager.playMusicFast(getRandomBattleMusicPath());
     }
     
     /**
@@ -3255,9 +3278,9 @@ public class Game extends JPanel implements Runnable {
         // Persist that we've resumed
         performAutoSave();
         
-        // Start ambient background sound and music
+        // Start ambient background sound and music (fast crossfade for snappy level entry)
         soundManager.startAmbientSound();
-        soundManager.playMusic(getRandomBattleMusicPath());
+        soundManager.playMusicFast(getRandomBattleMusicPath());
         
         System.out.println("DEBUG: Cross-session resume complete - Level " + rs.level + 
             ", Boss HP: " + (int)(rs.bossHealth * 100) + "%, Bullets: " + bullets.size());
@@ -3310,8 +3333,8 @@ public class Game extends JPanel implements Runnable {
         
         // Create temporary player and boss for the cinematic
         int speedLevel = getActiveSpeedLevel();
-        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
-        currentBoss = new Boss(WIDTH / 2, 100, 1, soundManager);
+        player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
+        currentBoss = new Boss(WORLD_WIDTH / 2, 100, 1, soundManager);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
@@ -3543,7 +3566,7 @@ public class Game extends JPanel implements Runnable {
             if (currentBoss != null && currentAttackIntroId != null) {
                 configureBossForShowcase(currentAttackIntroId);
                 currentBoss.setDebugSlowMode(true);
-                currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+                currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
                 currentBoss.setStayStationary(true);
             }
             
@@ -3581,7 +3604,7 @@ public class Game extends JPanel implements Runnable {
             // Configure boss to shoot bullets for testing items
             if (currentBoss != null) {
                 currentBoss.setDebugSlowMode(true);
-                currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+                currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
                 currentBoss.setStayStationary(true);
             }
             
@@ -3602,7 +3625,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset boss position and state
         if (currentBoss != null) {
-            currentBoss.setPosition(WIDTH / 2, HEIGHT / 2 - 50);
+            currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
             currentBoss.clearBeamAttacks();
             // Re-configure for the showcase attack
             if (currentAttackIntroId != null) {
@@ -3611,7 +3634,7 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Reset player position
-        player.setPosition(WIDTH / 2, HEIGHT - 100);
+        player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 100);
         
         soundManager.playSound(SoundManager.Sound.UI_SELECT);
         screenShakeIntensity = 5;
@@ -3773,13 +3796,13 @@ public class Game extends JPanel implements Runnable {
         java.util.Arrays.fill(keys, false);
         
         int speedLevel = getActiveSpeedLevel();
-        player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
+        player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
         beamAttacks.clear();
         moneyCircles.clear(); // Clear Pool of Loot circles from previous level
-        currentBoss = new Boss(WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
+        currentBoss = new Boss(WORLD_WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager); // Normal position, will move during intro
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
@@ -3792,8 +3815,8 @@ public class Game extends JPanel implements Runnable {
         gameData.resetCurrentLevelStats();
         
         // Track spawn position for spawn protection radius
-        spawnProtectionX = WIDTH / 2;
-        spawnProtectionY = HEIGHT - 200;
+        spawnProtectionX = WORLD_WIDTH / 2;
+        spawnProtectionY = WORLD_HEIGHT - 200;
         
         // Reset cumulative run stats if starting from level 1
         if (gameData.getCurrentLevel() == 1) {
@@ -3803,8 +3826,8 @@ public class Game extends JPanel implements Runnable {
         // Start ambient background sound
         soundManager.startAmbientSound();
         
-        // Start boss fight music
-        soundManager.playMusic(getRandomBattleMusicPath());
+        // Start boss fight music (fast crossfade for snappy level entry)
+        soundManager.playMusicFast(getRandomBattleMusicPath());
         
         invulnerabilityTimer = 300; // 5 seconds of immunity at boss start
         bossHitCount = 0;
@@ -3853,8 +3876,8 @@ public class Game extends JPanel implements Runnable {
         introPanActive = true;
         introPanTimer = 0;
         bossEntranceY = -200; // Boss will start above screen
-        cameraX = 0;
-        cameraY = 0;
+        cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+        cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
         
         screenShakeIntensity = 0;
         bossDeathAnimation = false;
@@ -4443,6 +4466,7 @@ public class Game extends JPanel implements Runnable {
                 if (impulseZoomTimer <= 0) {
                     impulseZoomActive = false;
                     targetEffectZoom = 1.0;
+                    soundManager.stopSound(SoundManager.Sound.ELECTRIC_ZAP); // Stop impulse SFX
                 }
             } else {
                 targetEffectZoom = 1.0;
@@ -4452,10 +4476,15 @@ public class Game extends JPanel implements Runnable {
         // Smoothly interpolate effect zoom towards target
         effectZoom += (targetEffectZoom - effectZoom) * ZOOM_LERP_SPEED * deltaTime;
         
-        // Update money circles (permanent - no timer countdown)
+        // Update money circles
         // Track if player already got money this frame to prevent stacking
         boolean playerGotMoneyThisFrame = false;
         int moneyCircleAnimTimer = 0; // Use first circle's timer for money timing
+        
+        // Remove expired circles
+        if (MONEY_CIRCLE_DURATION > 0) {
+            moneyCircles.removeIf(circle -> circle[2] > MONEY_CIRCLE_DURATION);
+        }
         
         for (double[] circle : moneyCircles) {
             circle[2]++; // Increment timer for animation timing
@@ -4562,6 +4591,11 @@ public class Game extends JPanel implements Runnable {
                 itemCompleteFlashTimer = 15;
                 soundManager.playSound(SoundManager.Sound.ITEM_END, 0.4f);
                 
+                // Stop lingering SFX for specific items
+                if (equippedItem.getType() == ActiveItem.ItemType.STUN) {
+                    soundManager.stopSound(SoundManager.Sound.ELECTRIC_ZAP);
+                }
+                
                 // Start frost beam retraction animation
                 if (equippedItem.getType() == ActiveItem.ItemType.FROST_BEAM) {
                     frostBeamRetracting = true;
@@ -4640,7 +4674,7 @@ public class Game extends JPanel implements Runnable {
         if (player != null) {
             // Only allow player control when intro pan and boss intro cinematic are complete
             if (!introPanActive && !bossIntroActive) {
-                player.update(keys, WIDTH, HEIGHT, dt); // Use effective delta for slow-motion
+                player.update(keys, WORLD_WIDTH, WORLD_HEIGHT, dt); // Use world bounds for larger map
                 
                 // Update orbiting shield rotation
                 if (shieldActive && shieldHits > 0) {
@@ -4741,8 +4775,10 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // Camera follows boss down slightly
+                    double baseOffY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                     double targetY = bossEntranceY * 0.3;
-                    cameraY = targetY;
+                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                    cameraY = baseOffY + targetY;
                     
                 } else if (introPanTimer < INTRO_PAN_DURATION) {
                     // Pan back to player (second half)
@@ -4765,8 +4801,9 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     // Camera pans back to center
-                    double startY = 30.0; // Camera's max Y during boss viewing
-                    cameraY = startY * (1 - easeProgress);
+                    double startPanY = 30.0; // Camera's extra Y during boss viewing
+                    double baseOffsetY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                    cameraY = baseOffsetY + startPanY * (1 - easeProgress);
                     
                     // Add engine glow particles as boss settles - throttled
                     if (currentBoss != null && particles.size() < MAX_PARTICLES && Math.random() < 0.1) {
@@ -4806,36 +4843,39 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     introPanActive = false;
-                    cameraX = 0;
-                    cameraY = 0;
+                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                    cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                 }
             } else if (player != null) {
                 // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
-                double targetCameraX = 0;
-                double targetCameraY = 0;
+                // Base offset centers the world in the viewport
+                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                double baseCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                double targetCameraX = baseCameraX;
+                double targetCameraY = baseCameraY;
                 
-                // Calculate offset from screen center
-                double offsetX = player.getX() - WIDTH / 2;
-                double offsetY = player.getY() - HEIGHT / 2;
+                // Calculate offset from world center (camera follows player in expanded world)
+                double offsetX = player.getX() - WORLD_WIDTH / 2.0;
+                double offsetY = player.getY() - WORLD_HEIGHT / 2.0;
                 
                 // Only move camera if player is outside deadzone
                 if (Math.abs(offsetX) > CAMERA_DEADZONE) {
-                    targetCameraX = offsetX - Math.signum(offsetX) * CAMERA_DEADZONE;
+                    targetCameraX += offsetX - Math.signum(offsetX) * CAMERA_DEADZONE;
                 }
                 if (Math.abs(offsetY) > CAMERA_DEADZONE) {
-                    targetCameraY = offsetY - Math.signum(offsetY) * CAMERA_DEADZONE;
+                    targetCameraY += offsetY - Math.signum(offsetY) * CAMERA_DEADZONE;
                 }
                 
-                // Smoothly interpolate camera position (slower than before)
-                // Scale camera movement inversely with zoom - more zoom = less camera movement
+                // Clamp target to keep world edges visible
+                double maxOffsetX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_MAX_OFFSET;
+                double maxOffsetY = (WORLD_HEIGHT - HEIGHT) / 2.0 + CAMERA_MAX_OFFSET;
+                targetCameraX = Math.max(-CAMERA_MAX_OFFSET, Math.min(maxOffsetX, targetCameraX));
+                targetCameraY = Math.max(-CAMERA_MAX_OFFSET, Math.min(maxOffsetY, targetCameraY));
+                
+                // Smoothly interpolate camera position
                 double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom * dt;
                 cameraX += (targetCameraX - cameraX) * zoomAdjustedSmoothing;
                 cameraY += (targetCameraY - cameraY) * zoomAdjustedSmoothing;
-                
-                // Clamp camera to max offset from center (also scaled by zoom)
-                double zoomAdjustedMaxOffset = CAMERA_MAX_OFFSET / cameraZoom;
-                cameraX = Math.max(-zoomAdjustedMaxOffset, Math.min(zoomAdjustedMaxOffset, cameraX));
-                cameraY = Math.max(-zoomAdjustedMaxOffset, Math.min(zoomAdjustedMaxOffset, cameraY));
             }
             
             // Update boss intro cinematic — anime shonen sequential reveal
@@ -5067,8 +5107,8 @@ public class Game extends JPanel implements Runnable {
                     bossIntroActive = false;
                     introParticles.clear();
                     // Reset player and boss to proper gameplay positions after cinematic
-                    if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
-                    if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                    if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                    if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
                     if (demoIntroActive) {
                         demoIntroActive = false;
                         transitionToState(GameState.MENU);
@@ -5698,7 +5738,7 @@ public class Game extends JPanel implements Runnable {
         // Update boss with delta time (but not during death animation, intro, respawn delay, stun, or boss intro cinematic)
         if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned) {
             int bulletCountBefore = bullets.size();
-            currentBoss.update(bullets, player, WIDTH, HEIGHT, deltaTime, particles);
+            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
             
             // Track bullets spawned for stats
@@ -5781,7 +5821,7 @@ public class Game extends JPanel implements Runnable {
                 // Respawn player at bottom with invincibility (not shield item)
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 int speedLevel = getActiveSpeedLevel();
-                player = new Player(WIDTH / 2, HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
+                player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
                 // Don't activate shield here - use invincibility instead
                 // shieldActive is only for the Shield active item
                 playerInvincible = true;
@@ -5800,7 +5840,7 @@ public class Game extends JPanel implements Runnable {
                         double angle = Math.random() * TWO_PI;
                         double speed = 3 + Math.random() * 7;
                         addParticle(
-                            WIDTH / 2, HEIGHT - 200,
+                            WORLD_WIDTH / 2, WORLD_HEIGHT - 200,
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
                             SPAWN_CYAN, 35, 12,
                             Particle.ParticleType.SPARK
@@ -5809,7 +5849,7 @@ public class Game extends JPanel implements Runnable {
                     // Shield activation rings (reduced count)
                     for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
                         addParticle(
-                            WIDTH / 2, HEIGHT - 200, 0, 0,
+                            WORLD_WIDTH / 2, WORLD_HEIGHT - 200, 0, 0,
                             SHIELD_BLUE, 40 + i * 12, 35 + i * 20,
                             Particle.ParticleType.EXPLOSION
                         );
@@ -5823,7 +5863,7 @@ public class Game extends JPanel implements Runnable {
             // Apply time slow effect from active item (TIME_SLOW or STUN)
             if (equippedItem != null && equippedItem.isActive()) {
                 if (equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
-                    beam.applyTimeSlow(0.3); // 30% speed (70% slow)
+                    beam.applyTimeSlow(0.15); // 15% speed (85% slow)
                 } else if (equippedItem.getType() == ActiveItem.ItemType.STUN) {
                     beam.applyTimeSlow(0.0); // Completely freeze beams during stun
                 }
@@ -5880,10 +5920,10 @@ public class Game extends JPanel implements Runnable {
             // Apply time slow from active item
             if (equippedItem != null && equippedItem.isActive() && 
                 equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
-                bullet.applySlow(0.3); // 30% speed (70% slow)
+                bullet.applySlow(0.15); // 15% speed (85% slow)
             }
             
-            bullet.update(player, WIDTH, HEIGHT, deltaTime);
+            bullet.update(player, WORLD_WIDTH, WORLD_HEIGHT, deltaTime);
             
             // Spawn trail particles for fast-moving bullets
             if (enableParticles && bullet.shouldSpawnTrail() && Math.random() < 0.10 * deltaTime) {
@@ -5929,7 +5969,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             // Remove off-screen bullets and return to pool
-            if (bullet.isOffScreen(WIDTH, HEIGHT)) {
+            if (bullet.isOffScreen(WORLD_WIDTH, WORLD_HEIGHT)) {
                 bullets.remove(i);
                 returnBulletToPool(bullet);
             }
@@ -5953,7 +5993,7 @@ public class Game extends JPanel implements Runnable {
                 double bulletDist = Math.sqrt(bDx * bDx + bDy * bDy);
                 double shieldOrbitR = 38; // Match visual orbit radius
                 // Shield blocks if bullet is within the full outer glow radius (orbit + glow + half stroke)
-                boolean inShieldBand = bulletDist < shieldOrbitR + 35; // Tighter shield hitbox
+                boolean inShieldBand = bulletDist < shieldOrbitR + 25; // Tighter shield hitbox (was +35)
                 
                 if (inShieldBand) {
                     // One shield breaks per hit
@@ -6617,7 +6657,7 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playMusic(getMenuMusicPath());
                 }
             } else if (newState == GameState.PLAYING) {
-                soundManager.playMusic(getRandomBattleMusicPath());
+                soundManager.playMusicFast(getRandomBattleMusicPath());
             }
             
             // Initialize level select scroll position when entering
@@ -6641,6 +6681,10 @@ public class Game extends JPanel implements Runnable {
                 statsScroll = 0;
                 statsScrollAnimated = 0;
                 selectedStatItem = 0; // Start at top (active item)
+                // Sync display index to currently equipped item
+                if (renderer != null) {
+                    renderer.setStatsActiveItemDisplayIndex(getEquippedItemDisplayIndex());
+                }
             }
             
             // Reset achievements scroll when entering achievements screen
@@ -7141,14 +7185,14 @@ public class Game extends JPanel implements Runnable {
                     if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
                         if (introPanActive) {
                             introPanActive = false;
-                            cameraX = 0;
-                            cameraY = 0;
+                            cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                            cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                             screenShakeIntensity = 8;
                         } else if (bossIntroActive) {
                             bossIntroActive = false;
                             screenShakeIntensity = 5;
-                            if (player != null) player.setPosition(WIDTH / 2, HEIGHT - 200);
-                            if (currentBoss != null) currentBoss.setPosition(WIDTH / 2, 100);
+                            if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                            if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
                             introParticles.clear();
                             if (demoIntroActive) {
                                 demoIntroActive = false;
@@ -7297,6 +7341,9 @@ public class Game extends JPanel implements Runnable {
     private void startAssetLoading() {
         Thread loadingThread = new Thread(() -> {
             try {
+                // Start loading screen music immediately (before preloading sounds)
+                soundManager.playMusicEarly("SFX/Music Tracks/Main/Chilling Outside.wav");
+                
                 targetLoadingProgress = 2;
                 repaint();
                 
@@ -7453,6 +7500,27 @@ public class Game extends JPanel implements Runnable {
                 if (player != null) {
                     // Apply dash impulse in current movement direction
                     player.applyDashImpulse(dashSpeedMultiplier, keys);
+                    
+                    // Soft aim assist - nudge missile toward boss when nearby and pointing roughly at it
+                    if (currentBoss != null && bossVulnerable) {
+                        double dx = currentBoss.getX() - player.getX();
+                        double dy = currentBoss.getY() - player.getY();
+                        double distToBoss = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distToBoss < 300 && distToBoss > 0) {
+                            double angleToBoss = Math.atan2(dy, dx);
+                            double playerAngle = player.getAngle();
+                            double angleDiff = angleToBoss - playerAngle;
+                            while (angleDiff > Math.PI) angleDiff -= TWO_PI;
+                            while (angleDiff < -Math.PI) angleDiff += TWO_PI;
+                            
+                            // Only assist when pointing roughly toward boss (within ~60 degrees)
+                            if (Math.abs(angleDiff) < Math.PI / 3) {
+                                double assistStrength = 0.2 * (1.0 - distToBoss / 300);
+                                player.nudgeAngle(angleToBoss, assistStrength);
+                            }
+                        }
+                    }
                 }
                 break;
                 
@@ -7475,6 +7543,14 @@ public class Game extends JPanel implements Runnable {
                             // Push bullet away with much stronger force
                             double angle = Math.atan2(dy, dx);
                             double pushForce = 35 * (1.0 - distance / 400);
+                            
+                            // Heavy bullets are barely moved by impulse
+                            if (bullet.getType() == Bullet.BulletType.LARGE || 
+                                bullet.getType() == Bullet.BulletType.BOMB ||
+                                bullet.getType() == Bullet.BulletType.NUKE) {
+                                pushForce *= 0.15;
+                            }
+                            
                             bullet.applyForce(Math.cos(angle) * pushForce, Math.sin(angle) * pushForce);
                         }
                     }
@@ -7531,9 +7607,9 @@ public class Game extends JPanel implements Runnable {
                 // Generate bomb positions with minimum distance constraint
                 int maxAttempts = 50;
                 for (int i = 0; i < numBombs && maxAttempts > 0; i++) {
-                    // Random position within screen bounds (with padding)
-                    double bombX = 80 + Math.random() * (WIDTH - 160);
-                    double bombY = 80 + Math.random() * (HEIGHT - 160);
+                    // Random position within world bounds (with padding)
+                    double bombX = 80 + Math.random() * (WORLD_WIDTH - 160);
+                    double bombY = 80 + Math.random() * (WORLD_HEIGHT - 160);
                     
                     // Check minimum distance from other bombs
                     boolean validPosition = true;
@@ -7622,7 +7698,7 @@ public class Game extends JPanel implements Runnable {
                 
                 if (player != null && frostBeamProgress > 0.3) {
                     double angle = frostBeamAngle; // Use smooth beam angle instead of player angle
-                    double maxLaserLength = Math.sqrt(WIDTH * WIDTH + HEIGHT * HEIGHT);
+                    double maxLaserLength = Math.sqrt(WORLD_WIDTH * WORLD_WIDTH + WORLD_HEIGHT * WORLD_HEIGHT);
                     
                     // Beam width and length scale with animation progress
                     double easedProgress = 1.0 - Math.pow(1.0 - frostBeamProgress, 3);
@@ -8567,12 +8643,12 @@ public class Game extends JPanel implements Runnable {
         int startY = height + 300;
         int endY = height / 2;
         int dismissOffset = (int)((1.0f - dismissMultiplier) * 400); // Slide down when dismissing
-        int currentY = (int)(startY + (endY - startY) * Math.pow(progress, 0.7)) + dismissOffset;
+        int currentY = (int)(startY + (endY - startY) * (1.0 - Math.pow(1.0 - progress, 2.5))) + dismissOffset;
         
         // Scale effect (start small, grow to full size, shrink when dismissing)
         float scale;
         if (progress < 0.4f) {
-            scale = (float)Math.pow(progress / 0.4f, 0.5); // Smooth growth
+            scale = (float)Math.pow(progress / 0.4f, 0.8); // Smooth growth
         } else {
             scale = 1.0f;
         }
@@ -8602,13 +8678,13 @@ public class Game extends JPanel implements Runnable {
         if (progress > 0.3f && enableParticles) {
             int particleCount = 30;
             for (int i = 0; i < particleCount; i++) {
-                double angle = (System.currentTimeMillis() / 50.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                double angle = (System.currentTimeMillis() / 125.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
                 int radius = (int)(200 * scale);
                 int px = (int)(centerX + Math.cos(angle) * radius);
                 int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
                 int size = (int)(6 * scale);
                 
-                float particleAlpha = (float)Math.abs(Math.sin(angle * 3 + System.currentTimeMillis() / 100.0));
+                float particleAlpha = (float)Math.abs(Math.sin(angle * 3 + System.currentTimeMillis() / 250.0));
                 g.setColor(new Color(235, 203, 139, (int)(200 * particleAlpha * scale * dismissMultiplier)));
                 g.fillOval(px - size/2, py - size/2, size, size);
             }
@@ -8633,7 +8709,7 @@ public class Game extends JPanel implements Runnable {
         g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
         
         // Animated border with rainbow glow
-        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 150.0));
+        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 400.0));
         int borderR = (int)(163 + (235 - 163) * borderPulse);
         int borderG = (int)(190 + (203 - 190) * borderPulse);
         int borderB = (int)(140 + (139 - 140) * borderPulse);
@@ -8662,7 +8738,7 @@ public class Game extends JPanel implements Runnable {
             g.drawString(titleText, titleX + 2, titleY + 2);
             
             // Title text with pulse
-            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 200.0)) * 0.3f + 0.7f;
+            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0)) * 0.3f + 0.7f;
             g.setColor(new Color(235, 203, 139, (int)(255 * textAlpha * titlePulse)));
             g.drawString(titleText, titleX, titleY);
             
@@ -8730,7 +8806,7 @@ public class Game extends JPanel implements Runnable {
                     int hintX = centerX - hintFm.stringWidth(hintText) / 2;
                     int hintY = currentY + (int)(100 * scale);
                     
-                    float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
+                    float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0));
                     g.setColor(new Color(150, 150, 150, (int)(200 * hintPulse)));
                     g.drawString(hintText, hintX, hintY);
                 }
@@ -8762,12 +8838,12 @@ public class Game extends JPanel implements Runnable {
         int startY = height + 350;
         int endY = height / 2;
         int dismissOffset = (int)((1.0f - dismissMultiplier) * 400);
-        int currentY = (int)(startY + (endY - startY) * Math.pow(progress, 0.7)) + dismissOffset;
+        int currentY = (int)(startY + (endY - startY) * (1.0 - Math.pow(1.0 - progress, 2.5))) + dismissOffset;
         
         // Scale effect
         float scale;
         if (progress < 0.4f) {
-            scale = (float)Math.pow(progress / 0.4f, 0.5);
+            scale = (float)Math.pow(progress / 0.4f, 0.8);
         } else {
             scale = 1.0f;
         }
@@ -8777,7 +8853,7 @@ public class Game extends JPanel implements Runnable {
         for (int i = 0; i < 3; i++) {
             int glowSize = Math.max(1, (int)((550 + i * 120) * scale));
             float pulseSpeed = 2.0f + i * 0.5f;
-            float pulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 200.0 * pulseSpeed)) * 0.3f + 0.7f;
+            float pulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0 * pulseSpeed)) * 0.3f + 0.7f;
             
             RadialGradientPaint glowPaint = new RadialGradientPaint(
                 centerX, currentY,
@@ -8797,13 +8873,13 @@ public class Game extends JPanel implements Runnable {
         if (progress > 0.3f && enableParticles) {
             int particleCount = 40;
             for (int i = 0; i < particleCount; i++) {
-                double angle = (System.currentTimeMillis() / 40.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                double angle = (System.currentTimeMillis() / 100.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
                 int radius = (int)(220 * scale);
                 int px = (int)(centerX + Math.cos(angle) * radius);
                 int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
                 int size = (int)(5 * scale);
                 
-                float particleAlpha = (float)Math.abs(Math.sin(angle * 4 + System.currentTimeMillis() / 80.0));
+                float particleAlpha = (float)Math.abs(Math.sin(angle * 4 + System.currentTimeMillis() / 200.0));
                 g.setColor(new Color(255, 150, 100, (int)(180 * particleAlpha * scale * dismissMultiplier)));
                 g.fillOval(px - size/2, py - size/2, size, size);
             }
@@ -8828,7 +8904,7 @@ public class Game extends JPanel implements Runnable {
         g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
         
         // Animated border with pulsing red/orange
-        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 120.0));
+        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
         int borderR = (int)(200 + 55 * borderPulse);
         int borderG = (int)(80 + 70 * borderPulse);
         int borderB = (int)(50 + 50 * borderPulse);
@@ -8867,7 +8943,7 @@ public class Game extends JPanel implements Runnable {
             g.drawString(titleText, titleX + 3, titleY + 3);
             
             // Title text with danger pulse
-            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 150.0)) * 0.3f + 0.7f;
+            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 400.0)) * 0.3f + 0.7f;
             g.setColor(new Color(255, 150, 100, (int)(255 * textAlpha * titlePulse)));
             g.drawString(titleText, titleX, titleY);
         }
@@ -8923,7 +8999,7 @@ public class Game extends JPanel implements Runnable {
             int hintX = centerX - hintFm.stringWidth(hintText) / 2;
             int hintY = currentY + (int)(160 * scale);
             
-            float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
+            float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0));
             g.setColor(new Color(180, 180, 180, (int)(200 * hintPulse * hintAlpha)));
             g.drawString(hintText, hintX, hintY);
         }
