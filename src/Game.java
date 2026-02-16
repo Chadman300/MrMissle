@@ -4676,6 +4676,31 @@ public class Game extends JPanel implements Runnable {
             if (!introPanActive && !bossIntroActive) {
                 player.update(keys, WORLD_WIDTH, WORLD_HEIGHT, dt); // Use world bounds for larger map
                 
+                // Targeting passive: auto-aim toward boss when nearby
+                int targetingLevel = getActiveTargetingLevel();
+                if (targetingLevel > 0 && currentBoss != null && bossVulnerable) {
+                    double dx = currentBoss.getX() - player.getX();
+                    double dy = currentBoss.getY() - player.getY();
+                    double distToBoss = Math.sqrt(dx * dx + dy * dy);
+                    double targetingRadius = 175; // Fixed range
+                    
+                    if (distToBoss < targetingRadius && distToBoss > 0) {
+                        double angleToBoss = Math.atan2(dy, dx);
+                        double playerAngle = player.getAngle();
+                        double angleDiff = angleToBoss - playerAngle;
+                        while (angleDiff > Math.PI) angleDiff -= TWO_PI;
+                        while (angleDiff < -Math.PI) angleDiff += TWO_PI;
+                        
+                        // Only assist when pointing roughly toward boss (within ~60 degrees)
+                        if (Math.abs(angleDiff) < Math.PI / 3) {
+                            double baseStrength = 0.015; // Fixed aim-assist strength
+                            double distanceFalloff = 1.0 - (distToBoss / targetingRadius);
+                            double assistStrength = baseStrength * distanceFalloff * dt;
+                            player.nudgeAngle(angleToBoss, assistStrength);
+                        }
+                    }
+                }
+                
                 // Update orbiting shield rotation
                 if (shieldActive && shieldHits > 0) {
                     shieldOrbitAngle += dt * 0.06; // Gentle shield rotation
@@ -4997,8 +5022,10 @@ public class Game extends JPanel implements Runnable {
                 
                 // Update existing intro particles
                 for (int i = introParticles.size() - 1; i >= 0; i--) {
-                    introParticles.get(i).update(deltaTime);
-                    if (!introParticles.get(i).isAlive()) {
+                    Particle p = introParticles.get(i);
+                    if (p == null) { introParticles.remove(i); continue; }
+                    p.update(deltaTime);
+                    if (!p.isAlive()) {
                         introParticles.remove(i);
                     }
                 }
@@ -9029,6 +9056,16 @@ public class Game extends JPanel implements Runnable {
     private int getActiveLuckyDodgeLevel() {
         if (passiveUpgradeManager != null) {
             PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("lucky_dodge");
+            if (upgrade != null) {
+                return upgrade.getActiveLevel();
+            }
+        }
+        return 0;
+    }
+    
+    private int getActiveTargetingLevel() {
+        if (passiveUpgradeManager != null) {
+            PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("targeting");
             if (upgrade != null) {
                 return upgrade.getActiveLevel();
             }

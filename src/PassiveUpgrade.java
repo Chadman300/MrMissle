@@ -18,7 +18,8 @@ public class PassiveUpgrade {
         CRITICAL_HIT,       // Chance to instantly kill boss
         SPEED_BOOST,        // Increase movement speed
         BULLET_SLOW,        // Slow enemy bullets
-        LUCKY_DODGE         // Chance to phase through bullets
+        LUCKY_DODGE,        // Chance to phase through bullets
+        TARGETING           // Auto-aim toward boss when nearby
     }
     
     // Constructor for exponential cost upgrades (1.5x multiplier)
@@ -72,21 +73,23 @@ public class PassiveUpgrade {
     public double getMultiplier() {
         switch (type) {
             case MAX_HEALTH:
-                return activeLevel; // +1 health per level
+                return activeLevel; // +1 health per purchase
             case ITEM_COOLDOWN:
-                return 1.0 - (activeLevel * 0.1); // -10% per level (min 0.5)
+                return 1.0 - (activeLevel * 0.25); // -25% cooldown
             case BULLET_SIZE:
-                return 1.0 - (activeLevel * 0.05); // -5% per level (min 0.75)
+                return 1.0 - (activeLevel * 0.2); // -20% bullet size
             case MONEY_AND_SCORE:
-                return 1.0 + (activeLevel * 0.15); // +15% per level for both money and score
+                return 1.0 + (activeLevel * 0.3); // +30% money and score
             case CRITICAL_HIT:
-                return activeLevel * 0.005; // 0.5% chance per level to instantly kill boss
+                return activeLevel * 0.02; // 2% chance to instantly kill boss
             case SPEED_BOOST:
-                return 1.0 + (activeLevel * 0.15); // +15% per level
+                return 1.0 + (activeLevel * 0.2); // +20% speed
             case BULLET_SLOW:
-                return 1.0 - (activeLevel * 0.001); // -0.1% per level (0.001 per level)
+                return 1.0 - (activeLevel * 0.15); // -15% bullet speed
             case LUCKY_DODGE:
-                return activeLevel * 0.03; // 3% chance per level to phase through bullets
+                return activeLevel * 0.1; // 10% chance to phase through bullets
+            case TARGETING:
+                return activeLevel * 0.015; // Aim-assist strength
             default:
                 return 1.0;
         }

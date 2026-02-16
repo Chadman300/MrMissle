@@ -14,28 +14,30 @@ public class PassiveUpgradeManager {
     }
     
     private void initializeUpgrades() {
-        // Original shop upgrades (linear cost: base + level * increment)
-        addUpgradeLinear("speed", "Speed Boost", "Increase movement speed by 15% per level", 
-                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 75, 60, 10);
+        // All passive upgrades are single-purchase (max level 1)
+        addUpgrade("speed", "Speed Boost", "Increase movement speed by 15%", 
+                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 500, 1);
         
-        addUpgradeLinear("bullet_slow", "Bullet Slow", "Slow enemy bullets by 0.1% per level", 
-                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 100, 85, 50);
+        addUpgrade("bullet_slow", "Bullet Slow", "Slow enemy bullets", 
+                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 750, 1);
         
-        addUpgradeLinear("lucky_dodge", "Lucky Dodge", "3% chance per level to phase through bullets", 
-                   PassiveUpgrade.UpgradeType.LUCKY_DODGE, 125, 175, 12);
+        addUpgrade("lucky_dodge", "Lucky Dodge", "Chance to phase through bullets", 
+                   PassiveUpgrade.UpgradeType.LUCKY_DODGE, 1000, 1);
         
-        // Passive upgrades (exponential cost: base * 1.5^level)
-        addUpgrade("cooldown", "Quick Charge", "Reduce item cooldown by 10% per level", 
-                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 120, 5);
+        addUpgrade("cooldown", "Quick Charge", "Reduce item cooldown", 
+                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 1);
         
-        addUpgrade("bullet_size", "Small Bullets", "Reduce enemy bullet size by 5% per level", 
-                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 200, 5);
+        addUpgrade("bullet_size", "Small Bullets", "Reduce enemy bullet size", 
+                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 1);
         
-        addUpgrade("money_score", "Fortune & Glory", "Increase money and score earned by 15% per level", 
-                   PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 150, 5);
+        addUpgrade("money_score", "Fortune & Glory", "Increase money and score earned", 
+                   PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 700, 1);
         
-        addUpgrade("critical", "Critical Strike", "0.5% chance per level to instantly kill boss", 
-                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 250, 5);
+        addUpgrade("critical", "Critical Strike", "Chance to instantly kill boss on hit", 
+                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 1);
+        
+        addUpgrade("targeting", "Targeting", "Soft auto-aim toward boss when nearby", 
+                   PassiveUpgrade.UpgradeType.TARGETING, 900, 1);
         
         addUpgrade("health", "Extra Lives", "Purchase an extra life (Max 3)", 
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
