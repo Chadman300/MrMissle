@@ -1,14 +1,21 @@
+import config.ColorPalette;
+import config.FontPalette;
+import config.UITheme;
 import java.awt.*;
+import java.awt.geom.Path2D;
 
 public class UIButton {
     private String text;
-    private String icon; // Unicode icon or symbol
+    private String icon; // Icon type identifier
     private int x, y, width, height;
     private boolean isSelected;
     private Color baseColor;
     private Color selectedColor;
     private double swayOffset;
     private double scaleAmount;
+    
+    // Chamfer size for the angular dog-tag look
+    private static final int CHAMFER = 10;
     
     public UIButton(String text, int x, int y, int width, int height) {
         this.text = text;
@@ -17,8 +24,8 @@ public class UIButton {
         this.y = y;
         this.width = width;
         this.height = height;
-        this.baseColor = new Color(59, 66, 82);
-        this.selectedColor = new Color(143, 188, 187);
+        this.baseColor = ColorPalette.BUTTON_BASE;
+        this.selectedColor = ColorPalette.BUTTON_SELECTED;
         this.swayOffset = 0;
         this.scaleAmount = 1.0;
     }
@@ -97,52 +104,84 @@ public class UIButton {
         // Apply sway
         g2.translate(swayOffset, 0);
         
-        // Apply scale from center (only to button shape, not text)
+        // Apply scale from center
         g2.translate(centerX, centerY);
         g2.scale(scaleAmount, scaleAmount);
         g2.translate(-centerX, -centerY);
         
+        // Build chamfered button shape (angular dog-tag look)
+        Path2D.Double shape = UITheme.createChamferedRect(x, y, width, height, CHAMFER);
+        
         // Draw shadow
         if (isSelected) {
-            g2.setColor(new Color(0, 0, 0, 100));
-            g2.fillRoundRect(x + 6, y + 6, width, height, 20, 20);
+            g2.setColor(new Color(0, 0, 0, 120));
+            Path2D.Double shadowShape = UITheme.createChamferedRect(x + 5, y + 5, width, height, CHAMFER);
+            g2.fill(shadowShape);
         }
         
-        // Draw button background with gradient
+        // Draw button background
         if (isSelected) {
+            // Metallic gradient for selected
             GradientPaint grad = new GradientPaint(
-                x, y, selectedColor,
+                x, y, selectedColor.brighter(),
                 x, y + height, selectedColor.darker()
             );
             g2.setPaint(grad);
         } else {
-            g2.setColor(baseColor);
+            // Flat dark steel for unselected
+            GradientPaint grad = new GradientPaint(
+                x, y, baseColor.brighter(),
+                x, y + height, baseColor
+            );
+            g2.setPaint(grad);
         }
-        g2.fillRoundRect(x, y, width, height, 20, 20);
+        g2.fill(shape);
         
-        // Draw decorative inner line pattern for selected buttons
+        // Caution-tape diagonal stripes for selected buttons
         if (isSelected) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
-            g2.setColor(Color.WHITE);
-            g2.setStroke(new BasicStroke(1));
-            for (int i = 0; i < width; i += 8) {
-                g2.drawLine(x + i, y, x + i - 20, y + height);
+            Shape oldClip = g2.getClip();
+            g2.setClip(shape);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.07f));
+            g2.setColor(ColorPalette.ACCENT_YELLOW);
+            for (int i = -height; i < width + height; i += 12) {
+                g2.drawLine(x + i, y, x + i - height, y + height);
             }
+            g2.setClip(oldClip);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        }
+        
+        // Inner glow line at top for selected
+        if (isSelected) {
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+            g2.setColor(ColorPalette.ACCENT_ORANGE);
+            g2.setStroke(new BasicStroke(1));
+            g2.drawLine(x + CHAMFER + 3, y + 1, x + width - 3, y + 1);
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         }
         
         // Draw border
-        g2.setStroke(new BasicStroke(3));
+        g2.setStroke(new BasicStroke(2));
         if (isSelected) {
-            g2.setColor(new Color(235, 203, 139));
             // Animated glowing border
             int glowAlpha = (int)(Math.abs(Math.sin(time * 5)) * 155 + 100);
-            g2.setColor(new Color(235, 203, 139, glowAlpha));
-            g2.setStroke(new BasicStroke(4));
+            g2.setColor(new Color(
+                ColorPalette.ACCENT_ORANGE.getRed(),
+                ColorPalette.ACCENT_ORANGE.getGreen(),
+                ColorPalette.ACCENT_ORANGE.getBlue(),
+                glowAlpha
+            ));
+            g2.setStroke(new BasicStroke(3));
         } else {
-            g2.setColor(new Color(76, 86, 106));
+            g2.setColor(ColorPalette.BORDER_STEEL);
         }
-        g2.drawRoundRect(x, y, width, height, 20, 20);
+        g2.draw(shape);
+        
+        // Accent line on left edge
+        if (isSelected) {
+            g2.setColor(selectedColor);
+            g2.setStroke(new BasicStroke(3));
+            g2.drawLine(x, y + CHAMFER + 3, x, y + height - 3);
+        }
         
         // Reset transform for text so it doesn't scale
         g2.dispose();
@@ -153,7 +192,7 @@ public class UIButton {
         g2.translate(swayOffset, 0); // Only apply sway to text, not scale
         
         // Calculate text position (adjusted for icon if present)
-        g2.setFont(new Font("Arial", Font.BOLD, 20));
+        g2.setFont(FontPalette.getDisplay(Font.BOLD, 20));
         FontMetrics fm = g2.getFontMetrics();
         
         int iconSpace = (icon != null) ? 35 : 0;
@@ -167,26 +206,34 @@ public class UIButton {
             int iconY = y + height / 2;
             int iconSize = 18;
             
-            Color iconColor = isSelected ? Color.WHITE : new Color(200, 200, 220);
-            Color iconShadow = new Color(0, 0, 0, 100);
+            Color iconColor = isSelected ? Color.WHITE : new Color(180, 185, 200);
+            Color iconShadow = new Color(0, 0, 0, 120);
             
             drawIcon(g2, icon, iconX, iconY, iconSize, iconColor, iconShadow, time);
         }
         
         // Text shadow
-        g2.setColor(new Color(0, 0, 0, 150));
+        g2.setColor(new Color(0, 0, 0, 180));
         g2.drawString(text, textX + 2, textY + 2);
         
         // Main text
-        g2.setColor(isSelected ? Color.WHITE : new Color(216, 222, 233));
+        g2.setColor(isSelected ? Color.WHITE : ColorPalette.TEXT_PRIMARY);
         g2.drawString(text, textX, textY);
         
-        // Shine effect for selected
+        // Shine sweep for selected
         if (isSelected) {
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
-            g2.setColor(Color.WHITE);
-            int shineY = y + (int)(Math.sin(time * 4) * height / 4 + height / 2);
-            g2.fillRoundRect(x, shineY - 10, width, 20, 20, 20);
+            Path2D.Double btnShape = UITheme.createChamferedRect(
+                x + (int)swayOffset, y, width, height, CHAMFER);
+            Shape oldClip = g2.getClip();
+            g2.setClip(btnShape);
+            int shineX = x + (int)((Math.sin(time * 2) + 1) / 2 * (width + 60)) - 30;
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.12f));
+            GradientPaint shine = new GradientPaint(shineX, y, new Color(255, 255, 255, 0),
+                shineX + 30, y, Color.WHITE);
+            g2.setPaint(shine);
+            g2.fillRect(shineX, y, 60, height);
+            g2.setClip(oldClip);
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         }
         
         g2.dispose();
@@ -207,85 +254,116 @@ public class UIButton {
         int halfSize = size / 2;
         
         switch (iconType) {
-            case "level": // Play/Triangle icon for Select Level
+            case "level": // Missile silhouette for Select Level
                 // Shadow
                 g2.setColor(shadow);
-                int[] triXs = {x - halfSize + 3, x - halfSize + 3, x + halfSize + 3};
-                int[] triYs = {y - halfSize + 2, y + halfSize + 2, y + 2};
-                g2.fillPolygon(triXs, triYs, 3);
+                drawMissileIcon(g2, x + 2, y + 2, size);
                 // Icon
                 g2.setColor(color);
-                int[] triX = {x - halfSize, x - halfSize, x + halfSize};
-                int[] triY = {y - halfSize, y + halfSize, y};
-                g2.fillPolygon(triX, triY, 3);
+                drawMissileIcon(g2, x, y, size);
                 break;
                 
-            case "shop": // Shopping bag/diamond icon
+            case "shop": // Ammo crate icon
                 // Shadow
                 g2.setColor(shadow);
-                g2.translate(2, 2);
-                drawDiamond(g2, x, y, size);
-                g2.translate(-2, -2);
+                g2.fillRect(x - halfSize + 2, y - halfSize + 2, size, size - 4);
                 // Icon
                 g2.setColor(color);
-                drawDiamond(g2, x, y, size);
+                g2.fillRect(x - halfSize, y - halfSize, size, size - 4);
+                // Cross on crate
+                g2.setColor(isSelected ? selectedColor : baseColor);
+                g2.setStroke(new BasicStroke(2));
+                g2.drawLine(x - halfSize + 3, y, x + halfSize - 3, y);
+                g2.drawLine(x, y - halfSize + 2, x, y + halfSize - 4);
                 break;
                 
-            case "stats": // Bar chart icon
+            case "stats": // Radar sweep icon
+                g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                // Shadow
+                g2.setColor(shadow);
+                g2.drawOval(x - halfSize + 2, y - halfSize + 2, size, size);
+                // Icon
+                g2.setColor(color);
+                g2.drawOval(x - halfSize, y - halfSize, size, size);
+                // Sweep line
+                double sweepAngle = time * 3;
+                int sx = x + (int)(halfSize * Math.cos(sweepAngle));
+                int sy = y + (int)(halfSize * Math.sin(sweepAngle));
+                g2.drawLine(x, y, sx, sy);
+                g2.fillOval(x - 2, y - 2, 4, 4);
+                break;
+                
+            case "achievements": // Medal icon
+                // Shadow
+                g2.setColor(shadow);
+                g2.fillOval(x - halfSize + 2, y - halfSize / 2 + 2, size - 2, size - 2);
+                // Medal circle
+                g2.setColor(color);
+                g2.fillOval(x - halfSize, y - halfSize / 2, size - 2, size - 2);
+                // Ribbon below
+                g2.setColor(isSelected ? ColorPalette.ACCENT_RED : new Color(150, 80, 80));
+                int ry = y + halfSize / 2 + 2;
+                g2.fillRect(x - 4, ry, 3, 6);
+                g2.fillRect(x + 2, ry, 3, 6);
+                // Star on medal
+                g2.setColor(isSelected ? selectedColor.darker() : baseColor);
+                drawStar(g2, x, y + 1, size / 2, 5);
+                break;
+                
+            case "info": // Clipboard icon
+                // Shadow
+                g2.setColor(shadow);
+                g2.fillRect(x - halfSize + 4, y - halfSize + 2, size - 6, size + 2);
+                // Clipboard body
+                g2.setColor(color);
+                g2.fillRect(x - halfSize + 2, y - halfSize, size - 6, size + 2);
+                // Clip at top
+                g2.setColor(isSelected ? selectedColor : baseColor);
+                g2.fillRect(x - 3, y - halfSize - 2, 6, 4);
+                // Lines on clipboard
+                g2.setStroke(new BasicStroke(1));
+                g2.drawLine(x - halfSize + 5, y - 2, x + halfSize - 5, y - 2);
+                g2.drawLine(x - halfSize + 5, y + 3, x + halfSize - 5, y + 3);
+                g2.drawLine(x - halfSize + 5, y + 8, x + halfSize - 8, y + 8);
+                break;
+                
+            case "settings": // Wrench icon
                 g2.setStroke(new BasicStroke(3, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 // Shadow
                 g2.setColor(shadow);
-                g2.drawLine(x - halfSize + 2, y + halfSize + 2, x - halfSize + 2, y + 2);
-                g2.drawLine(x + 2, y + halfSize + 2, x + 2, y - halfSize / 2 + 2);
-                g2.drawLine(x + halfSize + 2, y + halfSize + 2, x + halfSize + 2, y - halfSize + 2);
-                // Icon
+                g2.drawLine(x - halfSize + 4, y + halfSize, x + halfSize, y - halfSize + 2);
+                // Wrench handle
                 g2.setColor(color);
-                g2.drawLine(x - halfSize, y + halfSize, x - halfSize, y);
-                g2.drawLine(x, y + halfSize, x, y - halfSize / 2);
-                g2.drawLine(x + halfSize, y + halfSize, x + halfSize, y - halfSize);
+                g2.drawLine(x - halfSize + 2, y + halfSize - 2, x + halfSize - 2, y - halfSize);
+                // Wrench head
+                g2.setStroke(new BasicStroke(2));
+                g2.drawArc(x + halfSize - 6, y - halfSize - 2, 8, 8, -30, 240);
                 break;
                 
-            case "achievements": // Trophy/Star icon
+            case "save": // Dog tag icon
+                g2.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                 // Shadow
                 g2.setColor(shadow);
-                drawStar(g2, x + 2, y + 2, size, 5);
-                // Icon
+                g2.drawRoundRect(x - halfSize + 4, y - halfSize + 4, size - 4, size + 2, 6, 6);
+                // Tag body
                 g2.setColor(color);
-                drawStar(g2, x, y, size, 5);
-                break;
-                
-            case "info": // Info circle with 'i'
-                // Shadow
-                g2.setColor(shadow);
-                g2.fillOval(x - halfSize + 2, y - halfSize + 2, size, size);
-                // Icon background
-                g2.setColor(color);
-                g2.fillOval(x - halfSize, y - halfSize, size, size);
-                // 'i' letter
-                g2.setColor(isSelected ? selectedColor : baseColor);
-                g2.setFont(new Font("Arial", Font.BOLD, size - 4));
-                FontMetrics fm = g2.getFontMetrics();
-                g2.drawString("i", x - fm.stringWidth("i") / 2, y + fm.getAscent() / 2 - 2);
-                break;
-                
-            case "settings": // Gear icon (hexagon with circle)
-                // Shadow
-                g2.setColor(shadow);
-                drawGear(g2, x + 2, y + 2, size);
-                // Icon
-                g2.setColor(color);
-                drawGear(g2, x, y, size);
+                g2.drawRoundRect(x - halfSize + 2, y - halfSize + 2, size - 4, size + 2, 6, 6);
+                // Hole at top
+                g2.drawOval(x - 2, y - halfSize + 4, 4, 4);
                 break;
         }
         
         g2.dispose();
     }
     
-    private void drawDiamond(Graphics2D g, int x, int y, int size) {
+    private void drawMissileIcon(Graphics2D g, int x, int y, int size) {
         int halfSize = size / 2;
-        int[] xPoints = {x, x + halfSize, x, x - halfSize};
-        int[] yPoints = {y - halfSize, y, y + halfSize, y};
-        g.fillPolygon(xPoints, yPoints, 4);
+        // Missile body (pointed right)
+        int[] mx = {x + halfSize, x + halfSize - 3, x - halfSize + 3, x - halfSize, x - halfSize + 3, x + halfSize - 3};
+        int[] my = {y, y - halfSize / 2, y - halfSize / 2, y, y + halfSize / 2, y + halfSize / 2};
+        g.fillPolygon(mx, my, 6);
+        // Fins
+        g.fillRect(x - halfSize, y - halfSize / 2 - 2, 4, halfSize + 4);
     }
     
     private void drawStar(Graphics2D g, int x, int y, int size, int points) {
@@ -306,40 +384,9 @@ public class UIButton {
     }
     
     private void drawGear(Graphics2D g, int x, int y, int size) {
-        int teeth = 6;
-        double outerRadius = size / 2.0;
-        double innerRadius = size / 3.0;
-        
-        int[] xPoints = new int[teeth * 4];
-        int[] yPoints = new int[teeth * 4];
-        
-        for (int i = 0; i < teeth; i++) {
-            double baseAngle = (i * Math.PI * 2 / teeth);
-            double toothWidth = Math.PI / (teeth * 2);
-            
-            // Outer point 1
-            xPoints[i * 4] = (int)(x + outerRadius * Math.cos(baseAngle - toothWidth / 2));
-            yPoints[i * 4] = (int)(y + outerRadius * Math.sin(baseAngle - toothWidth / 2));
-            // Outer point 2
-            xPoints[i * 4 + 1] = (int)(x + outerRadius * Math.cos(baseAngle + toothWidth / 2));
-            yPoints[i * 4 + 1] = (int)(y + outerRadius * Math.sin(baseAngle + toothWidth / 2));
-            // Inner point 1
-            double midAngle = baseAngle + Math.PI / teeth;
-            xPoints[i * 4 + 2] = (int)(x + innerRadius * Math.cos(midAngle - toothWidth));
-            yPoints[i * 4 + 2] = (int)(y + innerRadius * Math.sin(midAngle - toothWidth));
-            // Inner point 2
-            xPoints[i * 4 + 3] = (int)(x + innerRadius * Math.cos(midAngle + toothWidth));
-            yPoints[i * 4 + 3] = (int)(y + innerRadius * Math.sin(midAngle + toothWidth));
-        }
-        
-        g.fillPolygon(xPoints, yPoints, teeth * 4);
-        
-        // Center hole
-        Color orig = g.getColor();
-        g.setColor(isSelected ? selectedColor.darker() : baseColor);
-        int holeSize = size / 4;
-        g.fillOval(x - holeSize / 2, y - holeSize / 2, holeSize, holeSize);
-        g.setColor(orig);
+        // Kept for backward compatibility but unused in new icon set
+        int halfSize = size / 2;
+        g.fillOval(x - halfSize, y - halfSize, size, size);
     }
     
     public boolean contains(int mouseX, int mouseY) {

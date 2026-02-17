@@ -1,3 +1,6 @@
+import config.ColorPalette;
+import config.FontPalette;
+import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
@@ -104,21 +107,14 @@ public class Renderer {
 
     
 
-    // Cached rendering objects for performance
-
-    private static final AlphaComposite ALPHA_FULL = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f);
-
-    private static final AlphaComposite ALPHA_HALF = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f);
-
-    private static final AlphaComposite ALPHA_THIRD = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f);
-
-    private static final Color AFTERIMAGE_COLOR = new Color(200, 220, 255);
-
-    private static final Color SHIELD_GLOW = new Color(136, 192, 208, 50);
-
-    private static final Color SHIELD_RING = new Color(136, 192, 208, 100);
-
-    private static final Color SHIELD_CORE = new Color(136, 192, 208, 150);
+    // Cached rendering objects for performance (using ColorPalette for shared colors)
+    private static final AlphaComposite ALPHA_FULL = ColorPalette.ALPHA_FULL;
+    private static final AlphaComposite ALPHA_HALF = ColorPalette.ALPHA_HALF;
+    private static final AlphaComposite ALPHA_THIRD = ColorPalette.ALPHA_THIRD;
+    private static final Color AFTERIMAGE_COLOR = ColorPalette.AFTERIMAGE_COLOR;
+    private static final Color SHIELD_GLOW = ColorPalette.SHIELD_GLOW;
+    private static final Color SHIELD_RING = ColorPalette.SHIELD_RING;
+    private static final Color SHIELD_CORE = ColorPalette.SHIELD_CORE;
 
     private static final BasicStroke STROKE_1 = new BasicStroke(1f);
 
@@ -138,37 +134,43 @@ public class Renderer {
 
     
 
-    // Cached Font objects to avoid repeated creation
-
-    private static final Font FONT_TITLE_LARGE = new Font("Arial", Font.BOLD, 84);
-
-    private static final Font FONT_TITLE = new Font("Arial", Font.BOLD, 72);
-
-    private static final Font FONT_TITLE_MEDIUM = new Font("Arial", Font.BOLD, 60);
-
-    private static final Font FONT_SUBTITLE = new Font("Arial", Font.BOLD, 36);
-
-    private static final Font FONT_LARGE_32 = new Font("Arial", Font.BOLD, 32);
-
-    private static final Font FONT_LARGE = new Font("Arial", Font.BOLD, 28);
-
-    private static final Font FONT_MEDIUM = new Font("Arial", Font.PLAIN, 24);
-
-    private static final Font FONT_MEDIUM_BOLD = new Font("Arial", Font.BOLD, 24);
-
-    private static final Font FONT_SMALL = new Font("Arial", Font.PLAIN, 20);
-
-    private static final Font FONT_INFO = new Font("Arial", Font.PLAIN, 18);
-
-    private static final Font FONT_TINY = new Font("Arial", Font.BOLD, 18);
-
-    private static final Font FONT_EXTRA_SMALL_16 = new Font("Arial", Font.BOLD, 16);
-
-    private static final Font FONT_EXTRA_SMALL_13 = new Font("Arial", Font.PLAIN, 13);
-
-    private static final Font FONT_EXTRA_SMALL_12 = new Font("Arial", Font.BOLD, 12);
-
-    private static final Font FONT_EXTRA_SMALL_11 = new Font("Arial", Font.PLAIN, 11);
+    // Cached Font objects â€” all derived from FontPalette (custom font with fallback)
+    // FontPalette.init() must be called before first use (done in AssetLoader.initAll())
+    private static Font FONT_TITLE_LARGE;
+    private static Font FONT_TITLE;
+    private static Font FONT_TITLE_MEDIUM;
+    private static Font FONT_SUBTITLE;
+    private static Font FONT_LARGE_32;
+    private static Font FONT_LARGE;
+    private static Font FONT_MEDIUM;
+    private static Font FONT_MEDIUM_BOLD;
+    private static Font FONT_SMALL;
+    private static Font FONT_INFO;
+    private static Font FONT_TINY;
+    private static Font FONT_EXTRA_SMALL_16;
+    private static Font FONT_EXTRA_SMALL_13;
+    private static Font FONT_EXTRA_SMALL_12;
+    private static Font FONT_EXTRA_SMALL_11;
+    
+    /** Call once after FontPalette.init() to bind the cached font references. */
+    public static void initFonts() {
+        FontPalette.init();
+        FONT_TITLE_LARGE = FontPalette.TITLE_LARGE;
+        FONT_TITLE = FontPalette.TITLE;
+        FONT_TITLE_MEDIUM = FontPalette.TITLE_MEDIUM;
+        FONT_SUBTITLE = FontPalette.SUBTITLE;
+        FONT_LARGE_32 = FontPalette.LARGE_32;
+        FONT_LARGE = FontPalette.LARGE;
+        FONT_MEDIUM = FontPalette.MEDIUM;
+        FONT_MEDIUM_BOLD = FontPalette.MEDIUM_BOLD;
+        FONT_SMALL = FontPalette.SMALL;
+        FONT_INFO = FontPalette.INFO;
+        FONT_TINY = FontPalette.TINY;
+        FONT_EXTRA_SMALL_16 = FontPalette.XS_16;
+        FONT_EXTRA_SMALL_13 = FontPalette.XS_13;
+        FONT_EXTRA_SMALL_12 = FontPalette.XS_12;
+        FONT_EXTRA_SMALL_11 = FontPalette.XS_11;
+    }
 
     
 
@@ -193,6 +195,8 @@ public class Renderer {
         this.passiveUpgradeManager = passiveUpgradeManager;
 
         
+        // Initialize fonts from FontPalette
+        initFonts();
 
         // Load background layers
 
@@ -206,78 +210,48 @@ public class Renderer {
 
         
 
-        // Initialize menu buttons (positions will be updated in drawMenu)
-
-        // Order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
-
+        // Initialize menu buttons â€” military/rock themed colors
         menuButtons = new UIButton[7];
-
-        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, 300, 55, new Color(163, 190, 140), new Color(180, 210, 160)); // Green - Play
-
-        menuButtons[1] = new UIButton("Shop", "shop", 0, 0, 300, 55, new Color(235, 203, 139), new Color(250, 220, 160)); // Gold
-
-        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, 300, 55, new Color(136, 192, 208), new Color(160, 210, 225)); // Cyan
-
-        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, 300, 55, new Color(180, 142, 173), new Color(200, 165, 195)); // Purple
-
-        menuButtons[4] = new UIButton("Game Info", "info", 0, 0, 300, 55, new Color(143, 188, 187), new Color(165, 205, 205)); // Teal
-
-        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, 300, 55, new Color(191, 97, 106), new Color(215, 120, 130)); // Red
-
-        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, 300, 55, new Color(208, 135, 112), new Color(225, 155, 135)); // Orange
+        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, 300, 55, ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
+        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, 300, 55, ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
+        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, 300, 55, ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
+        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, 300, 55, ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
+        menuButtons[4] = new UIButton("Intel", "info", 0, 0, 300, 55, ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, 300, 55, ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
+        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, 300, 55, ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
 
         
 
-        // Initialize shop buttons (15 items: continue + 4 shop upgrades + 10 passive upgrades)
-
+        // Initialize shop buttons (15 items)
         shopButtons = new UIButton[15];
-
         for (int i = 0; i < 15; i++) {
-
-            shopButtons[i] = new UIButton("", 0, 0, 800, 50, new Color(76, 86, 106), new Color(180, 142, 173));
-
+            shopButtons[i] = new UIButton("", 0, 0, 800, 50, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_PURPLE);
         }
 
-        
-
-        // Initialize stats buttons (5 items: 4 upgrades + active item)
-
+        // Initialize stats buttons (4 items)
         statsButtons = new UIButton[4];
-
         String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Active Item"};
-
-        Color[] statColors = {new Color(143, 188, 187), new Color(136, 192, 208), new Color(180, 142, 173), new Color(235, 203, 139)};
+        Color[] statColors = {ColorPalette.BTN_INFO, ColorPalette.BTN_STATS, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_ORANGE};
 
         for (int i = 0; i < 4; i++) {
 
-            statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, new Color(59, 66, 82), statColors[i]);
+            statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, ColorPalette.BUTTON_BASE, statColors[i]);
 
         }
 
         
 
-        // Initialize settings buttons (16 options - max for Graphics category)
-
+        // Initialize settings buttons (16 options)
         settingsButtons = new UIButton[16];
-
         for (int i = 0; i < 16; i++) {
-
-            settingsButtons[i] = new UIButton("", 0, 0, 900, 50, new Color(76, 86, 106), new Color(235, 203, 139));
-
+            settingsButtons[i] = new UIButton("", 0, 0, 900, 50, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
-        
-
-        // Initialize pause buttons (4 buttons - labels set dynamically by configurePauseMenu)
-
+        // Initialize pause buttons (4 buttons)
         pauseButtons = new UIButton[4];
-
         String[] pauseLabels = {"Resume", "Settings", "Main Menu", ""};
-
         for (int i = 0; i < 4; i++) {
-
-            pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, 300, 60, new Color(76, 86, 106), new Color(235, 203, 139));
-
+            pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, 300, 60, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
     }
@@ -537,392 +511,131 @@ public class Renderer {
 
     public void drawLoading(Graphics2D g, int width, int height, double time, int progress) {
 
-        // Draw dark animated gradient background
+        // Military themed background
+        UITheme.drawScreenBackground(g, width, height, time);
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+        // Title â€” stencil-style with ember particles
+        UITheme.drawTitle(g, "MR. MISSLE", width, height / 2 - 100,
+            ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
+            time, FontPalette.TITLE_LARGE);
 
-        
-
-        // Holographic title
-
-        String title = "MR. MISSLE";
-
-        g.setFont(FONT_TITLE_LARGE);
-
+        // "ARMING..." text
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+        g.setFont(FontPalette.MEDIUM);
+        String loadingText = "ARMING SYSTEMS...";
         FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = height / 2 - 100;
-
-        
-
-        // Shadow layer
-
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text (teal to purple)
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 50, new Color(143, 188, 187),
-
-            titleX, titleY + 20, new Color(180, 142, 173)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(ALPHA_THIRD);
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(ALPHA_FULL);
-
-        
-
-        // Loading text
-
-        g.setColor(new Color(216, 222, 233));
-
-        g.setFont(FONT_MEDIUM);
-
-        String loadingText = "Loading...";
-
-        fm = g.getFontMetrics();
-
         g.drawString(loadingText, (width - fm.stringWidth(loadingText)) / 2, height / 2 + 20);
 
-        
-
-        // Progress bar
-
+        // Missile-arming gauge progress bar
         int barWidth = 400;
-
-        int barHeight = 30;
-
+        int barHeight = 24;
         int barX = (width - barWidth) / 2;
-
-        int barY = height / 2 + 60;
-
-        
-
-        // Background
-
-        g.setColor(new Color(60, 60, 70));
-
-        g.fillRoundRect(barX, barY, barWidth, barHeight, 15, 15);
-
-        
-
-        // Progress fill
-
-        int fillWidth = (int)(barWidth * (progress / 100.0));
-
-        if (fillWidth > 0) {
-
-            GradientPaint barGradient = new GradientPaint(
-
-                barX, barY, new Color(143, 188, 187),
-
-                barX + fillWidth, barY + barHeight, new Color(136, 192, 208)
-
-            );
-
-            g.setPaint(barGradient);
-
-            g.fillRoundRect(barX, barY, fillWidth, barHeight, 15, 15);
-
-        }
-
-        
-
-        // Border
-
-        g.setColor(new Color(200, 200, 200));
-
-        g.setStroke(new BasicStroke(2));
-
-        g.drawRoundRect(barX, barY, barWidth, barHeight, 15, 15);
-
-        
-
-        // Percentage text
-
-        g.setColor(Color.WHITE);
-
-        g.setFont(FONT_TINY);
-
-        String percentText = progress + "%";
-
-        fm = g.getFontMetrics();
-
-        g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
-
+        int barY = height / 2 + 50;
+        UITheme.drawProgressBar(g, barX, barY, barWidth, barHeight,
+            progress / 100.0, ColorPalette.ACCENT_ORANGE);
     }
 
     
 
     public void drawMenu(Graphics2D g, int width, int height, double time, double escapeTimer, int selectedMenuItem, int currentSaveSlot, GameMode gameMode) {
 
-        // Draw animated gradient background with palette colors
+        // Military themed background
+        UITheme.drawScreenBackground(g, width, height, time);
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+        // Animated jet silhouettes streaking across
+        UITheme.drawJetSilhouette(g, width, height, time);
 
-        
-
-        // Subtle background tint based on game mode
-
+        // Subtle game mode tint overlay
         if (gameMode != null) {
-
             g.setColor(new Color(
-
                 gameMode.getColor().getRed(),
-
                 gameMode.getColor().getGreen(),
-
                 gameMode.getColor().getBlue(),
-
-                25
-
+                20
             ));
-
             g.fillRect(0, 0, width, height);
-
         }
 
-        
+        // Title â€” stencil-style with embers
+        UITheme.drawTitle(g, "MR. MISSLE", width, 150,
+            ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
+            time, FontPalette.TITLE);
 
-        // Draw cool geometric background effects
-
-        drawGeometricBackground(g, width, height, time);
-
-        
-
-        g.setColor(Color.WHITE);
-
-        g.setFont(FONT_TITLE);
-
-        String title = "MR. MISSLE";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        
-
-        // Balatro-style title with holographic shine effect
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 150;
-
-        
-
-        // Shadow layers
-
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text effect
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 50, new Color(191, 97, 106), // Red
-
-            titleX, titleY + 20, new Color(220, 120, 130) // Lighter red
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(ALPHA_THIRD);
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(ALPHA_FULL);
-
-        
-
-        // Minecraft-style spinning mode splash text (anchored to bottom-right of title)
-
+        // Minecraft-style spinning mode splash text
         if (gameMode != null) {
-
             Graphics2D g2 = (Graphics2D) g.create();
-
             if (Game.enableAntiAliasing) {
-
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
             }
 
-            
+            g.setFont(FontPalette.TITLE);
+            FontMetrics titleFm = g.getFontMetrics();
+            int titleX = (width - titleFm.stringWidth("MR. MISSLE")) / 2;
 
             String splashText = gameMode.getSplashText();
-
-            g2.setFont(FONT_MEDIUM_BOLD);
-
+            g2.setFont(FontPalette.MEDIUM_BOLD);
             FontMetrics splashFm = g2.getFontMetrics();
 
-            
-
-            // Anchor point: bottom-right of title text (this becomes the center of the splash text)
-
-            int anchorX = titleX + fm.stringWidth(title) + 10;
-
-            int anchorY = titleY - 5;
-
-            
-
-            // Center offset so the text rotates around its own center
+            int anchorX = titleX + titleFm.stringWidth("MR. MISSLE") + 10;
+            int anchorY = 150 - 5;
 
             int textW = splashFm.stringWidth(splashText);
-
             int textH = splashFm.getAscent();
-
             int offsetX = -textW / 2;
-
             int offsetY = textH / 2;
 
-            
-
-            // Wobble rotation and scale pulse
-
             double wobbleAngle = Math.sin(time * 3) * Math.toRadians(12);
-
             double scalePulse = 1.0 + 0.08 * Math.sin(time * 5);
 
-            
-
-            // Apply transform — translate to anchor, then rotate/scale around that point
-
             java.awt.geom.AffineTransform oldTransform = g2.getTransform();
-
             g2.translate(anchorX, anchorY);
-
             g2.rotate(wobbleAngle);
-
             g2.scale(scalePulse, scalePulse);
 
-            
-
-            // Shadow
-
             g2.setColor(new Color(0, 0, 0, 120));
-
             g2.drawString(splashText, offsetX + 2, offsetY + 2);
 
-            
-
-            // Text in mode color
-
             g2.setColor(gameMode.getColor());
-
             g2.drawString(splashText, offsetX, offsetY);
-
-            
-
-            // White shine
 
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float)(0.2 + 0.15 * Math.sin(time * 4))));
-
             g2.setColor(Color.WHITE);
-
             g2.drawString(splashText, offsetX, offsetY);
 
-            
-
             g2.setTransform(oldTransform);
-
             g2.dispose();
-
         }
 
-        
-
-        // Draw buttons with slight vertical offset
-
+        // Draw buttons â€” mission briefing clipboard stack
         int buttonY = 240;
-
         int buttonSpacing = 75;
-
         for (int i = 0; i < menuButtons.length; i++) {
-
             menuButtons[i].setPosition((width - 300) / 2, buttonY + i * buttonSpacing);
-
             menuButtons[i].update(i == selectedMenuItem, time);
-
             menuButtons[i].draw(g, time);
-
         }
 
-        
-
-        // Show score and money in a nice card
-
+        // Score and money card
         drawStatsCard(g, width, height, time);
 
-        
-
-        // Version and save slot info (bottom left, offset to avoid corner decorations)
-
-        g.setFont(FONT_TINY);
-
-        g.setColor(new Color(120, 130, 150, 180));
-
+        // Version and save slot info (bottom right)
+        g.setFont(FontPalette.TINY);
+        g.setColor(ColorPalette.TEXT_DIM);
         String versionText = Game.GAME_VERSION;
-
-        g.drawString(versionText, 110, height - 70);
-
-        
+        FontMetrics fmVer = g.getFontMetrics();
+        g.drawString(versionText, width - fmVer.stringWidth(versionText) - 20, height - 70);
 
         if (currentSaveSlot > 0) {
-
             String saveText = "Save Slot " + currentSaveSlot;
-
-            g.drawString(saveText, 110, height - 50);
-
+            g.drawString(saveText, width - fmVer.stringWidth(saveText) - 20, height - 50);
         }
-
-        
 
         // Quit hint
-
         if (escapeTimer > 0) {
-
-            g.setColor(new Color(191, 97, 106)); // Palette red
-
-            g.setFont(FONT_MEDIUM_BOLD);
-
+            g.setColor(ColorPalette.ACCENT_RED);
+            g.setFont(FontPalette.MEDIUM_BOLD);
             drawPromptWithIcons(g, width / 2, height - 210, "Press ", KeyBindManager.Action.BACK, " again to Quit");
-
         }
-
     }
 
     
@@ -933,71 +646,20 @@ public class Renderer {
 
                                   int deleteConfirmTimer, double escapeTimer, double scrollOffset) {
 
-        // Draw animated gradient background
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Draw geometric background effects
-
-        drawGeometricBackground(g, width, height, time);
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
         // Title
 
-        g.setFont(FONT_TITLE);
-
-        String title = "SELECT SAVE";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 120;
-
-        
-
-        // Shadow
-
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 50, new Color(136, 192, 208),
-
-            titleX, titleY + 20, new Color(143, 188, 187)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(ALPHA_THIRD);
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(ALPHA_FULL);
+        UITheme.drawTitle(g, "SAVE FILES", width, 120, ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, time);
 
         
 
         // Draw save slots with scroll
+        FontMetrics fm;
 
         int slotWidth = 800;
 
@@ -1053,9 +715,11 @@ public class Renderer {
 
             if (isSelected) {
 
-                g2.setColor(new Color(235, 203, 139, 100));
+                g2.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(), ColorPalette.ACCENT_ORANGE.getBlue(), 80));
 
-                g2.fillRoundRect(slotX - 8, slotY - 8, slotWidth + 16, slotHeight + 16, 20, 20);
+                Shape glowShape = UITheme.createChamferedRect(slotX - 8, slotY - 8, slotWidth + 16, slotHeight + 16, 12);
+
+                g2.fill(glowShape);
 
             }
 
@@ -1069,25 +733,35 @@ public class Renderer {
 
                 
 
-                // Main slot background
+                // Main slot background â€” chamfered military card
 
-                Color slotColor = isSelected ? new Color(88, 91, 112) : new Color(76, 86, 106);
+                Color slotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
                 g2.setColor(slotColor);
 
-                g2.fillRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                Shape cardShape = UITheme.createChamferedRect(slotX, slotY, slotWidth, slotHeight, 10);
+
+                g2.fill(cardShape);
 
                 
 
                 // Border
 
-                Color borderColor = isSelected ? new Color(235, 203, 139) : new Color(94, 129, 172);
+                Color borderColor = isSelected ? ColorPalette.ACCENT_ORANGE : ColorPalette.BORDER_STEEL;
 
-                g2.setStroke(new BasicStroke(3));
+                g2.setStroke(new BasicStroke(isSelected ? 3f : 2f));
 
                 g2.setColor(borderColor);
 
-                g2.drawRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                g2.draw(cardShape);
+
+                
+
+                // Accent line on left
+
+                g2.setColor(ColorPalette.ACCENT_ORANGE);
+
+                g2.fillRect(slotX, slotY + 8, 4, slotHeight - 16);
 
                 
 
@@ -1095,7 +769,7 @@ public class Renderer {
 
                 g2.setFont(FONT_LARGE);
 
-                g2.setColor(new Color(235, 203, 139));
+                g2.setColor(ColorPalette.TEXT_GOLD);
 
                 String slotNum = "SAVE " + meta.slotNumber;
 
@@ -1165,7 +839,7 @@ public class Renderer {
 
                 g2.setFont(FONT_SMALL);
 
-                g2.setColor(new Color(216, 222, 233));
+                g2.setColor(ColorPalette.TEXT_PRIMARY);
 
                 String stats1 = String.format("Max Level: %d  |  Money: $%d", meta.maxLevel, meta.totalMoney);
 
@@ -1187,7 +861,7 @@ public class Renderer {
 
                 g2.setFont(FONT_TINY);
 
-                g2.setColor(new Color(216, 222, 233, 160));
+                g2.setColor(ColorPalette.TEXT_DIM);
 
                 String createdText = "Created: " + meta.getFormattedCreationDate();
 
@@ -1195,7 +869,7 @@ public class Renderer {
 
                 
 
-                g2.setColor(new Color(216, 222, 233, 180));
+                g2.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 180));
 
                 String dateText = "Last Saved: " + meta.getFormattedDate();
 
@@ -1219,11 +893,13 @@ public class Renderer {
 
                 // Button background
 
-                Color btnColor = isSelected && deletingSlot ? new Color(191, 97, 106) : new Color(191, 97, 106, 150);
+                Color btnColor = isSelected && deletingSlot ? ColorPalette.ACCENT_RED_BRIGHT : new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 150);
 
                 g2.setColor(btnColor);
 
-                g2.fillRoundRect(btnX, btnY, btnWidth, btnHeight, 8, 8);
+                Shape delShape = UITheme.createChamferedRect(btnX, btnY, btnWidth, btnHeight, 6);
+
+                g2.fill(delShape);
 
                 
 
@@ -1231,9 +907,9 @@ public class Renderer {
 
                 g2.setStroke(new BasicStroke(2));
 
-                g2.setColor(new Color(215, 120, 130));
+                g2.setColor(ColorPalette.ACCENT_RED_BRIGHT);
 
-                g2.drawRoundRect(btnX, btnY, btnWidth, btnHeight, 8, 8);
+                g2.draw(delShape);
 
                 
 
@@ -1275,13 +951,13 @@ public class Renderer {
 
                     
 
-                    g2.setColor(new Color(191, 97, 106, 100));
+                    g2.setColor(new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 100));
 
                     g2.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
 
                     
 
-                    g2.setColor(new Color(191, 97, 106));
+                    g2.setColor(ColorPalette.ACCENT_RED);
 
                     g2.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 6, 6);
 
@@ -1303,13 +979,15 @@ public class Renderer {
 
             } else {
 
-                // "New Save" button
+                // "New Save" button â€” dashed military card
 
-                Color newSlotColor = isSelected ? new Color(76, 86, 106) : new Color(59, 66, 82);
+                Color newSlotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
                 g2.setColor(newSlotColor);
 
-                g2.fillRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                Shape newShape = UITheme.createChamferedRect(slotX, slotY, slotWidth, slotHeight, 10);
+
+                g2.fill(newShape);
 
                 
 
@@ -1317,13 +995,13 @@ public class Renderer {
 
                 float[] dash = {10, 6};
 
-                Color borderColor = isSelected ? new Color(163, 190, 140) : new Color(94, 129, 172, 150);
+                Color borderColor = isSelected ? ColorPalette.SUCCESS_GREEN : new Color(ColorPalette.BORDER_STEEL.getRed(), ColorPalette.BORDER_STEEL.getGreen(), ColorPalette.BORDER_STEEL.getBlue(), 150);
 
                 g2.setStroke(new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 0, dash, (float)(time * 20)));
 
                 g2.setColor(borderColor);
 
-                g2.drawRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                g2.draw(newShape);
 
                 
 
@@ -1331,7 +1009,7 @@ public class Renderer {
 
                 g2.setStroke(new BasicStroke(4));
 
-                g2.setColor(isSelected ? new Color(163, 190, 140) : new Color(216, 222, 233, 150));
+                g2.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
 
                 int plusCenterX = slotX + slotWidth / 2;
 
@@ -1347,7 +1025,7 @@ public class Renderer {
 
                 g2.setFont(FONT_MEDIUM);
 
-                g2.setColor(isSelected ? new Color(163, 190, 140) : new Color(216, 222, 233, 150));
+                g2.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
 
                 String newText = "New Save";
 
@@ -1377,7 +1055,7 @@ public class Renderer {
 
             // Up arrow indicator
 
-            g.setColor(new Color(216, 222, 233, (int)(150 + 50 * Math.sin(time * 4))));
+            g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), (int)(150 + 50 * Math.sin(time * 4))));
 
             g.setFont(FONT_MEDIUM);
 
@@ -1395,7 +1073,7 @@ public class Renderer {
 
             // Down arrow indicator
 
-            g.setColor(new Color(216, 222, 233, (int)(150 + 50 * Math.sin(time * 4))));
+            g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), (int)(150 + 50 * Math.sin(time * 4))));
 
             g.setFont(FONT_MEDIUM);
 
@@ -1413,7 +1091,7 @@ public class Renderer {
 
         g.setFont(FONT_MEDIUM);
 
-        g.setColor(new Color(216, 222, 233, 200));
+        g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 200));
 
         boolean isCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
 
@@ -1433,7 +1111,7 @@ public class Renderer {
 
         if (escapeTimer > 0) {
 
-            g.setColor(new Color(191, 97, 106));
+            g.setColor(ColorPalette.ACCENT_RED);
 
             g.setFont(FONT_MEDIUM_BOLD);
 
@@ -1455,67 +1133,15 @@ public class Renderer {
 
     public void drawModeSelect(Graphics2D g, int width, int height, double time, int selectedIndex) {
 
-        // Draw animated gradient background
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Draw geometric background effects
-
-        drawGeometricBackground(g, width, height, time);
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
         // Title
 
-        g.setFont(FONT_TITLE);
-
-        String title = "SELECT MODE";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 100;
-
-        
-
-        // Shadow
-
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 50, new Color(235, 203, 139),
-
-            titleX, titleY + 20, new Color(220, 180, 100)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(ALPHA_THIRD);
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(ALPHA_FULL);
+        UITheme.drawTitle(g, "SELECT MODE", width, 100, ColorPalette.ACCENT_YELLOW, ColorPalette.ACCENT_ORANGE, time);
 
         
 
@@ -1523,13 +1149,13 @@ public class Renderer {
 
         g.setFont(FONT_MEDIUM);
 
-        g.setColor(new Color(216, 222, 233, 200));
+        g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 200));
 
         String subtitle = "Choose a difficulty for this save (locked once created)";
 
-        fm = g.getFontMetrics();
+        FontMetrics fm = g.getFontMetrics();
 
-        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, titleY + 35);
+        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 135);
 
         
 
@@ -1583,23 +1209,27 @@ public class Renderer {
 
                     mode.getColor().getBlue(), 
 
-                    (int)(100 * glowPulse)
+                    (int)(80 * glowPulse)
 
                 ));
 
-                g2.fillRoundRect(cardX - 8, cardY - 8, cardWidth + 16, cardHeight + 16, 20, 20);
+                Shape glowShape = UITheme.createChamferedRect(cardX - 8, cardY - 8, cardWidth + 16, cardHeight + 16, 12);
+
+                g2.fill(glowShape);
 
             }
 
             
 
-            // Card background
+            // Card background â€” chamfered military card
 
-            Color bgColor = isSelected ? new Color(88, 91, 112) : new Color(59, 66, 82);
+            Color bgColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
             g2.setColor(bgColor);
 
-            g2.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+            Shape cardShape = UITheme.createChamferedRect(cardX, cardY, cardWidth, cardHeight, 10);
+
+            g2.fill(cardShape);
 
             
 
@@ -1619,7 +1249,15 @@ public class Renderer {
 
             ));
 
-            g2.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+            g2.draw(cardShape);
+
+            
+
+            // Accent line on left
+
+            g2.setColor(mode.getColor());
+
+            g2.fillRect(cardX, cardY + 8, 4, cardHeight - 16);
 
             
 
@@ -1627,7 +1265,7 @@ public class Renderer {
 
             g2.setFont(FONT_LARGE);
 
-            g2.setColor(isSelected ? mode.getColor() : Color.WHITE);
+            g2.setColor(isSelected ? mode.getColor() : ColorPalette.TEXT_PRIMARY);
 
             g2.drawString(mode.getDisplayName(), cardX + 25, cardY + 40);
 
@@ -1637,7 +1275,7 @@ public class Renderer {
 
             g2.setFont(FONT_MEDIUM);
 
-            g2.setColor(new Color(216, 222, 233, 220));
+            g2.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 220));
 
             g2.drawString(mode.getDescription(), cardX + 25, cardY + 70);
 
@@ -1647,7 +1285,7 @@ public class Renderer {
 
             g2.setFont(FONT_SMALL);
 
-            g2.setColor(new Color(216, 222, 233, 150));
+            g2.setColor(ColorPalette.TEXT_DIM);
 
             String detail;
 
@@ -1681,7 +1319,7 @@ public class Renderer {
 
             
 
-            // Selection arrow (drawn as a filled triangle)
+            // Selection arrow (missile shape)
 
             if (isSelected) {
 
@@ -1713,7 +1351,7 @@ public class Renderer {
 
         g.setFont(FONT_MEDIUM);
 
-        g.setColor(new Color(216, 222, 233, 200));
+        g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 200));
 
         drawPromptWithIcons(g, width / 2, height - 80, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select  |  ", KeyBindManager.Action.BACK, ": Back");
 
@@ -1901,11 +1539,11 @@ public class Renderer {
 
         Color[] colors = {
 
-            new Color(163, 190, 140, 40), // Green
+            ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 40), // Green
 
-            new Color(191, 97, 106, 35),  // Red
+            ColorPalette.withAlpha(ColorPalette.ACCENT_RED, 35),  // Red
 
-            new Color(136, 192, 208, 30)  // Cyan
+            ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 30)  // Cyan
 
         };
 
@@ -2151,7 +1789,7 @@ public class Renderer {
 
         // Card background
 
-        g.setColor(new Color(46, 52, 64, 200));
+        g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 200));
 
         g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
 
@@ -2161,7 +1799,7 @@ public class Renderer {
 
         int borderAlpha = (int)(150 + 50 * Math.sin(time * 2));
 
-        g.setColor(new Color(76, 86, 106, borderAlpha));
+        g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, borderAlpha));
 
         g.setStroke(new BasicStroke(2));
 
@@ -2177,7 +1815,7 @@ public class Renderer {
 
         // Divider line
 
-        g.setColor(new Color(76, 86, 106, 100));
+        g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 100));
 
         g.drawLine(dividerX, cardY + 10, dividerX, cardY + cardHeight - 10);
 
@@ -2189,7 +1827,7 @@ public class Renderer {
 
         // Score display (left side)
 
-        g.setColor(new Color(163, 190, 140)); // Green
+        g.setColor(ColorPalette.SUCCESS_GREEN); // Green
 
         int scoreX = cardX + padding / 2;
 
@@ -2199,7 +1837,7 @@ public class Renderer {
 
         // Money display (right side of divider)
 
-        g.setColor(new Color(235, 203, 139)); // Gold
+        g.setColor(ColorPalette.TEXT_GOLD); // Gold
 
         int moneyX = dividerX + dividerSpace / 2;
 
@@ -2211,61 +1849,15 @@ public class Renderer {
 
     public void drawInfo(Graphics2D g, int width, int height, double time) {
 
-        // Draw animated gradient
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        g.setFont(FONT_TITLE_MEDIUM);
-
-        String title = "GAME GUIDE";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 60;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 30, new Color(136, 192, 208),
-
-            titleX, titleY + 20, new Color(143, 188, 187)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "MISSION INTEL", width, 60, ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
 
         
 
@@ -2285,9 +1877,9 @@ public class Renderer {
 
         // Core Mechanics section
 
-        g.setColor(new Color(143, 188, 187));
+        g.setColor(ColorPalette.ACCENT_CYAN);
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
 
         g.drawString("CORE MECHANICS", leftX, y);
 
@@ -2297,43 +1889,43 @@ public class Renderer {
 
         g.setColor(Color.WHITE);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         String[] mechanics = {
 
             "VULNERABILITY SYSTEM:",
 
-            "  â€¢ Boss invulnerable for 20 seconds",
+            "  Ã¢â‚¬Â¢ Boss invulnerable for 20 seconds",
 
-            "  â€¢ Watch for GOLDEN GLOW = Attack Window!",
+            "  Ã¢â‚¬Â¢ Watch for GOLDEN GLOW = Attack Window!",
 
-            "  â€¢ Window lasts 20 seconds (longer with upgrades)",
+            "  Ã¢â‚¬Â¢ Window lasts 20 seconds (longer with upgrades)",
 
-            "  â€¢ Hit boss 3 times to win",
+            "  Ã¢â‚¬Â¢ Hit boss 3 times to win",
 
             "",
 
             "GRAZE SYSTEM:",
 
-            "  â€¢ 25px from bullet = Graze (+score, +combo)",
+            "  Ã¢â‚¬Â¢ 25px from bullet = Graze (+score, +combo)",
 
-            "  â€¢ 15px = Close Call (bonus points)",
+            "  Ã¢â‚¬Â¢ 15px = Close Call (bonus points)",
 
-            "  â€¢ 8px = Perfect Dodge (grants i-frames!)",
+            "  Ã¢â‚¬Â¢ 8px = Perfect Dodge (grants i-frames!)",
 
-            "  â€¢ Build combos: Chain dodges within 3s",
+            "  Ã¢â‚¬Â¢ Build combos: Chain dodges within 3s",
 
             "",
 
             "DEATH & RESPAWN:",
 
-            "  â€¢ One hit = death (unless Lucky Dodge procs)",
+            "  Ã¢â‚¬Â¢ One hit = death (unless Lucky Dodge procs)",
 
-            "  â€¢ Boss hit (non-fatal) = 1.5s respawn delay",
+            "  Ã¢â‚¬Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
 
-            "  â€¢ Use extra missiles for second chances",
+            "  Ã¢â‚¬Â¢ Use extra missiles for second chances",
 
-            "  â€¢ Lucky Dodge upgrade = revival chance"
+            "  Ã¢â‚¬Â¢ Lucky Dodge upgrade = revival chance"
 
         };
 
@@ -2353,9 +1945,9 @@ public class Renderer {
 
         y += 10;
 
-        g.setColor(new Color(235, 203, 139));
+        g.setColor(ColorPalette.TEXT_GOLD);
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
 
         g.drawString("PASSIVE UPGRADES", leftX, y);
 
@@ -2365,43 +1957,43 @@ public class Renderer {
 
         g.setColor(Color.WHITE);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         String[] upgrades = {
 
             "SPEED BOOST (Max Lv 10):",
 
-            "  â€¢ +10% movement speed per level",
+            "  Ã¢â‚¬Â¢ +10% movement speed per level",
 
-            "  â€¢ Essential for dodging dense patterns",
+            "  Ã¢â‚¬Â¢ Essential for dodging dense patterns",
 
             "",
 
             "BULLET SLOW (Max Lv 50):",
 
-            "  â€¢ Slows enemy bullets by 2% per level",
+            "  Ã¢â‚¬Â¢ Slows enemy bullets by 2% per level",
 
-            "  â€¢ More time to react and plan dodges",
+            "  Ã¢â‚¬Â¢ More time to react and plan dodges",
 
             "",
 
             "LUCKY DODGE (Max Lv 12):",
 
-            "  â€¢ 8% chance per level to survive hits",
+            "  Ã¢â‚¬Â¢ 8% chance per level to survive hits",
 
-            "  â€¢ Flicker effect on successful dodge",
+            "  Ã¢â‚¬Â¢ Flicker effect on successful dodge",
 
-            "  â€¢ Stacks with extra missiles",
+            "  Ã¢â‚¬Â¢ Stacks with extra missiles",
 
             "",
 
             "ATTACK WINDOW (Max Lv 10):",
 
-            "  â€¢ +1 second vulnerability per level",
+            "  Ã¢â‚¬Â¢ +1 second vulnerability per level",
 
-            "  â€¢ Max: 30 seconds to hit boss",
+            "  Ã¢â‚¬Â¢ Max: 30 seconds to hit boss",
 
-            "  â€¢ More forgiving timing"
+            "  Ã¢â‚¬Â¢ More forgiving timing"
 
         };
 
@@ -2425,9 +2017,9 @@ public class Renderer {
 
         // Active Items section
 
-        g.setColor(new Color(136, 192, 208));
+        g.setColor(ColorPalette.ACCENT_CYAN);
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
 
         g.drawString("ACTIVE ITEMS", rightX, y);
 
@@ -2437,7 +2029,7 @@ public class Renderer {
 
         g.setColor(Color.WHITE);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         String[] items = {
 
@@ -2511,9 +2103,9 @@ public class Renderer {
 
         y += 10;
 
-        g.setColor(new Color(191, 97, 106));
+        g.setColor(ColorPalette.ACCENT_RED);
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
 
         g.drawString("RISK CONTRACTS", rightX, y);
 
@@ -2523,7 +2115,7 @@ public class Renderer {
 
         g.setColor(Color.WHITE);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         String[] contracts = {
 
@@ -2559,9 +2151,9 @@ public class Renderer {
 
         // Controls hint at bottom
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setFont(FONT_TINY);
 
         drawPromptWithIcons(g, width / 2, height - 30, "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_DOWN, "/", KeyBindManager.Action.MOVE_RIGHT, " = Move  |  ", KeyBindManager.Action.USE_ITEM, " = Use Item  |  ", KeyBindManager.Action.PAUSE, " = Pause  |  Mouse = Navigate Menus");
 
@@ -2573,73 +2165,28 @@ public class Renderer {
 
     public void drawAchievements(Graphics2D g, int width, int height, double time, AchievementManager achievementManager, double scrollOffset) {
 
-        // Draw animated gradient background
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        g.setFont(new Font("Arial", Font.BOLD, 60));
-
-        String title = "ACHIEVEMENTS";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 80;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 30, new Color(235, 203, 139), // Gold
-
-            titleX, titleY + 20, new Color(255, 230, 150)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "ACHIEVEMENTS", width, 80, ColorPalette.ACCENT_YELLOW, ColorPalette.TEXT_GOLD, time, FONT_TITLE_MEDIUM);
 
         
 
         // Achievement count
+        FontMetrics fm;
 
         int unlocked = achievementManager.getUnlockedCount();
 
         int total = achievementManager.getAllAchievements().size();
 
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
 
-        g.setColor(new Color(163, 190, 140)); // Green
+        g.setColor(ColorPalette.SUCCESS_GREEN); // Green
 
         String countText = unlocked + " / " + total + " Unlocked";
 
@@ -2705,11 +2252,11 @@ public class Renderer {
 
                 // Unlocked - golden glow
 
-                g.setColor(new Color(235, 203, 139, 40));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 40));
 
                 g.fillRoundRect(x - 3, y - 3, cardWidth + 6, cardHeight + 6, 15, 15);
 
-                g.setColor(new Color(46, 52, 64, 240));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 240));
 
             } else {
 
@@ -2729,11 +2276,11 @@ public class Renderer {
 
             if (ach.isUnlocked()) {
 
-                g.setColor(new Color(235, 203, 139)); // Gold border
+                g.setColor(ColorPalette.TEXT_GOLD); // Gold border
 
             } else {
 
-                g.setColor(new Color(76, 86, 106)); // Grey border
+                g.setColor(ColorPalette.BORDER_STEEL); // Grey border
 
             }
 
@@ -2755,7 +2302,7 @@ public class Renderer {
 
                 // Checkmark circle
 
-                g.setColor(new Color(163, 190, 140)); // Green
+                g.setColor(ColorPalette.SUCCESS_GREEN); // Green
 
                 g.fillOval(iconX, iconY, iconSize, iconSize);
 
@@ -2791,11 +2338,11 @@ public class Renderer {
 
             // Achievement name
 
-            g.setFont(new Font("Arial", Font.BOLD, 16));
+            g.setFont(FONT_EXTRA_SMALL_16);
 
             if (ach.isUnlocked()) {
 
-                g.setColor(new Color(235, 203, 139)); // Gold
+                g.setColor(ColorPalette.TEXT_GOLD); // Gold
 
             } else {
 
@@ -2809,7 +2356,7 @@ public class Renderer {
 
             // Description
 
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(ach.isUnlocked() ? new Color(200, 200, 210) : new Color(100, 100, 110));
 
@@ -2843,7 +2390,7 @@ public class Renderer {
 
                 float progress = ach.getProgressPercent();
 
-                g.setColor(new Color(136, 192, 208)); // Teal
+                g.setColor(ColorPalette.ACCENT_CYAN); // Teal
 
                 g.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 4, 4);
 
@@ -2851,7 +2398,7 @@ public class Renderer {
 
                 // Progress text
 
-                g.setFont(new Font("Arial", Font.PLAIN, 11));
+                g.setFont(FONT_EXTRA_SMALL_11);
 
                 g.setColor(new Color(120, 130, 140));
 
@@ -2863,9 +2410,9 @@ public class Renderer {
 
                 // "COMPLETE" badge
 
-                g.setFont(new Font("Arial", Font.BOLD, 12));
+                g.setFont(FONT_EXTRA_SMALL_12);
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.drawString("COMPLETE", x + 65, y + 75);
 
@@ -2883,9 +2430,9 @@ public class Renderer {
 
         // Controls hint
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setFont(FONT_SMALL);
 
         drawPromptWithIcons(g, width / 2, height - 40,
 
@@ -2897,73 +2444,27 @@ public class Renderer {
 
     public void drawStats(Graphics2D g, int width, int height, double time, PassiveUpgradeManager passiveManager) {
 
-        // Draw animated gradient
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        g.setFont(new Font("Arial", Font.BOLD, 60));
-
-        String title = "STATS";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 80;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 30, new Color(143, 188, 187),
-
-            titleX, titleY + 20, new Color(136, 192, 208)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "STATS", width, 80, ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
 
         
 
         // Show total money with glow
 
-        g.setColor(new Color(163, 190, 140));
+        g.setColor(ColorPalette.SUCCESS_GREEN);
 
-        g.setFont(new Font("Arial", Font.BOLD, 28));
+        g.setFont(FONT_LARGE);
 
         String money = "Money: $" + gameData.getTotalMoney();
 
-        fm = g.getFontMetrics();
+        FontMetrics fm = g.getFontMetrics();
 
         int moneyX = (width - fm.stringWidth(money)) / 2;
 
@@ -2973,9 +2474,9 @@ public class Renderer {
 
         // Instructions at top
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         drawPromptWithIcons(g, width / 2, 145, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to select | ", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT, " to adjust | ", KeyBindManager.Action.BACK, " to return");
 
@@ -3001,9 +2502,9 @@ public class Renderer {
 
         // Section 1: Active Item (index 0)
 
-        g.setColor(new Color(163, 190, 140));
+        g.setColor(ColorPalette.SUCCESS_GREEN);
 
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setFont(FONT_SMALL);
 
         g.drawString("ACTIVE ITEM - Unlock from mega bosses", width / 2 - 400, y);
 
@@ -3130,7 +2631,7 @@ public class Renderer {
         } else if (isUnlocked) {
 
 
-            cardBg = new Color(76, 86, 106, 200);
+            cardBg = ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200);
 
 
         } else {
@@ -3157,7 +2658,7 @@ public class Renderer {
         if (isSelected) {
 
 
-            g.setColor(new Color(235, 203, 139, 200));
+            g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 200));
 
 
             g.setStroke(new BasicStroke(2.5f));
@@ -3196,10 +2697,10 @@ public class Renderer {
         if (displayIndex > 0) {
 
 
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(FONT_LARGE);
 
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(150, 150, 150));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : new Color(150, 150, 150));
 
 
             g.drawString("<", itemX + 14, y + singleCardH / 2 + 10);
@@ -3217,10 +2718,10 @@ public class Renderer {
         if (displayIndex < allItems.length - 1) {
 
 
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(FONT_LARGE);
 
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(150, 150, 150));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : new Color(150, 150, 150));
 
 
             String rightArrow = ">";
@@ -3316,7 +2817,7 @@ public class Renderer {
 
             // Draw symbol centered in circle
 
-            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.setFont(FONT_MEDIUM_BOLD);
 
             g.setColor(itemIconColor);
 
@@ -3336,7 +2837,7 @@ public class Renderer {
 
             // Item name (large, bold)
 
-            g.setFont(new Font("Arial", Font.BOLD, 18));
+            g.setFont(FONT_TINY);
 
             g.setColor(isEquipped ? new Color(163, 210, 140) : Color.WHITE);
 
@@ -3354,7 +2855,7 @@ public class Renderer {
 
                 int badgeX = textX + nameFm.stringWidth(displayName) + 12;
 
-                g.setFont(new Font("Arial", Font.BOLD, 11));
+                g.setFont(FONT_EXTRA_SMALL_11);
 
                 FontMetrics badgeFm = g.getFontMetrics();
 
@@ -3384,7 +2885,7 @@ public class Renderer {
 
             // Description (medium, light)
 
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(new Color(175, 185, 200));
 
@@ -3394,7 +2895,7 @@ public class Renderer {
 
             // Unlock level (small, teal, with dot separator)
 
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(new Color(120, 175, 200));
 
@@ -3448,7 +2949,7 @@ public class Renderer {
 
             // Lock symbol in circle
 
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(FONT_LARGE);
 
             g.setColor(new Color(200, 180, 140));
 
@@ -3468,7 +2969,7 @@ public class Renderer {
 
             // Encrypted name
 
-            g.setFont(new Font("Arial", Font.BOLD, 16));
+            g.setFont(FONT_EXTRA_SMALL_16);
 
             g.setColor(new Color(190, 180, 160));
 
@@ -3480,7 +2981,7 @@ public class Renderer {
 
             // Unlock requirement (prominent, golden)
 
-            g.setFont(new Font("Arial", Font.BOLD, 15));
+            g.setFont(FontPalette.get(Font.BOLD, 15));
 
             g.setColor(new Color(235, 210, 140));
 
@@ -3509,10 +3010,10 @@ public class Renderer {
         // Counter: X / 9
 
 
-        g.setFont(new Font("Arial", Font.BOLD, 14));
+        g.setFont(FontPalette.get(Font.BOLD, 14));
 
 
-        g.setColor(new Color(136, 192, 208));
+        g.setColor(ColorPalette.ACCENT_CYAN);
 
 
         String counter = (displayIndex + 1) + " / " + allItems.length;
@@ -3537,9 +3038,9 @@ public class Renderer {
 
         y += 20;
 
-        g.setColor(new Color(180, 142, 173));
+        g.setColor(ColorPalette.ACCENT_PURPLE);
 
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setFont(FONT_SMALL);
 
         g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - 400, y);
 
@@ -3593,9 +3094,9 @@ public class Renderer {
 
                 y += 20;
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
-                g.setFont(new Font("Arial", Font.BOLD, 20));
+                g.setFont(FONT_SMALL);
 
                 g.drawString("CONSUMABLE MISSILES - Buy from shop, used on death", width / 2 - 400, y);
 
@@ -3671,7 +3172,7 @@ public class Renderer {
 
         } else {
 
-            cardColor = new Color(76, 86, 106, 200);
+            cardColor = ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200);
 
         }
 
@@ -3701,9 +3202,9 @@ public class Renderer {
 
         // Draw icon
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
 
-        g.setColor(new Color(235, 203, 139));
+        g.setColor(ColorPalette.TEXT_GOLD);
 
         g.drawString(icon, x + 20, y + 40);
 
@@ -3711,7 +3212,7 @@ public class Renderer {
 
         // Draw name
 
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setFont(FONT_SMALL);
 
         g.setColor(Color.WHITE);
 
@@ -3721,7 +3222,7 @@ public class Renderer {
 
         // Draw level info
 
-        g.setFont(new Font("Arial", Font.PLAIN, 14));
+        g.setFont(FontPalette.get(Font.PLAIN, 14));
 
         g.setColor(new Color(200, 200, 200));
 
@@ -3777,9 +3278,9 @@ public class Renderer {
 
                 GradientPaint grad = new GradientPaint(
 
-                    barX, 0, new Color(163, 190, 140),
+                    barX, 0, ColorPalette.SUCCESS_GREEN,
 
-                    barX + fillWidth, 0, new Color(235, 203, 139)
+                    barX + fillWidth, 0, ColorPalette.TEXT_GOLD
 
                 );
 
@@ -3793,9 +3294,9 @@ public class Renderer {
 
             // Level text
 
-            g.setFont(new Font("Arial", Font.BOLD, 14));
+            g.setFont(FontPalette.get(Font.BOLD, 14));
 
-            g.setColor(current >= max && max > 0 ? new Color(235, 203, 139) : Color.WHITE);
+            g.setColor(current >= max && max > 0 ? ColorPalette.TEXT_GOLD : Color.WHITE);
 
             String levelText = current + "/" + max;
 
@@ -3821,7 +3322,7 @@ public class Renderer {
 
             
 
-            g.setColor(current > 0 ? new Color(191, 97, 106) : new Color(80, 80, 80));
+            g.setColor(current > 0 ? ColorPalette.ACCENT_RED : new Color(80, 80, 80));
 
             g.fillRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
 
@@ -3831,7 +3332,7 @@ public class Renderer {
 
             g.drawRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
 
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(FONT_LARGE);
 
             g.drawString("-", minusX + 12, btnY + 26);
 
@@ -3841,7 +3342,7 @@ public class Renderer {
 
             int plusX = x + 845;
 
-            g.setColor(current < max ? new Color(163, 190, 140) : new Color(80, 80, 80));
+            g.setColor(current < max ? ColorPalette.SUCCESS_GREEN : new Color(80, 80, 80));
 
             g.fillRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
 
@@ -3851,7 +3352,7 @@ public class Renderer {
 
             g.drawRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
 
-            g.setFont(new Font("Arial", Font.BOLD, 28));
+            g.setFont(FONT_LARGE);
 
             g.drawString("+", plusX + 11, btnY + 26);
 
@@ -3895,45 +3396,24 @@ public class Renderer {
 
         
 
-        // Draw animated gradient background
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(20, 25, 40), new Color(30, 35, 50), new Color(40, 45, 60)});
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
         // Title
 
-        g.setFont(new Font("Arial", Font.BOLD, 42));
-
-        String title = "JOURNEY MAP";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 50;
-
-        
-
-        // Title shadow and gradient
-
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 3, titleY + 3);
-
-        GradientPaint titleGrad = new GradientPaint(titleX, titleY - 30, new Color(180, 142, 173), titleX, titleY + 20, new Color(235, 203, 139));
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
+        UITheme.drawTitle(g, "JOURNEY MAP", width, 50, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_YELLOW, time, FontPalette.getDisplay(Font.BOLD, 42));
 
         
 
         // Show "RESUME AVAILABLE" indicator if there's a saved game
+        FontMetrics fm;
 
         if (hasSavedGame && selectedLevel == savedLevel) {
 
-            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.setFont(FONT_MEDIUM_BOLD);
 
             String resumeText = "* RESUME AVAILABLE";
 
@@ -4025,7 +3505,7 @@ public class Renderer {
 
             // Left arrow
 
-            g.setFont(new Font("Arial", Font.BOLD, 50));
+            g.setFont(FontPalette.get(Font.BOLD, 50));
 
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
 
@@ -4039,7 +3519,7 @@ public class Renderer {
 
             // Right arrow
 
-            g.setFont(new Font("Arial", Font.BOLD, 50));
+            g.setFont(FontPalette.get(Font.BOLD, 50));
 
             float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
 
@@ -4541,7 +4021,7 @@ public class Renderer {
 
             int fontSize = (int)(48 * scale);
 
-            g.setFont(new Font("Arial", Font.BOLD, fontSize));
+            g.setFont(FontPalette.get(Font.BOLD, fontSize));
 
             String levelNum = String.valueOf(level);
 
@@ -4579,9 +4059,9 @@ public class Renderer {
 
                 int starSize = (int)(24 * scale);
 
-                g.setFont(new Font("Arial", Font.BOLD, starSize));
+                g.setFont(FontPalette.get(Font.BOLD, starSize));
 
-                g.setColor(new Color(255, 215, 0));
+                g.setColor(ColorPalette.ACCENT_YELLOW);
 
                 String crown = "*";
 
@@ -4619,7 +4099,7 @@ public class Renderer {
 
                 // Checkmark symbol
 
-                g.setFont(new Font("Arial", Font.BOLD, (int)(badgeSize * 0.8)));
+                g.setFont(FontPalette.get(Font.BOLD, (int)(badgeSize * 0.8)));
 
                 g.setColor(Color.WHITE);
 
@@ -4639,7 +4119,7 @@ public class Renderer {
 
                 int lockSize = (int)(18 * scale);
 
-                g.setFont(new Font("Arial", Font.BOLD, lockSize));
+                g.setFont(FontPalette.get(Font.BOLD, lockSize));
 
                 g.setColor(new Color(100, 100, 110));
 
@@ -4659,7 +4139,7 @@ public class Renderer {
 
                 int labelSize = (int)(14 * scale);
 
-                g.setFont(new Font("Arial", Font.BOLD, labelSize));
+                g.setFont(FontPalette.get(Font.BOLD, labelSize));
 
                 g.setColor(new Color(220, 190, 60, (int)(220 * alpha)));
 
@@ -4693,7 +4173,7 @@ public class Renderer {
 
         int panelY = height - panelHeight - 30;
 
-        int panelWidth = 500;
+        int panelWidth = 700;
 
         int panelX = (width - panelWidth) / 2;
 
@@ -4735,7 +4215,7 @@ public class Renderer {
 
         String bossName = GameData.getBossName(selectedLevel);
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
 
         FontMetrics fm = g.getFontMetrics();
 
@@ -4763,7 +4243,7 @@ public class Renderer {
 
         // Level type label - centered
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         g.setColor(isMegaBoss ? new Color(255, 200, 100) : new Color(140, 150, 170));
 
@@ -4777,7 +4257,7 @@ public class Renderer {
 
         // Status and stats info
 
-        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         int infoY = panelY + 100;
 
@@ -4817,7 +4297,7 @@ public class Renderer {
 
             LevelStats stats = gameData.getLevelStats(selectedLevel);
 
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(new Color(160, 170, 180));
 
@@ -4971,7 +4451,7 @@ public class Renderer {
 
         // Navigation hints at very bottom
 
-        g.setFont(new Font("Arial", Font.PLAIN, 14));
+        g.setFont(FontPalette.get(Font.PLAIN, 14));
 
         g.setColor(new Color(100, 110, 130));
 
@@ -4989,61 +4469,27 @@ public class Renderer {
 
                                   double[] contractMultipliers, double time, int level) {
 
-        // Draw animated background
+        // Military themed background
 
-        Color[] colors = getLevelGradientColors(level);
-
-        drawAnimatedGradient(g, width, height, time, colors);
-
-        
-
-        // Dark overlay for contrast
-
-        g.setColor(new Color(0, 0, 0, 180));
-
-        g.fillRect(0, 0, width, height);
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
         // Title
 
-        g.setFont(new Font("Arial", Font.BOLD, 48));
-
-        String title = "RISK CONTRACT";
-
-        FontMetrics titleFm = g.getFontMetrics();
-
-        int titleX = (width - titleFm.stringWidth(title)) / 2;
-
-        
-
-        // Title glow
-
-        float glowPulse = (float)(0.4 + 0.2 * Math.sin(time * 2));
-
-        g.setColor(new Color(255, 100, 100, (int)(100 * glowPulse)));
-
-        g.drawString(title, titleX - 3, 83);
-
-        g.drawString(title, titleX + 3, 77);
-
-        
-
-        g.setColor(new Color(255, 150, 150));
-
-        g.drawString(title, titleX, 80);
+        UITheme.drawTitle(g, "RISK CONTRACT", width, 80, ColorPalette.ACCENT_RED_BRIGHT, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 48));
 
         
 
         // Subtitle
 
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setFont(FONT_SMALL);
 
         String subtitle = "Choose your challenge modifier for Level " + level;
 
         FontMetrics subFm = g.getFontMetrics();
 
-        g.setColor(new Color(200, 200, 200));
+        g.setColor(ColorPalette.TEXT_DIM);
 
         g.drawString(subtitle, (width - subFm.stringWidth(subtitle)) / 2, 120);
 
@@ -5225,7 +4671,7 @@ public class Renderer {
 
             // Contract name
 
-            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.setFont(FONT_MEDIUM_BOLD);
 
             FontMetrics nameFm = g.getFontMetrics();
 
@@ -5239,13 +4685,13 @@ public class Renderer {
 
             // Multiplier
 
-            g.setFont(new Font("Arial", Font.BOLD, 36));
+            g.setFont(FontPalette.get(Font.BOLD, 36));
 
             String multiplier = i == 0 ? "--" : String.format("%.2fx", contractMultipliers[i]);
 
             FontMetrics multFm = g.getFontMetrics();
 
-            g.setColor(i == 0 ? new Color(150, 150, 150) : new Color(255, 215, 0));
+            g.setColor(i == 0 ? new Color(150, 150, 150) : ColorPalette.ACCENT_YELLOW);
 
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
 
@@ -5255,7 +4701,7 @@ public class Renderer {
 
             // Description (word wrapped)
 
-            g.setFont(new Font("Arial", Font.PLAIN, 16));
+            g.setFont(FONT_EXTRA_SMALL_16);
 
             g.setColor(isSelected ? new Color(200, 200, 200) : new Color(120, 120, 120));
 
@@ -5309,7 +4755,7 @@ public class Renderer {
 
         // Controls hint
 
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setFont(FONT_INFO);
 
         g.setColor(new Color(150, 150, 150));
 
@@ -5323,7 +4769,7 @@ public class Renderer {
 
         if (selectedContract > 0) {
 
-            g.setFont(new Font("Arial", Font.BOLD, 16));
+            g.setFont(FONT_EXTRA_SMALL_16);
 
             g.setColor(new Color(255, 100, 100, (int)(200 + 55 * Math.sin(time * 3))));
 
@@ -5365,49 +4811,17 @@ public class Renderer {
 
         
 
-        // Draw animated background
+        // Military themed background
 
-        Color[] colors = getLevelGradientColors(level);
-
-        drawAnimatedGradient(g, width, height, time, colors);
-
-        
-
-        // Dark overlay for contrast
-
-        g.setColor(new Color(0, 0, 0, 180));
-
-        g.fillRect(0, 0, width, height);
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
         // Title
 
-        g.setFont(new Font("Arial", Font.BOLD, 56));
-
         String title = isResume ? "RESUME LEVEL " + level + "?" : "START LEVEL " + level + "?";
 
-        FontMetrics titleFm = g.getFontMetrics();
-
-        int titleX = (width - titleFm.stringWidth(title)) / 2;
-
-        
-
-        // Title glow
-
-        float glowPulse = (float)(0.4 + 0.2 * Math.sin(time * 2));
-
-        g.setColor(new Color(235, 203, 139, (int)(100 * glowPulse)));
-
-        g.drawString(title, titleX - 2, height / 2 - 48);
-
-        g.drawString(title, titleX + 2, height / 2 - 52);
-
-        
-
-        g.setColor(new Color(235, 203, 139));
-
-        g.drawString(title, titleX, height / 2 - 50);
+        UITheme.drawTitle(g, title, width, height / 2 - 50, ColorPalette.TEXT_GOLD, ColorPalette.ACCENT_ORANGE, time, FontPalette.get(Font.BOLD, 56));
 
         
 
@@ -5431,7 +4845,7 @@ public class Renderer {
 
         boolean yesSelected = (selectedConfirmItem == 0);
 
-        Color yesColor = yesSelected ? new Color(163, 190, 140) : new Color(80, 90, 70);
+        Color yesColor = yesSelected ? ColorPalette.SUCCESS_GREEN : new Color(80, 90, 70);
 
         Color yesHover = new Color(180, 210, 160);
 
@@ -5485,7 +4899,7 @@ public class Renderer {
 
         // Button text
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
 
         FontMetrics yesFm = g.getFontMetrics();
 
@@ -5505,7 +4919,7 @@ public class Renderer {
 
         boolean noSelected = (selectedConfirmItem == 1);
 
-        Color noColor = noSelected ? new Color(191, 97, 106) : new Color(90, 50, 60);
+        Color noColor = noSelected ? ColorPalette.ACCENT_RED : new Color(90, 50, 60);
 
         Color noHover = new Color(220, 120, 130);
 
@@ -5559,7 +4973,7 @@ public class Renderer {
 
         // Button text
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
 
         FontMetrics noFm = g.getFontMetrics();
 
@@ -5575,7 +4989,7 @@ public class Renderer {
 
         // Controls hint
 
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setFont(FONT_INFO);
 
         g.setColor(new Color(150, 150, 150));
 
@@ -5713,7 +5127,7 @@ public class Renderer {
 
             boolean[] visited = new boolean[moneyCircles.size()];
 
-            g2d.setFont(new Font("Arial", Font.BOLD, 36));
+            g2d.setFont(FontPalette.get(Font.BOLD, 36));
 
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
 
@@ -6413,7 +5827,7 @@ public class Renderer {
 
                 // Pulsing gold glow
 
-                g.setColor(new Color(235, 203, 139, 80));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 80));
 
                 g.fillOval((int)player.getX() - glowRadius - pulseSize, 
 
@@ -7087,7 +6501,7 @@ public class Renderer {
 
             
 
-            // Corner pieces — radial gradients for smooth diagonal fade
+            // Corner pieces â€” radial gradients for smooth diagonal fade
 
             float[] cornerDist = {0.0f, 1.0f};
 
@@ -7221,7 +6635,7 @@ public class Renderer {
 
             // Boss type label
 
-            g.setFont(new Font("Arial", Font.BOLD, 14));
+            g.setFont(FontPalette.get(Font.BOLD, 14));
 
             FontMetrics fm = g.getFontMetrics();
 
@@ -7235,11 +6649,11 @@ public class Renderer {
 
             // Boss name
 
-            g.setFont(new Font("Arial", Font.BOLD, 18));
+            g.setFont(FONT_TINY);
 
             fm = g.getFontMetrics();
 
-            g.setColor(boss.isMegaBoss() ? new Color(255, 215, 0) : Color.WHITE);
+            g.setColor(boss.isMegaBoss() ? ColorPalette.ACCENT_YELLOW : Color.WHITE);
 
             g.drawString(bossName, barX + 10, barY + 38);
 
@@ -7317,7 +6731,7 @@ public class Renderer {
 
             // Draw hit count text
 
-            g.setFont(new Font("Arial", Font.BOLD, 12));
+            g.setFont(FONT_EXTRA_SMALL_12);
 
             g.setColor(Color.WHITE);
 
@@ -7341,7 +6755,7 @@ public class Renderer {
 
             // Phase label and icon
 
-            g.setFont(new Font("Arial", Font.BOLD, 11));
+            g.setFont(FONT_EXTRA_SMALL_11);
 
             String phaseText = boss.isAssaultPhase() ? "[!] ASSAULT" : "[-] RECOVERY";
 
@@ -7577,7 +6991,7 @@ public class Renderer {
 
             // Draw with larger font
 
-            g.setFont(new Font("Arial", Font.BOLD, 72));
+            g.setFont(FONT_TITLE);
 
             FontMetrics announceFm = g.getFontMetrics();
 
@@ -7687,7 +7101,7 @@ public class Renderer {
 
         if (introPanActive) {
 
-            g.setFont(new Font("Arial", Font.BOLD, 18));
+            g.setFont(FONT_TINY);
 
             g.setColor(new Color(255, 255, 255, 180));
 
@@ -7739,7 +7153,7 @@ public class Renderer {
 
                 double blurProgress = Math.min(1.0, (bossIntroTimer - 320) / 60.0);
 
-                // Scale factor: starts at 0.15 (heavy blur) → 1.0 (sharp) as phase progresses
+                // Scale factor: starts at 0.15 (heavy blur) â†’ 1.0 (sharp) as phase progresses
 
                 double scaleFactor = 0.25 + 0.75 * blurProgress;
 
@@ -7879,7 +7293,7 @@ public class Renderer {
 
             // Warning text with pulsing effect
 
-            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setFont(FONT_SMALL);
 
             float textPulse = (float) (0.7 + 0.3 * Math.sin(time * 8 * (1 + dangerLevel * 2)));
 
@@ -7887,7 +7301,7 @@ public class Renderer {
 
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
 
-                                dangerLevel < 0.8 ? "ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE NOW!" : "ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â  MOVE! ÃƒÂ¢Ã…Â¡Ã‚Â ÃƒÂ¢Ã…Â¡Ã‚Â ";
+                                dangerLevel < 0.8 ? "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  MOVE NOW!" : "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  MOVE! ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ";
 
             FontMetrics fm = g.getFontMetrics();
 
@@ -7899,7 +7313,7 @@ public class Renderer {
 
             if (timeRemaining > 0) {
 
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
+                g.setFont(FontPalette.get(Font.PLAIN, 14));
 
                 g.setColor(new Color(220, 220, 220));
 
@@ -7929,7 +7343,7 @@ public class Renderer {
 
             // Pause title
 
-            g.setFont(new Font("Arial", Font.BOLD, 84));
+            g.setFont(FONT_TITLE_LARGE);
 
             g.setColor(Color.WHITE);
 
@@ -7985,13 +7399,13 @@ public class Renderer {
 
                 countdownText = String.valueOf(secondsRemaining);
 
-                countdownColor = new Color(235, 203, 139); // Gold
+                countdownColor = ColorPalette.TEXT_GOLD; // Gold
 
             } else {
 
                 countdownText = "GO!";
 
-                countdownColor = new Color(163, 190, 140); // Green
+                countdownColor = ColorPalette.SUCCESS_GREEN; // Green
 
             }
 
@@ -8031,7 +7445,7 @@ public class Renderer {
 
             // Draw shadow
 
-            g.setFont(new Font("Arial", Font.BOLD, 120));
+            g.setFont(FontPalette.get(Font.BOLD, 120));
 
             FontMetrics countdownFm = g.getFontMetrics();
 
@@ -8059,13 +7473,13 @@ public class Renderer {
 
             // Subtitle (not scaled)
 
-            g.setFont(new Font("Arial", Font.PLAIN, 32));
+            g.setFont(FontPalette.getDisplay(Font.PLAIN, 32));
 
             String subtitleText = "Get Ready!";
 
             FontMetrics subtitleFm = g.getFontMetrics();
 
-            g.setColor(new Color(216, 222, 233));
+            g.setColor(ColorPalette.TEXT_PRIMARY);
 
             g.drawString(subtitleText, (width - subtitleFm.stringWidth(subtitleText)) / 2, centerY + 80);
 
@@ -8093,13 +7507,13 @@ public class Renderer {
         g.fillRoundRect(10, 10, 280, 140, 10, 10);
 
         g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 24));
+        g.setFont(FONT_MEDIUM_BOLD);
         g.drawString("Level: " + level, 20, 35);
         g.drawString("Score: " + (int)displayedScore, 20, 65);
         g.drawString("Money: $" + (int)displayedMoney, 20, 95);
 
         // Display timer and FPS
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setFont(FONT_INFO);
         int minutes = (int)(gameTime / 60);
         int seconds = (int)(gameTime % 60);
         int milliseconds = (int)((gameTime % 1) * 100);
@@ -8122,8 +7536,8 @@ public class Renderer {
             g.scale(comboPulseScale, comboPulseScale);
             g.translate(-comboX, -comboCenterY);
 
-            g.setColor(new Color(163, 190, 140));
-            g.setFont(new Font("Arial", Font.BOLD, 32));
+            g.setColor(ColorPalette.SUCCESS_GREEN);
+            g.setFont(FONT_LARGE_32);
             String dodgeComboText = "COMBO x" + dodgeCombo;
             FontMetrics comboFm = g.getFontMetrics();
             g.drawString(dodgeComboText, width - 205 + (190 - comboFm.stringWidth(dodgeComboText)) / 2, comboCenterY);
@@ -8134,14 +7548,14 @@ public class Renderer {
 
         // 2. Close call / perfect dodge indicators
         if (comboSystem != null && (comboSystem.getCloseCallCount() > 0 || comboSystem.getPerfectDodgeCount() > 0)) {
-            g.setFont(new Font("Arial", Font.BOLD, 14));
+            g.setFont(FontPalette.get(Font.BOLD, 14));
             if (comboSystem.getPerfectDodgeCount() > 0) {
-                g.setColor(new Color(255, 215, 0));
+                g.setColor(ColorPalette.ACCENT_YELLOW);
                 g.drawString("\u2721 PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, topRightY + 12);
                 topRightY += 18;
             }
             if (comboSystem.getCloseCallCount() > 0) {
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
                 g.drawString("\u22C6 CLOSE x" + comboSystem.getCloseCallCount(), width - 200, topRightY + 12);
                 topRightY += 18;
             }
@@ -8182,7 +7596,7 @@ public class Renderer {
 
                 if (itemReadyFlickerTimer > 0) {
 
-                    glowColor = new Color(163, 190, 140);
+                    glowColor = ColorPalette.SUCCESS_GREEN;
 
                     glowAlpha = Math.min(0.8f, (float)itemReadyFlickerTimer / 20.0f);
 
@@ -8194,7 +7608,7 @@ public class Renderer {
 
                 } else if (achievementFlashTimer > 0) {
 
-                    glowColor = new Color(235, 203, 139);
+                    glowColor = ColorPalette.TEXT_GOLD;
 
                     glowAlpha = Math.min(0.7f, (float)achievementFlashTimer / 20.0f);
 
@@ -8206,7 +7620,7 @@ public class Renderer {
 
                 } else if (equippedItem.canActivate()) {
 
-                    glowColor = new Color(163, 190, 140);
+                    glowColor = ColorPalette.SUCCESS_GREEN;
 
                     glowAlpha = (float)(0.3 + 0.2 * Math.sin(time * 4));
 
@@ -8234,15 +7648,15 @@ public class Renderer {
 
             // Item name
 
-            g.setFont(new Font("Arial", Font.BOLD, 20));
+            g.setFont(FONT_SMALL);
 
             if (equippedItem.canActivate()) {
 
-                g.setColor(new Color(163, 190, 140)); // Green when ready
+                g.setColor(ColorPalette.SUCCESS_GREEN); // Green when ready
 
             } else if (equippedItem.isActive()) {
 
-                g.setColor(new Color(235, 203, 139)); // Yellow when active
+                g.setColor(ColorPalette.TEXT_GOLD); // Yellow when active
 
             } else {
 
@@ -8268,7 +7682,7 @@ public class Renderer {
 
                 float activePercent = (float)equippedItem.getActiveTimer() / (float)equippedItem.getActiveDuration();
 
-                g.setColor(new Color(235, 203, 139));
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * activePercent), 15);
 
@@ -8278,7 +7692,7 @@ public class Renderer {
 
                 float cooldownPercent = equippedItem.getCooldownPercent();
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.fillRect(itemUIX + 10, itemUIY + 35, (int)(180 * cooldownPercent), 15);
 
@@ -8288,7 +7702,7 @@ public class Renderer {
 
             // Key hint - left-aligned inside the box to prevent overflow
 
-            g.setFont(new Font("Arial", Font.PLAIN, 13));
+            g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(Color.WHITE);
 
@@ -8317,8 +7731,8 @@ public class Renderer {
         //     int currentMissiles = gameData.getMissiles();
         //     g.setColor(new Color(0, 0, 0, 150));
         //     g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
-        //     g.setFont(new Font("Arial", Font.BOLD, 14));
-        //     g.setColor(new Color(216, 222, 233));
+        //     g.setFont(FontPalette.get(Font.BOLD, 14));
+        //     g.setColor(ColorPalette.TEXT_PRIMARY);
         //     g.drawString("MISSILES", missileUIX + 10, missileUIY + 15);
         //     int slotStartX = missileUIX + 10;
         //     int slotY = missileUIY + 22;
@@ -8327,10 +7741,10 @@ public class Renderer {
         //     int slotGap = 4;
         //     for (int s = 0; s < totalSlots; s++) {
         //         if (s < currentMissiles) {
-        //             g.setColor(new Color(163, 190, 140));
+        //             g.setColor(ColorPalette.SUCCESS_GREEN);
         //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
         //         } else {
-        //             g.setColor(new Color(76, 86, 106, 120));
+        //             g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 120));
         //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
         //         }
         //     }
@@ -8363,8 +7777,8 @@ public class Renderer {
             g.fillRoundRect(barX, barY, panelWidth, panelHeight, 12, 12);
             
             // Label
-            g.setFont(new Font("Arial", Font.BOLD, 10));
-            g.setColor(new Color(216, 222, 233));
+            g.setFont(FontPalette.get(Font.BOLD, 10));
+            g.setColor(ColorPalette.TEXT_PRIMARY);
             FontMetrics labelFm = g.getFontMetrics();
             String label = "MISSILES";
             int labelX = barX + (panelWidth - labelFm.stringWidth(label)) / 2;
@@ -8421,7 +7835,7 @@ public class Renderer {
             g.setStroke(new BasicStroke(1)); // Reset stroke
             
             // Count text below bar
-            g.setFont(new Font("Arial", Font.BOLD, 12));
+            g.setFont(FONT_EXTRA_SMALL_12);
             g.setColor(Color.WHITE);
             String countText = currentMissiles + "/" + totalSlots;
             FontMetrics countFm = g.getFontMetrics();
@@ -8438,14 +7852,14 @@ public class Renderer {
             g.setColor(new Color(0, 0, 0, 180));
             g.fillRoundRect(comboDispX, comboDispY, 200, 80, 15, 15);
 
-            g.setFont(new Font("Arial", Font.BOLD, 48));
-            g.setColor(new Color(235, 203, 139));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
+            g.setColor(ColorPalette.TEXT_GOLD);
             String comboDispText = comboSystem.getCombo() + "x";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(comboDispText, comboDispX + (200 - fm.stringWidth(comboDispText)) / 2, comboDispY + 45);
 
-            g.setFont(new Font("Arial", Font.PLAIN, 14));
-            g.setColor(new Color(216, 222, 233));
+            g.setFont(FontPalette.get(Font.PLAIN, 14));
+            g.setColor(ColorPalette.TEXT_PRIMARY);
             String multText = String.format("%.1fx Score", comboSystem.getMultiplier());
             fm = g.getFontMetrics();
             g.drawString(multText, comboDispX + (200 - fm.stringWidth(multText)) / 2, comboDispY + 65);
@@ -8453,7 +7867,7 @@ public class Renderer {
             float timeoutProgress = comboSystem.getTimeoutProgress();
             g.setColor(new Color(60, 60, 60));
             g.fillRect(comboDispX + 10, comboDispY + 72, 180, 3);
-            g.setColor(new Color(163, 190, 140));
+            g.setColor(ColorPalette.SUCCESS_GREEN);
             g.fillRect(comboDispX + 10, comboDispY + 72, (int)(180 * timeoutProgress), 3);
             topRightY += 85;
         }
@@ -8469,18 +7883,18 @@ public class Renderer {
             Graphics2D g2d = (Graphics2D) g.create();
 
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, achAlpha));
-            g2d.setColor(new Color(46, 52, 64, 230));
+            g2d.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 230));
             g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
 
-            g2d.setFont(new Font("Arial", Font.BOLD, 20));
-            g2d.setColor(new Color(235, 203, 139));
+            g2d.setFont(FONT_SMALL);
+            g2d.setColor(ColorPalette.TEXT_GOLD);
             g2d.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
 
-            g2d.setFont(new Font("Arial", Font.BOLD, 24));
-            g2d.setColor(new Color(216, 222, 233));
+            g2d.setFont(FONT_MEDIUM_BOLD);
+            g2d.setColor(ColorPalette.TEXT_PRIMARY);
             g2d.drawString(ach.getName(), notifX + 20, notifY + 60);
 
-            g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+            g2d.setFont(FontPalette.get(Font.PLAIN, 14));
             g2d.drawString(ach.getDescription(), notifX + 20, notifY + 85);
 
             g2d.dispose();
@@ -8550,7 +7964,7 @@ public class Renderer {
 
                 g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
 
-                g2d.setColor(new Color(163, 190, 140)); // Green tint
+                g2d.setColor(ColorPalette.SUCCESS_GREEN); // Green tint
 
                 g2d.fillRect(0, 0, width, height);
 
@@ -8594,7 +8008,7 @@ public class Renderer {
 
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
 
-            g2d.setColor(new Color(235, 203, 139)); // Gold tint
+            g2d.setColor(ColorPalette.TEXT_GOLD); // Gold tint
 
             g2d.fillRect(0, 0, width, height);
 
@@ -8614,7 +8028,7 @@ public class Renderer {
 
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
 
-            g2d.setColor(new Color(208, 135, 112)); // Red/orange tint
+            g2d.setColor(ColorPalette.ACCENT_ORANGE); // Red/orange tint
 
             g2d.fillRect(0, 0, width, height);
 
@@ -8693,73 +8107,27 @@ public class Renderer {
 
     public void drawShop(Graphics2D g, int width, int height, double time, double scrollOffset) {
 
-        // Draw animated Balatro-style gradient
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        g.setFont(new Font("Arial", Font.BOLD, 64));
-
-        String title = "UPGRADE SHOP";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 100;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 30, new Color(180, 142, 173),
-
-            titleX, titleY + 20, new Color(235, 203, 139)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "ARMORY", width, 100, ColorPalette.ACCENT_PURPLE, ColorPalette.TEXT_GOLD, time);
 
         
 
         // Show money with glowing effect
 
-        g.setColor(new Color(163, 190, 140)); // Green
+        g.setColor(ColorPalette.SUCCESS_GREEN);
 
-        g.setFont(new Font("Arial", Font.BOLD, 36));
+        g.setFont(FontPalette.get(Font.BOLD, 36));
 
         String money = "Money: $" + gameData.getTotalMoney();
 
-        fm = g.getFontMetrics();
+        FontMetrics fm = g.getFontMetrics();
 
         int moneyX = (width - fm.stringWidth(money)) / 2;
 
@@ -8777,9 +8145,9 @@ public class Renderer {
 
         // Show earnings
 
-        g.setColor(new Color(235, 203, 139)); // Yellow
+        g.setColor(ColorPalette.TEXT_GOLD);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        g.setFont(FONT_MEDIUM);
 
         String earnings = "Earned this run: $" + gameData.getRunMoney();
 
@@ -8849,7 +8217,7 @@ public class Renderer {
 
                 if (i == 0) {
 
-                    cardColor = new Color(163, 190, 140, 200); // Green for continue
+                    cardColor = ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 200); // Green for continue
 
                 } else if (isMaxed) {
 
@@ -8865,7 +8233,7 @@ public class Renderer {
 
                 } else {
 
-                    cardColor = new Color(76, 86, 106, 200);
+                    cardColor = ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200);
 
                 }
 
@@ -8897,9 +8265,9 @@ public class Renderer {
 
                 String icon = getItemIcon(i);
 
-                g.setFont(new Font("Arial", Font.BOLD, 36));
+                g.setFont(FontPalette.get(Font.BOLD, 36));
 
-                g.setColor(canAfford ? new Color(235, 203, 139) : new Color(100, 100, 100));
+                g.setColor(canAfford ? ColorPalette.TEXT_GOLD : new Color(100, 100, 100));
 
                 g.drawString(icon, itemX + 20, scrolledY + 10);
 
@@ -8915,7 +8283,7 @@ public class Renderer {
 
                 
 
-                g.setFont(new Font("Arial", Font.BOLD, 20));
+                g.setFont(FONT_SMALL);
 
                 g.setColor(canAfford ? Color.WHITE : new Color(120, 120, 120));
 
@@ -8923,7 +8291,7 @@ public class Renderer {
 
                 
 
-                g.setFont(new Font("Arial", Font.PLAIN, 14));
+                g.setFont(FontPalette.get(Font.PLAIN, 14));
 
                 g.setColor(canAfford ? new Color(200, 200, 200) : new Color(100, 100, 100));
 
@@ -8977,9 +8345,9 @@ public class Renderer {
 
                         // Level text above progress bar
 
-                        g.setFont(new Font("Arial", Font.BOLD, 11));
+                        g.setFont(FONT_EXTRA_SMALL_11);
 
-                        g.setColor(upgrade.isMaxed() || isMaxed ? new Color(235, 203, 139) : new Color(200, 200, 200));
+                        g.setColor(upgrade.isMaxed() || isMaxed ? ColorPalette.TEXT_GOLD : new Color(200, 200, 200));
 
                         String levelText = isExtraMissiles ? currentLevel + "/" + maxLevel + " extra missiles" : currentLevel + "/" + maxLevel;
 
@@ -9007,9 +8375,9 @@ public class Renderer {
 
                             GradientPaint progressGrad = new GradientPaint(
 
-                                barX, 0, new Color(163, 190, 140),
+                                barX, 0, ColorPalette.SUCCESS_GREEN,
 
-                                barX + fillWidth, 0, new Color(235, 203, 139)
+                                barX + fillWidth, 0, ColorPalette.TEXT_GOLD
 
                             );
 
@@ -9029,11 +8397,11 @@ public class Renderer {
 
                 if (i != 0) {
 
-                    g.setFont(new Font("Arial", Font.BOLD, 24));
+                    g.setFont(FONT_MEDIUM_BOLD);
 
                     if (isMaxed) {
 
-                        g.setColor(new Color(235, 203, 139));
+                        g.setColor(ColorPalette.TEXT_GOLD);
 
                         FontMetrics costFm = g.getFontMetrics();
 
@@ -9045,7 +8413,7 @@ public class Renderer {
 
                     } else {
 
-                        g.setColor(canAfford ? new Color(163, 190, 140) : new Color(191, 97, 106));
+                        g.setColor(canAfford ? ColorPalette.SUCCESS_GREEN : ColorPalette.ACCENT_RED);
 
                         FontMetrics costFm = g.getFontMetrics();
 
@@ -9077,7 +8445,7 @@ public class Renderer {
 
         // Instructions background bar to prevent overlap with shop items
 
-        g.setColor(new Color(46, 52, 64, 240));
+        g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 240));
 
         g.fillRect(0, height - 80, width, 80);
 
@@ -9085,9 +8453,9 @@ public class Renderer {
 
         // Instructions
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setFont(FONT_SMALL);
 
         drawPromptWithIcons(g, width / 2, height - 35,
 
@@ -9099,69 +8467,47 @@ public class Renderer {
 
     public void drawGameOver(Graphics2D g, int width, int height, double time) {
 
-        // Draw animated gradient
+        // Military themed dark background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(67, 76, 94)});
-
-        
-
-        // Holographic title
-
-        g.setFont(new Font("Arial", Font.BOLD, 84));
-
-        String gameOver = "RUN ENDED";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(gameOver)) / 2;
-
-        int titleY = height / 2 - 140;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Warning lights in corners
 
-        g.setColor(new Color(0, 0, 0, 150));
-
-        g.drawString(gameOver, titleX + 5, titleY + 5);
+        UITheme.drawWarningLights(g, width, height, time);
 
         
 
-        // Gradient text (red theme)
+        // Red overlay pulse
 
-        GradientPaint titleGrad = new GradientPaint(
+        float redPulse = (float)(0.05 + 0.03 * Math.sin(time * 2));
 
-            titleX, titleY - 40, new Color(191, 97, 106),
+        g.setColor(new Color(200, 40, 40, (int)(255 * redPulse)));
 
-            titleX, titleY + 30, new Color(220, 120, 130)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(gameOver, titleX, titleY);
+        g.fillRect(0, 0, width, height);
 
         
 
-        // Holographic shine
+        // Title â€” MISSION FAILED stamp
 
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(gameOver, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - 140, ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
-        // Run stats with consistent styling
+        // Stencil stamp overlay on top
 
-        g.setColor(new Color(216, 222, 233));
+        UITheme.drawStencilStamp(g, "FAILED", width / 2, height / 2 - 140, ColorPalette.ACCENT_RED, FontPalette.getDisplay(Font.BOLD, 48));
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        
+
+        // Run stats with military styling
+
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+
+        g.setFont(FONT_LARGE_32);
+
+        FontMetrics fm;
 
         
 
@@ -9183,6 +8529,8 @@ public class Renderer {
 
         
 
+        g.setColor(ColorPalette.TEXT_GOLD);
+
         String money = "Money Earned: $" + gameData.getRunMoney();
 
         fm = g.getFontMetrics();
@@ -9195,9 +8543,9 @@ public class Renderer {
 
         LevelStats runStats = gameData.getCumulativeRunStats();
 
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setFont(FONT_SMALL);
 
-        g.setColor(new Color(200, 200, 210));
+        g.setColor(ColorPalette.TEXT_DIM);
 
         int statsY = height / 2 + 85;
 
@@ -9287,9 +8635,9 @@ public class Renderer {
 
         // Show persistent stats
 
-        g.setFont(new Font("Arial", Font.PLAIN, 22));
+        g.setFont(FONT_SMALL);
 
-        g.setColor(new Color(180, 180, 190));
+        g.setColor(ColorPalette.TEXT_DIM);
 
         String totalMoney = "Total Money: $" + gameData.getTotalMoney();
 
@@ -9315,9 +8663,9 @@ public class Renderer {
 
         if (gameData.getMissiles() > 0) {
 
-            g.setFont(new Font("Arial", Font.BOLD, 24));
+            g.setFont(FONT_MEDIUM_BOLD);
 
-            g.setColor(new Color(163, 190, 140)); // Green missile color
+            g.setColor(ColorPalette.SUCCESS_GREEN);
 
             String missileText = "\u2726 Missiles Remaining: " + gameData.getMissiles() + " \u2726";
 
@@ -9337,9 +8685,9 @@ public class Renderer {
 
         // Controls
 
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        g.setFont(FONT_MEDIUM);
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
         drawPromptWithIcons(g, width / 2, statsY,
 
@@ -9351,9 +8699,9 @@ public class Renderer {
 
         // Roguelike reminder
 
-        g.setFont(new Font("Arial", Font.ITALIC, 18));
+        g.setFont(FontPalette.get(Font.ITALIC, 18));
 
-        g.setColor(new Color(163, 190, 140));
+        g.setColor(ColorPalette.SUCCESS_GREEN);
 
         String keep = "Your upgrades and items are saved!";
 
@@ -9367,69 +8715,41 @@ public class Renderer {
 
     public void drawWin(Graphics2D g, int width, int height, double time, double bossKillTime) {
 
-        // Draw animated gradient
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        g.setFont(new Font("Arial", Font.BOLD, 84));
-
-        String win = "VICTORY!";
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(win)) / 2;
-
-        int titleY = height / 2 - 180;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow
+        // Victory confetti
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(win, titleX + 5, titleY + 5);
+        UITheme.drawConfetti(g, width, height, time);
 
         
 
-        // Gradient text (green theme)
+        // Title â€” MISSION COMPLETE
 
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 40, new Color(163, 190, 140),
-
-            titleX, titleY + 30, new Color(180, 200, 160)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(win, titleX, titleY);
+        UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - 180, ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
         
 
-        // Holographic shine
+        // Rank badge
 
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
+        int scoreForRank = gameData.getScore();
 
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        String rank = UITheme.calculateRank(scoreForRank);
 
-        g.setColor(Color.WHITE);
-
-        g.drawString(win, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawRankBadge(g, width - 120, height / 2 - 160, 50, rank, time);
 
         
 
-        // Stats with consistent styling
+        // Stats with military styling
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
+
+        FontMetrics fm;
 
         String score = "Score: " + gameData.getScore();
 
@@ -9438,6 +8758,8 @@ public class Renderer {
         g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 90);
 
         
+
+        g.setColor(ColorPalette.TEXT_GOLD);
 
         String money = "Money Earned: $" + gameData.getRunMoney();
 
@@ -9459,7 +8781,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.setColor(new Color(255, 215, 0)); // Gold color for time
+        g.setColor(ColorPalette.VICTORY_GOLD);
 
         g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 - 10);
 
@@ -9469,9 +8791,9 @@ public class Renderer {
 
         LevelStats stats = gameData.getCurrentLevelStats();
 
-        g.setFont(new Font("Arial", Font.PLAIN, 20));
+        g.setFont(FONT_SMALL);
 
-        g.setColor(new Color(180, 190, 200));
+        g.setColor(ColorPalette.TEXT_DIM);
 
         int statsY = height / 2 + 20;
 
@@ -9497,7 +8819,7 @@ public class Renderer {
 
             fm = g.getFontMetrics();
 
-            g.setColor(new Color(255, 215, 0));
+            g.setColor(ColorPalette.ACCENT_YELLOW);
 
             g.drawString(perfect, (width - fm.stringWidth(perfect)) / 2, statsY);
 
@@ -9625,9 +8947,9 @@ public class Renderer {
 
         
 
-        g.setColor(Color.WHITE);
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
+        g.setFont(FONT_MEDIUM);
 
         // Position instruction text below stats, with minimum at height/2 + 160
 
@@ -9635,7 +8957,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, width / 2, instructionY,
 
-            "Press ", KeyBindManager.Action.CONFIRM, " to Visit Shop");
+            "Press ", KeyBindManager.Action.CONFIRM, " to Visit Armory");
 
     }
 
@@ -9643,65 +8965,20 @@ public class Renderer {
 
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {
 
-        // Draw animated gradient with palette colors
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        String title = "SETTINGS";
-
-        g.setFont(new Font("Arial", Font.BOLD, 60));
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 80;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow layer
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text (purple to blue)
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 40, new Color(180, 142, 173),
-
-            titleX, titleY + 30, new Color(136, 192, 208)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "SETTINGS", width, 80, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_CYAN, time, FONT_TITLE_MEDIUM);
 
         
 
         // Category tabs
+        FontMetrics fm;
 
         String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
 
@@ -9713,7 +8990,7 @@ public class Renderer {
 
         
 
-        g.setFont(new Font("Arial", Font.BOLD, 20));
+        g.setFont(FONT_SMALL);
 
         for (int i = 0; i < categories.length; i++) {
 
@@ -9729,11 +9006,11 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setColor(new Color(88, 91, 112, 200));
+                g.setColor(new Color(ColorPalette.BG_CARD_SELECTED.getRed(), ColorPalette.BG_CARD_SELECTED.getGreen(), ColorPalette.BG_CARD_SELECTED.getBlue(), 200));
 
             } else {
 
-                g.setColor(new Color(67, 76, 94, 150));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
 
             }
 
@@ -9749,7 +9026,7 @@ public class Renderer {
 
                 if (tabsFocused) {
 
-                    g.setColor(new Color(163, 190, 140, 200)); // Green glow when focused
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 200)); // Green glow when focused
 
                     g.setStroke(new BasicStroke(4));
 
@@ -9757,7 +9034,7 @@ public class Renderer {
 
                 }
 
-                g.setColor(new Color(235, 203, 139));
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 g.setStroke(new BasicStroke(2));
 
@@ -9769,7 +9046,7 @@ public class Renderer {
 
             // Tab text
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
             fm = g.getFontMetrics();
 
@@ -9779,9 +9056,9 @@ public class Renderer {
 
         
 
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
         if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
             drawPromptWithIcons(g, width / 2, 185, "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
@@ -9833,9 +9110,9 @@ public class Renderer {
 
         // Instructions
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setFont(FONT_INFO);
 
         boolean settingsCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
 
@@ -10243,7 +9520,7 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setColor(new Color(88, 91, 112, 200));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 200));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10253,11 +9530,11 @@ public class Renderer {
 
                 if (Game.waitingForKeyBind && Game.rebindingActionIndex == i - 1) {
 
-                    g.setColor(new Color(191, 97, 106)); // Red border when rebinding
+                    g.setColor(ColorPalette.ACCENT_RED); // Red border when rebinding
 
                 } else {
 
-                    g.setColor(new Color(235, 203, 139));
+                    g.setColor(ColorPalette.TEXT_GOLD);
 
                 }
 
@@ -10267,7 +9544,7 @@ public class Renderer {
 
             } else {
 
-                g.setColor(new Color(67, 76, 94, 150));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10277,9 +9554,9 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 17));
+            g.setFont(FontPalette.get(Font.BOLD, 17));
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
             g.drawString(settingNames[i], boxX + 16, boxY + boxHeight / 2 + 6);
 
@@ -10291,11 +9568,11 @@ public class Renderer {
 
                 // Preset - draw with arrows
 
-                g.setFont(new Font("Arial", Font.BOLD, 17));
+                g.setFont(FontPalette.get(Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
 
@@ -10303,11 +9580,11 @@ public class Renderer {
 
                 // Input device - draw with icon
 
-                g.setFont(new Font("Arial", Font.BOLD, 17));
+                g.setFont(FontPalette.get(Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
-                g.setColor(new Color(136, 192, 208));
+                g.setColor(ColorPalette.ACCENT_CYAN);
 
                 g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
 
@@ -10335,7 +9612,7 @@ public class Renderer {
 
                 String keyText = settingValues[i];
 
-                g.setFont(new Font("Arial", Font.BOLD, 15));
+                g.setFont(FontPalette.get(Font.BOLD, 15));
 
                 fm = g.getFontMetrics();
 
@@ -10361,29 +9638,29 @@ public class Renderer {
 
                     g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
-                    g.setColor(new Color(191, 97, 106));
+                    g.setColor(ColorPalette.ACCENT_RED);
 
                     g.setStroke(new BasicStroke(2));
 
                     g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
-                    g.setColor(new Color(235, 203, 139));
+                    g.setColor(ColorPalette.TEXT_GOLD);
 
                 } else {
 
                     // Normal key box
 
-                    g.setColor(new Color(59, 66, 82, 200));
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
                     g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
-                    g.setColor(new Color(136, 192, 208, 150));
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
 
                     g.setStroke(new BasicStroke(1));
 
                     g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
-                    g.setColor(new Color(216, 222, 233));
+                    g.setColor(ColorPalette.TEXT_PRIMARY);
 
                 }
 
@@ -10411,9 +9688,9 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 13));
+                g.setFont(FontPalette.get(Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233, 180));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
 
                 fm = g.getFontMetrics();
 
@@ -10513,11 +9790,11 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setColor(new Color(88, 91, 112, 200));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 200));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
-                g.setColor(new Color(235, 203, 139));
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 g.setStroke(new BasicStroke(2));
 
@@ -10525,7 +9802,7 @@ public class Renderer {
 
             } else {
 
-                g.setColor(new Color(67, 76, 94, 150));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10535,9 +9812,9 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 17));
+            g.setFont(FontPalette.get(Font.BOLD, 17));
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
             int textYBase = boxY + boxHeight / 2 + 6;
 
@@ -10561,7 +9838,7 @@ public class Renderer {
 
                 
 
-                g.setFont(new Font("Arial", Font.BOLD, 15));
+                g.setFont(FontPalette.get(Font.BOLD, 15));
 
                 fm = g.getFontMetrics();
 
@@ -10593,13 +9870,13 @@ public class Renderer {
 
                 // [-] button
 
-                g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+                g.setColor(isSelected ? ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 220) : ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
                 g.fillRoundRect(minusBtnX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
 
-                g.setFont(new Font("Arial", Font.BOLD, 16));
+                g.setFont(FONT_EXTRA_SMALL_16);
 
                 fm = g.getFontMetrics();
 
@@ -10613,13 +9890,13 @@ public class Renderer {
 
                 int sliderY = centerY - sliderH / 2;
 
-                g.setColor(new Color(46, 52, 64));
+                g.setColor(ColorPalette.BG_DARK);
 
                 g.fillRoundRect(sliderStartX, sliderY, sliderW, sliderH, 3, 3);
 
                 int fillW = (int)(sliderW * progress);
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.fillRoundRect(sliderStartX, sliderY, Math.max(fillW, 3), sliderH, 3, 3);
 
@@ -10629,7 +9906,7 @@ public class Renderer {
 
                 int handleX = sliderStartX + fillW - 5;
 
-                g.setColor(new Color(235, 203, 139));
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 g.fillOval(handleX, centerY - 7, 10, 14);
 
@@ -10637,13 +9914,13 @@ public class Renderer {
 
                 // [+] button
 
-                g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+                g.setColor(isSelected ? ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 220) : ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
                 g.fillRoundRect(plusBtnX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
 
-                g.setFont(new Font("Arial", Font.BOLD, 16));
+                g.setFont(FONT_EXTRA_SMALL_16);
 
                 fm = g.getFontMetrics();
 
@@ -10653,9 +9930,9 @@ public class Renderer {
 
                 // Value text
 
-                g.setFont(new Font("Arial", Font.BOLD, 15));
+                g.setFont(FontPalette.get(Font.BOLD, 15));
 
-                g.setColor(new Color(216, 222, 233));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
 
                 fm = g.getFontMetrics();
 
@@ -10671,11 +9948,11 @@ public class Renderer {
 
                 // Regular value text
 
-                g.setFont(new Font("Arial", Font.BOLD, 17));
+                g.setFont(FontPalette.get(Font.BOLD, 17));
 
                 fm = g.getFontMetrics();
 
-                g.setColor(new Color(163, 190, 140));
+                g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 16, textYBase);
 
@@ -10687,9 +9964,9 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 13));
+                g.setFont(FontPalette.get(Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233, 180));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
 
                 fm = g.getFontMetrics();
 
@@ -10777,11 +10054,11 @@ public class Renderer {
 
                 if (y >= 170 && y <= height - 80) {
 
-                    g.setFont(new Font("Arial", Font.BOLD, 13));
+                    g.setFont(FONT_EXTRA_SMALL_13);
 
                     if (i > 0) {
 
-                        g.setColor(new Color(76, 86, 106, 120));
+                        g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 120));
 
                         g.setStroke(new BasicStroke(1));
 
@@ -10789,7 +10066,7 @@ public class Renderer {
 
                     }
 
-                    g.setColor(new Color(163, 190, 140, 220));
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 220));
 
                     g.drawString(sectionHeaders[i], boxX + 4, y + 2);
 
@@ -10835,11 +10112,11 @@ public class Renderer {
 
             if (isSelected) {
 
-                g.setColor(new Color(88, 91, 112, 200));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 200));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
-                g.setColor(new Color(235, 203, 139));
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 g.setStroke(new BasicStroke(2));
 
@@ -10847,7 +10124,7 @@ public class Renderer {
 
             } else {
 
-                g.setColor(new Color(67, 76, 94, 150));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
 
                 g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10857,9 +10134,9 @@ public class Renderer {
 
             // Setting name
 
-            g.setFont(new Font("Arial", Font.BOLD, 17));
+            g.setFont(FontPalette.get(Font.BOLD, 17));
 
-            g.setColor(isSelected ? new Color(235, 203, 139) : new Color(216, 222, 233));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
             int textY = boxY + boxHeight / 2 + 6;
 
@@ -10895,9 +10172,9 @@ public class Renderer {
 
             if (isSelected && descriptions != null && i < descriptions.length) {
 
-                g.setFont(new Font("Arial", Font.ITALIC, 13));
+                g.setFont(FontPalette.get(Font.ITALIC, 13));
 
-                g.setColor(new Color(216, 222, 233, 180));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
 
                 fm = g.getFontMetrics();
 
@@ -10919,7 +10196,7 @@ public class Renderer {
 
     private void drawPillSelector(Graphics2D g, int settingIndex, int boxX, int boxY, int boxWidth, int boxHeight, String[] options, int selected, boolean isRowSelected) {
 
-        g.setFont(new Font("Arial", Font.BOLD, 12));
+        g.setFont(FONT_EXTRA_SMALL_12);
 
         FontMetrics fm = g.getFontMetrics();
 
@@ -10981,15 +10258,15 @@ public class Renderer {
 
             if (isSel) {
 
-                g.setColor(new Color(163, 190, 140, 220));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 220));
 
             } else if (isRowSelected) {
 
-                g.setColor(new Color(76, 86, 106, 200));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200));
 
             } else {
 
-                g.setColor(new Color(59, 66, 82, 180));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 180));
 
             }
 
@@ -11001,7 +10278,7 @@ public class Renderer {
 
             if (isSel) {
 
-                g.setColor(new Color(163, 190, 140, 255));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 255));
 
                 g.setStroke(new BasicStroke(1));
 
@@ -11013,13 +10290,13 @@ public class Renderer {
 
             // Text
 
-            g.setFont(new Font("Arial", isSel ? Font.BOLD : Font.PLAIN, 12));
+            g.setFont(FontPalette.get(isSel ? Font.BOLD : Font.PLAIN, 12));
 
             fm = g.getFontMetrics();
 
             if (isSel) {
 
-                g.setColor(new Color(46, 52, 64));
+                g.setColor(ColorPalette.BG_DARK);
 
             } else {
 
@@ -11069,7 +10346,7 @@ public class Renderer {
 
         // Layout from right: value text, [+], slider bar, [-]
 
-        g.setFont(new Font("Arial", Font.BOLD, 15));
+        g.setFont(FontPalette.get(Font.BOLD, 15));
 
         FontMetrics fm = g.getFontMetrics();
 
@@ -11101,13 +10378,13 @@ public class Renderer {
 
         // [-] button
 
-        g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+        g.setColor(isSelected ? ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 220) : ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
         g.fillRoundRect(minusX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         fm = g.getFontMetrics();
 
@@ -11121,13 +10398,13 @@ public class Renderer {
 
         int sliderY = centerY - sliderH / 2;
 
-        g.setColor(new Color(46, 52, 64));
+        g.setColor(ColorPalette.BG_DARK);
 
         g.fillRoundRect(sliderStartX, sliderY, sliderWidth, sliderH, 3, 3);
 
         int fillW = (int)(sliderWidth * progress);
 
-        g.setColor(new Color(163, 190, 140));
+        g.setColor(ColorPalette.SUCCESS_GREEN);
 
         g.fillRoundRect(sliderStartX, sliderY, Math.max(fillW, 3), sliderH, 3, 3);
 
@@ -11137,7 +10414,7 @@ public class Renderer {
 
         int handleX = sliderStartX + fillW - 5;
 
-        g.setColor(new Color(235, 203, 139));
+        g.setColor(ColorPalette.TEXT_GOLD);
 
         g.fillOval(handleX, centerY - 7, 10, 14);
 
@@ -11145,13 +10422,13 @@ public class Renderer {
 
         // [+] button
 
-        g.setColor(isSelected ? new Color(76, 86, 106, 220) : new Color(59, 66, 82, 200));
+        g.setColor(isSelected ? ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 220) : ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
         g.fillRoundRect(plusX, centerY - btnSize / 2, btnSize, btnSize, 6, 6);
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
-        g.setFont(new Font("Arial", Font.BOLD, 16));
+        g.setFont(FONT_EXTRA_SMALL_16);
 
         fm = g.getFontMetrics();
 
@@ -11161,9 +10438,9 @@ public class Renderer {
 
         // Value text
 
-        g.setFont(new Font("Arial", Font.BOLD, 15));
+        g.setFont(FontPalette.get(Font.BOLD, 15));
 
-        g.setColor(new Color(216, 222, 233));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
 
         fm = g.getFontMetrics();
 
@@ -11187,7 +10464,7 @@ public class Renderer {
 
         // Background
 
-        g.setColor(isOn ? new Color(163, 190, 140, 200) : new Color(76, 86, 106, 200));
+        g.setColor(isOn ? ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 200) : ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200));
 
         g.fillRoundRect(toggleX, toggleY, toggleW, toggleH, 11, 11);
 
@@ -11201,7 +10478,7 @@ public class Renderer {
 
         int circleY = toggleY + 2;
 
-        g.setColor(new Color(236, 239, 244));
+        g.setColor(ColorPalette.TEXT_WHITE);
 
         g.fillOval(circleX, circleY, circleSize, circleSize);
 
@@ -11209,13 +10486,13 @@ public class Renderer {
 
         // ON/OFF label
 
-        g.setFont(new Font("Arial", Font.BOLD, 12));
+        g.setFont(FONT_EXTRA_SMALL_12);
 
         FontMetrics fm = g.getFontMetrics();
 
         String label = isOn ? "ON" : "OFF";
 
-        g.setColor(new Color(216, 222, 233, 180));
+        g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
 
         g.drawString(label, toggleX - fm.stringWidth(label) - 8, toggleY + 15);
 
@@ -11225,71 +10502,25 @@ public class Renderer {
 
     public void drawDebug(Graphics2D g, int width, int height, double time) {
 
-        // Draw animated gradient with dark palette colors
+        // Military themed background
 
-        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
-
-        
-
-        // Holographic title
-
-        String title = "DEBUG MENU";
-
-        g.setFont(new Font("Arial", Font.BOLD, 72));
-
-        FontMetrics fm = g.getFontMetrics();
-
-        int titleX = (width - fm.stringWidth(title)) / 2;
-
-        int titleY = 80;
+        UITheme.drawScreenBackground(g, width, height, time);
 
         
 
-        // Shadow layer
+        // Title
 
-        g.setColor(new Color(0, 0, 0, 100));
-
-        g.drawString(title, titleX + 4, titleY + 4);
-
-        
-
-        // Gradient text (red theme for debug/cheat)
-
-        GradientPaint titleGrad = new GradientPaint(
-
-            titleX, titleY - 40, new Color(191, 97, 106),
-
-            titleX, titleY + 30, new Color(208, 135, 112)
-
-        );
-
-        g.setPaint(titleGrad);
-
-        g.drawString(title, titleX, titleY);
-
-        
-
-        // Holographic shine
-
-        int shineOffset = (int)(Math.sin(time * 2) * 30);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-
-        g.setColor(Color.WHITE);
-
-        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        UITheme.drawTitle(g, "DEBUG MENU", width, 80, ColorPalette.ACCENT_RED, ColorPalette.ACCENT_ORANGE, time);
 
         
 
         g.setColor(new Color(255, 200, 200));
 
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        g.setFont(FONT_INFO);
 
         String subtitle = "Developer/Cheat Menu - Press Number Keys";
 
-        fm = g.getFontMetrics();
+        FontMetrics fm = g.getFontMetrics();
 
         g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 120);
 
@@ -11301,7 +10532,7 @@ public class Renderer {
 
         int spacing = 80;
 
-        g.setFont(new Font("Arial", Font.BOLD, 32));
+        g.setFont(FONT_LARGE_32);
 
         
 
@@ -11329,7 +10560,7 @@ public class Renderer {
 
         Color[] colors = {
 
-            new Color(255, 215, 0),  // Gold
+            ColorPalette.ACCENT_YELLOW,  // Gold
 
             new Color(0, 255, 127),  // Spring green
 
@@ -11339,7 +10570,7 @@ public class Renderer {
 
             new Color(135, 206, 250), // Light sky blue
 
-            new Color(163, 190, 140), // Green for active items
+            ColorPalette.SUCCESS_GREEN, // Green for active items
 
             new Color(255, 99, 71),  // Tomato red for risk contracts
 
@@ -11363,7 +10594,7 @@ public class Renderer {
 
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
 
-            g.setFont(new Font("Arial", Font.BOLD, 22));
+            g.setFont(FontPalette.get(Font.BOLD, 22));
 
             FontMetrics sfxFm = g.getFontMetrics();
 
@@ -12371,6 +11602,37 @@ public class Renderer {
 
      */
 
+    /** Measure the width of a styled keycap box for a key label. */
+    private int measureKeyCap(FontMetrics fm, String keyLabel) {
+        int textW = fm.stringWidth(keyLabel);
+        int pad = 8;
+        return textW + pad * 2 + 4; // text + padding + border spacing
+    }
+
+    /** Draw a styled keycap box at (x, y) and return its width. y is the text baseline. */
+    private int drawKeyCap(Graphics2D g, FontMetrics fm, String keyLabel, int x, int y) {
+        int textW = fm.stringWidth(keyLabel);
+        int pad = 8;
+        int boxW = textW + pad * 2;
+        int boxH = fm.getHeight();
+        int boxX = x;
+        int boxY = y - fm.getAscent() - 2;
+        // Background
+        g.setColor(new Color(50, 55, 70, 200));
+        g.fillRoundRect(boxX, boxY, boxW, boxH + 2, 6, 6);
+        // Border
+        g.setColor(new Color(120, 130, 150, 180));
+        g.setStroke(new BasicStroke(1.5f));
+        g.drawRoundRect(boxX, boxY, boxW, boxH + 2, 6, 6);
+        // Bottom shadow edge for 3D effect
+        g.setColor(new Color(30, 35, 45, 150));
+        g.drawLine(boxX + 3, boxY + boxH + 2, boxX + boxW - 3, boxY + boxH + 2);
+        // Text
+        g.setColor(new Color(220, 225, 235));
+        g.drawString(keyLabel, boxX + pad, y);
+        return boxW + 4; // total advance including spacing
+    }
+
     /** Left-aligned version of drawPromptWithIcons - draws from startX instead of centering */
     private void drawLeftAlignedPromptWithIcons(Graphics2D g, int startX, int y, Object... segments) {
         boolean controllerMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
@@ -12392,14 +11654,16 @@ public class Renderer {
                         g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
                         drawX += iW + 2;
                     } else {
+                        Color sc = g.getColor();
                         String text = keyText(action);
-                        g.drawString(text, drawX, y);
-                        drawX += fm.stringWidth(text);
+                        drawX += drawKeyCap(g, fm, text, drawX, y);
+                        g.setColor(sc);
                     }
                 } else {
+                    Color sc = g.getColor();
                     String text = keyText(action);
-                    g.drawString(text, drawX, y);
-                    drawX += fm.stringWidth(text);
+                    drawX += drawKeyCap(g, fm, text, drawX, y);
+                    g.setColor(sc);
                 }
             } else if (seg instanceof KeyBindManager.ControllerButton) {
                 KeyBindManager.ControllerButton btn = (KeyBindManager.ControllerButton) seg;
@@ -12410,9 +11674,10 @@ public class Renderer {
                         g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
                         drawX += iW + 2;
                     } else {
+                        Color sc = g.getColor();
                         String text = btn.getDisplayName();
-                        g.drawString(text, drawX, y);
-                        drawX += fm.stringWidth(text);
+                        drawX += drawKeyCap(g, fm, text, drawX, y);
+                        g.setColor(sc);
                     }
                 }
             }
@@ -12447,11 +11712,11 @@ public class Renderer {
 
                     int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
 
-                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
 
                 } else {
 
-                    totalWidth += fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    totalWidth += measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
 
                 }
 
@@ -12463,7 +11728,7 @@ public class Renderer {
 
                     int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
 
-                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+                    totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, ((KeyBindManager.ControllerButton) seg).getDisplayName());
 
                 }
 
@@ -12509,21 +11774,25 @@ public class Renderer {
 
                     } else {
 
+                        Color sc = g.getColor();
+
                         String text = keyText(action);
 
-                        g.drawString(text, drawX, y);
+                        drawX += drawKeyCap(g, fm, text, drawX, y);
 
-                        drawX += fm.stringWidth(text);
+                        g.setColor(sc);
 
                     }
 
                 } else {
 
+                    Color sc = g.getColor();
+
                     String text = keyText(action);
 
-                    g.drawString(text, drawX, y);
+                    drawX += drawKeyCap(g, fm, text, drawX, y);
 
-                    drawX += fm.stringWidth(text);
+                    g.setColor(sc);
 
                 }
 
@@ -12545,11 +11814,13 @@ public class Renderer {
 
                     } else {
 
+                        Color sc = g.getColor();
+
                         String text = btn.getDisplayName();
 
-                        g.drawString(text, drawX, y);
+                        drawX += drawKeyCap(g, fm, text, drawX, y);
 
-                        drawX += fm.stringWidth(text);
+                        g.setColor(sc);
 
                     }
 
@@ -12595,11 +11866,11 @@ public class Renderer {
 
                     int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
 
-                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
 
                 } else {
 
-                    totalWidth += fm.stringWidth(keyText((KeyBindManager.Action) seg));
+                    totalWidth += measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
 
                 }
 
@@ -12611,7 +11882,7 @@ public class Renderer {
 
                     int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
 
-                    totalWidth += (icon != null) ? iW + 2 : fm.stringWidth(((KeyBindManager.ControllerButton) seg).getDisplayName());
+                    totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, ((KeyBindManager.ControllerButton) seg).getDisplayName());
 
                 }
 
@@ -13458,7 +12729,7 @@ public class Renderer {
                     if (Game.enableAntiAliasing)
                         npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     String pName = "CHALLENGER";
-                    npg.setFont(new Font("Impact", Font.BOLD, 48));
+                    npg.setFont(FontPalette.CINEMATIC_48);
                     FontMetrics fm = npg.getFontMetrics();
                     int nw = fm.stringWidth(pName);
                     int nx = (int)(px - nw / 2 + (1.0 - ns) * -200);
@@ -13944,7 +13215,7 @@ public class Renderer {
                     if (Game.enableAntiAliasing)
                         npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     int fs = bossIntroText.length() > 14 ? 38 : bossIntroText.length() > 10 ? 44 : 52;
-                    npg.setFont(new Font("Impact", Font.BOLD, fs));
+                    npg.setFont(FontPalette.get(Font.BOLD, fs));
                     FontMetrics fm = npg.getFontMetrics();
                     int nw = fm.stringWidth(bossIntroText);
                     int nx = (int)(bx - nw / 2 + (1.0 - ns) * 200);
@@ -13993,7 +13264,7 @@ public class Renderer {
                     npg.fillPolygon(new int[]{rightEndX, rightEndX - dSz, rightEndX, rightEndX + dSz},
                         new int[]{ny + 10 - dSz, ny + 10, ny + 10 + dSz, ny + 10}, 4);
                     // "WARNING" subtitle above boss name
-                    npg.setFont(new Font("Impact", Font.PLAIN, 16));
+                    npg.setFont(FontPalette.get(Font.PLAIN, 16));
                     FontMetrics sfm = npg.getFontMetrics();
                     String subtitle = "WARNING";
                     int subW = sfm.stringWidth(subtitle);
@@ -14002,7 +13273,7 @@ public class Renderer {
                     npg.setColor(new Color(255, 200, 100));
                     npg.drawString(subtitle, nx + nw / 2 - subW / 2, ny - fm.getAscent() - 18);
                     // Text drop shadow
-                    npg.setFont(new Font("Impact", Font.BOLD, fs));
+                    npg.setFont(FontPalette.get(Font.BOLD, fs));
                     npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
                         Math.max(0f, Math.min(1f, na * 0.5f))));
                     npg.setColor(new Color(100, 20, 0));
@@ -14299,7 +13570,7 @@ public class Renderer {
 
                     vg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                vg.setFont(new Font("Impact", Font.BOLD, 200));
+                vg.setFont(FontPalette.get(Font.BOLD, 200));
 
                 FontMetrics fm = vg.getFontMetrics();
 
@@ -14507,7 +13778,7 @@ public class Renderer {
 
                 String stageText = "STAGE " + level;
 
-                g.setFont(new Font("Impact", Font.BOLD, 28));
+                g.setFont(FontPalette.getBody(Font.BOLD, 28));
 
                 FontMetrics fm = g.getFontMetrics();
 
@@ -14523,7 +13794,7 @@ public class Renderer {
 
                 g.fillRect(stX - stPad, stY - fm.getAscent() - 3, stW + stPad * 2, fm.getHeight() + 6);
 
-                g.setColor(new Color(235, 203, 139, 160));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 160));
 
                 g.setStroke(new BasicStroke(1.5f));
 
@@ -14533,7 +13804,7 @@ public class Renderer {
 
                 int dY = stY - fm.getAscent() / 2;
 
-                g.setColor(new Color(235, 203, 139, 200));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 200));
 
                 g.fillPolygon(new int[]{stX - stPad - 12, stX - stPad - 12 + dSize, stX - stPad - 12, stX - stPad - 12 - dSize},
 
@@ -14545,7 +13816,7 @@ public class Renderer {
 
                 GradientPaint stp = new GradientPaint(stX, stY - fm.getAscent(),
 
-                    new Color(255, 240, 200), stX, stY, new Color(235, 203, 139));
+                    new Color(255, 240, 200), stX, stY, ColorPalette.TEXT_GOLD);
 
                 g.setPaint(stp);
 
@@ -14561,7 +13832,7 @@ public class Renderer {
 
                 float skipPulse = 0.5f + 0.5f * (float)Math.sin(time * 3);
 
-                g.setFont(new Font("Arial", Font.BOLD, 14));
+                g.setFont(FontPalette.get(Font.BOLD, 14));
 
                 g.setColor(new Color(216, 222, 233, clampA((int)(180 * skipPulse * masterAlpha))));
 

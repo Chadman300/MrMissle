@@ -7,6 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.swing.*;
+import config.ColorPalette;
+import config.FontPalette;
+import config.UITheme;
 
 public class Game extends JPanel implements Runnable {
     // Game constants
@@ -92,10 +95,10 @@ public class Game extends JPanel implements Runnable {
     private static final Color SMOKE_GRAY = new Color(80, 80, 80, 150);
     private static final Color BOSS_FIRE = new Color(255, 150, 0);
     private static final Color BOSS_FIRE_BRIGHT = new Color(255, 200, 50);
-    private static final Color VULNERABILITY_GOLD = new Color(235, 203, 139);
-    private static final Color WARNING_RED = new Color(191, 97, 106);
-    private static final Color PLAYER_DEATH_RED = new Color(191, 97, 106);
-    private static final Color DODGE_GREEN = new Color(163, 190, 140);
+    private static final Color VULNERABILITY_GOLD = ColorPalette.TEXT_GOLD;
+    private static final Color WARNING_RED = ColorPalette.ACCENT_RED;
+    private static final Color PLAYER_DEATH_RED = ColorPalette.ACCENT_RED;
+    private static final Color DODGE_GREEN = ColorPalette.SUCCESS_GREEN;
     private static final Color JET_TRAIL_COLOR = new Color(255, 150, 0, 200);
     private static final Color ENGINE_GLOW_BLUE = new Color(100, 150, 255, 180);
     private static final Color EXPLOSION_WARM = new Color(255, 200, 100, 200);
@@ -107,7 +110,7 @@ public class Game extends JPanel implements Runnable {
     private static final Color METAL_DEBRIS = new Color(160, 160, 170, 200);
     private static final Color SPARK_YELLOW = new Color(255, 220, 100, 220);
     private static final Color LUCKY_CHARM_GOLD = new Color(255, 215, 0, 200);
-    private static final Color CRITICAL_HIT_GOLD = new Color(255, 215, 0);
+    private static final Color CRITICAL_HIT_GOLD = ColorPalette.ACCENT_YELLOW;
     private static final Color BOSS_HIT_RED = new Color(255, 80, 80);
     
     // Cached math constants
@@ -309,7 +312,7 @@ public class Game extends JPanel implements Runnable {
     private static final double MIN_MOVEMENT_SPEED = 0.5; // Minimum speed to count as moving
     
     // Game version
-    public static final String GAME_VERSION = "v0.1.0";
+    public static final String GAME_VERSION = "v0.9.0";
     
     // Attack Introduction System
     // Each attack intro has: ID, Level it appears, Name, Description, Category
@@ -665,9 +668,9 @@ public class Game extends JPanel implements Runnable {
         int startX = (WIDTH - totalWidth) / 2;
         
         equipButtons[0] = new UIButton("Yes", startX, buttonY, buttonWidth, buttonHeight,
-            new Color(76, 86, 106), new Color(163, 190, 140)); // Green for yes
+            ColorPalette.BORDER_STEEL, ColorPalette.SUCCESS_GREEN); // Green for yes
         equipButtons[1] = new UIButton("No", startX + buttonWidth + spacing, buttonY, buttonWidth, buttonHeight,
-            new Color(76, 86, 106), new Color(191, 97, 106)); // Red for no
+            ColorPalette.BORDER_STEEL, ColorPalette.ACCENT_RED); // Red for no
         contractUnlockAnimation = false;
         contractUnlockDismissing = false;
         contractUnlockTimer = 0;
@@ -835,6 +838,9 @@ public class Game extends JPanel implements Runnable {
                 handleMouseWheel(e);
             }
         });
+        
+        // Initialize fonts early so the loading screen can use them
+        FontPalette.init();
         
         // Start loading assets in background thread
         startAssetLoading();
@@ -2076,7 +2082,7 @@ public class Game extends JPanel implements Runnable {
         
         // Draw question mark or icon based on attack type
         g.setColor(new Color(200, 200, 220));
-        g.setFont(new Font("Arial", Font.BOLD, 60));
+        g.setFont(FontPalette.TITLE_MEDIUM);
         FontMetrics fm = g.getFontMetrics();
         String symbol = "?";
         
@@ -3719,7 +3725,7 @@ public class Game extends JPanel implements Runnable {
         g.drawOval(10, 10, size - 20, size - 20);
         
         // Draw icon symbol
-        g.setFont(new Font("Arial", Font.BOLD, 60));
+        g.setFont(FontPalette.TITLE_MEDIUM);
         g.setColor(itemColor);
         String symbol = "?";
         switch (itemTypeName) {
@@ -7718,6 +7724,9 @@ public class Game extends JPanel implements Runnable {
                 targetLoadingProgress = 65;
                 repaint();
                 
+                // Initialize fonts before renderer
+                AssetLoader.initAll();
+                
                 // Create renderer (this loads backgrounds and overlay)
                 // Create renderer with background progress (65% to 90%)
                 renderer = new Renderer(gameData, shopManager, passiveUpgradeManager, (int bgPercent) -> {
@@ -7757,75 +7766,54 @@ public class Game extends JPanel implements Runnable {
     
     private void drawSimpleLoading(Graphics2D g, int width, int height, int progress) {
         // Smooth interpolation of progress
-        double smoothSpeed = 0.15; // Higher = faster interpolation
+        double smoothSpeed = 0.15;
         displayedLoadingProgress += (targetLoadingProgress - displayedLoadingProgress) * smoothSpeed;
         int smoothProgress = (int)displayedLoadingProgress;
+        double time = gradientTime;
         
-        // Simple loading screen without renderer
-        g.setColor(new Color(30, 30, 40));
-        g.fillRect(0, 0, width, height);
+        // ── Military themed background ──────────────────────────────────
+        UITheme.drawScreenBackground(g, width, height, time);
         
-        // Title
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 72));
-        String title = "MR. MISSLE";
+        // ── Title — stencil-style with ember particles ───────────────────
+        UITheme.drawTitle(g, "MR. MISSLE", width, height / 2 - 120,
+            ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
+            time, FontPalette.TITLE_LARGE);
+        
+        // ── Loading stage label ──────────────────────────────────────────
+        String stageText;
+        if (smoothProgress < 30)       stageText = "LOADING AUDIO SYSTEMS";
+        else if (smoothProgress < 45)  stageText = "SCANNING HOSTILE AIRCRAFT";
+        else if (smoothProgress < 55)  stageText = "LOADING MUNITIONS";
+        else if (smoothProgress < 65)  stageText = "CALIBRATING FLIGHT CONTROLS";
+        else if (smoothProgress < 90)  stageText = "PAINTING COCKPIT VIEW";
+        else                           stageText = "SYSTEMS ARMED — READY";
+        
+        // Animated dots
+        int dotCount = (int)((System.currentTimeMillis() / 350) % 4);
+        String dots = ".".repeat(dotCount);
+        
+        g.setFont(FontPalette.MEDIUM);
         FontMetrics fm = g.getFontMetrics();
-        int titleX = (width - fm.stringWidth(title)) / 2;
-        int titleY = height / 2 - 100;
-        g.drawString(title, titleX, titleY);
         
-        // Loading text with animated dots
-        g.setFont(new Font("Arial", Font.PLAIN, 24));
-        int dotCount = (int)((System.currentTimeMillis() / 300) % 4);
-        String loadingText = "Loading" + ".".repeat(dotCount);
-        fm = g.getFontMetrics();
-        g.drawString(loadingText, (width - fm.stringWidth("Loading...")) / 2, height / 2 + 20);
+        // Stage text with orange accent
+        g.setColor(ColorPalette.ACCENT_ORANGE);
+        String fullStageText = stageText + dots;
+        g.drawString(fullStageText, (width - fm.stringWidth(stageText + "...")) / 2, height / 2 + 10);
         
-        // Progress bar
-        int barWidth = 400;
-        int barHeight = 30;
+        // ── Missile-arming gauge progress bar (1.5x wider) ───────────────
+        int barWidth = Math.min(750, (int)((width - 200) * 1.5));
+        int barHeight = 28;
         int barX = (width - barWidth) / 2;
-        int barY = height / 2 + 60;
+        int barY = height / 2 + 45;
+        UITheme.drawProgressBar(g, barX, barY, barWidth, barHeight,
+            smoothProgress / 100.0, ColorPalette.ACCENT_ORANGE);
         
-        // Background
-        g.setColor(new Color(60, 60, 70));
-        g.fillRoundRect(barX, barY, barWidth, barHeight, 15, 15);
-        
-        // Progress fill with smooth animation
-        int fillWidth = (int)(barWidth * (smoothProgress / 100.0));
-        if (fillWidth > 0) {
-            // Animated glow effect
-            double glowPulse = Math.sin(System.currentTimeMillis() / 200.0) * 0.2 + 0.8;
-            int r = (int)(136 * glowPulse);
-            int gb = (int)(192 * glowPulse);
-            int b = (int)(208 * glowPulse);
-            g.setColor(new Color(r, gb, b));
-            g.fillRoundRect(barX, barY, fillWidth, barHeight, 15, 15);
-            
-            // Brighter leading edge
-            if (smoothProgress < 100) {
-                int edgeWidth = 20;
-                int edgeX = Math.max(barX, barX + fillWidth - edgeWidth);
-                GradientPaint edgeGlow = new GradientPaint(
-                    edgeX, barY, new Color(255, 255, 255, 100),
-                    edgeX + edgeWidth, barY, new Color(136, 192, 208, 0)
-                );
-                g.setPaint(edgeGlow);
-                g.fillRoundRect(edgeX, barY, Math.min(edgeWidth, fillWidth), barHeight, 15, 15);
-            }
-        }
-        
-        // Border
-        g.setColor(new Color(200, 200, 200));
-        g.setStroke(new BasicStroke(2));
-        g.drawRoundRect(barX, barY, barWidth, barHeight, 15, 15);
-        
-        // Percentage
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Arial", Font.BOLD, 18));
-        String percentText = smoothProgress + "%";
+        // ── Version tag in bottom-right corner ───────────────────────────
+        g.setFont(FontPalette.XS_13);
+        g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 100));
+        String verText = Game.GAME_VERSION;
         fm = g.getFontMetrics();
-        g.drawString(percentText, (width - fm.stringWidth(percentText)) / 2, barY + barHeight + 30);
+        g.drawString(verText, width - fm.stringWidth(verText) - 20, height - 20);
     }
     
     // Handle active item effects during gameplay
@@ -7906,7 +7894,7 @@ public class Game extends JPanel implements Runnable {
                             addParticle(
                                 player.getX(), player.getY(),
                                 Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(163, 190, 140), 30, 8,
+                                ColorPalette.SUCCESS_GREEN, 30, 8,
                                 Particle.ParticleType.SPARK
                             );
                         }
@@ -8138,7 +8126,7 @@ public class Game extends JPanel implements Runnable {
                                 currentBoss.getX() + Math.cos(angle) * dist, 
                                 currentBoss.getY() + Math.sin(angle) * dist,
                                 0, -1,
-                                new Color(235, 203, 139), 40, 6,
+                                ColorPalette.TEXT_GOLD, 40, 6,
                                 Particle.ParticleType.SPARK
                             );
                         }
@@ -8164,7 +8152,7 @@ public class Game extends JPanel implements Runnable {
         // Draw stun ring effect - semi-transparent
         float alpha = 0.25f + (float)(Math.sin(time * 15) * 0.15f); // More transparent (0.1 to 0.4 range)
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-        g2d.setColor(new Color(235, 203, 139)); // Yellow stun color
+        g2d.setColor(ColorPalette.TEXT_GOLD); // Yellow stun color
         g2d.setStroke(new BasicStroke(4));
         g2d.drawOval((int)(bossX - bossSize * 0.7), (int)(bossY - bossSize * 0.7),
                      (int)(bossSize * 1.4), (int)(bossSize * 1.4));
@@ -8182,8 +8170,8 @@ public class Game extends JPanel implements Runnable {
         
         // Draw "STUNNED" text - also semi-transparent
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-        g2d.setFont(new Font("Arial", Font.BOLD, 20));
-        g2d.setColor(new Color(235, 203, 139));
+        g2d.setFont(FontPalette.SMALL);
+        g2d.setColor(ColorPalette.TEXT_GOLD);
         FontMetrics fm = g2d.getFontMetrics();
         String text = "STUNNED!";
         g2d.drawString(text, (int)(bossX - fm.stringWidth(text) / 2), (int)(bossY - bossSize * 0.8));
@@ -8207,7 +8195,7 @@ public class Game extends JPanel implements Runnable {
         
         // Draw background box with transparency
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.9f));
-        g.setColor(new Color(46, 52, 64));
+        g.setColor(ColorPalette.BG_DARK);
         g.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
         
         // Draw border
@@ -8221,13 +8209,13 @@ public class Game extends JPanel implements Runnable {
         int iconSize = 30;
         g.setColor(new Color(136, 192, 208));
         g.fillRect(iconX, iconY, iconSize, iconSize);
-        g.setColor(new Color(46, 52, 64));
+        g.setColor(ColorPalette.BG_DARK);
         g.fillRect(iconX + 8, iconY + 3, iconSize - 16, 8); // Label area
         g.fillRect(iconX + 5, iconY + iconSize - 12, iconSize - 10, 8); // Bottom slot
         
         // Draw "Saving..." text
-        g.setColor(new Color(216, 222, 233));
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+        g.setFont(FontPalette.TINY);
         String saveText = "Saving...";
         FontMetrics fm = g.getFontMetrics();
         int textX = iconX + iconSize + 10;
@@ -8328,7 +8316,7 @@ public class Game extends JPanel implements Runnable {
         
         // "NEW ATTACK!" header with animation
         int headerFontSize = Math.min(50, boxWidth / 10);
-        g.setFont(new Font("Arial", Font.BOLD, (int)(headerFontSize * pulse)));
+        g.setFont(FontPalette.getDisplay(Font.BOLD, (int)(headerFontSize * pulse)));
         g.setColor(new Color(255, 200, 100));
         String header = "NEW ATTACK!";
         FontMetrics fm = g.getFontMetrics();
@@ -8339,7 +8327,7 @@ public class Game extends JPanel implements Runnable {
         
         // Attack name
         int nameFontSize = Math.min(40, boxWidth / 12);
-        g.setFont(new Font("Arial", Font.BOLD, nameFontSize));
+        g.setFont(FontPalette.get(Font.BOLD, nameFontSize));
         g.setColor(new Color(200, 220, 255));
         fm = g.getFontMetrics();
         if (currentAttackIntroName != null) {
@@ -8379,7 +8367,7 @@ public class Game extends JPanel implements Runnable {
             g.setStroke(new BasicStroke(2));
             g.drawRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 20, 20);
             
-            g.setFont(new Font("Arial", Font.BOLD, 36));
+            g.setFont(FontPalette.get(Font.BOLD, 36));
             g.setColor(new Color(150, 150, 170));
             fm = g.getFontMetrics();
             g.drawString("?", imageX + imgDisplayWidth/2 - fm.stringWidth("?")/2, 
@@ -8391,7 +8379,7 @@ public class Game extends JPanel implements Runnable {
         if (currentAttackIntroDescription != null) {
             int descFontSize = Math.min(24, boxWidth / 25);
             int descLineHeight = descFontSize + 10;
-            g.setFont(new Font("Arial", Font.PLAIN, descFontSize));
+            g.setFont(FontPalette.get(Font.PLAIN, descFontSize));
             g.setColor(new Color(180, 190, 200));
             fm = g.getFontMetrics();
             
@@ -8408,7 +8396,7 @@ public class Game extends JPanel implements Runnable {
         // "Press SPACE to continue" prompt - positioned at bottom of box
         double promptPulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7;
         int promptFontSize = Math.min(26, boxWidth / 24);
-        g.setFont(new Font("Arial", Font.BOLD, promptFontSize));
+        g.setFont(FontPalette.get(Font.BOLD, promptFontSize));
         g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
         String prompt = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
         fm = g.getFontMetrics();
@@ -8417,7 +8405,7 @@ public class Game extends JPanel implements Runnable {
         g.drawString(prompt, promptX, promptY);
         
         // Level indicator in corner
-        g.setFont(new Font("Arial", Font.BOLD, 14));
+        g.setFont(FontPalette.get(Font.BOLD, 14));
         g.setColor(new Color(150, 150, 170, 180));
         String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
         g.drawString(levelText, boxX + 15, boxY + boxHeight - 10);
@@ -8461,7 +8449,7 @@ public class Game extends JPanel implements Runnable {
         drawShowcaseTab(g, itemsTabX, tabY, tabWidth, tabHeight, "ITEMS", itemsTabActive, itemsTabHover, itemsTabKeySelected);
         
         // Counter (different based on tab)
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setFont(FontPalette.TINY);
         g.setColor(new Color(150, 170, 200));
         int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
         String counter = (debugShowcaseIndex + 1) + " / " + maxIndex;
@@ -8585,7 +8573,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Lock icon
                 int lockSize = (int)(60 * scale);
-                g.setFont(new Font("Arial", Font.BOLD, lockSize));
+                g.setFont(FontPalette.get(Font.BOLD, lockSize));
                 g.setColor(new Color(220, 180, 100, (int)(220 * alpha)));
                 fm = g.getFontMetrics();
                 String lockStr = "[X]";
@@ -8595,7 +8583,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // "Unlocks at Level X" text
                 int unlockFontSize = (int)(18 * scale);
-                g.setFont(new Font("Arial", Font.BOLD, Math.max(10, unlockFontSize)));
+                g.setFont(FontPalette.get(Font.BOLD, Math.max(10, unlockFontSize)));
                 g.setColor(new Color(240, 210, 150, (int)(200 * alpha)));
                 fm = g.getFontMetrics();
                 String unlockStr = "Unlocks at Level " + itemLevel;
@@ -8608,7 +8596,7 @@ public class Game extends JPanel implements Runnable {
             
             // Item name at top
             int fontSize = (int)(28 * scale);
-            g.setFont(new Font("Arial", Font.BOLD, Math.max(14, fontSize)));
+            g.setFont(FontPalette.get(Font.BOLD, Math.max(14, fontSize)));
             g.setColor(new Color(200, 220, 255));
             fm = g.getFontMetrics();
             int nameX = cardX + (cardW - fm.stringWidth(itemName)) / 2;
@@ -8667,7 +8655,7 @@ public class Game extends JPanel implements Runnable {
                 g.setColor(new Color(100, 150, 200, (int)(200 * alpha)));
                 g.setStroke(new BasicStroke(2));
                 g.drawRoundRect(imageX, imageY, placeholderSize, placeholderSize, 10, 10);
-                g.setFont(new Font("Arial", Font.BOLD, (int)(24 * scale)));
+                g.setFont(FontPalette.get(Font.BOLD, (int)(24 * scale)));
                 g.setColor(new Color(130, 140, 160, (int)(255 * alpha)));
                 fm = g.getFontMetrics();
                 g.drawString("?", imageX + placeholderSize/2 - fm.stringWidth("?")/2, imageY + placeholderSize/2 + fm.getAscent()/3);
@@ -8678,7 +8666,7 @@ public class Game extends JPanel implements Runnable {
             
             // Only show description on center card
             if (offset == 0 && itemDesc != null) {
-                g.setFont(new Font("Arial", Font.PLAIN, 18));
+                g.setFont(FontPalette.INFO);
                 g.setColor(new Color(190, 205, 225));
                 String[] lines = itemDesc.split("\n");
                 fm = g.getFontMetrics();
@@ -8698,7 +8686,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             // Level text (bottom left)
-            g.setFont(new Font("Arial", Font.BOLD, Math.max(12, (int)(14 * scale))));
+            g.setFont(FontPalette.get(Font.BOLD, Math.max(12, (int)(14 * scale))));
             g.setColor(new Color(200, 150, 100, (int)(255 * alpha)));
             String lvlText = showcaseTab == 0 ? "Lv." + itemLevel : "Unlocks Lv." + itemLevel;
             g.drawString(lvlText, cardX + (int)(12 * scale), cardY + cardH - (int)(12 * scale));
@@ -8707,7 +8695,7 @@ public class Game extends JPanel implements Runnable {
             if (offset == 0) {
                 Color categoryColor = showcaseTab == 0 ? getCategoryColor(itemCategory) : new Color(100, 200, 255);
                 g.setColor(categoryColor);
-                g.setFont(new Font("Arial", Font.BOLD, 14));
+                g.setFont(FontPalette.get(Font.BOLD, 14));
                 fm = g.getFontMetrics();
                 g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 12, cardY + cardH - 12);
                 
@@ -8734,7 +8722,7 @@ public class Game extends JPanel implements Runnable {
                     g.setStroke(new BasicStroke(2f));
                     g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
                 }
-                g.setFont(new Font("Arial", Font.BOLD, 22));
+                g.setFont(FontPalette.getDisplay(Font.BOLD, 22));
                 g.setColor(new Color(220, 255, 230));
                 fm = g.getFontMetrics();
                 String startLabel = "START";
@@ -8767,7 +8755,7 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(50, 60, 80, 80));
             g.setStroke(new BasicStroke(1));
             g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(80, 90, 110, 100));
             fm = g.getFontMetrics();
             g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
@@ -8781,7 +8769,7 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(120, 180, 255));
             g.setStroke(new BasicStroke(3));
             g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(255, 255, 255));
             fm = g.getFontMetrics();
             g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
@@ -8791,7 +8779,7 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(80, 100, 130, 150));
             g.setStroke(new BasicStroke(2));
             g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
             fm = g.getFontMetrics();
             g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
@@ -8806,7 +8794,7 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(50, 60, 80, 80));
             g.setStroke(new BasicStroke(1));
             g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(80, 90, 110, 100));
             fm = g.getFontMetrics();
             g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
@@ -8820,7 +8808,7 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(120, 180, 255));
             g.setStroke(new BasicStroke(3));
             g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(255, 255, 255));
             fm = g.getFontMetrics();
             g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
@@ -8830,14 +8818,14 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(80, 100, 130, 150));
             g.setStroke(new BasicStroke(2));
             g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(new Font("Arial", Font.BOLD, 48));
+            g.setFont(FontPalette.get(Font.BOLD, 48));
             g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
             fm = g.getFontMetrics();
             g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
         }
         
         // Instructions at bottom
-        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setFont(FontPalette.XS_16);
         g.setColor(new Color(130, 140, 160));
         String instructions = moveKeysText() + " to navigate  |  " + keyText(KeyBindManager.Action.CONFIRM) + "/CLICK to start  |  " + keyText(KeyBindManager.Action.BACK) + " to exit";
         fm = g.getFontMetrics();
@@ -8881,7 +8869,7 @@ public class Game extends JPanel implements Runnable {
         g.drawRoundRect(x, y, width, height, 12, 12);
         
         // Tab label
-        g.setFont(new Font("Arial", Font.BOLD, 18));
+        g.setFont(FontPalette.TINY);
         g.setColor((active || keyboardSelected) ? Color.WHITE : new Color(180, 190, 210));
         FontMetrics fm = g.getFontMetrics();
         int labelX = x + (width - fm.stringWidth(label)) / 2;
@@ -9010,7 +8998,7 @@ public class Game extends JPanel implements Runnable {
                 new Color[]{
                     new Color(235, 203, 139, (int)(80 * scale * pulse * dismissMultiplier)),
                     new Color(163, 190, 140, (int)(40 * scale * pulse * dismissMultiplier)),
-                    new Color(163, 190, 140, 0)
+                    ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 0)
                 }
             );
             g.setPaint(glowPaint);
@@ -9070,7 +9058,7 @@ public class Game extends JPanel implements Runnable {
             float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
             
             // "NEW ITEM UNLOCKED!" with shadow
-            g.setFont(new Font("Arial", Font.BOLD, (int)(56 * scale)));
+            g.setFont(FontPalette.getDisplay(Font.BOLD, (int)(56 * scale)));
             String titleText = "NEW ITEM UNLOCKED!";
             FontMetrics titleFm = g.getFontMetrics();
             int titleX = centerX - titleFm.stringWidth(titleText) / 2;
@@ -9086,7 +9074,7 @@ public class Game extends JPanel implements Runnable {
             g.drawString(titleText, titleX, titleY);
             
             // Item name with shadow
-            g.setFont(new Font("Arial", Font.BOLD, (int)(44 * scale)));
+            g.setFont(FontPalette.get(Font.BOLD, (int)(44 * scale)));
             FontMetrics itemFm = g.getFontMetrics();
             int itemX = centerX - itemFm.stringWidth(unlockedItemName) / 2;
             int itemY = currentY - (int)(10 * scale);
@@ -9099,7 +9087,7 @@ public class Game extends JPanel implements Runnable {
             
             // Item description
             if (unlockedItemDescription != null && !unlockedItemDescription.isEmpty() && progress > 0.4f) {
-                g.setFont(new Font("Arial", Font.PLAIN, (int)(24 * scale)));
+                g.setFont(FontPalette.get(Font.PLAIN, (int)(24 * scale)));
                 String description = unlockedItemDescription;
                 FontMetrics descFm = g.getFontMetrics();
                 int descX = centerX - descFm.stringWidth(description) / 2;
@@ -9114,7 +9102,7 @@ public class Game extends JPanel implements Runnable {
                 if (showEquipPrompt && itemUnlockTimer == 0) {
                     System.out.println("DEBUG: Drawing equip prompt buttons");
                     // Draw equip buttons
-                    g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+                    g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
                     String promptText = "Equip this item?";
                     FontMetrics promptFm = g.getFontMetrics();
                     int promptX = centerX - promptFm.stringWidth(promptText) / 2;
@@ -9143,7 +9131,7 @@ public class Game extends JPanel implements Runnable {
                     }
                 } else {
                     System.out.println("DEBUG: Drawing continue hint - showEquipPrompt=" + showEquipPrompt + ", timer=" + itemUnlockTimer);
-                    g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+                    g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
                     String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
                     FontMetrics hintFm = g.getFontMetrics();
                     int hintX = centerX - hintFm.stringWidth(hintText) / 2;
@@ -9275,7 +9263,7 @@ public class Game extends JPanel implements Runnable {
             float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
             
             // "RISK CONTRACTS UNLOCKED!" with shadow
-            g.setFont(new Font("Arial", Font.BOLD, (int)(48 * scale)));
+            g.setFont(FontPalette.get(Font.BOLD, (int)(48 * scale)));
             String titleText = "RISK CONTRACTS UNLOCKED!";
             FontMetrics titleFm = g.getFontMetrics();
             int titleX = centerX - titleFm.stringWidth(titleText) / 2;
@@ -9296,7 +9284,7 @@ public class Game extends JPanel implements Runnable {
             float descAlpha = Math.min((progress - 0.4f) / 0.3f, 1.0f) * dismissMultiplier;
             
             // Contract symbol
-            g.setFont(new Font("Arial", Font.BOLD, (int)(60 * scale)));
+            g.setFont(FontPalette.get(Font.BOLD, (int)(60 * scale)));
             String symbol = "âš ";
             FontMetrics symbolFm = g.getFontMetrics();
             g.setColor(new Color(255, 200, 50, (int)(255 * descAlpha)));
@@ -9312,7 +9300,7 @@ public class Game extends JPanel implements Runnable {
                 "• Shieldless - No active items, 1.5x money"
             };
             
-            g.setFont(new Font("Arial", Font.PLAIN, (int)(20 * scale)));
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
             int lineY = currentY + (int)(10 * scale);
             for (String line : descLines) {
                 if (line.isEmpty()) {
@@ -9336,7 +9324,7 @@ public class Game extends JPanel implements Runnable {
         // "Press SPACE to continue" hint
         if (progress > 0.7f) {
             float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
-            g.setFont(new Font("Arial", Font.PLAIN, (int)(18 * scale)));
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(18 * scale)));
             String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
             FontMetrics hintFm = g.getFontMetrics();
             int hintX = centerX - hintFm.stringWidth(hintText) / 2;

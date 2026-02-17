@@ -1,3 +1,4 @@
+import config.FontPalette;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
@@ -160,5 +161,13 @@ public class AssetLoader {
             normalized = normalized.substring(3);
         }
         return normalized;
+    }
+
+    /**
+     * Initialize all asset subsystems (fonts, etc.).
+     * Call once at startup before any rendering.
+     */
+    public static void initAll() {
+        FontPalette.init();
     }
 }
