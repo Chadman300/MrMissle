@@ -14,7 +14,11 @@ public class SaveData implements Serializable {
     // Metadata
     public String saveName;
     public long saveTimestamp;
+    public long creationTimestamp; // When the save was first created
     public int saveVersion = 1;
+    
+    // Game mode (locked at creation)
+    public GameMode gameMode = GameMode.MASTER;
     
     // Score and money
     public int score;
@@ -171,6 +175,7 @@ public class SaveData implements Serializable {
     public SaveData() {
         this.saveName = "New Game";
         this.saveTimestamp = System.currentTimeMillis();
+        this.creationTimestamp = System.currentTimeMillis();
         this.currentLevel = 1;
         this.maxUnlockedLevel = 1;
         this.selectedLevelView = 1;
@@ -269,6 +274,16 @@ public class SaveData implements Serializable {
         
         // Keybinds: null means old save without keybind data - use defaults
         // (keyBinds will be null from deserialization of old saves)
+        
+        // Backwards compatibility: old saves without game mode default to MASTER
+        if (gameMode == null) {
+            gameMode = GameMode.MASTER;
+        }
+        
+        // Backwards compatibility: old saves without creation timestamp
+        if (creationTimestamp == 0) {
+            creationTimestamp = saveTimestamp; // Use last save time as fallback
+        }
     }
     
     /**
@@ -279,6 +294,9 @@ public class SaveData implements Serializable {
         SaveData data = new SaveData();
         data.saveName = saveName;
         data.saveTimestamp = System.currentTimeMillis();
+        // Preserve original creation time from GameData; fallback to now for brand new saves
+        data.creationTimestamp = gameData.getCreationTimestamp() > 0 ? gameData.getCreationTimestamp() : data.saveTimestamp;
+        data.gameMode = gameData.getGameMode();
         
         // Copy all data from GameData
         data.score = gameData.getScore();
@@ -418,7 +436,9 @@ public class SaveData implements Serializable {
      */
     public void loadIntoGameData(GameData gameData, AchievementManager achievementManager,
                                 PassiveUpgradeManager passiveUpgradeManager) {
-        System.out.println("DEBUG LOAD: Loading save - currentLevel=" + currentLevel + ", maxUnlockedLevel=" + maxUnlockedLevel);
+        System.out.println("DEBUG LOAD: Loading save - currentLevel=" + currentLevel + ", maxUnlockedLevel=" + maxUnlockedLevel + ", gameMode=" + gameMode);
+        gameData.setGameMode(gameMode != null ? gameMode : GameMode.MASTER);
+        gameData.setCreationTimestamp(creationTimestamp > 0 ? creationTimestamp : saveTimestamp);
         gameData.setScore(score);
         gameData.setTotalMoney(totalMoney);
         gameData.setRunMoney(runMoney);

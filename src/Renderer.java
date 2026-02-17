@@ -677,11 +677,33 @@ public class Renderer {
 
     
 
-    public void drawMenu(Graphics2D g, int width, int height, double time, double escapeTimer, int selectedMenuItem, int currentSaveSlot) {
+    public void drawMenu(Graphics2D g, int width, int height, double time, double escapeTimer, int selectedMenuItem, int currentSaveSlot, GameMode gameMode) {
 
         // Draw animated gradient background with palette colors
 
         drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+
+        
+
+        // Subtle background tint based on game mode
+
+        if (gameMode != null) {
+
+            g.setColor(new Color(
+
+                gameMode.getColor().getRed(),
+
+                gameMode.getColor().getGreen(),
+
+                gameMode.getColor().getBlue(),
+
+                25
+
+            ));
+
+            g.fillRect(0, 0, width, height);
+
+        }
 
         
 
@@ -744,6 +766,102 @@ public class Renderer {
         g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
 
         g.setComposite(ALPHA_FULL);
+
+        
+
+        // Minecraft-style spinning mode splash text (anchored to bottom-right of title)
+
+        if (gameMode != null) {
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            if (Game.enableAntiAliasing) {
+
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            }
+
+            
+
+            String splashText = gameMode.getSplashText();
+
+            g2.setFont(FONT_MEDIUM_BOLD);
+
+            FontMetrics splashFm = g2.getFontMetrics();
+
+            
+
+            // Anchor point: bottom-right of title text (this becomes the center of the splash text)
+
+            int anchorX = titleX + fm.stringWidth(title) + 10;
+
+            int anchorY = titleY - 5;
+
+            
+
+            // Center offset so the text rotates around its own center
+
+            int textW = splashFm.stringWidth(splashText);
+
+            int textH = splashFm.getAscent();
+
+            int offsetX = -textW / 2;
+
+            int offsetY = textH / 2;
+
+            
+
+            // Wobble rotation and scale pulse
+
+            double wobbleAngle = Math.sin(time * 3) * Math.toRadians(12);
+
+            double scalePulse = 1.0 + 0.08 * Math.sin(time * 5);
+
+            
+
+            // Apply transform — translate to anchor, then rotate/scale around that point
+
+            java.awt.geom.AffineTransform oldTransform = g2.getTransform();
+
+            g2.translate(anchorX, anchorY);
+
+            g2.rotate(wobbleAngle);
+
+            g2.scale(scalePulse, scalePulse);
+
+            
+
+            // Shadow
+
+            g2.setColor(new Color(0, 0, 0, 120));
+
+            g2.drawString(splashText, offsetX + 2, offsetY + 2);
+
+            
+
+            // Text in mode color
+
+            g2.setColor(gameMode.getColor());
+
+            g2.drawString(splashText, offsetX, offsetY);
+
+            
+
+            // White shine
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float)(0.2 + 0.15 * Math.sin(time * 4))));
+
+            g2.setColor(Color.WHITE);
+
+            g2.drawString(splashText, offsetX, offsetY);
+
+            
+
+            g2.setTransform(oldTransform);
+
+            g2.dispose();
+
+        }
 
         
 
@@ -811,9 +929,9 @@ public class Renderer {
 
     public void drawSaveSelection(Graphics2D g, int width, int height, double time, int selectedSlot,
 
-                                  SaveManager.SaveMetadata[] saveMetadata, boolean deletingSlot, 
+                                  java.util.List<SaveManager.SaveMetadata> saveMetadata, boolean deletingSlot, 
 
-                                  int deleteConfirmTimer, double escapeTimer) {
+                                  int deleteConfirmTimer, double escapeTimer, double scrollOffset) {
 
         // Draw animated gradient background
 
@@ -879,7 +997,7 @@ public class Renderer {
 
         
 
-        // Draw save slots
+        // Draw save slots with scroll
 
         int slotWidth = 800;
 
@@ -891,15 +1009,31 @@ public class Renderer {
 
         int slotSpacing = 180;
 
+        int totalEntries = saveMetadata.size() + 1; // existing saves + "New Save" button
+
         
 
-        for (int i = 0; i < 3; i++) {
+        // Clip to content area (below title, above instructions)
 
-            int slotY = startY + i * slotSpacing;
+        Shape oldClip = g.getClip();
+
+        g.clipRect(0, 160, width, height - 300);
+
+        
+
+        for (int i = 0; i < totalEntries; i++) {
+
+            int slotY = startY + i * slotSpacing - (int)scrollOffset;
 
             boolean isSelected = (i == selectedSlot);
 
-            boolean isEmpty = (saveMetadata[i] == null);
+            boolean isExistingSave = (i < saveMetadata.size());
+
+            
+
+            // Skip if completely off-screen
+
+            if (slotY + slotHeight < 160 || slotY > height - 60) continue;
 
             
 
@@ -927,61 +1061,93 @@ public class Renderer {
 
             
 
-            // Main slot background
+            if (isExistingSave) {
 
-            Color slotColor = isEmpty ? new Color(59, 66, 82) : new Color(76, 86, 106);
+                // Existing save slot
 
-            if (isSelected) {
+                SaveManager.SaveMetadata meta = saveMetadata.get(i);
 
-                slotColor = new Color(88, 91, 112); // Lighter when selected
+                
 
-            }
+                // Main slot background
 
-            g2.setColor(slotColor);
+                Color slotColor = isSelected ? new Color(88, 91, 112) : new Color(76, 86, 106);
 
-            g2.fillRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                g2.setColor(slotColor);
 
-            
+                g2.fillRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
 
-            // Border
+                
 
-            Color borderColor = isSelected ? new Color(235, 203, 139) : new Color(94, 129, 172);
+                // Border
 
-            g2.setStroke(new BasicStroke(3));
+                Color borderColor = isSelected ? new Color(235, 203, 139) : new Color(94, 129, 172);
 
-            g2.setColor(borderColor);
+                g2.setStroke(new BasicStroke(3));
 
-            g2.drawRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+                g2.setColor(borderColor);
 
-            
+                g2.drawRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
 
-            // Slot number
+                
 
-            g2.setFont(FONT_LARGE);
+                // Slot number
 
-            g2.setColor(new Color(235, 203, 139));
+                g2.setFont(FONT_LARGE);
 
-            String slotNum = "SLOT " + (i + 1);
+                g2.setColor(new Color(235, 203, 139));
 
-            g2.drawString(slotNum, slotX + 20, slotY + 35);
+                String slotNum = "SAVE " + meta.slotNumber;
 
-            
+                g2.drawString(slotNum, slotX + 20, slotY + 35);
 
-            if (isEmpty) {
+                
 
-                // Empty slot - show "New Game"
+                // Show game mode badge next to slot number
 
-                g2.setFont(FONT_MEDIUM);
+                if (meta.gameMode != null) {
 
-                g2.setColor(new Color(216, 222, 233, 150));
+                    GameMode mode = meta.gameMode;
 
-                drawPromptWithIcons(g2, slotX + slotWidth / 2, slotY + 85, "[ Empty Slot - Press ", KeyBindManager.Action.CONFIRM, " to Create ]");
+                    String modeLabel = mode.getDisplayName();
 
-            } else {
+                    g2.setFont(FONT_EXTRA_SMALL_16);
 
-                // Show save data
+                    FontMetrics modeFm = g2.getFontMetrics();
 
-                SaveManager.SaveMetadata meta = saveMetadata[i];
+                    int modeX = slotX + 20 + g2.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + 15;
+
+                    int modeY = slotY + 35;
+
+                    // Mode badge background pill
+
+                    int badgeW = modeFm.stringWidth(modeLabel) + 16;
+
+                    int badgeH = 22;
+
+                    g2.setColor(new Color(
+
+                        mode.getColor().getRed(),
+
+                        mode.getColor().getGreen(),
+
+                        mode.getColor().getBlue(),
+
+                        60
+
+                    ));
+
+                    g2.fillRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+
+                    g2.setStroke(new BasicStroke(1.5f));
+
+                    g2.setColor(mode.getColor());
+
+                    g2.drawRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+
+                    g2.drawString(modeLabel, modeX, modeY);
+
+                }
 
                 
 
@@ -1017,13 +1183,25 @@ public class Renderer {
 
                 
 
-                // Last saved date
+                // Created date (left) and Last saved date (right)
+
+                g2.setFont(FONT_TINY);
+
+                g2.setColor(new Color(216, 222, 233, 160));
+
+                String createdText = "Created: " + meta.getFormattedCreationDate();
+
+                g2.drawString(createdText, slotX + 20, slotY + 130);
+
+                
 
                 g2.setColor(new Color(216, 222, 233, 180));
 
                 String dateText = "Last Saved: " + meta.getFormattedDate();
 
-                g2.drawString(dateText, slotX + 20, slotY + 128);
+                FontMetrics dateFm = g2.getFontMetrics();
+
+                g2.drawString(dateText, slotX + slotWidth - 20 - dateFm.stringWidth(dateText), slotY + 130);
 
                 
 
@@ -1123,6 +1301,404 @@ public class Renderer {
 
                 }
 
+            } else {
+
+                // "New Save" button
+
+                Color newSlotColor = isSelected ? new Color(76, 86, 106) : new Color(59, 66, 82);
+
+                g2.setColor(newSlotColor);
+
+                g2.fillRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+
+                
+
+                // Dashed border
+
+                float[] dash = {10, 6};
+
+                Color borderColor = isSelected ? new Color(163, 190, 140) : new Color(94, 129, 172, 150);
+
+                g2.setStroke(new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 0, dash, (float)(time * 20)));
+
+                g2.setColor(borderColor);
+
+                g2.drawRoundRect(slotX, slotY, slotWidth, slotHeight, 15, 15);
+
+                
+
+                // Plus icon
+
+                g2.setStroke(new BasicStroke(4));
+
+                g2.setColor(isSelected ? new Color(163, 190, 140) : new Color(216, 222, 233, 150));
+
+                int plusCenterX = slotX + slotWidth / 2;
+
+                int plusCenterY = slotY + slotHeight / 2 - 12;
+
+                g2.drawLine(plusCenterX - 15, plusCenterY, plusCenterX + 15, plusCenterY);
+
+                g2.drawLine(plusCenterX, plusCenterY - 15, plusCenterX, plusCenterY + 15);
+
+                
+
+                // Text
+
+                g2.setFont(FONT_MEDIUM);
+
+                g2.setColor(isSelected ? new Color(163, 190, 140) : new Color(216, 222, 233, 150));
+
+                String newText = "New Save";
+
+                FontMetrics newFm = g2.getFontMetrics();
+
+                g2.drawString(newText, plusCenterX - newFm.stringWidth(newText) / 2, plusCenterY + 40);
+
+            }
+
+            
+
+            g2.dispose();
+
+        }
+
+        
+
+        // Restore clip
+
+        g.setClip(oldClip);
+
+        
+
+        // Scroll indicators
+
+        if (scrollOffset > 5) {
+
+            // Up arrow indicator
+
+            g.setColor(new Color(216, 222, 233, (int)(150 + 50 * Math.sin(time * 4))));
+
+            g.setFont(FONT_MEDIUM);
+
+            fm = g.getFontMetrics();
+
+            String upArrow = "\u25B2  Scroll Up";
+
+            g.drawString(upArrow, (width - fm.stringWidth(upArrow)) / 2, 180);
+
+        }
+
+        int maxScroll = Math.max(0, totalEntries * slotSpacing + startY - height + 60);
+
+        if (scrollOffset < maxScroll - 5) {
+
+            // Down arrow indicator
+
+            g.setColor(new Color(216, 222, 233, (int)(150 + 50 * Math.sin(time * 4))));
+
+            g.setFont(FONT_MEDIUM);
+
+            fm = g.getFontMetrics();
+
+            String downArrow = "\u25BC  Scroll Down";
+
+            g.drawString(downArrow, (width - fm.stringWidth(downArrow)) / 2, height - 80);
+
+        }
+
+        
+
+        // Instructions
+
+        g.setFont(FONT_MEDIUM);
+
+        g.setColor(new Color(216, 222, 233, 200));
+
+        boolean isCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
+
+        if (isCtrlMode) {
+
+            drawPromptWithIcons(g, width / 2, height - 50, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
+
+        } else {
+
+            drawPromptWithIcons(g, width / 2, height - 50, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
+
+        }
+
+        
+
+        // Quit hint
+
+        if (escapeTimer > 0) {
+
+            g.setColor(new Color(191, 97, 106));
+
+            g.setFont(FONT_MEDIUM_BOLD);
+
+            drawPromptWithIcons(g, width / 2, height - 20, "Press ", KeyBindManager.Action.BACK, " again to Quit");
+
+        }
+
+    }
+
+    
+
+    /**
+
+     * Draw the game mode selection screen (shown when creating a new save).
+
+     * Three cards for Easy/Hard/Master with descriptions and color coding.
+
+     */
+
+    public void drawModeSelect(Graphics2D g, int width, int height, double time, int selectedIndex) {
+
+        // Draw animated gradient background
+
+        drawAnimatedGradient(g, width, height, time, new Color[]{new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106)});
+
+        
+
+        // Draw geometric background effects
+
+        drawGeometricBackground(g, width, height, time);
+
+        
+
+        // Title
+
+        g.setFont(FONT_TITLE);
+
+        String title = "SELECT MODE";
+
+        FontMetrics fm = g.getFontMetrics();
+
+        int titleX = (width - fm.stringWidth(title)) / 2;
+
+        int titleY = 100;
+
+        
+
+        // Shadow
+
+        g.setColor(new Color(0, 0, 0, 100));
+
+        g.drawString(title, titleX + 4, titleY + 4);
+
+        
+
+        // Gradient text
+
+        GradientPaint titleGrad = new GradientPaint(
+
+            titleX, titleY - 50, new Color(235, 203, 139),
+
+            titleX, titleY + 20, new Color(220, 180, 100)
+
+        );
+
+        g.setPaint(titleGrad);
+
+        g.drawString(title, titleX, titleY);
+
+        
+
+        // Holographic shine
+
+        int shineOffset = (int)(Math.sin(time * 2) * 30);
+
+        g.setComposite(ALPHA_THIRD);
+
+        g.setColor(Color.WHITE);
+
+        g.drawString(title, titleX + 2 + shineOffset / 10, titleY - 2);
+
+        g.setComposite(ALPHA_FULL);
+
+        
+
+        // Subtitle
+
+        g.setFont(FONT_MEDIUM);
+
+        g.setColor(new Color(216, 222, 233, 200));
+
+        String subtitle = "Choose a difficulty for this save (locked once created)";
+
+        fm = g.getFontMetrics();
+
+        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, titleY + 35);
+
+        
+
+        // Draw mode cards
+
+        GameMode[] modes = GameMode.values();
+
+        int cardWidth = 700;
+
+        int cardHeight = 130;
+
+        int cardX = (width - cardWidth) / 2;
+
+        int startY = 180;
+
+        int cardSpacing = 150;
+
+        
+
+        for (int i = 0; i < modes.length; i++) {
+
+            GameMode mode = modes[i];
+
+            int cardY = startY + i * cardSpacing;
+
+            boolean isSelected = (i == selectedIndex);
+
+            
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            if (Game.enableAntiAliasing) {
+
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            }
+
+            
+
+            // Selection glow
+
+            if (isSelected) {
+
+                float glowPulse = (float)(0.6 + 0.4 * Math.sin(time * 4));
+
+                g2.setColor(new Color(
+
+                    mode.getColor().getRed(), 
+
+                    mode.getColor().getGreen(), 
+
+                    mode.getColor().getBlue(), 
+
+                    (int)(100 * glowPulse)
+
+                ));
+
+                g2.fillRoundRect(cardX - 8, cardY - 8, cardWidth + 16, cardHeight + 16, 20, 20);
+
+            }
+
+            
+
+            // Card background
+
+            Color bgColor = isSelected ? new Color(88, 91, 112) : new Color(59, 66, 82);
+
+            g2.setColor(bgColor);
+
+            g2.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+
+            
+
+            // Border in mode color
+
+            g2.setStroke(new BasicStroke(isSelected ? 4 : 2));
+
+            g2.setColor(isSelected ? mode.getColor() : new Color(
+
+                mode.getColor().getRed(), 
+
+                mode.getColor().getGreen(), 
+
+                mode.getColor().getBlue(), 
+
+                120
+
+            ));
+
+            g2.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+
+            
+
+            // Mode name
+
+            g2.setFont(FONT_LARGE);
+
+            g2.setColor(isSelected ? mode.getColor() : Color.WHITE);
+
+            g2.drawString(mode.getDisplayName(), cardX + 25, cardY + 40);
+
+            
+
+            // Description
+
+            g2.setFont(FONT_MEDIUM);
+
+            g2.setColor(new Color(216, 222, 233, 220));
+
+            g2.drawString(mode.getDescription(), cardX + 25, cardY + 70);
+
+            
+
+            // Detail text
+
+            g2.setFont(FONT_SMALL);
+
+            g2.setColor(new Color(216, 222, 233, 150));
+
+            String detail;
+
+            switch (mode) {
+
+                case EASY:
+
+                    detail = "Bosses attack slower with longer rest periods. Progress is saved on death.";
+
+                    break;
+
+                case HARD:
+
+                    detail = "Full boss difficulty. Progress is saved on death \u2014 no level resets.";
+
+                    break;
+
+                case MASTER:
+
+                    detail = "Full boss difficulty. Roguelike resets \u2014 levels and lives reset on death.";
+
+                    break;
+
+                default:
+
+                    detail = "";
+
+            }
+
+            g2.drawString(detail, cardX + 25, cardY + 100);
+
+            
+
+            // Selection arrow (drawn as a filled triangle)
+
+            if (isSelected) {
+
+                g2.setColor(mode.getColor());
+
+                double bounce = Math.sin(time * 6) * 5;
+
+                int arrowX = (int)(cardX - 28 + bounce);
+
+                int arrowY = cardY + cardHeight / 2;
+
+                int[] xPoints = {arrowX, arrowX, arrowX + 14};
+
+                int[] yPoints = {arrowY - 10, arrowY + 10, arrowY};
+
+                g2.fillPolygon(xPoints, yPoints, 3);
+
             }
 
             
@@ -1139,31 +1715,7 @@ public class Renderer {
 
         g.setColor(new Color(216, 222, 233, 200));
 
-        boolean isCtrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
-
-        if (isCtrlMode) {
-
-            drawPromptWithIcons(g, width / 2, height - 100, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
-
-        } else {
-
-            drawPromptWithIcons(g, width / 2, height - 100, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
-
-        }
-
-        
-
-        // Quit hint
-
-        if (escapeTimer > 0) {
-
-            g.setColor(new Color(191, 97, 106));
-
-            g.setFont(FONT_MEDIUM_BOLD);
-
-            drawPromptWithIcons(g, width / 2, height - 60, "Press ", KeyBindManager.Action.BACK, " again to Quit");
-
-        }
+        drawPromptWithIcons(g, width / 2, height - 80, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select  |  ", KeyBindManager.Action.BACK, ": Back");
 
     }
 

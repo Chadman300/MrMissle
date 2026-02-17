@@ -68,6 +68,12 @@ public class GameData {
     // Gameplay settings
     private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
     
+    // Game mode (Easy/Hard/Master) - set when save is created, locked for lifetime
+    private GameMode gameMode = GameMode.MASTER;
+    
+    // Creation timestamp - when the save was originally created
+    private long creationTimestamp = 0;
+    
     // Attack introductions that have been seen
     private java.util.List<String> seenAttackIntros;
 
@@ -103,8 +109,8 @@ public class GameData {
         totalBossesDefeated = 0;
         
         // Missiles (lives)
-        missiles = 3;
-        baseMissiles = 3;
+        missiles = 2;
+        baseMissiles = 2;
         
         // Level select navigation
         selectedLevelView = 1;
@@ -305,15 +311,19 @@ public class GameData {
         }
         totalRunsCompleted++;
         
-        // Reset run-specific data
+        // Always reset run-specific data
         score = 0;
         runMoney = 0;
         survivalTime = 0;
-        currentLevel = 1;
-        runHighestLevel = 1;
-        maxUnlockedLevel = 1; // Reset level progression on death
-        missiles = 3; // Reset missiles to base amount each run
-        baseMissiles = 3; // Reset base count each run
+        
+        // Only Master mode resets level progression and missiles on death
+        if (gameMode.resetsOnDeath()) {
+            currentLevel = 1;
+            runHighestLevel = 1;
+            maxUnlockedLevel = 1; // Reset level progression on death
+            missiles = 2; // Reset missiles to base amount each run
+            baseMissiles = 2; // Reset base count each run
+        }
         
         // Keep: totalMoney, upgrades, active items, unlocked items, contracts, defeated bosses tracking
     }
@@ -339,9 +349,9 @@ public class GameData {
     
     // Missiles (lives) methods
     public int getMissiles() { return missiles; }
-    public void setMissiles(int count) { this.missiles = Math.max(0, Math.min(6, count)); }
+    public void setMissiles(int count) { this.missiles = Math.max(0, Math.min(5, count)); }
     public void addMissile() { 
-        if (this.missiles < 6) {
+        if (this.missiles < 5) {
             this.missiles++;
         }
     }
@@ -355,7 +365,7 @@ public class GameData {
     
     // Base missiles tracking (for distinguishing base vs purchased)
     public int getBaseMissiles() { return baseMissiles; }
-    public void setBaseMissiles(int count) { this.baseMissiles = Math.max(0, Math.min(6, count)); }
+    public void setBaseMissiles(int count) { this.baseMissiles = Math.max(0, Math.min(5, count)); }
     
     /**
      * Returns true if the missile just used was an "extra" (purchased) missile.
@@ -469,6 +479,14 @@ public class GameData {
     // Gameplay settings methods
     public int getCountdownMode() { return countdownMode; }
     public void setCountdownMode(int mode) { this.countdownMode = Math.max(0, Math.min(2, mode)); }
+    
+    // Game mode methods
+    public GameMode getGameMode() { return gameMode; }
+    public void setGameMode(GameMode mode) { this.gameMode = (mode != null) ? mode : GameMode.MASTER; }
+    
+    // Creation timestamp methods
+    public long getCreationTimestamp() { return creationTimestamp; }
+    public void setCreationTimestamp(long timestamp) { this.creationTimestamp = timestamp; }
     
     // Seen attack introductions methods
     public java.util.List<String> getSeenAttackIntros() { return seenAttackIntros; }

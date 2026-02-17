@@ -210,10 +210,14 @@ public class Boss {
     private static final double SHOCKWAVE_KNOCKBACK = 12; // Knockback strength
     
     public Boss(double x, double y, int level) {
-        this(x, y, level, null);
+        this(x, y, level, null, GameMode.MASTER);
     }
     
     public Boss(double x, double y, int level, SoundManager soundManager) {
+        this(x, y, level, soundManager, GameMode.MASTER);
+    }
+    
+    public Boss(double x, double y, int level, SoundManager soundManager, GameMode gameMode) {
         this.x = x;
         this.y = y;
         this.soundManager = soundManager;
@@ -258,7 +262,7 @@ public class Boss {
         this.beamAttackInterval = Math.max(300, 480 - level * 10); // Less frequent, more manageable
         
         // Initialize health and phases
-        this.maxHealth = isMegaBoss ? 6 : 4; // Mega bosses have 6 hits, mini bosses have 4 hits
+        this.maxHealth = isMegaBoss ? 5 : 3; // Mega bosses have 5 hits, mini bosses have 3 hits
         this.currentHealth = maxHealth;
         this.currentPhase = 0;
         this.phaseTransitioning = false;
@@ -275,6 +279,15 @@ public class Boss {
             this.assaultPhaseDuration += 15; // +0.25 second assault (easier than normal bosses)
             this.recoveryPhaseDuration -= 15; // -0.25 second recovery (reduced from -30)
             this.assaultSpeedMultiplier = 1.6; // Moderately faster attacks (easier than before)
+        }
+        
+        // Apply game mode scaling (Easy mode makes bosses more forgiving)
+        if (gameMode != null && gameMode != GameMode.MASTER) {
+            this.shootInterval = (int)(this.shootInterval * gameMode.getShootIntervalScale());
+            this.assaultPhaseDuration = (int)(this.assaultPhaseDuration * gameMode.getAssaultDurationScale());
+            this.recoveryPhaseDuration = (int)(this.recoveryPhaseDuration * gameMode.getRecoveryDurationScale());
+            this.beamAttackTimer = (int)(this.beamAttackTimer * gameMode.getBeamTimerScale());
+            this.beamAttackInterval = (int)(this.beamAttackInterval * gameMode.getBeamTimerScale());
         }
         
         loadSprites();

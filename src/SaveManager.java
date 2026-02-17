@@ -1,17 +1,16 @@
 import java.io.*;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.*;
 
 /**
  * SaveManager handles saving and loading game data to/from disk.
- * Supports 3 save slots with save, load, delete, and exists operations.
+ * Supports unlimited save slots with save, load, delete, and exists operations.
  */
 public class SaveManager {
     private static final String SAVE_DIRECTORY = "saves";
     private static final String SAVE_FILE_PREFIX = "save_slot_";
     private static final String SAVE_FILE_EXTENSION = ".dat";
-    private static final int MAX_SAVE_SLOTS = 3;
     
     private int currentSaveSlot = -1; // Currently active save slot
     
@@ -126,13 +125,16 @@ public class SaveManager {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(getSaveFilePath(slot)))) {
             SaveData data = (SaveData) ois.readObject();
             return new SaveMetadata(
+                slot,
                 data.saveName,
                 data.saveTimestamp,
+                data.creationTimestamp,
                 data.maxUnlockedLevel,
                 data.totalMoney,
                 data.totalRunsCompleted,
                 data.bestRunLevel,
-                data.totalBossesDefeated
+                data.totalBossesDefeated,
+                data.gameMode
             );
         } catch (java.io.InvalidClassException e) {
             System.err.println("Save in slot " + slot + " is incompatible (outdated format). Deleting it.");
@@ -145,6 +147,73 @@ public class SaveManager {
     }
     
     /**
+     * Get all existing save slots by scanning the saves directory.
+     * Returns sorted list of slot numbers.
+     */
+    public List<Integer> getAllSaveSlots() {
+        List<Integer> slots = new ArrayList<>();
+        File dir = new File(SAVE_DIRECTORY);
+        if (!dir.exists() || !dir.isDirectory()) return slots;
+        
+        File[] files = dir.listFiles((d, name) -> 
+            name.startsWith(SAVE_FILE_PREFIX) && name.endsWith(SAVE_FILE_EXTENSION));
+        
+        if (files != null) {
+            for (File f : files) {
+                try {
+                    String numPart = f.getName()
+                        .replace(SAVE_FILE_PREFIX, "")
+                        .replace(SAVE_FILE_EXTENSION, "");
+                    int slot = Integer.parseInt(numPart);
+                    if (slot >= 1) {
+                        slots.add(slot);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        
+        Collections.sort(slots);
+        return slots;
+    }
+    
+    /**
+     * Get metadata for all existing saves, sorted by slot number.
+     */
+    public List<SaveMetadata> getAllSaveMetadata() {
+        List<SaveMetadata> result = new ArrayList<>();
+        for (int slot : getAllSaveSlots()) {
+            SaveMetadata meta = getSaveMetadata(slot);
+            if (meta != null) {
+                result.add(meta);
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Find the next available (unused) slot number.
+     */
+    public int getNextAvailableSlot() {
+        List<Integer> existing = getAllSaveSlots();
+        int next = 1;
+        for (int slot : existing) {
+            if (slot == next) {
+                next++;
+            } else {
+                break; // Found a gap
+            }
+        }
+        return next;
+    }
+    
+    /**
+     * Get the number of existing saves.
+     */
+    public int getSaveCount() {
+        return getAllSaveSlots().size();
+    }
+    
+    /**
      * Get the path to a save file
      */
     private String getSaveFilePath(int slot) {
@@ -152,10 +221,10 @@ public class SaveManager {
     }
     
     /**
-     * Check if a slot number is valid
+     * Check if a slot number is valid (any positive integer)
      */
     private boolean isValidSlot(int slot) {
-        return slot >= 1 && slot <= MAX_SAVE_SLOTS;
+        return slot >= 1;
     }
     
     /**
@@ -175,13 +244,6 @@ public class SaveManager {
     }
     
     /**
-     * Get the maximum number of save slots
-     */
-    public int getMaxSaveSlots() {
-        return MAX_SAVE_SLOTS;
-    }
-    
-    /**
      * Auto-save to the current slot
      */
     public boolean autoSave(SaveData data) {
@@ -196,40 +258,47 @@ public class SaveManager {
      * Check if any save files exist
      */
     public boolean hasSaveFiles() {
-        for (int i = 1; i <= MAX_SAVE_SLOTS; i++) {
-            if (saveExists(i)) {
-                return true;
-            }
-        }
-        return false;
+        return !getAllSaveSlots().isEmpty();
     }
     
     /**
      * Metadata class for save file information
      */
     public static class SaveMetadata {
+        public final int slotNumber;
         public final String saveName;
         public final long timestamp;
+        public final long creationTimestamp;
         public final int maxLevel;
         public final int totalMoney;
         public final int totalRuns;
         public final int bestRunLevel;
         public final int totalBosses;
+        public final GameMode gameMode;
         
-        public SaveMetadata(String saveName, long timestamp, int maxLevel, 
-                          int totalMoney, int totalRuns, int bestRunLevel, int totalBosses) {
+        public SaveMetadata(int slotNumber, String saveName, long timestamp, long creationTimestamp,
+                          int maxLevel, int totalMoney, int totalRuns, int bestRunLevel, 
+                          int totalBosses, GameMode gameMode) {
+            this.slotNumber = slotNumber;
             this.saveName = saveName;
             this.timestamp = timestamp;
+            this.creationTimestamp = creationTimestamp > 0 ? creationTimestamp : timestamp;
             this.maxLevel = maxLevel;
             this.totalMoney = totalMoney;
             this.totalRuns = totalRuns;
             this.bestRunLevel = bestRunLevel;
             this.totalBosses = totalBosses;
+            this.gameMode = gameMode != null ? gameMode : GameMode.MASTER;
         }
         
         public String getFormattedDate() {
             SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm");
             return sdf.format(new Date(timestamp));
+        }
+        
+        public String getFormattedCreationDate() {
+            SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy");
+            return sdf.format(new Date(creationTimestamp));
         }
         
         public String getSummary() {
