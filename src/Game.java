@@ -227,6 +227,7 @@ public class Game extends JPanel implements Runnable {
     private double savedBossDeathScale;
     private double savedBossDeathRotation;
     private double savedStoppedMovingTimer;
+    private double savedGameTimeSeconds;
     
     // Achievement notification
     private List<Achievement> pendingAchievements;
@@ -274,6 +275,7 @@ public class Game extends JPanel implements Runnable {
     private double bossIntroFlashTimer = 0; // Flash when boss intro appears
     private double countdownFlashTimer = 0; // Flash on each countdown tick
     private double bossHitFlashTimer = 0; // Flash when boss is hit
+    private double deathFlashTimer = 0; // Red vignette on player death
     private int lastCountdownSecond = -1; // Track countdown changes
     
     // Type Purge item effect (chromatic screen flash)
@@ -454,12 +456,18 @@ public class Game extends JPanel implements Runnable {
     private double displayedScore = 0; // Animated score display
     private double displayedMoney = 0; // Animated money display
     
-    // Extra Life / Resurrection system
-    public boolean resurrectionAnimation = false;
-    public double resurrectionTimer = 0;
-    public static final int RESURRECTION_DURATION = 120; // 2 seconds
-    public double resurrectionScale = 0.0;
-    public double resurrectionGlow = 0.0;
+    // Death sequence system (replaces old resurrection)
+    public boolean deathSequenceActive = false;
+    public double deathExplosionX = 0, deathExplosionY = 0;
+    public int deathCameraHoldTimer = 0;
+    public int cameraPanBackTimer = 0;
+    public double cameraPanStartX = 0, cameraPanStartY = 0;
+    public int respawnBlinkTimer = 0;
+    public boolean playerHidden = false;
+    public int missilesUsedThisRun = 0;
+    private static final int DEATH_CAMERA_HOLD_FRAMES = 90;
+    private static final int CAMERA_PAN_BACK_FRAMES = 60;
+    private static final int RESPAWN_BLINK_FRAMES = 180;
     
     // Afterimage trail for player
     private double[] afterimageX = new double[5];
@@ -526,6 +534,7 @@ public class Game extends JPanel implements Runnable {
     private static final double CAMERA_SMOOTHING = 0.03; // Smooth camera follow
     private static final double CAMERA_DEADZONE = 50; // Distance from center before camera moves
     private static final double CAMERA_MAX_OFFSET = 150; // Max pixels camera can move from center
+    private static final double CAMERA_HORIZONTAL_OFFSET = 0; // Horizontal camera offset in pixels
     private boolean introPanActive = false;
     private double introPanTimer = 0;
     private static final int INTRO_PAN_DURATION = 240; // 4 seconds total (2s boss entrance, 2s pan back)
@@ -549,6 +558,7 @@ public class Game extends JPanel implements Runnable {
     public static int gradientQuality = 1; // 0=Low (1 layer), 1=Medium (2 layers), 2=High (3 layers)
     public static int backgroundMode = 1; // 0=Gradient, 1=Parallax Images, 2=Static Image
     public static double cameraZoom = 1.0; // 0.75 to 1.5 - zoom level during gameplay
+    public static boolean enableUIParallax = true; // UI elements shift slightly with camera for depth
     public static int resolutionPreset = 3; // 0=1280x720, 1=1366x768, 2=1600x900, 3=1920x1080, 4=2560x1440, 5=3840x2160
     public static boolean enableVSync = true; // VSync enabled/disabled
     public static int fpsLimit = 1; // 0=30 FPS, 1=60 FPS, 2=120 FPS, 3=144 FPS, 4=Unlimited
@@ -697,6 +707,10 @@ public class Game extends JPanel implements Runnable {
         tookDamageThisBoss = false;
         consecutivePerfectBosses = 0;
         totalGrazesThisRun = 0;
+        missilesUsedThisRun = 0;
+        deathSequenceActive = false;
+        playerHidden = false;
+        respawnBlinkTimer = 0;
         
         // Sync sound settings with soundManager
         soundManager.setMasterVolume(gameData.getMasterVolume());
@@ -1025,7 +1039,7 @@ public class Game extends JPanel implements Runnable {
                         // All upgrades are now in PassiveUpgradeManager (index 1+)
                         int upgradeIndex = selectedStatItem - 1;
                         int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Lives (last item) - it's read-only
+                        // Skip Extra Missiles (last item) - it's read-only
                         if (upgradeIndex < numUpgrades - 1) {
                             PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                             if (upgrade.getActiveLevel() > 0) {
@@ -1050,7 +1064,7 @@ public class Game extends JPanel implements Runnable {
                         // All upgrades are now in PassiveUpgradeManager (index 1+)
                         int upgradeIndex = selectedStatItem - 1;
                         int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Lives (last item) - it's read-only
+                        // Skip Extra Missiles (last item) - it's read-only
                         if (upgradeIndex < numUpgrades - 1) {
                             PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                             // Only allow increasing up to purchased level (not maxLevel)
@@ -1435,7 +1449,7 @@ public class Game extends JPanel implements Runnable {
                     } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && introPanActive) {
                         // Skip intro animation
                         introPanActive = false;
-                        cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                        cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                         cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                         screenShakeIntensity = 8;
                     } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && bossIntroActive) {
@@ -1455,7 +1469,7 @@ public class Game extends JPanel implements Runnable {
                         System.out.println("SPACE pressed - Attempting item activation");
                         // Powerless contract (type 3) disables ALL active items
                         if (riskContractType == 3) {
-                            damageNumbers.add(new DamageNumber("DISABLED!", player.getX(), player.getY() - 30, new Color(150, 150, 150), 20));
+                            if (comboSystem != null) comboSystem.setAnnouncement("DISABLED!", WIDTH / 2.0, HEIGHT / 2.0);
                         } else {
                             eKeyPressed = true;
                             ActiveItem item = gameData.getEquippedItem();
@@ -1611,7 +1625,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
-                    passiveUpgradeManager.resetExtraLivesPrice(); // Reset extra lives price for new run
+                    passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
                     performAutoSave(); // Save progress after death
                     // Force players to go through level select again
                     transitionToState(GameState.LEVEL_SELECT);
@@ -1620,7 +1634,7 @@ public class Game extends JPanel implements Runnable {
                     int survivalReward = gameData.getSurvivalTime() / 60;
                     gameData.addTotalMoney(survivalReward);
                     gameData.startNewRun();
-                    passiveUpgradeManager.resetExtraLivesPrice(); // Reset extra lives price for new run
+                    passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
                     performAutoSave(); // Save progress after death
                     transitionToState(GameState.MENU);
                 }
@@ -2513,7 +2527,7 @@ public class Game extends JPanel implements Runnable {
             if (passiveUpgradeManager != null) {
                 java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
                 
-                // All upgrades except Extra Lives (last one is read-only)
+                // All upgrades except Extra Missiles (last one is read-only)
                 for (int i = 0; i < upgrades.size() - 1; i++) {
                     if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
                         mouseY >= y && mouseY <= y + cardHeight) {
@@ -2543,7 +2557,7 @@ public class Game extends JPanel implements Runnable {
                     currentIndex++;
                 }
                 
-                // Extra Lives card (read-only, just select it)
+                // Extra Missiles card (read-only, just select it)
                 y += 50; // section header offset
                 if (upgrades.size() > 0 && mouseX >= itemX && mouseX <= itemX + cardWidth &&
                     mouseY >= y && mouseY <= y + cardHeight) {
@@ -2970,79 +2984,182 @@ public class Game extends JPanel implements Runnable {
         return 0;
     }
     
-    // Handle player death - check for extra life first
+    // Handle player death - check for missiles first
     private void handlePlayerDeath() {
         // In debug showcase mode, player is invincible
         if (debugShowcaseMode) {
             return; // Ignore death in showcase mode
         }
         
-        // Check if player has extra lives
-        if (gameData.useExtraLife()) {
-            // Track lives used stat
-            gameData.getCurrentLevelStats().incrementLivesUsed();
+        // No missiles left - immediate game over (shouldn't normally reach here)
+        if (gameData.getMissiles() <= 0) {
+            soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+            soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
+            soundManager.stopMusic();
+            screenShakeIntensity = 10;
+            tookDamageThisBoss = true;
+            hasSavedGame = false;
+            gameState = GameState.GAME_OVER;
+            performAutoSave();
+            return;
+        }
+        
+        // Determine if the missile being consumed is an extra (purchased) one
+        boolean wasExtraMissile = gameData.getMissiles() > gameData.getBaseMissiles();
+        
+        // Consume one missile
+        gameData.useMissile();
+        
+        // Track missiles used stat
+        gameData.getCurrentLevelStats().incrementMissilesUsed();
+        missilesUsedThisRun++;
+        
+        // Record death position for camera hold
+        deathExplosionX = player.getX();
+        deathExplosionY = player.getY();
+        
+        // Create massive death explosion (plays for ALL deaths including final)
+        if (enableParticles) {
+            // DEBRIS fragments - spinning missile body fragments (40 pieces)
+            for (int i = 0; i < 40; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 1.5 + Math.random() * 5.0;
+                Color debrisColor = Math.random() < 0.5 
+                    ? METAL_DEBRIS   // Dark metal
+                    : PLAYER_DEATH_RED; // Red body
+                addParticle(
+                    deathExplosionX, deathExplosionY,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    debrisColor, 80, 6 + Math.random() * 10,
+                    Particle.ParticleType.DEBRIS
+                );
+            }
             
-            // Trigger resurrection animation
-            resurrectionAnimation = true;
-            resurrectionTimer = RESURRECTION_DURATION;
-            resurrectionScale = 0.0;
-            resurrectionGlow = 1.0;
+            // EXHAUST particles - fireball bloom (55 pieces)
+            for (int i = 0; i < 55; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 2 + Math.random() * 8;
+                Color fireColor;
+                double r = Math.random();
+                if (r < 0.25) fireColor = new Color(255, 255, 230); // White-hot core
+                else if (r < 0.5) fireColor = new Color(255, 220, 80); // Bright yellow
+                else if (r < 0.75) fireColor = new Color(255, 150, 40); // Orange
+                else fireColor = new Color(255, 80, 20); // Deep orange-red
+                addParticle(
+                    deathExplosionX, deathExplosionY,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    fireColor, 55, 6 + Math.random() * 4,
+                    Particle.ParticleType.EXHAUST
+                );
+            }
             
-            // Clear bullets and beam attacks to give player a chance
-            bullets.clear();
-            beamAttacks.clear();
+            // EXPLOSION rings - 7 expanding rings (white-hot center to deep red)
+            for (int i = 0; i < 7; i++) {
+                addParticle(
+                    deathExplosionX, deathExplosionY, 0, 0,
+                    new Color(255, Math.max(0, 250 - i * 40), Math.max(0, 140 - i * 20), Math.max(60, 250 - i * 30)),
+                    40 + i * 8, 25 + i * 30,
+                    Particle.ParticleType.EXPLOSION
+                );
+            }
             
-            // Teleport player to spawn point
-            player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
-            player.resetVelocity();
+            // SPARK streaks - fast radiating sparks (40 pieces)
+            for (int i = 0; i < 40; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 6 + Math.random() * 10;
+                Color sparkColor;
+                double r = Math.random();
+                if (r < 0.4) sparkColor = new Color(255, 255, 210); // White-yellow
+                else if (r < 0.7) sparkColor = new Color(255, 200, 100); // Gold
+                else sparkColor = new Color(255, 130, 50); // Orange
+                addParticle(
+                    deathExplosionX, deathExplosionY,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    sparkColor, 22, 2 + Math.random() * 3,
+                    Particle.ParticleType.SPARK
+                );
+            }
             
-            // Give boss 5 seconds of immunity after player resurrection
+            // SMOKE particles - lingering dark smoke (15 pieces)
+            for (int i = 0; i < 15; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 0.3 + Math.random() * 2.0;
+                int gray = 80 + (int)(Math.random() * 50);
+                addParticle(
+                    deathExplosionX, deathExplosionY,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                    new Color(gray, gray, gray + 15, 210), 
+                    75, 14 + Math.random() * 8,
+                    Particle.ParticleType.SMOKE
+                );
+            }
+            
+            // EMBERS - slow drifting fire particles for lingering effect (20 pieces)
+            for (int i = 0; i < 20; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 0.5 + Math.random() * 1.5;
+                Color emberColor = Math.random() < 0.5
+                    ? new Color(255, 160, 40, 200)   // Orange ember
+                    : new Color(255, 100, 20, 180);   // Red ember
+                addParticle(
+                    deathExplosionX + (Math.random() - 0.5) * 30,
+                    deathExplosionY + (Math.random() - 0.5) * 30,
+                    Math.cos(angle) * speed, Math.sin(angle) * speed - 0.5,
+                    emberColor, 90, 3 + Math.random() * 3,
+                    Particle.ParticleType.EXHAUST
+                );
+            }
+        }
+        
+        // Play explosion sounds
+        soundManager.playSound(SoundManager.Sound.PLAYER_DEATH, 0.7f);
+        soundManager.playSound(SoundManager.Sound.EXPL_MEDIUM_1, 0.9f);
+        
+        // Enhanced screen effects (always play, even on final death)
+        screenShakeIntensity = 30;
+        slowMotionFactor = 0.10;
+        slowMotionTimer = 60;
+        screenFlashTimer = 14; // White flash
+        deathFlashTimer = 28;  // Red vignette
+        
+        // Check if player still has missiles remaining
+        if (gameData.getMissiles() > 0) {
+            // Extra missiles clear all bullets; base missiles do NOT
+            if (wasExtraMissile) {
+                bullets.clear();
+                beamAttacks.clear();
+            }
+            
+            // Give boss 5 seconds of immunity
             invulnerabilityTimer = 300;
             bossVulnerable = false;
             
-            // Create resurrection particles
-            if (enableParticles) {
-                for (int i = 0; i < 40; i++) {
-                    double angle = Math.random() * TWO_PI;
-                    double speed = 1 + Math.random() * 4;
-                    addParticle(
-                        player.getX(), player.getY(),
-                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        new Color(255, 215, 0, 200), // Gold particles
-                        60, 8,
-                        Particle.ParticleType.SPARK
-                    );
+            // Start death sequence
+            deathSequenceActive = true;
+            deathCameraHoldTimer = DEATH_CAMERA_HOLD_FRAMES;
+            cameraPanBackTimer = 0;
+            playerHidden = true;
+            
+            // Show missile used announcement with different text/color for base vs extra
+            if (comboSystem != null) {
+                if (gameData.getMissiles() == 1) {
+                    comboSystem.setAnnouncement("LAST MISSILE!", WIDTH / 2.0, HEIGHT / 2.0);
+                } else if (wasExtraMissile) {
+                    comboSystem.setAnnouncement("EXTRA MISSILE!", WIDTH / 2.0, HEIGHT / 2.0);
+                } else {
+                    comboSystem.setAnnouncement("MISSILE USED!", WIDTH / 2.0, HEIGHT / 2.0);
                 }
             }
-            
-            // Play resurrection sound
-            soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCK);
-            soundManager.playSound(SoundManager.Sound.UI_POPUP_OPEN);
-            
-            // Grant temporary invincibility
-            playerInvincible = true;
-            respawnInvincibilityTimer = 180; // 3 seconds of invincibility
-            
-            // Track spawn position for radius check
-            spawnProtectionX = player.getX();
-            spawnProtectionY = player.getY();
-            
-            // Screen effects
-            screenShakeIntensity = 15;
-            slowMotionFactor = 0.2;
-            slowMotionTimer = 30;
             
             // Don't end the game - continue playing
             return;
         }
         
-        // No extra lives - normal game over
-        soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
+        // That was the last missile - game over
         soundManager.playSound(SoundManager.Sound.GAME_OVER, 0.6f);
         soundManager.stopMusic();
-        screenShakeIntensity = 10;
         tookDamageThisBoss = true;
-        hasSavedGame = false; // Clear saved game on game over
+        hasSavedGame = false;
         gameState = GameState.GAME_OVER;
         
         // Auto-save on game over
@@ -3075,7 +3192,8 @@ public class Game extends JPanel implements Runnable {
         savedResumeState.shieldActive = shieldActive;
         savedResumeState.shieldHits = shieldHits;
         savedResumeState.comboTimer = comboTimer;
-        savedResumeState.extraLives = gameData.getExtraLives();
+        savedResumeState.missiles = gameData.getMissiles();
+        savedResumeState.baseMissiles = gameData.getBaseMissiles();
         savedResumeState.riskContractType = riskContractType;
         savedResumeState.riskContractActive = riskContractActive;
         savedResumeState.riskContractMultiplier = riskContractMultiplier;
@@ -3118,6 +3236,8 @@ public class Game extends JPanel implements Runnable {
         savedBossDeathScale = bossDeathScale;
         savedBossDeathRotation = bossDeathRotation;
         savedStoppedMovingTimer = stoppedMovingTimer;
+        savedGameTimeSeconds = gameTimeSeconds;
+        savedResumeState.gameTimeSeconds = gameTimeSeconds;
         
         // Persist the resume state to disk
         performAutoSave();
@@ -3193,6 +3313,10 @@ public class Game extends JPanel implements Runnable {
         bossDeathRotation = savedBossDeathRotation;
         stoppedMovingTimer = savedStoppedMovingTimer;
         
+        // Restore game timer by adjusting gameStartTime so wall-clock math continues correctly
+        gameTimeSeconds = savedGameTimeSeconds;
+        gameStartTime = System.currentTimeMillis() - (long)(gameTimeSeconds * 1000);
+        
         // Clear saved game after restoring
         hasSavedGame = false;
         
@@ -3219,7 +3343,8 @@ public class Game extends JPanel implements Runnable {
         gameData.setSurvivalTime(rs.survivalTime);
         gameData.setScore(rs.score);
         gameData.setRunMoney(rs.runMoney);
-        gameData.setExtraLives(rs.extraLives);
+        gameData.setMissiles(rs.missiles);
+        gameData.setBaseMissiles(rs.baseMissiles);
         
         // Create new player at saved position
         player = new Player(rs.playerX, rs.playerY, gameData.getActiveSpeedLevel(), keyBindManager, controllerManager);
@@ -3254,6 +3379,10 @@ public class Game extends JPanel implements Runnable {
         riskContractType = rs.riskContractType;
         riskContractActive = rs.riskContractActive;
         riskContractMultiplier = rs.riskContractMultiplier;
+        
+        // Restore game timer
+        gameTimeSeconds = rs.gameTimeSeconds;
+        gameStartTime = System.currentTimeMillis() - (long)(gameTimeSeconds * 1000);
         
         // Reset non-restored state
         bossIntroActive = false;
@@ -3847,6 +3976,19 @@ public class Game extends JPanel implements Runnable {
         unpauseCountdownTimer = 0;
         tookDamageThisBoss = false;
         totalGrazesThisRun = 0;
+        deathSequenceActive = false;
+        playerHidden = false;
+        respawnBlinkTimer = 0;
+        
+        // Ensure missiles are at least the base count (fixes old saves with incorrect values)
+        if (gameData.getMissiles() < gameData.getBaseMissiles()) {
+            gameData.setMissiles(gameData.getBaseMissiles());
+        }
+        if (gameData.getBaseMissiles() < 3) {
+            gameData.setBaseMissiles(3);
+            gameData.setMissiles(Math.max(gameData.getMissiles(), 3));
+        }
+        
         comboSystem.resetCombo();
         
         // Start boss intro cinematic — only on first encounter with each boss
@@ -3876,7 +4018,7 @@ public class Game extends JPanel implements Runnable {
         introPanActive = true;
         introPanTimer = 0;
         bossEntranceY = -200; // Boss will start above screen
-        cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+        cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
         cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
         
         screenShakeIntensity = 0;
@@ -4072,6 +4214,8 @@ public class Game extends JPanel implements Runnable {
         // Handle hit freeze frames (pause game briefly on boss damage)
         if (hitFreezeFrames > 0) {
             hitFreezeFrames -= deltaTime;
+            // Still tick announcement timer during freeze so text animates
+            if (comboSystem != null) comboSystem.tickAnnouncement(deltaTime);
             return; // Skip update during freeze
         }
         
@@ -4523,16 +4667,66 @@ public class Game extends JPanel implements Runnable {
             // Circles are permanent - never deactivate based on timer
         }
         
-        // Update resurrection animation
-        if (resurrectionAnimation) {
-            resurrectionTimer -= deltaTime;
-            // Animate scale from 0 to 1
-            double progress = 1.0 - (resurrectionTimer / (double)RESURRECTION_DURATION);
-            resurrectionScale = Math.min(1.0, progress * 2.0); // Scale up in first half
-            resurrectionGlow = Math.max(0.0, 1.0 - progress); // Glow fades out
-            
-            if (resurrectionTimer <= 0) {
-                resurrectionAnimation = false;
+        // Update death sequence state machine
+        if (deathSequenceActive) {
+            if (deathCameraHoldTimer > 0) {
+                // Phase 1: Hold camera at death position
+                deathCameraHoldTimer -= deltaTime;
+                // Lock camera on death position
+                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                double baseCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                double deathOffsetX = deathExplosionX - WORLD_WIDTH / 2.0;
+                double deathOffsetY = deathExplosionY - WORLD_HEIGHT / 2.0;
+                cameraX = baseCameraX + Math.max(-CAMERA_MAX_OFFSET, Math.min((WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_MAX_OFFSET, deathOffsetX));
+                cameraY = baseCameraY + Math.max(-CAMERA_MAX_OFFSET, Math.min((WORLD_HEIGHT - HEIGHT) / 2.0 + CAMERA_MAX_OFFSET, deathOffsetY));
+                
+                if (deathCameraHoldTimer <= 0) {
+                    // Start pan-back phase
+                    cameraPanBackTimer = CAMERA_PAN_BACK_FRAMES;
+                    cameraPanStartX = cameraX;
+                    cameraPanStartY = cameraY;
+                }
+            } else if (cameraPanBackTimer > 0) {
+                // Phase 2: Pan camera back to spawn point
+                cameraPanBackTimer -= deltaTime;
+                double progress = 1.0 - (cameraPanBackTimer / (double)CAMERA_PAN_BACK_FRAMES);
+                progress = Math.max(0, Math.min(1, progress));
+                // Smooth easing
+                double ease = progress * progress * (3 - 2 * progress);
+                double spawnCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                double spawnCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                // Offset for spawn point
+                double spawnOffsetY = (WORLD_HEIGHT - 200) - WORLD_HEIGHT / 2.0;
+                if (Math.abs(spawnOffsetY) > CAMERA_DEADZONE) {
+                    spawnCameraY += spawnOffsetY - Math.signum(spawnOffsetY) * CAMERA_DEADZONE;
+                }
+                cameraX = cameraPanStartX + (spawnCameraX - cameraPanStartX) * ease;
+                cameraY = cameraPanStartY + (spawnCameraY - cameraPanStartY) * ease;
+                
+                if (cameraPanBackTimer <= 0) {
+                    // Phase 3: Respawn player
+                    playerHidden = false;
+                    deathSequenceActive = false;
+                    player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                    player.resetVelocity();
+                    
+                    // Grant temporary invincibility
+                    playerInvincible = true;
+                    respawnInvincibilityTimer = RESPAWN_BLINK_FRAMES; // 3 seconds
+                    respawnBlinkTimer = RESPAWN_BLINK_FRAMES;
+                    
+                    // Track spawn position for radius check
+                    spawnProtectionX = player.getX();
+                    spawnProtectionY = player.getY();
+                }
+            }
+        }
+        
+        // Update respawn blink timer
+        if (respawnBlinkTimer > 0) {
+            respawnBlinkTimer -= deltaTime;
+            if (respawnBlinkTimer <= 0) {
+                respawnBlinkTimer = 0;
             }
         }
         
@@ -4653,6 +4847,9 @@ public class Game extends JPanel implements Runnable {
         if (bossHitFlashTimer > 0) {
             bossHitFlashTimer -= deltaTime;
         }
+        if (deathFlashTimer > 0) {
+            deathFlashTimer -= deltaTime;
+        }
         if (typePurgeFlashTimer > 0) {
             typePurgeFlashTimer -= deltaTime;
         }
@@ -4730,22 +4927,9 @@ public class Game extends JPanel implements Runnable {
                             tookDamageThisBoss = true;
                             
                             // Show death message
-                            damageNumbers.add(new DamageNumber("KEEP MOVING!", player.getX(), player.getY() - 30, 
-                                new Color(191, 97, 106), 28));
+                            if (comboSystem != null) comboSystem.setAnnouncement("KEEP MOVING!", WIDTH / 2.0, HEIGHT / 2.0);
                             
-                            // Create death particles
-                            if (enableParticles) {
-                                for (int i = 0; i < 20; i++) {
-                                    double angle = Math.random() * Math.PI * 2;
-                                    double speed = 2 + Math.random() * 3;
-                                    addParticle(
-                                        player.getX(), player.getY(),
-                                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                        new Color(191, 97, 106), 40, 6,
-                                        Particle.ParticleType.SPARK
-                                    );
-                                }
-                            }
+                            // Create missile destruction particles\n                            if (enableParticles) {\n                                for (int i = 0; i < 15; i++) {\n                                    double angle = Math.random() * Math.PI * 2;\n                                    double speed = 1 + Math.random() * 3;\n                                    Color debrisColor = Math.random() < 0.5 ? METAL_DEBRIS : PLAYER_DEATH_RED;\n                                    addParticle(\n                                        player.getX(), player.getY(),\n                                        Math.cos(angle) * speed, Math.sin(angle) * speed,\n                                        debrisColor, 60, 8 + Math.random() * 6,\n                                        Particle.ParticleType.DEBRIS\n                                    );\n                                }\n                                for (int i = 0; i < 20; i++) {\n                                    double angle = Math.random() * Math.PI * 2;\n                                    double speed = 3 + Math.random() * 5;\n                                    Color fireColor;\n                                    double r = Math.random();\n                                    if (r < 0.3) fireColor = new Color(255, 255, 220);\n                                    else if (r < 0.6) fireColor = new Color(255, 200, 50);\n                                    else fireColor = new Color(255, 120, 30);\n                                    addParticle(\n                                        player.getX(), player.getY(),\n                                        Math.cos(angle) * speed, Math.sin(angle) * speed,\n                                        fireColor, 40, 6,\n                                        Particle.ParticleType.EXHAUST\n                                    );\n                                }\n                            }
                             
                             player = null; // Kill player
                             gameState = GameState.GAME_OVER;
@@ -4802,7 +4986,7 @@ public class Game extends JPanel implements Runnable {
                     // Camera follows boss down slightly
                     double baseOffY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                     double targetY = bossEntranceY * 0.3;
-                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                     cameraY = baseOffY + targetY;
                     
                 } else if (introPanTimer < INTRO_PAN_DURATION) {
@@ -4868,13 +5052,13 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     introPanActive = false;
-                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                     cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                 }
-            } else if (player != null) {
+            } else if (player != null && !deathSequenceActive) {
                 // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
                 // Base offset centers the world in the viewport
-                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                 double baseCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                 double targetCameraX = baseCameraX;
                 double targetCameraY = baseCameraY;
@@ -4891,10 +5075,10 @@ public class Game extends JPanel implements Runnable {
                     targetCameraY += offsetY - Math.signum(offsetY) * CAMERA_DEADZONE;
                 }
                 
-                // Clamp target to keep world edges visible
-                double maxOffsetX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_MAX_OFFSET;
+                // Clamp target to keep world edges visible (left offset by 160 so gradient edge is fully reachable, right offset by 180)
+                double maxOffsetX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET + CAMERA_MAX_OFFSET + 180;
                 double maxOffsetY = (WORLD_HEIGHT - HEIGHT) / 2.0 + CAMERA_MAX_OFFSET;
-                targetCameraX = Math.max(-CAMERA_MAX_OFFSET, Math.min(maxOffsetX, targetCameraX));
+                targetCameraX = Math.max(-(CAMERA_MAX_OFFSET + 160) + CAMERA_HORIZONTAL_OFFSET, Math.min(maxOffsetX, targetCameraX));
                 targetCameraY = Math.max(-CAMERA_MAX_OFFSET, Math.min(maxOffsetY, targetCameraY));
                 
                 // Smoothly interpolate camera position
@@ -5288,7 +5472,7 @@ public class Game extends JPanel implements Runnable {
         
         // Check if player touches boss invulnerability shield (instant death)
         if (currentBoss != null && player != null && !bossVulnerable && !bossDeathAnimation 
-                && invulnerabilityTimer > 0 && !playerInvincible && !resurrectionAnimation && !debugShowcaseMode) {
+                && invulnerabilityTimer > 0 && !playerInvincible && !deathSequenceActive && !debugShowcaseMode) {
             double sdx = player.getX() - currentBoss.getX();
             double sdy = player.getY() - currentBoss.getY();
             double distToShield = Math.sqrt(sdx * sdx + sdy * sdy);
@@ -5305,7 +5489,7 @@ public class Game extends JPanel implements Runnable {
         
         // Check if player hit boss (only vulnerable during special window)
         // In showcase mode, boss cannot be damaged
-        if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation && !debugShowcaseMode) {
+        if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation && !debugShowcaseMode && !deathSequenceActive) {
             if (bossVulnerable) {
                 // Trigger wobble effect immediately on hit
                 currentBoss.triggerWobble();
@@ -5322,10 +5506,11 @@ public class Game extends JPanel implements Runnable {
                         currentBoss.takeDamage(true); // Hit by player missile
                     }
                     
-                    // Show critical hit message
-                    damageNumbers.add(new DamageNumber("CRITICAL HIT!", 
-                        currentBoss.getX(), currentBoss.getY() - 60, 
-                        new Color(255, 215, 0), 48));
+                    // Show critical hit message using combo announcement system
+                    if (comboSystem != null) {
+                        comboSystem.setAnnouncement("CRITICAL HIT!", 
+                            WIDTH / 2.0, HEIGHT / 2.0);
+                    }
                 } else {
                     // Deal normal damage to boss using new health system
                     currentBoss.takeDamage(true); // Hit by player missile
@@ -5333,16 +5518,19 @@ public class Game extends JPanel implements Runnable {
                 
                 int remainingHealth = currentBoss.getCurrentHealth();
                 
-                // Show enhanced damage number with better styling
-                String hitMessage = remainingHealth > 0 ? 
-                    "BOSS HP: " + remainingHealth : "BOSS DEFEATED!";
-                Color hitColor = remainingHealth > 0 ? 
-                    new Color(255, 80, 80) : new Color(255, 215, 0);
-                int fontSize = remainingHealth > 0 ? 42 : 56;
-                
-                damageNumbers.add(new DamageNumber(hitMessage, 
-                    currentBoss.getX(), currentBoss.getY() - 60, 
-                    hitColor, fontSize));
+                // Show popup text
+                if (remainingHealth > 0) {
+                    // Small damage number for boss HP
+                    damageNumbers.add(new DamageNumber("BOSS HP: " + remainingHealth, 
+                        currentBoss.getX(), currentBoss.getY() - 60, 
+                        new Color(255, 80, 80), 42));
+                } else {
+                    // Big dramatic announcement for boss defeated
+                    if (comboSystem != null) {
+                        comboSystem.setAnnouncement("BOSS DEFEATED!", 
+                            WIDTH / 2.0, HEIGHT / 2.0);
+                    }
+                }
                 
                 // Trigger flash effect and sound
                 bossHitFlashTimer = remainingHealth > 0 ? 18 : 30;
@@ -5524,6 +5712,11 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     
+                    // Check clutch survival achievement (used 5+ missiles and survived on last one)
+                    if (missilesUsedThisRun >= 5 && gameData.getMissiles() == 1) {
+                        achievementManager.updateProgress(Achievement.AchievementType.CLUTCH_SURVIVAL, missilesUsedThisRun);
+                    }
+                    
                     // Start boss death animation
                     soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
                     bossDeathAnimation = true;
@@ -5626,6 +5819,8 @@ public class Game extends JPanel implements Runnable {
         // Update boss death animation
         if (bossDeathAnimation) {
             deathAnimationTimer -= deltaTime;
+            // Tick announcement timer during death animation so CRITICAL HIT! text animates
+            if (comboSystem != null) comboSystem.tickAnnouncement(deltaTime);
             
             // Calculate animation progress (0 to 1)
             double progress = 1.0 - (deathAnimationTimer / (double)DEATH_ANIMATION_DURATION);
@@ -5907,25 +6102,13 @@ public class Game extends JPanel implements Runnable {
                 soundManager.playSound(SoundManager.Sound.EXPL_MEDIUM_1, 0.6f);
             }
             
-            if (player != null && beam.collidesWith(player)) {
+            if (player != null && !deathSequenceActive && beam.collidesWith(player)) {
                 // Check if player is invincible from respawn
                 if (respawnInvincibilityTimer > 0) {
                     continue; // Skip damage during invincibility
                 }
                 
-                // Hit by beam - game over
-                
-                // Create death particles
-                for (int j = 0; j < 20; j++) {
-                    double angle = Math.random() * TWO_PI;
-                    double speed = 1 + Math.random() * 3;
-                    addParticle(
-                        player.getX(), player.getY(),
-                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        PLAYER_DEATH_RED, 30, 6,
-                        Particle.ParticleType.SPARK
-                    );
-                }
+                // Hit by beam - handlePlayerDeath creates explosion particles
                 handlePlayerDeath();
                 return;
             }
@@ -6058,7 +6241,7 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Check collisions using spatial grid (much faster for many bullets!)
-        if (player != null && !bossDeathAnimation) {
+        if (player != null && !bossDeathAnimation && !deathSequenceActive) {
             List<Bullet> nearbyBullets = getNearbyBullets(player.getX(), player.getY());
             for (Bullet bullet : nearbyBullets) {
                 if (bullet.isActive() && bullet.collidesWith(player)) {
@@ -6110,21 +6293,7 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     
-                    // No dodge - game over
-                    
-                    // Create death particles
-                    if (enableParticles) {
-                        for (int j = 0; j < 20; j++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 1 + Math.random() * 3;
-                            addParticle(
-                                player.getX(), player.getY(),
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                PLAYER_DEATH_RED, 30, 6,
-                                Particle.ParticleType.SPARK
-                            );
-                        }
-                    }
+                    // No dodge - handlePlayerDeath creates explosion particles
                     // Track damage taken
                     gameData.getCurrentLevelStats().incrementDamageTaken();
                     handlePlayerDeath();
@@ -6176,8 +6345,8 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = Math.max(screenShakeIntensity, 5);
                         comboPulseScale = 1.6;
                         
-                        // Spawn damage number showing "PERFECT!"
-                        damageNumbers.add(new DamageNumber("PERFECT!", player.getX(), player.getY() - 30, CRITICAL_HIT_GOLD, 24));
+                        // Show PERFECT! announcement
+                        if (comboSystem != null) comboSystem.setAnnouncement("PERFECT!", WIDTH / 2.0, HEIGHT / 2.0);
                         
                     } else if (isCloseCall) {
                         // CLOSE CALL - medium reward
@@ -6565,7 +6734,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, resurrectionAnimation, resurrectionTimer, resurrectionScale, resurrectionGlow, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -6769,7 +6938,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        // Category 0: Graphics (16 settings)
+        // Category 0: Graphics (17 settings)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
         // Category 3: Debug (2 settings)
@@ -6794,6 +6963,7 @@ public class Game extends JPanel implements Runnable {
                 case 13: enableVignette = !enableVignette; break;
                 case 14: enableGrainEffect = !enableGrainEffect; break;
                 case 15: /* Camera Zoom - handled by adjustSetting */ break;
+                case 16: enableUIParallax = !enableUIParallax; break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -6882,6 +7052,9 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 15) { // Camera Zoom
                 double step = 0.05 * direction;
                 cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
+                return true;
+            } else if (settingIndex == 16) { // UI Parallax (toggle)
+                enableUIParallax = !enableUIParallax;
                 return true;
             }
         }
@@ -6976,7 +7149,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 15; // Graphics: 16 items (0-15)
+        if (selectedSettingsCategory == 0) return 16; // Graphics: 17 items (0-16)
         if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
@@ -7013,6 +7186,7 @@ public class Game extends JPanel implements Runnable {
         enableChromaticAberration = true;
         enableVignette = true;
         cameraZoom = 1.0;
+        enableUIParallax = true;
         // Don't reset fullscreen - that's a user preference
         
         // Reset all audio settings to defaults
@@ -7212,7 +7386,7 @@ public class Game extends JPanel implements Runnable {
                     if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
                         if (introPanActive) {
                             introPanActive = false;
-                            cameraX = (WORLD_WIDTH - WIDTH) / 2.0;
+                            cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                             cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                             screenShakeIntensity = 8;
                         } else if (bossIntroActive) {

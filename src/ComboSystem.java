@@ -161,6 +161,23 @@ public class ComboSystem {
     public double getAnnouncementSpawnY() {
         return announcementSpawnY;
     }
+    
+    public void setAnnouncement(String text, double spawnX, double spawnY) {
+        currentAnnouncement = text;
+        announcementTimer = ANNOUNCEMENT_DURATION;
+        announcementSpawnX = spawnX;
+        announcementSpawnY = spawnY;
+    }
+
+    // Tick only the announcement timer (for use during hit freeze / boss death when full update is skipped)
+    public void tickAnnouncement(double deltaTime) {
+        if (announcementTimer > 0) {
+            announcementTimer -= deltaTime;
+            if (announcementTimer <= 0) {
+                currentAnnouncement = null;
+            }
+        }
+    }
 
     public int getCloseCallCount() {
         return closeCallCount;

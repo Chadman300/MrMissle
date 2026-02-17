@@ -40,7 +40,7 @@ public class ShopManager {
             int upgradeIndex = itemIndex - 1;
             if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                // Extra Lives has fixed cost (baseCost) - doesn't scale with level
+                // Extra Missiles has fixed cost (baseCost) - doesn't scale with level
                 if (upgrade.getId().equals("health")) {
                     return upgrade.getBaseCost();
                 }
@@ -88,10 +88,11 @@ public class ShopManager {
                 PassiveUpgrade upgrade = upgrades.get(i);
                 String maxInfo;
                 
-                // Special handling for Extra Lives (last upgrade)
+                // Special handling for Extra Missiles (last upgrade)
                 if (upgrade.getId().equals("health")) {
-                    int currentLives = gameData.getExtraLives();
-                    maxInfo = (currentLives >= 3) ? " (MAXED)" : " (" + currentLives + "/3 lives)";
+                    int extraMissiles = Math.max(0, gameData.getMissiles() - gameData.getBaseMissiles());
+                    int maxExtra = upgrade.getMaxLevel();
+                    maxInfo = (extraMissiles >= maxExtra) ? " (MAXED)" : " (" + extraMissiles + "/" + maxExtra + " extra missiles)";
                 } else {
                     maxInfo = upgrade.isMaxed() ? " (MAXED)" : " (" + upgrade.getCurrentLevel() + "/" + upgrade.getMaxLevel() + ")";
                 }
@@ -113,9 +114,10 @@ public class ShopManager {
             int upgradeIndex = itemIndex - 1;
             if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                // Special handling for Extra Lives - maxed at 3 lives
+                // Special handling for Extra Missiles - maxed at 3 extra missiles
                 if (upgrade.getId().equals("health")) {
-                    return gameData.getExtraLives() >= 3;
+                    int extraMissiles = Math.max(0, gameData.getMissiles() - gameData.getBaseMissiles());
+                    return extraMissiles >= upgrade.getMaxLevel();
                 }
                 return upgrade.isMaxed();
             }

@@ -2,7 +2,7 @@ public class LevelStats {
     private int timeInFrames;
     private int dodges;
     private int bulletsSpawned;
-    private int livesUsed;
+    private int missilesUsed;
     private int damageTaken;
     private int perfectDodges;
     private int nearMisses;
@@ -15,7 +15,7 @@ public class LevelStats {
         this.timeInFrames = 0;
         this.dodges = 0;
         this.bulletsSpawned = 0;
-        this.livesUsed = 0;
+        this.missilesUsed = 0;
         this.damageTaken = 0;
         this.perfectDodges = 0;
         this.nearMisses = 0;
@@ -29,7 +29,7 @@ public class LevelStats {
     public int getTimeInFrames() { return timeInFrames; }
     public int getDodges() { return dodges; }
     public int getBulletsSpawned() { return bulletsSpawned; }
-    public int getLivesUsed() { return livesUsed; }
+    public int getMissilesUsed() { return missilesUsed; }
     public int getDamageTaken() { return damageTaken; }
     public int getPerfectDodges() { return perfectDodges; }
     public int getNearMisses() { return nearMisses; }
@@ -40,7 +40,7 @@ public class LevelStats {
     public void setTimeInFrames(int time) { this.timeInFrames = time; }
     public void setDodges(int dodges) { this.dodges = dodges; }
     public void setBulletsSpawned(int bullets) { this.bulletsSpawned = bullets; }
-    public void setLivesUsed(int lives) { this.livesUsed = lives; }
+    public void setMissilesUsed(int missiles) { this.missilesUsed = missiles; }
     public void setDamageTaken(int damage) { this.damageTaken = damage; }
     public void setPerfectDodges(int perfect) { this.perfectDodges = perfect; }
     public void setNearMisses(int nearMisses) { this.nearMisses = nearMisses; }
@@ -50,7 +50,7 @@ public class LevelStats {
     // Incrementers
     public void incrementDodges() { this.dodges++; }
     public void incrementBulletsSpawned() { this.bulletsSpawned++; }
-    public void incrementLivesUsed() { this.livesUsed++; }
+    public void incrementMissilesUsed() { this.missilesUsed++; }
     public void incrementDamageTaken() { this.damageTaken++; }
     public void incrementPerfectDodges() { this.perfectDodges++; }
     public void incrementNearMisses() { this.nearMisses++; }
@@ -82,7 +82,7 @@ public class LevelStats {
         this.timeInFrames = 0;
         this.dodges = 0;
         this.bulletsSpawned = 0;
-        this.livesUsed = 0;
+        this.missilesUsed = 0;
         this.damageTaken = 0;
         this.perfectDodges = 0;
         this.nearMisses = 0;
@@ -98,7 +98,7 @@ public class LevelStats {
         copy.timeInFrames = this.timeInFrames;
         copy.dodges = this.dodges;
         copy.bulletsSpawned = this.bulletsSpawned;
-        copy.livesUsed = this.livesUsed;
+        copy.missilesUsed = this.missilesUsed;
         copy.damageTaken = this.damageTaken;
         copy.perfectDodges = this.perfectDodges;
         copy.nearMisses = this.nearMisses;
@@ -114,7 +114,7 @@ public class LevelStats {
         this.timeInFrames += other.timeInFrames;
         this.dodges += other.dodges;
         this.bulletsSpawned += other.bulletsSpawned;
-        this.livesUsed += other.livesUsed;
+        this.missilesUsed += other.missilesUsed;
         this.damageTaken += other.damageTaken;
         this.perfectDodges += other.perfectDodges;
         this.nearMisses += other.nearMisses;

@@ -47,8 +47,9 @@ public class GameData {
     private int bestRunLevel;         // Best level ever reached in a single run
     private int totalBossesDefeated;  // Lifetime boss kills
     
-    // Extra lives (resurrection mechanic)
-    private int extraLives;           // Number of extra lives available
+    // Missiles (lives) system
+    private int missiles;             // Number of missiles (lives) available
+    private int baseMissiles;         // Starting missiles for this run (3 base + purchased)
     
     // Level select navigation (separate from currentLevel for viewing)
     private int selectedLevelView;    // Which level is currently selected for viewing in map
@@ -101,8 +102,9 @@ public class GameData {
         bestRunLevel = 1;
         totalBossesDefeated = 0;
         
-        // Extra lives
-        extraLives = 0;
+        // Missiles (lives)
+        missiles = 3;
+        baseMissiles = 3;
         
         // Level select navigation
         selectedLevelView = 1;
@@ -310,6 +312,8 @@ public class GameData {
         currentLevel = 1;
         runHighestLevel = 1;
         maxUnlockedLevel = 1; // Reset level progression on death
+        missiles = 3; // Reset missiles to base amount each run
+        baseMissiles = 3; // Reset base count each run
         
         // Keep: totalMoney, upgrades, active items, unlocked items, contracts, defeated bosses tracking
     }
@@ -333,20 +337,33 @@ public class GameData {
     public int getTotalBossesDefeated() { return totalBossesDefeated; }
     public void setTotalBossesDefeated(int bosses) { this.totalBossesDefeated = bosses; }
     
-    // Extra lives methods
-    public int getExtraLives() { return extraLives; }
-    public void setExtraLives(int lives) { this.extraLives = Math.max(0, Math.min(3, lives)); }
-    public void addExtraLife() { 
-        if (this.extraLives < 3) {
-            this.extraLives++;
+    // Missiles (lives) methods
+    public int getMissiles() { return missiles; }
+    public void setMissiles(int count) { this.missiles = Math.max(0, Math.min(6, count)); }
+    public void addMissile() { 
+        if (this.missiles < 6) {
+            this.missiles++;
         }
     }
-    public boolean useExtraLife() {
-        if (extraLives > 0) {
-            extraLives--;
+    public boolean useMissile() {
+        if (missiles > 0) {
+            missiles--;
             return true;
         }
         return false;
+    }
+    
+    // Base missiles tracking (for distinguishing base vs purchased)
+    public int getBaseMissiles() { return baseMissiles; }
+    public void setBaseMissiles(int count) { this.baseMissiles = Math.max(0, Math.min(6, count)); }
+    
+    /**
+     * Returns true if the missile just used was an "extra" (purchased) missile.
+     * Call AFTER useMissile() - checks if remaining missiles are still >= base count.
+     * If missiles >= baseMissiles, the used one was extra. Otherwise it was a base missile.
+     */
+    public boolean isExtraMissile() {
+        return missiles >= baseMissiles;
     }
     
     // Level select navigation methods

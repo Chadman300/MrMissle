@@ -13,6 +13,10 @@ public class Particle {
     private double progress; // Cached progress (0 to 1)
     private double expansionSize; // Cached expansion size for SMOKE/DODGE
     
+    // Rotation for DEBRIS particles
+    private double rotation;
+    private double rotationSpeed;
+    
     // Cached AlphaComposite instances for performance
     private static final AlphaComposite[] ALPHA_CACHE = new AlphaComposite[101];
     private static final BasicStroke STROKE_3 = new BasicStroke(3f);
@@ -33,7 +37,8 @@ public class Particle {
         DODGE,      // Lucky dodge effect
         SMOKE,      // Soft, expanding smoke puffs
         MONEY_SIGN, // Falling money sign from Pool of Loot
-        EXHAUST     // Rocket exhaust - like SPARK but no gravity
+        EXHAUST,    // Rocket exhaust - like SPARK but no gravity
+        DEBRIS      // Spinning missile fragments with gravity
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, double lifetime, double size, ParticleType type) {
@@ -59,6 +64,13 @@ public class Particle {
         this.maxLifetime = lifetime;
         this.size = size;
         this.type = type;
+        if (type == ParticleType.DEBRIS) {
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotationSpeed = -0.3 + Math.random() * 0.6;
+        } else {
+            this.rotation = 0;
+            this.rotationSpeed = 0;
+        }
     }
     
     public void update(double deltaTime) {
@@ -67,8 +79,13 @@ public class Particle {
         y += vy * deltaTime;
         
         // Apply gravity for certain types
-        if (type == ParticleType.SPARK || type == ParticleType.EXPLOSION) {
+        if (type == ParticleType.SPARK || type == ParticleType.EXPLOSION || type == ParticleType.DEBRIS) {
             vy += 0.2 * deltaTime;
+        }
+        
+        // Update rotation for DEBRIS
+        if (type == ParticleType.DEBRIS) {
+            rotation += rotationSpeed * deltaTime;
         }
         
         // Fade out and slow down (frame-rate independent)
@@ -145,6 +162,26 @@ public class Particle {
                 g.setColor(color);
                 g.setFont(new Font("Arial", Font.BOLD, (int)size));
                 g.drawString("$", (int)x, (int)y);
+                break;
+                
+            case DEBRIS:
+                // Draw a spinning missile fragment (small rotated rectangle)
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setComposite(ALPHA_CACHE[alphaIndex]);
+                g2d.translate(x, y);
+                g2d.rotate(rotation);
+                g2d.setColor(color);
+                int fw = (int)Math.max(2, size * 0.4);
+                int fh = (int)Math.max(4, size);
+                g2d.fillRect(-fw / 2, -fh / 2, fw, fh);
+                // Bright edge highlight
+                g2d.setColor(new Color(
+                    Math.min(255, color.getRed() + 60),
+                    Math.min(255, color.getGreen() + 60),
+                    Math.min(255, color.getBlue() + 60),
+                    color.getAlpha()));
+                g2d.fillRect(-fw / 2, -fh / 2, Math.max(1, fw / 2), fh);
+                g2d.dispose();
                 break;
         }
         

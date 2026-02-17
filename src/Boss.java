@@ -185,7 +185,7 @@ public class Boss {
     // Boss phases
     private int maxHealth;
     private int currentHealth;
-    private int currentPhase; // 0-3 for phases (based on health: 100%, 75%, 50%, 25%)
+    private int currentPhase; // 0-3 for phases (triggers every 2 HP lost, capped at 3)
     private boolean phaseTransitioning;
     private double phaseTransitionTimer;
     private static final int PHASE_TRANSITION_DURATION = 90; // 1.5 seconds
@@ -258,7 +258,7 @@ public class Boss {
         this.beamAttackInterval = Math.max(300, 480 - level * 10); // Less frequent, more manageable
         
         // Initialize health and phases
-        this.maxHealth = isMegaBoss ? 3 : 2; // Mega bosses have 3 hits, mini bosses have 2 hits
+        this.maxHealth = isMegaBoss ? 6 : 4; // Mega bosses have 6 hits, mini bosses have 4 hits
         this.currentHealth = maxHealth;
         this.currentPhase = 0;
         this.phaseTransitioning = false;
@@ -1881,8 +1881,8 @@ public class Boss {
             
             // Wobble is now triggered externally during hit animation, not here
             
-            // Calculate new phase based on health percentage
-            int newPhase = maxHealth - currentHealth;
+            // Calculate new phase based on health lost (every 2 HP lost = 1 phase, capped at 3)
+            int newPhase = Math.min((maxHealth - currentHealth) / 2, 3);
             if (newPhase > currentPhase && currentHealth > 0) {
                 // Enter phase transition
                 currentPhase = newPhase;

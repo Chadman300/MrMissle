@@ -1779,7 +1779,7 @@ public class Renderer {
 
             "  â€¢ Boss hit (non-fatal) = 1.5s respawn delay",
 
-            "  â€¢ Use extra lives for second chances",
+            "  â€¢ Use extra missiles for second chances",
 
             "  â€¢ Lucky Dodge upgrade = revival chance"
 
@@ -1839,7 +1839,7 @@ public class Renderer {
 
             "  â€¢ Flicker effect on successful dodge",
 
-            "  â€¢ Stacks with extra lives",
+            "  â€¢ Stacks with extra missiles",
 
             "",
 
@@ -3003,7 +3003,7 @@ public class Renderer {
 
             
 
-            // Draw all adjustable upgrades (all except Extra Lives which is last)
+            // Draw all adjustable upgrades (all except Extra Missiles which is last)
 
             for (int i = 0; i < upgrades.size() - 1; i++) {
 
@@ -3035,7 +3035,7 @@ public class Renderer {
 
             
 
-            // Read-only section for Extra Lives
+            // Read-only section for Extra Missiles
 
             if (upgrades.size() > 0) {
 
@@ -3045,13 +3045,13 @@ public class Renderer {
 
                 g.setFont(new Font("Arial", Font.BOLD, 20));
 
-                g.drawString("CONSUMABLE LIVES - Buy from shop, used on death", width / 2 - 400, y);
+                g.drawString("CONSUMABLE MISSILES - Buy from shop, used on death", width / 2 - 400, y);
 
                 y += 30;
 
                 
 
-                // Draw Extra Lives (last item, read-only)
+                // Draw Extra Missiles (last item, read-only)
 
                 PassiveUpgrade upgrade = upgrades.get(upgrades.size() - 1);
 
@@ -3061,15 +3061,17 @@ public class Renderer {
 
                 String icon = getPassiveIcon(upgrade.getType());
 
-                int livesOwned = gameData.getExtraLives();  // Current lives count
+                // Show only extra missiles purchased (yellow ones that clear bullets)
 
-                int livesPurchased = upgrade.getCurrentLevel();  // Total purchased
+                int extraMissiles = Math.max(0, gameData.getMissiles() - gameData.getBaseMissiles());
+
+                int maxExtraMissiles = upgrade.getMaxLevel();  // Max purchasable (3)
 
                 
 
                 drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight,
 
-                               icon, upgrade.getName(), livesOwned, livesPurchased, isSelected, true, true);
+                               icon, upgrade.getName(), extraMissiles, maxExtraMissiles, isSelected, true, true);
 
                 
 
@@ -4373,11 +4375,11 @@ public class Renderer {
 
             }
 
-            if (stats.getLivesUsed() > 0) {
+            if (stats.getMissilesUsed() > 0) {
 
                 if (line4.length() > 0) line4.append("  -  ");
 
-                line4.append("Lives: ").append(stats.getLivesUsed());
+                line4.append("Missiles: ").append(stats.getMissilesUsed());
 
             }
 
@@ -5033,7 +5035,7 @@ public class Renderer {
 
     
 
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, double invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, double bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, double achievementNotificationTimer, boolean resurrectionAnimation, double resurrectionTimer, double resurrectionScale, double resurrectionGlow, int riskContractType, boolean riskContractActive, double stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, double invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, double bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, double achievementNotificationTimer, boolean deathSequenceActive, boolean playerHidden, int respawnBlinkTimer, int riskContractType, boolean riskContractActive, double stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles, double deathFlashTimer) {
 
         // Draw background based on mode setting
 
@@ -5717,73 +5719,23 @@ public class Renderer {
 
         
 
-        // Draw player (only if not in death animation, and not during boss intro cinematic)
+        // Draw player (only if not in death animation, not during boss intro cinematic, and not hidden during death sequence)
 
-        if (player != null && !bossIntroActive) {
+        if (player != null && !bossIntroActive && !playerHidden) {
 
-            // Draw resurrection glow if animation is active
-
-            if (resurrectionAnimation) {
-
-                double glowRadius = 80 * resurrectionScale;
-
-                int glowAlpha = (int)(255 * resurrectionGlow);
-
-                
-
-                // Outer golden glow
-
-                g.setColor(new Color(255, 215, 0, Math.max(0, Math.min(255, glowAlpha / 2))));
-
-                g.fillOval((int)(player.getX() - glowRadius), 
-
-                          (int)(player.getY() - glowRadius), 
-
-                          (int)(glowRadius * 2), (int)(glowRadius * 2));
-
-                
-
-                // Inner bright glow
-
-                double innerRadius = glowRadius * 0.6;
-
-                g.setColor(new Color(255, 255, 200, Math.max(0, Math.min(255, glowAlpha))));
-
-                g.fillOval((int)(player.getX() - innerRadius), 
-
-                          (int)(player.getY() - innerRadius), 
-
-                          (int)(innerRadius * 2), (int)(innerRadius * 2));
-
-                
-
-                // Draw resurrection text
-
-                if (resurrectionTimer > 60) { // Show text in first half of animation
-
-                    float textAlpha = Math.min(1.0f, (float)(resurrectionTimer - 60) / 60);
-
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, textAlpha));
-
-                    g.setFont(new Font("Arial", Font.BOLD, 36));
-
-                    g.setColor(new Color(255, 215, 0));
-
-                    String resText = "EXTRA LIFE!";
-
-                    FontMetrics fm = g.getFontMetrics();
-
-                    g.drawString(resText, (int)(player.getX() - fm.stringWidth(resText) / 2), (int)(player.getY() - 80));
-
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
-
-                }
-
+            // Apply blink effect during respawn
+            if (respawnBlinkTimer > 0) {
+                // Toggle between semi-transparent and fully opaque
+                float blinkAlpha = (respawnBlinkTimer % 12 < 6) ? 0.3f : 1.0f;
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, blinkAlpha));
             }
 
-            
-
             player.draw(g);
+
+            // Reset composite after blink
+            if (respawnBlinkTimer > 0) {
+                g.setComposite(ALPHA_FULL);
+            }
 
             
 
@@ -6509,6 +6461,138 @@ public class Renderer {
 
         
 
+        // Draw level bounds: solid black outside world, gradient fade at edges
+
+        {
+
+            int worldW = Game.WORLD_WIDTH;
+
+            int worldH = Game.WORLD_HEIGHT;
+
+            int gradSize = 80; // Width of the gradient fade
+
+            int gradOffset = 80; // Start gradient this far outside world bounds
+
+            int pad = 2000; // Extra padding for solid black fill beyond world
+
+            Color solidBlack = new Color(0, 0, 0, 80);
+
+            Color transparent = new Color(0, 0, 0, 0);
+
+            
+
+            // Solid black regions outside the world bounds
+
+            g.setColor(solidBlack);
+
+            g.fillRect(-pad, -pad, pad - gradOffset, worldH + pad * 2); // Left outside (up to where gradient starts)
+
+            g.fillRect(worldW + gradOffset, -pad, pad - gradOffset, worldH + pad * 2); // Right outside
+
+            g.fillRect(-gradOffset, -pad, worldW + gradOffset * 2, pad - gradOffset); // Top outside
+
+            g.fillRect(-gradOffset, worldH + gradOffset, worldW + gradOffset * 2, pad - gradOffset); // Bottom outside
+
+            
+
+            // Top edge gradient (between corners only)
+
+            GradientPaint topGrad = new GradientPaint(0, -gradOffset, solidBlack, 0, -gradOffset + gradSize, transparent);
+
+            g.setPaint(topGrad);
+
+            g.fillRect(-gradOffset + gradSize, -gradOffset, worldW + gradOffset * 2 - gradSize * 2, gradSize);
+
+            
+
+            // Bottom edge gradient (between corners only)
+
+            GradientPaint bottomGrad = new GradientPaint(0, worldH + gradOffset - gradSize, transparent, 0, worldH + gradOffset, solidBlack);
+
+            g.setPaint(bottomGrad);
+
+            g.fillRect(-gradOffset + gradSize, worldH + gradOffset - gradSize, worldW + gradOffset * 2 - gradSize * 2, gradSize);
+
+            
+
+            // Left edge gradient (between corners only)
+
+            GradientPaint leftGrad = new GradientPaint(-gradOffset, 0, solidBlack, -gradOffset + gradSize, 0, transparent);
+
+            g.setPaint(leftGrad);
+
+            g.fillRect(-gradOffset, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
+
+            
+
+            // Right edge gradient (between corners only)
+
+            GradientPaint rightGrad = new GradientPaint(worldW + gradOffset - gradSize, 0, transparent, worldW + gradOffset, 0, solidBlack);
+
+            g.setPaint(rightGrad);
+
+            g.fillRect(worldW + gradOffset - gradSize, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
+
+            
+
+            // Corner pieces — radial gradients for smooth diagonal fade
+
+            float[] cornerDist = {0.0f, 1.0f};
+
+            Color[] cornerColors = {transparent, solidBlack};
+
+            
+
+            // Top-left corner
+
+            g.setPaint(new java.awt.RadialGradientPaint(
+
+                (float)(-gradOffset + gradSize), (float)(-gradOffset + gradSize), (float)gradSize,
+
+                cornerDist, cornerColors));
+
+            g.fillRect(-gradOffset, -gradOffset, gradSize, gradSize);
+
+            
+
+            // Top-right corner
+
+            g.setPaint(new java.awt.RadialGradientPaint(
+
+                (float)(worldW + gradOffset - gradSize), (float)(-gradOffset + gradSize), (float)gradSize,
+
+                cornerDist, cornerColors));
+
+            g.fillRect(worldW + gradOffset - gradSize, -gradOffset, gradSize, gradSize);
+
+            
+
+            // Bottom-left corner
+
+            g.setPaint(new java.awt.RadialGradientPaint(
+
+                (float)(-gradOffset + gradSize), (float)(worldH + gradOffset - gradSize), (float)gradSize,
+
+                cornerDist, cornerColors));
+
+            g.fillRect(-gradOffset, worldH + gradOffset - gradSize, gradSize, gradSize);
+
+            
+
+            // Bottom-right corner
+
+            g.setPaint(new java.awt.RadialGradientPaint(
+
+                (float)(worldW + gradOffset - gradSize), (float)(worldH + gradOffset - gradSize), (float)gradSize,
+
+                cornerDist, cornerColors));
+
+            g.fillRect(worldW + gradOffset - gradSize, worldH + gradOffset - gradSize, gradSize, gradSize);
+
+        }
+
+        
+
         // Restore original transform and apply inverse zoom for UI elements
 
         // This makes UI stay the same size regardless of game zoom
@@ -6525,6 +6609,20 @@ public class Renderer {
 
         
 
+        // Apply UI parallax - all UI shifts slightly with camera for depth feel
+
+        if (Game.enableUIParallax) {
+
+            int uiParallaxX = (int)(cameraX * 0.0375);
+
+            int uiParallaxY = (int)(cameraY * 0.0375);
+
+            g.translate(uiParallaxX, uiParallaxY);
+
+        }
+
+        
+
         // Draw boss health bar at bottom
 
         if (boss != null) {
@@ -6535,11 +6633,11 @@ public class Renderer {
 
             
 
-            // Apply parallax effect - boss bar moves less with camera (30% of camera movement)
+            // Parallax already applied globally via UI parallax translate
 
-            int parallaxOffsetX = (int)(cameraX * 0.3);
+            int parallaxOffsetX = 0;
 
-            int parallaxOffsetY = (int)(cameraY * 0.3);
+            int parallaxOffsetY = 0;
 
             
 
@@ -6635,9 +6733,9 @@ public class Renderer {
 
             
 
-            // Add hit indicators based on boss type (2 segments for mini, 3 for mega)
+            // Add hit indicators based on boss health (6 for mini, 9 for mega)
 
-            int maxHits = boss.isMegaBoss() ? 3 : 2;
+            int maxHits = boss.getMaxHealth();
 
             g.setColor(new Color(0, 0, 0, 150));
 
@@ -6986,6 +7084,20 @@ public class Renderer {
                 case "GODLIKE!" -> new Color(255, 100, 100, (int)(255 * alpha)); // Bright Red
 
                 case "IMPOSSIBLE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
+
+                case "CRITICAL HIT!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
+
+                case "BOSS DEFEATED!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
+
+                case "EXTRA MISSILE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold for purchased
+                case "MISSILE USED!" -> new Color(100, 255, 100, (int)(255 * alpha)); // Green for base
+                case "LAST MISSILE!" -> new Color(255, 100, 100, (int)(255 * alpha)); // Red warning
+
+                case "PERFECT!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
+
+                case "DISABLED!" -> new Color(150, 150, 150, (int)(255 * alpha)); // Gray
+
+                case "KEEP MOVING!" -> new Color(191, 97, 106, (int)(255 * alpha)); // Red-pink
 
                 default -> new Color(255, 255, 255, (int)(255 * alpha));
 
@@ -7644,20 +7756,127 @@ public class Renderer {
             topRightY += 85;
         }
 
-        // 4. Extra lives indicator
-        if (gameData.getExtraLives() > 0) {
-            int livesUIX = width - 210;
-            int livesUIY = topRightY;
+        // 4. Missile bar indicator (always visible)
+        // === OLD HORIZONTAL MISSILE BAR (kept for later use) ===
+        // {
+        //     int missileUIX = width - 210;
+        //     int missileUIY = topRightY;
+        //     int totalSlots = 6;
+        //     int currentMissiles = gameData.getMissiles();
+        //     g.setColor(new Color(0, 0, 0, 150));
+        //     g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
+        //     g.setFont(new Font("Arial", Font.BOLD, 14));
+        //     g.setColor(new Color(216, 222, 233));
+        //     g.drawString("MISSILES", missileUIX + 10, missileUIY + 15);
+        //     int slotStartX = missileUIX + 10;
+        //     int slotY = missileUIY + 22;
+        //     int slotWidth = 26;
+        //     int slotHeight = 10;
+        //     int slotGap = 4;
+        //     for (int s = 0; s < totalSlots; s++) {
+        //         if (s < currentMissiles) {
+        //             g.setColor(new Color(163, 190, 140));
+        //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
+        //         } else {
+        //             g.setColor(new Color(76, 86, 106, 120));
+        //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
+        //         }
+        //     }
+        //     topRightY += 45;
+        // }
+        // === END OLD HORIZONTAL MISSILE BAR ===
 
+        // === NEW VERTICAL LEFT-EDGE MISSILE BAR (styled like boss health bar) ===
+        if (!introPanActive) {
+            int currentMissiles = gameData.getMissiles();
+            int baseMissiles = gameData.getBaseMissiles();
+            int totalSlots = Math.max(baseMissiles, currentMissiles);
+            
+            int panelWidth = 50; // 2x thinner
+            int mBarWidth = 20; // 2x thinner bar
+            int totalBarHeight = 480; // Fixed total bar height - always the same size
+            int segmentHeight = totalBarHeight / Math.max(1, totalSlots); // Segments resize to fill
+            int panelHeight = totalBarHeight + 65; // Extra for label + counter
+            
+            // Center the panel vertically on the screen
+            int barX = 10;
+            int barY = (height - panelHeight) / 2;
+            
+            // Shadow (matches boss health bar style)
+            g.setColor(new Color(0, 0, 0, 100));
+            g.fillRoundRect(barX + 3, barY + 3, panelWidth, panelHeight, 12, 12);
+            
+            // Background panel
+            g.setColor(new Color(20, 20, 30, 200));
+            g.fillRoundRect(barX, barY, panelWidth, panelHeight, 12, 12);
+            
+            // Label
+            g.setFont(new Font("Arial", Font.BOLD, 10));
+            g.setColor(new Color(216, 222, 233));
+            FontMetrics labelFm = g.getFontMetrics();
+            String label = "MISSILES";
+            int labelX = barX + (panelWidth - labelFm.stringWidth(label)) / 2;
+            g.drawString(label, labelX, barY + 16);
+            
+            // Bar background (dark fill like boss health bar)
+            int barStartX = barX + (panelWidth - mBarWidth) / 2;
+            int barStartY = barY + 24;
+            g.setColor(new Color(60, 60, 60));
+            g.fillRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
+            
+            // Bar fill - bottom-to-top (filled missiles fill from bottom upward)
+            for (int s = 0; s < currentMissiles; s++) {
+                // Segment 0 = bottom of bar, segment N = top
+                int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
+                
+                // Gradient fill matching boss health bar style
+                GradientPaint segGrad;
+                if (s < baseMissiles) {
+                    // Base missile - green gradient (like normal boss bar)
+                    segGrad = new GradientPaint(
+                        barStartX, 0, new Color(50, 150, 50),
+                        barStartX + mBarWidth, 0, new Color(120, 210, 120)
+                    );
+                } else {
+                    // Extra/purchased missile - gold gradient
+                    segGrad = new GradientPaint(
+                        barStartX, 0, new Color(200, 170, 0),
+                        barStartX + mBarWidth, 0, new Color(255, 225, 60)
+                    );
+                }
+                g.setPaint(segGrad);
+                g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
+            }
+            
+            // Darken empty segments (like boss hit segments)
+            for (int s = currentMissiles; s < totalSlots; s++) {
+                int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
+                g.setColor(new Color(0, 0, 0, 120));
+                g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
+            }
+            
+            // Segment dividers (dark lines between segments)
             g.setColor(new Color(0, 0, 0, 150));
-            g.fillRoundRect(livesUIX, livesUIY, 200, 40, 10, 10);
-
-            g.setFont(new Font("Arial", Font.BOLD, 20));
-            g.setColor(new Color(255, 215, 0));
-            String livesText = "Lives: " + gameData.getExtraLives();
-            g.drawString(livesText, livesUIX + 10, livesUIY + 27);
-            topRightY += 45;
+            for (int s = 1; s < totalSlots; s++) {
+                int divY = barStartY + s * segmentHeight;
+                g.fillRect(barStartX, divY - 1, mBarWidth, 2);
+            }
+            
+            // Bar border (matches boss health bar border)
+            g.setColor(new Color(200, 200, 200));
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
+            g.setStroke(new BasicStroke(1)); // Reset stroke
+            
+            // Count text below bar
+            g.setFont(new Font("Arial", Font.BOLD, 12));
+            g.setColor(Color.WHITE);
+            String countText = currentMissiles + "/" + totalSlots;
+            FontMetrics countFm = g.getFontMetrics();
+            int countX = barX + (panelWidth - countFm.stringWidth(countText)) / 2;
+            g.drawString(countText, countX, barStartY + totalBarHeight + 18);
         }
+        // === END NEW VERTICAL LEFT-EDGE MISSILE BAR ===
 
         // 5. Combo display (score multiplier)
         if (comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
@@ -7891,6 +8110,23 @@ public class Renderer {
 
         }
 
+        // Death red vignette effect (radial red overlay fading from edges)
+        if (deathFlashTimer > 0) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            float vignetteAlpha = Math.min(0.7f, (float)deathFlashTimer / 25.0f * 0.7f);
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, vignetteAlpha));
+            // Red radial gradient: transparent center -> red edges
+            java.awt.RadialGradientPaint deathVignette = new java.awt.RadialGradientPaint(
+                width / 2.0f, height / 2.0f,
+                Math.max(width, height) * 0.6f,
+                new float[]{0.0f, 0.5f, 1.0f},
+                new Color[]{new Color(0, 0, 0, 0), new Color(180, 30, 30, 120), new Color(200, 20, 20, 220)}
+            );
+            g2d.setPaint(deathVignette);
+            g2d.fillRect(0, 0, width, height);
+            g2d.dispose();
+        }
+
         // Apply vignette effect at the end (darkens edges)
 
         if (Game.enableVignette) {
@@ -8011,9 +8247,9 @@ public class Renderer {
 
         
 
-        // Create a clipping region for scrollable area
+        // Create a clipping region for scrollable area (stop above instructions bar)
 
-        g.setClip(0, 220, width, height - 270);
+        g.setClip(0, 220, width, height - 310);
 
         
 
@@ -8161,13 +8397,17 @@ public class Renderer {
 
                         
 
-                        // Special handling for Extra Lives (last upgrade)
+                        // Special handling for Extra Missiles (last upgrade)
 
-                        boolean isExtraLives = upgrade.getId().equals("health");
+                        boolean isExtraMissiles = upgrade.getId().equals("health");
 
-                        if (isExtraLives) {
+                        if (isExtraMissiles) {
 
-                            currentLevel = gameData.getExtraLives(); // Show current lives owned
+                            // Show only extra missiles purchased (yellow ones), not base missiles
+
+                            int extraMissiles = gameData.getMissiles() - gameData.getBaseMissiles();
+
+                            currentLevel = Math.max(0, extraMissiles);
 
                         }
 
@@ -8189,7 +8429,7 @@ public class Renderer {
 
                         g.setColor(upgrade.isMaxed() || isMaxed ? new Color(235, 203, 139) : new Color(200, 200, 200));
 
-                        String levelText = isExtraLives ? currentLevel + "/3 lives" : currentLevel + "/" + maxLevel;
+                        String levelText = isExtraMissiles ? currentLevel + "/" + maxLevel + " extra missiles" : currentLevel + "/" + maxLevel;
 
                         g.drawString(levelText, barX, barY - 3);
 
@@ -8283,13 +8523,21 @@ public class Renderer {
 
         
 
+        // Instructions background bar to prevent overlap with shop items
+
+        g.setColor(new Color(46, 52, 64, 240));
+
+        g.fillRect(0, height - 80, width, 80);
+
+        
+
         // Instructions
 
         g.setColor(new Color(216, 222, 233));
 
         g.setFont(new Font("Arial", Font.PLAIN, 20));
 
-        drawPromptWithIcons(g, width / 2, height - 50,
+        drawPromptWithIcons(g, width / 2, height - 35,
 
             "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
 
@@ -8465,9 +8713,9 @@ public class Renderer {
 
         
 
-        if (runStats.getDamageTaken() > 0 || runStats.getLivesUsed() > 0) {
+        if (runStats.getDamageTaken() > 0 || runStats.getMissilesUsed() > 0) {
 
-            String survival = "Damage Taken: " + runStats.getDamageTaken() + "  Lives Used: " + runStats.getLivesUsed();
+            String survival = "Damage Taken: " + runStats.getDamageTaken() + "  Missiles Used: " + runStats.getMissilesUsed();
 
             fm = g.getFontMetrics();
 
@@ -8511,19 +8759,19 @@ public class Renderer {
 
         
 
-        // Show extra lives remaining
+        // Show missiles remaining
 
-        if (gameData.getExtraLives() > 0) {
+        if (gameData.getMissiles() > 0) {
 
             g.setFont(new Font("Arial", Font.BOLD, 24));
 
-            g.setColor(new Color(255, 215, 0)); // Gold color
+            g.setColor(new Color(163, 190, 140)); // Green missile color
 
-            String livesText = "ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦ Extra Lives: " + gameData.getExtraLives() + " ÃƒÂ¢Ã‹Å“Ã¢â‚¬Â¦";
+            String missileText = "\u2726 Missiles Remaining: " + gameData.getMissiles() + " \u2726";
 
             fm = g.getFontMetrics();
 
-            g.drawString(livesText, (width - fm.stringWidth(livesText)) / 2, statsY);
+            g.drawString(missileText, (width - fm.stringWidth(missileText)) / 2, statsY);
 
             statsY += 35;
 
@@ -8811,13 +9059,13 @@ public class Renderer {
 
         
 
-        if (stats.getLivesUsed() > 0) {
+        if (stats.getMissilesUsed() > 0) {
 
-            String lives = "Lives Used: " + stats.getLivesUsed();
+            String missiles = "Missiles Used: " + stats.getMissilesUsed();
 
             fm = g.getFontMetrics();
 
-            g.drawString(lives, (width - fm.stringWidth(lives)) / 2, statsY);
+            g.drawString(missiles, (width - fm.stringWidth(missiles)) / 2, statsY);
 
             statsY += 26;
 
@@ -9061,7 +9309,7 @@ public class Renderer {
 
         // Reorganized into logical groups: Display, Quality, Background, Effects, Camera
 
-        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Background Mode", "Gradient Animation", "Gradient Quality", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom"};
+        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Background Mode", "Gradient Animation", "Gradient Quality", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax"};
 
         String[] settingValues = {
 
@@ -9095,7 +9343,9 @@ public class Renderer {
 
             Game.enableGrainEffect ? "ON" : "OFF",
 
-            String.format("%.0f%%", Game.cameraZoom * 100)
+            String.format("%.0f%%", Game.cameraZoom * 100),
+
+            Game.enableUIParallax ? "ON" : "OFF"
 
         };
 
@@ -9133,7 +9383,9 @@ public class Renderer {
 
             "Add grain texture overlay (performance impact)",
 
-            "How zoomed in the camera is during gameplay (75% - 150%)"
+            "How zoomed in the camera is during gameplay (75% - 150%)",
+
+            "UI elements shift slightly with camera movement for depth effect"
 
         };
 
@@ -9155,7 +9407,9 @@ public class Renderer {
 
             Game.enableGradientAnimation, false, Game.enableMotionBlur, Game.enableChromaticAberration,
 
-            Game.enableVignette, Game.enableGrainEffect, false
+            Game.enableVignette, Game.enableGrainEffect, false,
+
+            Game.enableUIParallax
 
         };
 

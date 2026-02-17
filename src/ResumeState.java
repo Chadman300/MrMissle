@@ -51,7 +51,11 @@ public class ResumeState implements Serializable {
     public boolean shieldActive;
     public int shieldHits;
     public double comboTimer;
-    public int extraLives;
+    public int missiles;
+    public int baseMissiles;
+    
+    // Game timer
+    public double gameTimeSeconds;
     
     // Risk contract state
     public int riskContractType;

@@ -58,8 +58,9 @@ public class SaveData implements Serializable {
     public int bestRunLevel;
     public int totalBossesDefeated;
     
-    // Extra lives
-    public int extraLives;
+    // Missiles
+    public int missiles;
+    public int baseMissiles;
     
     // Level select navigation
     public int selectedLevelView;
@@ -98,6 +99,7 @@ public class SaveData implements Serializable {
     public boolean enableVSync;
     public int fpsLimit;
     public boolean enableAntiAliasing;
+    public boolean enableUIParallax = true;
     
     // Debug settings
     public boolean enableHitboxes;
@@ -124,7 +126,7 @@ public class SaveData implements Serializable {
         public int timeInFrames;
         public int dodges;
         public int bulletsSpawned;
-        public int livesUsed;
+        public int missilesUsed;
         public int damageTaken;
         public int perfectDodges;
         public int nearMisses;
@@ -134,7 +136,7 @@ public class SaveData implements Serializable {
             this.timeInFrames = 0;
             this.dodges = 0;
             this.bulletsSpawned = 0;
-            this.livesUsed = 0;
+            this.missilesUsed = 0;
             this.damageTaken = 0;
             this.perfectDodges = 0;
             this.nearMisses = 0;
@@ -145,7 +147,7 @@ public class SaveData implements Serializable {
             this.timeInFrames = stats.getTimeInFrames();
             this.dodges = stats.getDodges();
             this.bulletsSpawned = stats.getBulletsSpawned();
-            this.livesUsed = stats.getLivesUsed();
+            this.missilesUsed = stats.getMissilesUsed();
             this.damageTaken = stats.getDamageTaken();
             this.perfectDodges = stats.getPerfectDodges();
             this.nearMisses = stats.getNearMisses();
@@ -157,7 +159,7 @@ public class SaveData implements Serializable {
             stats.setTimeInFrames(timeInFrames);
             stats.setDodges(dodges);
             stats.setBulletsSpawned(bulletsSpawned);
-            stats.setLivesUsed(livesUsed);
+            stats.setMissilesUsed(missilesUsed);
             stats.setDamageTaken(damageTaken);
             stats.setPerfectDodges(perfectDodges);
             stats.setNearMisses(nearMisses);
@@ -190,6 +192,10 @@ public class SaveData implements Serializable {
         this.bestRunLevel = 1;
         this.totalRunsCompleted = 0;
         this.totalBossesDefeated = 0;
+        
+        // Missiles (lives) - default starting count
+        this.missiles = 3;
+        this.baseMissiles = 3;
         
         // Default audio settings
         this.masterVolume = 0.7f;
@@ -310,7 +316,8 @@ public class SaveData implements Serializable {
         data.bestRunLevel = gameData.getBestRunLevel();
         data.totalBossesDefeated = gameData.getTotalBossesDefeated();
         
-        data.extraLives = gameData.getExtraLives();
+        data.missiles = gameData.getMissiles();
+        data.baseMissiles = gameData.getBaseMissiles();
         data.selectedLevelView = gameData.getSelectedLevelView();
         
         // Level stats
@@ -347,6 +354,7 @@ public class SaveData implements Serializable {
         data.enableVSync = Game.enableVSync;
         data.fpsLimit = Game.fpsLimit;
         data.enableAntiAliasing = Game.enableAntiAliasing;
+        data.enableUIParallax = Game.enableUIParallax;
         data.enableHitboxes = Game.enableHitboxes;
         
         // Keybind settings
@@ -456,7 +464,8 @@ public class SaveData implements Serializable {
         gameData.setBestRunLevel(bestRunLevel);
         gameData.setTotalBossesDefeated(totalBossesDefeated);
         
-        gameData.setExtraLives(extraLives);
+        gameData.setMissiles(missiles);
+        gameData.setBaseMissiles(baseMissiles);
         gameData.setSelectedLevelView(selectedLevelView);
         
         // Level stats
@@ -493,6 +502,7 @@ public class SaveData implements Serializable {
         Game.enableVSync = enableVSync;
         Game.fpsLimit = fpsLimit;
         Game.enableAntiAliasing = enableAntiAliasing;
+        Game.enableUIParallax = enableUIParallax;
         Game.enableHitboxes = enableHitboxes;
         
         // Keybind settings
@@ -531,11 +541,7 @@ public class SaveData implements Serializable {
                         if (upgrade != null) {
                             upgrade.setCurrentLevel(currentLevel);
                             upgrade.setActiveLevel(activeLevel);
-                            
-                            // Restore extra lives from health upgrade
-                            if (id.equals("health")) {
-                                gameData.setExtraLives(currentLevel);
-                            }
+                            // Note: missiles are loaded from data.missiles directly, not from upgrade level
                         }
                     }
                 }

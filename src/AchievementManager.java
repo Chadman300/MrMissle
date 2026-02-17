@@ -60,6 +60,9 @@ public class AchievementManager {
         addAchievement("speedrun_15", "Lightning Fast", "Complete a level in under 15 seconds", Achievement.AchievementType.SPEED_RUN, 900); // 15 seconds * 60 fps
         addAchievement("speedrun_10", "Sonic Boom", "Complete a level in under 10 seconds", Achievement.AchievementType.SPEED_RUN, 600); // 10 seconds * 60 fps
         addAchievement("speedrun_master", "Time Lord", "Complete a level in under 7 seconds", Achievement.AchievementType.SPEED_RUN, 420); // 7 seconds * 60 fps
+        
+        // Clutch survival
+        addAchievement("clutch", "Clutch!", "Use 5 missiles in a single run and survive on your last one. Talk about living on the edge!", Achievement.AchievementType.CLUTCH_SURVIVAL, 5);
     }
     
     private void addAchievement(String id, String name, String description, Achievement.AchievementType type, int target) {

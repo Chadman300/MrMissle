@@ -20,6 +20,7 @@
  * - PERFECT_BOSS: Defeat boss without taking damage
  * - NO_UPGRADES: Complete game without buying upgrades
  * - SPEED_RUN: Complete level within time limit
+ * - CLUTCH_SURVIVAL: Use 5 missiles and survive on last one
  * 
  * IMPLEMENTATION:
  * - Created in AchievementManager.initializeAchievements()
@@ -68,7 +69,8 @@ public class Achievement {
         MONEY_EARNED,    // Earn X total money
         PERFECT_BOSS,    // Defeat boss taking no damage
         NO_UPGRADES,     // Complete levels without purchasing any upgrades
-        SPEED_RUN        // Complete a level within X seconds
+        SPEED_RUN,       // Complete a level within X seconds
+        CLUTCH_SURVIVAL  // Use 5 missiles and survive on the last one
     }
     
     public Achievement(String id, String name, String description, AchievementType type, int target) {

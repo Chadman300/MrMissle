@@ -39,7 +39,7 @@ public class PassiveUpgradeManager {
         addUpgrade("targeting", "Targeting", "Soft auto-aim toward boss when nearby", 
                    PassiveUpgrade.UpgradeType.TARGETING, 900, 1);
         
-        addUpgrade("health", "Extra Lives", "Purchase an extra life (Max 3)", 
+        addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
     }
     
@@ -65,24 +65,25 @@ public class PassiveUpgradeManager {
             return false;
         }
         
-        // Special handling for Extra Lives - uses gameData.extraLives instead of upgrade.currentLevel
+        // Special handling for Extra Missiles - uses gameData.missiles instead of upgrade.currentLevel
         if (id.equals("health")) {
-            // Can only buy if not at max lives AND have enough money
-            int currentLives = gameData.getExtraLives();
-            if (currentLives >= 3) {
-                return false; // Already at max lives
+            // Can only buy if not at max missiles AND have enough money
+            int currentMissiles = gameData.getMissiles();
+            int extraMissiles = currentMissiles - gameData.getBaseMissiles();
+            if (extraMissiles >= 3) {
+                return false; // Already at max extra missiles (3)
             }
             
             // Calculate cost based on current lives (not upgrade.currentLevel)
-            // Cost stays fixed at baseCost for extra lives
+            // Cost stays fixed at baseCost for extra missiles
             int cost = upgrade.getBaseCost();
             if (gameData.getTotalMoney() < cost) {
                 return false; // Not enough money
             }
             
             gameData.setTotalMoney(gameData.getTotalMoney() - cost);
-            gameData.addExtraLife();
-            // Don't call upgrade.upgrade() for health - we track via gameData.extraLives only
+            gameData.addMissile();
+            // Don't call upgrade.upgrade() for health - we track via gameData.missiles only
             return true;
         }
         
@@ -106,11 +107,11 @@ public class PassiveUpgradeManager {
     }
     
     /**
-     * Reset extra lives price for new run.
-     * The extra lives upgrade price increases with each purchase,
+     * Reset missiles price for new run.
+     * The missiles upgrade price increases with each purchase,
      * so we reset the current level back to 0 when a run ends/death occurs.
      */
-    public void resetExtraLivesPrice() {
+    public void resetMissilesPrice() {
         PassiveUpgrade healthUpgrade = upgradeMap.get("health");
         if (healthUpgrade != null) {
             healthUpgrade.setCurrentLevel(0);
