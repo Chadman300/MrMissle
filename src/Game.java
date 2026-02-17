@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.swing.*;
 import config.ColorPalette;
 import config.FontPalette;
+import config.HUDLayout;
 import config.UITheme;
 
 public class Game extends JPanel implements Runnable {
@@ -545,7 +546,8 @@ public class Game extends JPanel implements Runnable {
     
     // Settings
     private int selectedSettingsItem;
-    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Gameplay, 3=Debug, 4=Controls
+    private int selectedSettingsCategory = 0; // 0=Graphics, 1=Audio, 2=Gameplay, 3=Debug, 4=Controls, 5=HUD
+    public static HUDLayout hudLayout = HUDLayout.defaultLayout(); // Customizable HUD element positions
     public static boolean isFullscreen = true; // Start in fullscreen by default
     public static boolean enableGradientAnimation = true;
     public static boolean enableGrainEffect = false;
@@ -809,12 +811,30 @@ public class Game extends JPanel implements Runnable {
                 
                 mouseX = (int) ((e.getX() - offsetX) / scale);
                 mouseY = (int) ((e.getY() - offsetY) / scale);
+                
+                // Delegate to HUD layout editor when on HUD tab
+                if (gameState == GameState.SETTINGS && selectedSettingsCategory == 5 && renderer != null) {
+                    renderer.hudLayoutEditor.handleMouseDragged(mouseX, mouseY, hudLayout);
+                }
             }
         });
         
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
+                // Transform mouse coordinates from screen space to game space
+                int panelWidth = getWidth();
+                int panelHeight = getHeight();
+                double scaleX = (double) panelWidth / WIDTH;
+                double scaleY = (double) panelHeight / HEIGHT;
+                double scale = Math.min(scaleX, scaleY);
+                int scaledWidth = (int) (WIDTH * scale);
+                int scaledHeight = (int) (HEIGHT * scale);
+                int offsetX = (panelWidth - scaledWidth) / 2;
+                int offsetY = (panelHeight - scaledHeight) / 2;
+                mouseX = (int) ((e.getX() - offsetX) / scale);
+                mouseY = (int) ((e.getY() - offsetY) / scale);
+
                 // Handle press for responsive feel
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
                     handleMouseClick(e);
@@ -827,6 +847,11 @@ public class Game extends JPanel implements Runnable {
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1 && gameState == GameState.SAVE_SELECT) {
                     deletingSlot = false;
                     deleteConfirmTimer = 0;
+                }
+                // Release drag in HUD layout editor
+                if (e.getButton() == java.awt.event.MouseEvent.BUTTON1 && gameState == GameState.SETTINGS 
+                    && selectedSettingsCategory == 5 && renderer != null) {
+                    renderer.hudLayoutEditor.handleMouseReleased(hudLayout);
                 }
             }
         });
@@ -906,6 +931,7 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            if (renderer != null) renderer.hudLayout = hudLayout;
                             hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
                             savedResumeState = saveData.getResumeState();
@@ -1120,7 +1146,9 @@ public class Game extends JPanel implements Runnable {
                 
             case SETTINGS:
                 clampSettingsItem();
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
+                // HUD tab: suppress item navigation (editor handles its own interaction)
+                boolean hudTabActive = (selectedSettingsCategory == 5);
+                if ((key == KeyEvent.VK_UP || key == KeyEvent.VK_W) && !hudTabActive) { 
                     if (selectedSettingsItem == 0) {
                         // Move from first item to tabs
                         selectedSettingsItem = -1;
@@ -1133,7 +1161,7 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 1;
                     }
                 }
-                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                else if ((key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) && !hudTabActive) {
                     if (selectedSettingsItem == -1) {
                         // Move from tabs to first item
                         selectedSettingsItem = 0;
@@ -1150,7 +1178,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_LEFT) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
+                        selectedSettingsCategory = (selectedSettingsCategory + 5) % 6;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1165,7 +1193,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_RIGHT) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1180,7 +1208,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_A) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 4) % 5;
+                        selectedSettingsCategory = (selectedSettingsCategory + 5) % 6;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1195,7 +1223,7 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_D) {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
-                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                        selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1207,7 +1235,7 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                 }
-                else if (key == KeyEvent.VK_SPACE) {
+                else if (key == KeyEvent.VK_SPACE && !hudTabActive) {
                     if (selectedSettingsItem >= 0) {
                         toggleSetting(selectedSettingsItem);
                         soundManager.playSound(SoundManager.Sound.UI_SELECT);
@@ -1216,7 +1244,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_TAB) {
                     // Switch category and move to tabs
-                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 5;
+                    selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
                     clampSettingsItem();
                     selectedSettingsItem = -1;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
@@ -2139,8 +2167,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if hovering over category tabs
-            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
-            int tabWidth = 160;
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
+            int tabWidth = 130;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
             
@@ -2161,6 +2189,10 @@ public class Game extends JPanel implements Runnable {
             
             // Check if hovering over settings items
             if (!hoveringTab) {
+                if (selectedSettingsCategory == 5) {
+                    // HUD tab: delegate to editor
+                    renderer.hudLayoutEditor.handleMouseMoved(mouseX, mouseY, hudLayout);
+                } else {
                 // Calculate item positions based on current category
                 int maxItems = getMaxSettingsItems();
                 int boxX = (WIDTH - 700) / 2;
@@ -2188,6 +2220,7 @@ public class Game extends JPanel implements Runnable {
                         foundHover = true;
                         break;
                     }
+                }
                 }
             }
         } else if (gameState == GameState.MODE_SELECT) {
@@ -2381,6 +2414,7 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            if (renderer != null) renderer.hudLayout = hudLayout;
                             hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
                             savedResumeState = saveData.getResumeState();
@@ -2435,8 +2469,8 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.SETTINGS) {
             // Check if clicking on category tabs first
-            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
-            int tabWidth = 160;
+            String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
+            int tabWidth = 130;
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
             int tabY = 130;
             
@@ -2451,6 +2485,10 @@ public class Game extends JPanel implements Runnable {
                         selectedSettingsItem = -1; // Select tabs when switching
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
+                        // Initialize HUD editor when switching to HUD tab
+                        if (i == 5 && renderer != null) {
+                            renderer.hudLayoutEditor.onOpen(hudLayout);
+                        }
                     }
                     clickedTab = true;
                     break;
@@ -2459,6 +2497,11 @@ public class Game extends JPanel implements Runnable {
             
             // If didn't click tab, check settings items
             if (!clickedTab) {
+                // HUD tab: delegate entirely to editor
+                if (selectedSettingsCategory == 5) {
+                    renderer.hudLayoutEditor.handleMousePressed(mouseX, mouseY, hudLayout);
+                    return;
+                }
                 // Check for pill selector clicks (Graphics category)
                 if (selectedSettingsCategory == 0) {
                     UIButton[] buttons = renderer.getSettingsButtons();
@@ -7285,6 +7328,7 @@ public class Game extends JPanel implements Runnable {
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
         if (selectedSettingsCategory == 4) return 10; // Controls: 11 items (0-10) - Preset, Input Device, 9 actions
+        if (selectedSettingsCategory == 5) return -1; // HUD: no list items, editor handles interaction
         return 0;
     }
 
@@ -7292,9 +7336,16 @@ public class Game extends JPanel implements Runnable {
     private void clampSettingsItem() {
         if (selectedSettingsItem > 0) {
             int max = getMaxSettingsItems();
-            if (selectedSettingsItem > max) {
+            if (max < 0) {
+                // HUD tab: no item list
+                selectedSettingsItem = -1;
+            } else if (selectedSettingsItem > max) {
                 selectedSettingsItem = max;
             }
+        }
+        // Initialize HUD editor when switching to HUD tab
+        if (selectedSettingsCategory == 5 && renderer != null) {
+            renderer.hudLayoutEditor.onOpen(hudLayout);
         }
     }
     
@@ -7733,6 +7784,7 @@ public class Game extends JPanel implements Runnable {
                     targetLoadingProgress = 65 + (int)(bgPercent * 0.25);
                     repaint();
                 });
+                renderer.hudLayout = hudLayout; // Share HUD layout with renderer
                 targetLoadingProgress = 90;
                 repaint();
                 

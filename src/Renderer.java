@@ -1,5 +1,6 @@
 import config.ColorPalette;
 import config.FontPalette;
+import config.HUDLayout;
 import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -50,6 +51,10 @@ public class Renderer {
     private int[] sliderBtnYPos;       // [settingIndex] = screen Y of buttons
 
     private int sliderBtnSize = 26;    // +/- button size
+
+    // HUD Layout Editor
+    public HUDLayoutEditor hudLayoutEditor = new HUDLayoutEditor();
+    public HUDLayout hudLayout; // active layout reference, set from Game
 
     private boolean showcasePauseMode = false;
 
@@ -2354,13 +2359,39 @@ public class Renderer {
 
             
 
-            // Description
+            // Description (word-wrapped)
 
             g.setFont(FONT_EXTRA_SMALL_13);
 
             g.setColor(ach.isUnlocked() ? new Color(200, 200, 210) : new Color(100, 100, 110));
 
-            g.drawString(ach.getDescription(), x + 65, y + 48);
+            {
+                String desc = ach.getDescription();
+                int descMaxW = cardWidth - 80;
+                FontMetrics descFm = g.getFontMetrics();
+                if (descFm.stringWidth(desc) <= descMaxW) {
+                    g.drawString(desc, x + 65, y + 48);
+                } else {
+                    // Word wrap into lines
+                    String[] words = desc.split(" ");
+                    StringBuilder line = new StringBuilder();
+                    int descY = y + 48;
+                    for (String word : words) {
+                        String test = line.length() == 0 ? word : line + " " + word;
+                        if (descFm.stringWidth(test) > descMaxW && line.length() > 0) {
+                            g.drawString(line.toString(), x + 65, descY);
+                            descY += descFm.getHeight();
+                            line = new StringBuilder(word);
+                        } else {
+                            if (line.length() > 0) line.append(" ");
+                            line.append(word);
+                        }
+                    }
+                    if (line.length() > 0) {
+                        g.drawString(line.toString(), x + 65, descY);
+                    }
+                }
+            }
 
             
 
@@ -6589,9 +6620,14 @@ public class Renderer {
 
         
 
-        // Draw boss health bar at bottom
-
-        if (boss != null) {
+        // Draw boss health bar at bottom - layout-aware
+        HUDLayout bossLayout = Game.hudLayout != null ? Game.hudLayout : HUDLayout.defaultLayout();
+        HUDLayout.HUDElementConfig bossCfg = bossLayout.getConfig(HUDLayout.HUDElement.BOSS_HEALTH);
+        if (boss != null && bossCfg.visible) {
+            Composite bossOrigComposite = g.getComposite();
+            if (bossCfg.opacity < 1.0f) {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, bossCfg.opacity)));
+            }
 
             int barWidth = 600;
 
@@ -6599,17 +6635,9 @@ public class Renderer {
 
             
 
-            // Parallax already applied globally via UI parallax translate
+            int barX = (int)(bossCfg.xPercent * width);
 
-            int parallaxOffsetX = 0;
-
-            int parallaxOffsetY = 0;
-
-            
-
-            int barX = (width - barWidth) / 2 + parallaxOffsetX;
-
-            int barY = height - 110 + parallaxOffsetY;
+            int barY = (int)(bossCfg.yPercent * height);
 
             
 
@@ -6841,6 +6869,7 @@ public class Renderer {
 
             g.drawRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
 
+            g.setComposite(bossOrigComposite);
         }
 
         
@@ -7502,72 +7531,132 @@ public class Renderer {
         // Uses cumulative topRightY for proper stacking
         // ==========================================
 
-        // Draw UI with better contrast (top-left HUD)
-        g.setColor(new Color(0, 0, 0, 150));
-        g.fillRoundRect(10, 10, 280, 140, 10, 10);
+        // === HUD LAYOUT: Read layout config (always use Game's live reference) ===
+        HUDLayout activeLayout = Game.hudLayout != null ? Game.hudLayout : HUDLayout.defaultLayout();
+        Composite originalComposite = g.getComposite();
 
-        g.setColor(Color.WHITE);
-        g.setFont(FONT_MEDIUM_BOLD);
-        g.drawString("Level: " + level, 20, 35);
-        g.drawString("Score: " + (int)displayedScore, 20, 65);
-        g.drawString("Money: $" + (int)displayedMoney, 20, 95);
+        // Draw UI with better contrast (top-left HUD - INFO PANEL)
+        HUDLayout.HUDElementConfig infoCfg = activeLayout.getConfig(HUDLayout.HUDElement.INFO_PANEL);
+        if (infoCfg.visible) {
+            if (infoCfg.opacity < 1.0f) {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, infoCfg.opacity)));
+            }
+            int infoX = (int)(infoCfg.xPercent * width);
+            int infoY = (int)(infoCfg.yPercent * height);
+            g.setColor(new Color(0, 0, 0, 150));
+            g.fillRoundRect(infoX, infoY, 280, 140, 10, 10);
 
-        // Display timer and FPS
-        g.setFont(FONT_INFO);
-        int minutes = (int)(gameTime / 60);
-        int seconds = (int)(gameTime % 60);
-        int milliseconds = (int)((gameTime % 1) * 100);
-        String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
-        g.drawString(timeStr, 20, 120);
-        g.drawString("FPS: " + fps, 20, 145);
+            g.setColor(Color.WHITE);
+            g.setFont(FONT_MEDIUM_BOLD);
+            g.drawString("Level: " + level, infoX + 10, infoY + 25);
+            g.drawString("Score: " + (int)displayedScore, infoX + 10, infoY + 55);
+            g.drawString("Money: $" + (int)displayedMoney, infoX + 10, infoY + 85);
+
+            // Display timer and FPS
+            g.setFont(FONT_INFO);
+            int minutes = (int)(gameTime / 60);
+            int seconds = (int)(gameTime % 60);
+            int milliseconds = (int)((gameTime % 1) * 100);
+            String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
+            g.drawString(timeStr, infoX + 10, infoY + 110);
+            g.drawString("FPS: " + fps, infoX + 10, infoY + 135);
+            g.setComposite(originalComposite);
+        }
 
         // Top-right UI stack with cumulative Y positioning
-        int topRightY = 10;
+        // === HUD LAYOUT: stack vs individual mode ===
+        boolean hudStackMode = activeLayout.isStackMode();
+        HUDLayout.HUDElementConfig dodgeCfg = activeLayout.getConfig(HUDLayout.HUDElement.DODGE_COUNTER);
+        // Stack origin: use dodge counter's position as the stack anchor
+        int stackOriginX = hudStackMode ? (int)(dodgeCfg.xPercent * width) : 0;
+        int stackOriginY = hudStackMode ? (int)(dodgeCfg.yPercent * height) : 0;
+        int topRightY = stackOriginY;
 
         // 1. Dodge combo counter
         if (showCombo && dodgeCombo > 1) {
-            g.setColor(new Color(0, 0, 0, 150));
-            g.fillRoundRect(width - 210, topRightY, 200, 60, 10, 10);
+            if (dodgeCfg.visible) {
+                int dcX, dcY;
+                if (hudStackMode) {
+                    dcX = stackOriginX;
+                    dcY = topRightY;
+                } else {
+                    dcX = (int)(dodgeCfg.xPercent * width);
+                    dcY = (int)(dodgeCfg.yPercent * height);
+                }
+                if (dodgeCfg.opacity < 1.0f) {
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, dodgeCfg.opacity)));
+                }
+                g.setColor(new Color(0, 0, 0, 150));
+                g.fillRoundRect(dcX, dcY, 200, 60, 10, 10);
 
-            AffineTransform comboTransform = g.getTransform();
-            int comboX = width - 110;
-            int comboCenterY = topRightY + 40;
-            g.translate(comboX, comboCenterY);
-            g.scale(comboPulseScale, comboPulseScale);
-            g.translate(-comboX, -comboCenterY);
+                AffineTransform comboTransform = g.getTransform();
+                int comboX = dcX + 100;
+                int comboCenterY = dcY + 40;
+                g.translate(comboX, comboCenterY);
+                g.scale(comboPulseScale, comboPulseScale);
+                g.translate(-comboX, -comboCenterY);
 
-            g.setColor(ColorPalette.SUCCESS_GREEN);
-            g.setFont(FONT_LARGE_32);
-            String dodgeComboText = "COMBO x" + dodgeCombo;
-            FontMetrics comboFm = g.getFontMetrics();
-            g.drawString(dodgeComboText, width - 205 + (190 - comboFm.stringWidth(dodgeComboText)) / 2, comboCenterY);
+                g.setColor(ColorPalette.SUCCESS_GREEN);
+                g.setFont(FONT_LARGE_32);
+                String dodgeComboText = "COMBO x" + dodgeCombo;
+                FontMetrics comboFm = g.getFontMetrics();
+                g.drawString(dodgeComboText, dcX + 5 + (190 - comboFm.stringWidth(dodgeComboText)) / 2, comboCenterY);
 
-            g.setTransform(comboTransform);
-            topRightY += 65;
+                g.setTransform(comboTransform);
+                g.setComposite(originalComposite);
+            }
+            if (hudStackMode) topRightY += 65;
         }
 
         // 2. Close call / perfect dodge indicators
+        HUDLayout.HUDElementConfig ccCfg = activeLayout.getConfig(HUDLayout.HUDElement.CLOSE_CALL_INDICATOR);
         if (comboSystem != null && (comboSystem.getCloseCallCount() > 0 || comboSystem.getPerfectDodgeCount() > 0)) {
-            g.setFont(FontPalette.get(Font.BOLD, 14));
-            if (comboSystem.getPerfectDodgeCount() > 0) {
-                g.setColor(ColorPalette.ACCENT_YELLOW);
-                g.drawString("\u2721 PERFECT x" + comboSystem.getPerfectDodgeCount(), width - 200, topRightY + 12);
-                topRightY += 18;
-            }
-            if (comboSystem.getCloseCallCount() > 0) {
-                g.setColor(ColorPalette.SUCCESS_GREEN);
-                g.drawString("\u22C6 CLOSE x" + comboSystem.getCloseCallCount(), width - 200, topRightY + 12);
-                topRightY += 18;
+            if (ccCfg.visible) {
+                int ccX, ccY;
+                if (hudStackMode) {
+                    ccX = stackOriginX + 10;
+                    ccY = topRightY;
+                } else {
+                    ccX = (int)(ccCfg.xPercent * width);
+                    ccY = (int)(ccCfg.yPercent * height);
+                }
+                if (ccCfg.opacity < 1.0f) {
+                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, ccCfg.opacity)));
+                }
+                g.setFont(FontPalette.get(Font.BOLD, 14));
+                int ccOffY = 0;
+                if (comboSystem.getPerfectDodgeCount() > 0) {
+                    g.setColor(ColorPalette.ACCENT_YELLOW);
+                    g.drawString("\u2721 PERFECT x" + comboSystem.getPerfectDodgeCount(), ccX, ccY + 12 + ccOffY);
+                    ccOffY += 18;
+                }
+                if (comboSystem.getCloseCallCount() > 0) {
+                    g.setColor(ColorPalette.SUCCESS_GREEN);
+                    g.drawString("\u22C6 CLOSE x" + comboSystem.getCloseCallCount(), ccX, ccY + 12 + ccOffY);
+                    ccOffY += 18;
+                }
+                g.setComposite(originalComposite);
+                if (hudStackMode) topRightY += ccOffY;
             }
         }
 
         // 3. Active item UI
+        HUDLayout.HUDElementConfig itemCfg = activeLayout.getConfig(HUDLayout.HUDElement.ACTIVE_ITEM);
         equippedItem = gameData.getEquippedItem();
-        if (equippedItem != null) {
-            int itemUIX = width - 210;
-            int itemUIY = topRightY;
+        if (equippedItem != null && itemCfg.visible) {
+            int itemUIX, itemUIY;
+            if (hudStackMode) {
+                itemUIX = stackOriginX;
+                itemUIY = topRightY;
+            } else {
+                itemUIX = (int)(itemCfg.xPercent * width);
+                itemUIY = (int)(itemCfg.yPercent * height);
+            }
             int itemUIW = 200;
             int itemUIH = 80;
+            if (itemCfg.opacity < 1.0f) {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, itemCfg.opacity)));
+            }
             // Determine if any popup/flash is active for glow effect
 
             boolean popupGlow = itemReadyFlickerTimer > 0 || itemCompleteFlashTimer > 0
@@ -7719,135 +7808,141 @@ public class Renderer {
                 drawLeftAlignedPromptWithIcons(g, itemUIX + 10, itemUIY + 68, "Press ", KeyBindManager.Action.USE_ITEM, "");
             }
 
-            topRightY += 85;
+            g.setComposite(originalComposite);
+            if (hudStackMode) topRightY += 85;
         }
 
-        // 4. Missile bar indicator (always visible)
-        // === OLD HORIZONTAL MISSILE BAR (kept for later use) ===
-        // {
-        //     int missileUIX = width - 210;
-        //     int missileUIY = topRightY;
-        //     int totalSlots = 6;
-        //     int currentMissiles = gameData.getMissiles();
-        //     g.setColor(new Color(0, 0, 0, 150));
-        //     g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
-        //     g.setFont(FontPalette.get(Font.BOLD, 14));
-        //     g.setColor(ColorPalette.TEXT_PRIMARY);
-        //     g.drawString("MISSILES", missileUIX + 10, missileUIY + 15);
-        //     int slotStartX = missileUIX + 10;
-        //     int slotY = missileUIY + 22;
-        //     int slotWidth = 26;
-        //     int slotHeight = 10;
-        //     int slotGap = 4;
-        //     for (int s = 0; s < totalSlots; s++) {
-        //         if (s < currentMissiles) {
-        //             g.setColor(ColorPalette.SUCCESS_GREEN);
-        //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
-        //         } else {
-        //             g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 120));
-        //             g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
-        //         }
-        //     }
-        //     topRightY += 45;
-        // }
-        // === END OLD HORIZONTAL MISSILE BAR ===
+        // 4. Missile bar indicator (layout-aware with style variant)
+        HUDLayout.HUDElementConfig missileCfg = activeLayout.getConfig(HUDLayout.HUDElement.MISSILE_BAR);
+        if (missileCfg.visible && !introPanActive) {
+            if (missileCfg.opacity < 1.0f) {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, missileCfg.opacity)));
+            }
 
-        // === NEW VERTICAL LEFT-EDGE MISSILE BAR (styled like boss health bar) ===
-        if (!introPanActive) {
             int currentMissiles = gameData.getMissiles();
             int baseMissiles = gameData.getBaseMissiles();
             int totalSlots = Math.max(baseMissiles, currentMissiles);
-            
-            int panelWidth = 50; // 2x thinner
-            int mBarWidth = 20; // 2x thinner bar
-            int totalBarHeight = 480; // Fixed total bar height - always the same size
-            int segmentHeight = totalBarHeight / Math.max(1, totalSlots); // Segments resize to fill
-            int panelHeight = totalBarHeight + 65; // Extra for label + counter
-            
-            // Center the panel vertically on the screen
-            int barX = 10;
-            int barY = (height - panelHeight) / 2;
-            
-            // Shadow (matches boss health bar style)
-            g.setColor(new Color(0, 0, 0, 100));
-            g.fillRoundRect(barX + 3, barY + 3, panelWidth, panelHeight, 12, 12);
-            
-            // Background panel
-            g.setColor(new Color(20, 20, 30, 200));
-            g.fillRoundRect(barX, barY, panelWidth, panelHeight, 12, 12);
-            
-            // Label
-            g.setFont(FontPalette.get(Font.BOLD, 10));
-            g.setColor(ColorPalette.TEXT_PRIMARY);
-            FontMetrics labelFm = g.getFontMetrics();
-            String label = "MISSILES";
-            int labelX = barX + (panelWidth - labelFm.stringWidth(label)) / 2;
-            g.drawString(label, labelX, barY + 16);
-            
-            // Bar background (dark fill like boss health bar)
-            int barStartX = barX + (panelWidth - mBarWidth) / 2;
-            int barStartY = barY + 24;
-            g.setColor(new Color(60, 60, 60));
-            g.fillRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
-            
-            // Bar fill - bottom-to-top (filled missiles fill from bottom upward)
-            for (int s = 0; s < currentMissiles; s++) {
-                // Segment 0 = bottom of bar, segment N = top
-                int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
-                
-                // Gradient fill matching boss health bar style
-                GradientPaint segGrad;
-                if (s < baseMissiles) {
-                    // Base missile - green gradient (like normal boss bar)
-                    segGrad = new GradientPaint(
-                        barStartX, 0, new Color(50, 150, 50),
-                        barStartX + mBarWidth, 0, new Color(120, 210, 120)
-                    );
-                } else {
-                    // Extra/purchased missile - gold gradient
-                    segGrad = new GradientPaint(
-                        barStartX, 0, new Color(200, 170, 0),
-                        barStartX + mBarWidth, 0, new Color(255, 225, 60)
-                    );
-                }
-                g.setPaint(segGrad);
-                g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
-            }
-            
-            // Darken empty segments (like boss hit segments)
-            for (int s = currentMissiles; s < totalSlots; s++) {
-                int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
-                g.setColor(new Color(0, 0, 0, 120));
-                g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
-            }
-            
-            // Segment dividers (dark lines between segments)
-            g.setColor(new Color(0, 0, 0, 150));
-            for (int s = 1; s < totalSlots; s++) {
-                int divY = barStartY + s * segmentHeight;
-                g.fillRect(barStartX, divY - 1, mBarWidth, 2);
-            }
-            
-            // Bar border (matches boss health bar border)
-            g.setColor(new Color(200, 200, 200));
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
-            g.setStroke(new BasicStroke(1)); // Reset stroke
-            
-            // Count text below bar
-            g.setFont(FONT_EXTRA_SMALL_12);
-            g.setColor(Color.WHITE);
-            String countText = currentMissiles + "/" + totalSlots;
-            FontMetrics countFm = g.getFontMetrics();
-            int countX = barX + (panelWidth - countFm.stringWidth(countText)) / 2;
-            g.drawString(countText, countX, barStartY + totalBarHeight + 18);
-        }
-        // === END NEW VERTICAL LEFT-EDGE MISSILE BAR ===
 
-        // 5. Combo display (score multiplier)
-        if (comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
-            int comboDispX = width - 250;
-            int comboDispY = topRightY;
+            if (missileCfg.styleVariant == 1) {
+                // === HORIZONTAL MISSILE BAR (classic style) ===
+                int missileUIX = (int)(missileCfg.xPercent * width);
+                int missileUIY = (int)(missileCfg.yPercent * height);
+                g.setColor(new Color(0, 0, 0, 150));
+                g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
+                g.setFont(FontPalette.get(Font.BOLD, 14));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                g.drawString("MISSILES", missileUIX + 10, missileUIY + 15);
+                int slotStartX = missileUIX + 10;
+                int slotY = missileUIY + 22;
+                int slotWidth = 26;
+                int slotHeight = 10;
+                int slotGap = 4;
+                for (int s = 0; s < totalSlots; s++) {
+                    if (s < currentMissiles) {
+                        g.setColor(ColorPalette.SUCCESS_GREEN);
+                        g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
+                    } else {
+                        g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 120));
+                        g.fillRoundRect(slotStartX + s * (slotWidth + slotGap), slotY, slotWidth, slotHeight, 3, 3);
+                    }
+                }
+            } else {
+                // === VERTICAL LEFT-EDGE MISSILE BAR (default style, styled like boss health bar) ===
+                int panelWidth = 50;
+                int mBarWidth = 20;
+                int totalBarHeight = 480;
+                int segmentHeight = totalBarHeight / Math.max(1, totalSlots);
+                int panelHeight = totalBarHeight + 65;
+
+                int barX = (int)(missileCfg.xPercent * width);
+                int barY = (int)(missileCfg.yPercent * height);
+
+                // Shadow
+                g.setColor(new Color(0, 0, 0, 100));
+                g.fillRoundRect(barX + 3, barY + 3, panelWidth, panelHeight, 12, 12);
+
+                // Background panel
+                g.setColor(new Color(20, 20, 30, 200));
+                g.fillRoundRect(barX, barY, panelWidth, panelHeight, 12, 12);
+
+                // Label
+                g.setFont(FontPalette.get(Font.BOLD, 10));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                FontMetrics labelFm = g.getFontMetrics();
+                String label = "MISSILES";
+                int labelX = barX + (panelWidth - labelFm.stringWidth(label)) / 2;
+                g.drawString(label, labelX, barY + 16);
+
+                // Bar background
+                int barStartX = barX + (panelWidth - mBarWidth) / 2;
+                int barStartY = barY + 24;
+                g.setColor(new Color(60, 60, 60));
+                g.fillRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
+
+                // Bar fill - bottom-to-top
+                for (int s = 0; s < currentMissiles; s++) {
+                    int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
+                    GradientPaint segGrad;
+                    if (s < baseMissiles) {
+                        segGrad = new GradientPaint(
+                            barStartX, 0, new Color(50, 150, 50),
+                            barStartX + mBarWidth, 0, new Color(120, 210, 120)
+                        );
+                    } else {
+                        segGrad = new GradientPaint(
+                            barStartX, 0, new Color(200, 170, 0),
+                            barStartX + mBarWidth, 0, new Color(255, 225, 60)
+                        );
+                    }
+                    g.setPaint(segGrad);
+                    g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
+                }
+
+                // Darken empty segments
+                for (int s = currentMissiles; s < totalSlots; s++) {
+                    int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
+                    g.setColor(new Color(0, 0, 0, 120));
+                    g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
+                }
+
+                // Segment dividers
+                g.setColor(new Color(0, 0, 0, 150));
+                for (int s = 1; s < totalSlots; s++) {
+                    int divY = barStartY + s * segmentHeight;
+                    g.fillRect(barStartX, divY - 1, mBarWidth, 2);
+                }
+
+                // Bar border
+                g.setColor(new Color(200, 200, 200));
+                g.setStroke(new BasicStroke(2));
+                g.drawRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
+                g.setStroke(new BasicStroke(1));
+
+                // Count text below bar
+                g.setFont(FONT_EXTRA_SMALL_12);
+                g.setColor(Color.WHITE);
+                String countText = currentMissiles + "/" + totalSlots;
+                FontMetrics countFm = g.getFontMetrics();
+                int countX = barX + (panelWidth - countFm.stringWidth(countText)) / 2;
+                g.drawString(countText, countX, barStartY + totalBarHeight + 18);
+            }
+            g.setComposite(originalComposite);
+        }
+
+        // 5. Combo display (score multiplier) - layout-aware with stack/individual mode
+        HUDLayout.HUDElementConfig comboCfg = activeLayout.getConfig(HUDLayout.HUDElement.COMBO_DISPLAY);
+        if (comboCfg.visible && comboSystem != null && comboSystem.getCombo() > 1 && !introPanActive) {
+            int comboDispX, comboDispY;
+            if (hudStackMode) {
+                comboDispX = stackOriginX - 40;
+                comboDispY = topRightY;
+            } else {
+                comboDispX = (int)(comboCfg.xPercent * width);
+                comboDispY = (int)(comboCfg.yPercent * height);
+            }
+            if (comboCfg.opacity < 1.0f) {
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, comboCfg.opacity)));
+            }
 
             g.setColor(new Color(0, 0, 0, 180));
             g.fillRoundRect(comboDispX, comboDispY, 200, 80, 15, 15);
@@ -7869,20 +7964,30 @@ public class Renderer {
             g.fillRect(comboDispX + 10, comboDispY + 72, 180, 3);
             g.setColor(ColorPalette.SUCCESS_GREEN);
             g.fillRect(comboDispX + 10, comboDispY + 72, (int)(180 * timeoutProgress), 3);
-            topRightY += 85;
+            g.setComposite(originalComposite);
+            if (hudStackMode) topRightY += 85;
         }
 
-        // 6. Achievement notification
-        if (pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
+        // 6. Achievement notification - layout-aware with stack/individual mode
+        HUDLayout.HUDElementConfig achCfg = activeLayout.getConfig(HUDLayout.HUDElement.ACHIEVEMENT_POPUP);
+        if (achCfg.visible && pendingAchievements != null && !pendingAchievements.isEmpty() && achievementNotificationTimer > 0 && !isPaused) {
             Achievement ach = pendingAchievements.get(0);
             float achAlpha = (float)Math.max(0.0, Math.min(1.0, achievementNotificationTimer < 30 ? achievementNotificationTimer / 30.0 : 1.0));
+            // Combine element opacity with fade alpha
+            float combinedAlpha = achAlpha * Math.max(0.01f, achCfg.opacity);
 
-            int notifX = width - 420;
-            int notifY = topRightY;
+            int notifX, notifY;
+            if (hudStackMode) {
+                notifX = stackOriginX - 210;
+                notifY = topRightY;
+            } else {
+                notifX = (int)(achCfg.xPercent * width);
+                notifY = (int)(achCfg.yPercent * height);
+            }
 
             Graphics2D g2d = (Graphics2D) g.create();
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, achAlpha));
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, combinedAlpha));
             g2d.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 230));
             g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
 
@@ -8980,9 +9085,9 @@ public class Renderer {
         // Category tabs
         FontMetrics fm;
 
-        String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS"};
+        String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
 
-        int tabWidth = 160;
+        int tabWidth = 130;
 
         int tabStartX = (width - categories.length * tabWidth) / 2;
 
@@ -9061,9 +9166,9 @@ public class Renderer {
         g.setColor(ColorPalette.TEXT_PRIMARY);
 
         if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
-            drawPromptWithIcons(g, width / 2, 185, "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
+            drawPromptWithIcons(g, width / 2, 195, "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         } else {
-            drawPromptWithIcons(g, width / 2, 185, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to navigate | TAB to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
+            drawPromptWithIcons(g, width / 2, 195, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to navigate | TAB to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         }
 
         
@@ -9098,6 +9203,11 @@ public class Renderer {
 
             drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
 
+        } else if (selectedCategory == 5) {
+            // HUD Layout Editor — renders its own mock screen + side panel
+            if (Game.hudLayout != null) {
+                hudLayoutEditor.render(g, 50, 200, width - 100, height - 270, Game.hudLayout, time);
+            }
         }
 
         
@@ -9126,7 +9236,7 @@ public class Renderer {
 
             drawPromptWithIcons(g, width / 2, height - 30,
 
-                "R: Reset Defaults  |  ", KeyBindManager.Action.BACK, ": Return to Menu");
+                java.awt.event.KeyEvent.VK_R, " Reset Defaults  |  ", java.awt.event.KeyEvent.VK_ESCAPE, " Return to Menu");
 
         }
 
@@ -11602,6 +11712,22 @@ public class Renderer {
 
      */
 
+    /** Get a short display label for a VK key code (shorter than KeyEvent.getKeyText) */
+    private String vkKeyLabel(int vkCode) {
+        switch (vkCode) {
+            case java.awt.event.KeyEvent.VK_ESCAPE: return "Esc";
+            case java.awt.event.KeyEvent.VK_SPACE: return "Space";
+            case java.awt.event.KeyEvent.VK_ENTER: return "Enter";
+            case java.awt.event.KeyEvent.VK_BACK_SPACE: return "Bksp";
+            case java.awt.event.KeyEvent.VK_DELETE: return "Del";
+            case java.awt.event.KeyEvent.VK_CONTROL: return "Ctrl";
+            case java.awt.event.KeyEvent.VK_SHIFT: return "Shift";
+            case java.awt.event.KeyEvent.VK_ALT: return "Alt";
+            case java.awt.event.KeyEvent.VK_TAB: return "Tab";
+            default: return java.awt.event.KeyEvent.getKeyText(vkCode);
+        }
+    }
+
     /** Measure the width of a styled keycap box for a key label. */
     private int measureKeyCap(FontMetrics fm, String keyLabel) {
         int textW = fm.stringWidth(keyLabel);
@@ -11680,6 +11806,19 @@ public class Renderer {
                         g.setColor(sc);
                     }
                 }
+            } else if (seg instanceof Integer) {
+                // Raw VK key code — render as keyboard sprite or keycap
+                int vkCode = (Integer) seg;
+                java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
+                if (icon != null) {
+                    int iW = iconH * icon.getWidth() / icon.getHeight();
+                    g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+                    drawX += iW + 2;
+                } else {
+                    Color sc = g.getColor();
+                    drawX += drawKeyCap(g, fm, vkKeyLabel(vkCode), drawX, y);
+                    g.setColor(sc);
+                }
             }
         }
     }
@@ -11733,6 +11872,16 @@ public class Renderer {
                 }
 
                 // In keyboard mode, ControllerButton segments are hidden (zero width)
+
+            } else if (seg instanceof Integer) {
+
+                int vkCode = (Integer) seg;
+
+                java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
+
+                int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, vkKeyLabel(vkCode));
 
             }
 
@@ -11828,6 +11977,32 @@ public class Renderer {
 
                 // In keyboard mode, ControllerButton segments are hidden
 
+            } else if (seg instanceof Integer) {
+
+                // Raw VK key code — render as keyboard sprite or keycap
+
+                int vkCode = (Integer) seg;
+
+                java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
+
+                if (icon != null) {
+
+                    int iW = iconH * icon.getWidth() / icon.getHeight();
+
+                    g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+
+                    drawX += iW + 2;
+
+                } else {
+
+                    Color sc = g.getColor();
+
+                    drawX += drawKeyCap(g, fm, vkKeyLabel(vkCode), drawX, y);
+
+                    g.setColor(sc);
+
+                }
+
             }
 
         }
@@ -11885,6 +12060,16 @@ public class Renderer {
                     totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, ((KeyBindManager.ControllerButton) seg).getDisplayName());
 
                 }
+
+            } else if (seg instanceof Integer) {
+
+                int vkCode = (Integer) seg;
+
+                java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
+
+                int iW = (icon != null) ? iconH * icon.getWidth() / icon.getHeight() : 0;
+
+                totalWidth += (icon != null) ? iW + 2 : measureKeyCap(fm, vkKeyLabel(vkCode));
 
             }
 

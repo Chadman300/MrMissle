@@ -1,3 +1,4 @@
+import config.HUDLayout;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -104,6 +105,9 @@ public class SaveData implements Serializable {
     public int fpsLimit;
     public boolean enableAntiAliasing;
     public boolean enableUIParallax = true;
+    
+    // HUD Layout customization
+    public HUDLayout hudLayout;
     
     // Debug settings
     public boolean enableHitboxes;
@@ -284,6 +288,11 @@ public class SaveData implements Serializable {
         if (creationTimestamp == 0) {
             creationTimestamp = saveTimestamp; // Use last save time as fallback
         }
+        
+        // Backwards compatibility: old saves without HUD layout
+        if (hudLayout == null) {
+            hudLayout = HUDLayout.defaultLayout();
+        }
     }
     
     /**
@@ -374,6 +383,13 @@ public class SaveData implements Serializable {
         data.enableAntiAliasing = Game.enableAntiAliasing;
         data.enableUIParallax = Game.enableUIParallax;
         data.enableHitboxes = Game.enableHitboxes;
+        
+        // HUD Layout
+        if (gameData != null) {
+            // hudLayout is stored on the Game instance (public field)
+            // We access it through a static helper since we can't access Game instance directly
+            data.hudLayout = Game.hudLayout != null ? Game.hudLayout.deepCopy() : HUDLayout.defaultLayout();
+        }
         
         // Keybind settings
         if (Game.keyBindManager != null) {
@@ -524,6 +540,9 @@ public class SaveData implements Serializable {
         Game.enableAntiAliasing = enableAntiAliasing;
         Game.enableUIParallax = enableUIParallax;
         Game.enableHitboxes = enableHitboxes;
+        
+        // HUD Layout
+        Game.hudLayout = (hudLayout != null) ? hudLayout.deepCopy() : HUDLayout.defaultLayout();
         
         // Keybind settings
         if (Game.keyBindManager != null && keyBinds != null) {
