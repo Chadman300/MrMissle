@@ -1558,6 +1558,9 @@ public class Game extends JPanel implements Runnable {
                                              ", canActivate=" + (item != null ? item.canActivate() : "N/A"));
                             if (item != null && item.canActivate()) {
                                 item.activate();
+                                // Apply item cooldown passive reduction
+                                double cdMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.ITEM_COOLDOWN);
+                                if (cdMult < 1.0) item.setCurrentCooldown(item.getCurrentCooldown() * cdMult);
                                 System.out.println("SPACE: Item activated!");
                                 screenShakeIntensity = 3;
                                 // Handle instant effects immediately (before update() deactivates them)
@@ -4208,10 +4211,12 @@ public class Game extends JPanel implements Runnable {
         lastFPSTime = System.currentTimeMillis();
         bossKillTime = 0;
         
-        // Start active item cooldown at start of level
+        // Start active item cooldown at start of level (with passive cooldown reduction)
         ActiveItem equippedItem = gameData.getEquippedItem();
         if (equippedItem != null) {
             equippedItem.startLevelCooldown();
+            double cdMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.ITEM_COOLDOWN);
+            if (cdMult < 1.0) equippedItem.setCurrentCooldown(equippedItem.getCurrentCooldown() * cdMult);
         }
     }
     
@@ -5056,7 +5061,8 @@ public class Game extends JPanel implements Runnable {
                     double dx = currentBoss.getX() - player.getX();
                     double dy = currentBoss.getY() - player.getY();
                     double distToBoss = Math.sqrt(dx * dx + dy * dy);
-                    double targetingRadius = 175; // Fixed range
+                    // Radius scales with level: 175 / 220 / 265
+                    double targetingRadius = 130 + (targetingLevel * 45);
                     
                     if (distToBoss < targetingRadius && distToBoss > 0) {
                         double angleToBoss = Math.atan2(dy, dx);
@@ -5065,9 +5071,11 @@ public class Game extends JPanel implements Runnable {
                         while (angleDiff > Math.PI) angleDiff -= TWO_PI;
                         while (angleDiff < -Math.PI) angleDiff += TWO_PI;
                         
-                        // Only assist when pointing roughly toward boss (within ~60 degrees)
-                        if (Math.abs(angleDiff) < Math.PI / 3) {
-                            double baseStrength = 0.015; // Fixed aim-assist strength
+                        // Angle cone widens with level: ~70° / ~90° / ~110°
+                        double maxAngleCone = (Math.PI / 3) + (targetingLevel * Math.PI / 9);
+                        if (Math.abs(angleDiff) < maxAngleCone) {
+                            // Strength scales with level: 0.045 / 0.09 / 0.135
+                            double baseStrength = targetingLevel * 0.045;
                             double distanceFalloff = 1.0 - (distToBoss / targetingRadius);
                             double assistStrength = baseStrength * distanceFalloff * dt;
                             player.nudgeAngle(angleToBoss, assistStrength);
@@ -6300,10 +6308,11 @@ public class Game extends JPanel implements Runnable {
             // Reset frame speed multiplier before applying slows
             bullet.resetFrameSpeedMultiplier();
             
-            // Apply bullet slow upgrade (from PassiveUpgradeManager)
+            // Apply bullet slow upgrade (from PassiveUpgradeManager) - scales with level
             int bulletSlowLevel = getActiveBulletSlowLevel();
             if (bulletSlowLevel > 0) {
-                bullet.applySlow(0.999 - (bulletSlowLevel * 0.0001));
+                double bulletSlowMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.BULLET_SLOW);
+                bullet.applySlow(bulletSlowMult);
             }
             
             // Apply time slow from active item
@@ -6436,10 +6445,10 @@ public class Game extends JPanel implements Runnable {
                         continue;
                     }
                     
-                    // Lucky Dodge chance - phase through bullets (from PassiveUpgradeManager)
+                    // Lucky Dodge chance - phase through bullets (scales with level via getMultiplier)
                     int luckyDodgeLevel = getActiveLuckyDodgeLevel();
                     if (luckyDodgeLevel > 0) {
-                        double dodgeChance = Math.min(luckyDodgeLevel * 0.03, 0.36); // 3% per level, capped at 36%
+                        double dodgeChance = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.LUCKY_DODGE); // 10% per level
                         if (Math.random() < dodgeChance) {
                             soundManager.playSound(SoundManager.Sound.DODGE, 1.0f + (dodgeCombo * 0.1f));
                             
@@ -7635,6 +7644,9 @@ public class Game extends JPanel implements Runnable {
                         ActiveItem item = gameData.getEquippedItem();
                         if (item != null && item.canActivate()) {
                             item.activate();
+                            // Apply item cooldown passive reduction
+                            double cdMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.ITEM_COOLDOWN);
+                            if (cdMult < 1.0) item.setCurrentCooldown(item.getCurrentCooldown() * cdMult);
                             screenShakeIntensity = 3;
                             if (item.getActiveDuration() == 0) {
                                 handleActiveItemEffects(item, 1.0);
@@ -8458,183 +8470,139 @@ public class Game extends JPanel implements Runnable {
      * Draw the attack introduction screen
      */
     private void drawAttackIntro(Graphics2D g, int width, int height) {
-        // Draw dark gradient background
-        GradientPaint bgGradient = new GradientPaint(
-            0, 0, new Color(20, 25, 40),
-            0, height, new Color(10, 15, 25)
-        );
-        g.setPaint(bgGradient);
-        g.fillRect(0, 0, width, height);
-        
+        // Military themed background (matching the rest of the game)
+        UITheme.drawScreenBackground(g, width, height, gradientTime);
+
         // Animated pulse effect (smaller range to prevent overflow)
         double pulse = Math.sin(System.currentTimeMillis() / 300.0) * 0.03 + 1.0;
-        
+
         // Box dimensions - fill most of the screen
         int boxWidth = Math.min(900, width - 40);
         int boxHeight = Math.min(800, height - 30);
         int boxX = (width - boxWidth) / 2;
         int boxY = (height - boxHeight) / 2;
-        
+
         // Calculate available space for the image (after accounting for text areas)
-        int headerHeight = 70;   // Space for "NEW ATTACK!" header
-        int nameHeight = 55;     // Space for attack name
-        int descriptionHeight = 100; // Space for description (2-3 lines)
-        int promptHeight = 50;   // Space for "Press SPACE" prompt
-        int boxPaddingV = 25;    // Vertical padding
-        int sectionGap = 20;     // Gap between sections
-        int imageFramePadding = 15; // Padding around image frame
-        
-        // Calculate max image area (what's left after text and padding)
+        int headerHeight = 70;
+        int nameHeight = 55;
+        int descriptionHeight = 100;
+        int promptHeight = 50;
+        int boxPaddingV = 25;
+        int sectionGap = 20;
+        int imageFramePadding = 15;
+
         int textAreaHeight = headerHeight + nameHeight + descriptionHeight + promptHeight + sectionGap * 3 + boxPaddingV * 2;
-        int maxImageHeight = boxHeight - textAreaHeight - imageFramePadding * 2;
-        int maxImageWidth = boxWidth - 60; // Leave margin on sides
-        
-        // Ensure reasonable minimums
-        maxImageHeight = Math.max(maxImageHeight, 300);
-        maxImageWidth = Math.max(maxImageWidth, 400);
-        
+        int maxImageHeight = Math.max(300, boxHeight - textAreaHeight - imageFramePadding * 2);
+        int maxImageWidth = Math.max(400, boxWidth - 60);
+
         // Calculate image dimensions
         int imgDisplayWidth = 0;
         int imgDisplayHeight = 0;
-        
+
         if (attackIntroImage != null) {
             int imgWidth = attackIntroImage.getWidth();
             int imgHeight = attackIntroImage.getHeight();
-            
-            // Calculate scale to fit within max bounds while preserving aspect ratio
-            double scaleW = (double)maxImageWidth / imgWidth;
-            double scaleH = (double)maxImageHeight / imgHeight;
-            double scale = Math.min(scaleW, scaleH);
-            
-            // Apply scale
-            imgDisplayWidth = (int)(imgWidth * scale);
-            imgDisplayHeight = (int)(imgHeight * scale);
-            
-            // Clamp to reasonable bounds
-            imgDisplayWidth = Math.max(100, Math.min(imgDisplayWidth, maxImageWidth));
-            imgDisplayHeight = Math.max(100, Math.min(imgDisplayHeight, maxImageHeight));
+            double scale = Math.min((double)maxImageWidth / imgWidth, (double)maxImageHeight / imgHeight);
+            imgDisplayWidth = Math.max(100, Math.min((int)(imgWidth * scale), maxImageWidth));
+            imgDisplayHeight = Math.max(100, Math.min((int)(imgHeight * scale), maxImageHeight));
         } else {
-            // Default placeholder size
             imgDisplayWidth = 150;
             imgDisplayHeight = 150;
         }
-        
-        // Box background with gradient
-        GradientPaint boxGradient = new GradientPaint(
-            boxX, boxY, new Color(30, 40, 60, 240),
-            boxX, boxY + boxHeight, new Color(20, 25, 35, 240)
-        );
-        g.setPaint(boxGradient);
-        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 30, 30);
-        
-        // Box border with glow
-        g.setColor(new Color(100, 150, 200, 150));
-        g.setStroke(new BasicStroke(3));
-        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 30, 30);
-        
-        // Outer glow
-        for (int i = 1; i <= 3; i++) {
-            g.setColor(new Color(100, 150, 200, 40 - i * 10));
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(boxX - i * 3, boxY - i * 3, boxWidth + i * 6, boxHeight + i * 6, 30 + i * 2, 30 + i * 2);
-        }
-        
+
+        // Draw chamfered card for the main content area
+        UITheme.drawCard(g, boxX, boxY, boxWidth, boxHeight, ColorPalette.ACCENT_ORANGE);
+
         // Track current Y position for layout
         int currentY = boxY + boxPaddingV;
-        
-        // "NEW ATTACK!" header with animation
-        int headerFontSize = Math.min(50, boxWidth / 10);
-        g.setFont(FontPalette.getDisplay(Font.BOLD, (int)(headerFontSize * pulse)));
-        g.setColor(new Color(255, 200, 100));
-        String header = "NEW ATTACK!";
-        FontMetrics fm = g.getFontMetrics();
-        int headerX = boxX + (boxWidth - fm.stringWidth(header)) / 2;
-        currentY += fm.getAscent();
-        g.drawString(header, headerX, currentY);
-        currentY += sectionGap;
-        
+
+        // "NEW ATTACK!" header — using stencil title style
+        UITheme.drawTitle(g, "NEW ATTACK!", boxWidth, currentY + 50,
+            ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, gradientTime,
+            FontPalette.getDisplay(Font.BOLD, Math.min(50, boxWidth / 10)));
+        currentY += 70;
+
         // Attack name
         int nameFontSize = Math.min(40, boxWidth / 12);
         g.setFont(FontPalette.get(Font.BOLD, nameFontSize));
-        g.setColor(new Color(200, 220, 255));
-        fm = g.getFontMetrics();
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+        FontMetrics fm = g.getFontMetrics();
         if (currentAttackIntroName != null) {
+            // Shadow
+            g.setColor(ColorPalette.TEXT_SHADOW);
             int nameX = boxX + (boxWidth - fm.stringWidth(currentAttackIntroName)) / 2;
             currentY += fm.getAscent();
+            g.drawString(currentAttackIntroName, nameX + 2, currentY + 2);
+            g.setColor(ColorPalette.TEXT_PRIMARY);
             g.drawString(currentAttackIntroName, nameX, currentY);
         }
         currentY += sectionGap;
-        
+
         // Attack image - centered in box
         int imageX = boxX + (boxWidth - imgDisplayWidth) / 2;
         int imageY = currentY;
-        
+
         if (attackIntroImage != null) {
-            // Apply subtle pulse effect
             int pulseWidth = (int)(imgDisplayWidth * pulse);
             int pulseHeight = (int)(imgDisplayHeight * pulse);
             int pulseImageX = boxX + (boxWidth - pulseWidth) / 2;
             int pulseOffsetY = (imgDisplayHeight - pulseHeight) / 2;
-            
-            // Draw image frame/border (use base size, not pulsed)
-            g.setColor(new Color(50, 60, 80, 200));
-            g.fillRoundRect(imageX - imageFramePadding, imageY - imageFramePadding, 
-                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 15, 15);
-            g.setColor(new Color(100, 150, 200, 100));
+
+            // Image frame with military feel
+            g.setColor(new Color(10, 15, 25, 200));
+            g.fillRoundRect(imageX - imageFramePadding, imageY - imageFramePadding,
+                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 8, 8);
+            g.setColor(ColorPalette.BORDER_STEEL);
             g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(imageX - imageFramePadding, imageY - imageFramePadding, 
-                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 15, 15);
-            
-            // Draw image with pulse (centered within frame)
+            g.drawRoundRect(imageX - imageFramePadding, imageY - imageFramePadding,
+                           imgDisplayWidth + imageFramePadding * 2, imgDisplayHeight + imageFramePadding * 2, 8, 8);
+
             g.drawImage(attackIntroImage, pulseImageX, imageY + pulseOffsetY, pulseWidth, pulseHeight, null);
         } else {
-            // Draw placeholder
-            g.setColor(new Color(60, 60, 80));
-            g.fillRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 20, 20);
-            g.setColor(new Color(100, 150, 200));
+            g.setColor(new Color(20, 25, 35));
+            g.fillRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 8, 8);
+            g.setColor(ColorPalette.BORDER_STEEL);
             g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 20, 20);
-            
+            g.drawRoundRect(imageX, imageY, imgDisplayWidth, imgDisplayHeight, 8, 8);
+
             g.setFont(FontPalette.get(Font.BOLD, 36));
-            g.setColor(new Color(150, 150, 170));
+            g.setColor(ColorPalette.TEXT_DIM);
             fm = g.getFontMetrics();
-            g.drawString("?", imageX + imgDisplayWidth/2 - fm.stringWidth("?")/2, 
+            g.drawString("?", imageX + imgDisplayWidth/2 - fm.stringWidth("?")/2,
                         imageY + imgDisplayHeight/2 + fm.getAscent()/2 - 4);
         }
         currentY = imageY + imgDisplayHeight + imageFramePadding + sectionGap;
-        
-        // Attack description - centered in box
+
+        // Attack description
         if (currentAttackIntroDescription != null) {
             int descFontSize = Math.min(24, boxWidth / 25);
             int descLineHeight = descFontSize + 10;
             g.setFont(FontPalette.get(Font.PLAIN, descFontSize));
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(ColorPalette.TEXT_DIM);
             fm = g.getFontMetrics();
-            
-            // Split description by newlines and draw each line
             String[] lines = currentAttackIntroDescription.split("\n");
-            
             for (String line : lines) {
                 int lineX = boxX + (boxWidth - fm.stringWidth(line)) / 2;
                 g.drawString(line, lineX, currentY + fm.getAscent());
                 currentY += descLineHeight;
             }
         }
-        
-        // "Press SPACE to continue" prompt - positioned at bottom of box
+
+        // "Press SPACE to continue" prompt
         double promptPulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.3 + 0.7;
         int promptFontSize = Math.min(26, boxWidth / 24);
         g.setFont(FontPalette.get(Font.BOLD, promptFontSize));
-        g.setColor(new Color(163, 190, 140, (int)(255 * promptPulse)));
+        g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(),
+                             ColorPalette.ACCENT_ORANGE.getBlue(), (int)(255 * promptPulse)));
         String prompt = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
         fm = g.getFontMetrics();
         int promptX = boxX + (boxWidth - fm.stringWidth(prompt)) / 2;
         int promptY = boxY + boxHeight - boxPaddingV - 5;
         g.drawString(prompt, promptX, promptY);
-        
+
         // Level indicator in corner
         g.setFont(FontPalette.get(Font.BOLD, 14));
-        g.setColor(new Color(150, 150, 170, 180));
+        g.setColor(ColorPalette.TEXT_DIM);
         String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
         g.drawString(levelText, boxX + 15, boxY + boxHeight - 10);
     }
@@ -8643,114 +8611,106 @@ public class Game extends JPanel implements Runnable {
      * Draw the attack showcase selection screen for debugging/screenshots
      */
     private void drawAttackShowcase(Graphics2D g, int width, int height) {
-        // Draw dark gradient background
-        GradientPaint bgGradient = new GradientPaint(
-            0, 0, new Color(15, 20, 35),
-            0, height, new Color(8, 12, 20)
-        );
-        g.setPaint(bgGradient);
-        g.fillRect(0, 0, width, height);
-        
-        // Animated pulse effect
+        // Military themed background (matching the rest of the game)
+        UITheme.drawScreenBackground(g, width, height, gradientTime);
+
+        // Animated jet silhouettes
+        UITheme.drawJetSilhouette(g, width, height, gradientTime);
+
+        double time = gradientTime;
         double pulse = Math.sin(System.currentTimeMillis() / 400.0) * 0.05 + 1.0;
-        double time = System.currentTimeMillis() / 1000.0;
-        
+
+        // === TITLE ===
+        UITheme.drawTitle(g, "SHOWCASE", width, 55,
+            ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 42));
+
         // === TAB BUTTONS ===
         int tabWidth = 150;
         int tabHeight = 40;
-        int tabY = 25;
+        int tabY = 80;
         int attacksTabX = width / 2 - tabWidth - 10;
         int itemsTabX = width / 2 + 10;
-        
-        // Attacks tab
+
         boolean attacksTabHover = mouseX >= attacksTabX && mouseX <= attacksTabX + tabWidth &&
                                   mouseY >= tabY && mouseY <= tabY + tabHeight;
         boolean attacksTabActive = (showcaseTab == 0);
         boolean attacksTabKeySelected = (showcaseHoveredButton == 0);
         drawShowcaseTab(g, attacksTabX, tabY, tabWidth, tabHeight, "ATTACKS", attacksTabActive, attacksTabHover, attacksTabKeySelected);
-        
-        // Items tab
+
         boolean itemsTabHover = mouseX >= itemsTabX && mouseX <= itemsTabX + tabWidth &&
                                 mouseY >= tabY && mouseY <= tabY + tabHeight;
         boolean itemsTabActive = (showcaseTab == 1);
         boolean itemsTabKeySelected = (showcaseHoveredButton == 1);
         drawShowcaseTab(g, itemsTabX, tabY, tabWidth, tabHeight, "ITEMS", itemsTabActive, itemsTabHover, itemsTabKeySelected);
-        
-        // Counter (different based on tab)
+
+        // Counter
         g.setFont(FontPalette.TINY);
-        g.setColor(new Color(150, 170, 200));
+        g.setColor(ColorPalette.TEXT_DIM);
         int maxIndex = (showcaseTab == 0) ? ATTACK_INTROS.length : ITEM_SHOWCASE.length;
         String counter = (debugShowcaseIndex + 1) + " / " + maxIndex;
         FontMetrics fm = g.getFontMetrics();
         g.drawString(counter, (width - fm.stringWidth(counter)) / 2, tabY + tabHeight + 30);
-        
-        // === CAROUSEL CARDS (Journey Map style) ===
+
+        // === CAROUSEL CARDS ===
         int centerX = width / 2;
-        int centerY = height / 2 - 50; // Move cards up
-        int cardSpacing = 600; // Space between card centers
+        int centerY = height / 2 - 30;
+        int cardSpacing = 600;
         int centerCardWidth = 620;
-        int centerCardHeight = 540;
-        
-        // Animate carousel offset towards 0 (smooth slide)
+        int centerCardHeight = 520;
+
+        // Animate carousel offset towards 0
         if (Math.abs(showcaseCarouselOffset) > 0.01) {
-            showcaseCarouselOffset *= 0.85; // Ease out animation
+            showcaseCarouselOffset *= 0.85;
         } else {
             showcaseCarouselOffset = 0;
         }
-        
-        // Draw cards for visible items (no wrapping)
+
         for (int offset = -2; offset <= 2; offset++) {
             int itemIndex = debugShowcaseIndex + offset;
-            
-            // Skip items outside valid range (no wrapping)
             if (itemIndex < 0 || itemIndex >= maxIndex) continue;
-            
-            // Calculate position with animation offset
+
             double animatedOffset = offset + showcaseCarouselOffset;
             int cardCenterX = centerX + (int)(animatedOffset * cardSpacing);
             double distFromCenter = Math.abs(animatedOffset);
             double scale = Math.max(0.5, 1.0 - distFromCenter * 0.35);
             float alpha = (float)Math.max(0.2, 1.0 - distFromCenter * 0.5);
-            
-            // Skip if too far off screen
+
             if (cardCenterX < -200 || cardCenterX > width + 200) continue;
-            
+
             int cardW = (int)(centerCardWidth * scale);
             int cardH = (int)(centerCardHeight * scale);
             int cardX = cardCenterX - cardW / 2;
             int cardY = centerY - cardH / 2;
-            
+
             // Get item data
             String itemName, itemDesc, itemLevel, itemCategory, itemId;
             if (showcaseTab == 0) {
-                itemId = ATTACK_INTROS[itemIndex][0];   // Internal ID for image loading
+                itemId = ATTACK_INTROS[itemIndex][0];
                 itemLevel = ATTACK_INTROS[itemIndex][1];
-                itemName = ATTACK_INTROS[itemIndex][2]; // Display name (nice formatting)
+                itemName = ATTACK_INTROS[itemIndex][2];
                 itemDesc = ATTACK_INTROS[itemIndex][3];
                 itemCategory = ATTACK_INTROS[itemIndex].length > 4 ? ATTACK_INTROS[itemIndex][4] : "Attack";
             } else {
-                itemName = ITEM_SHOWCASE[itemIndex][2]; // Name is at index 2
+                itemName = ITEM_SHOWCASE[itemIndex][2];
                 itemLevel = ITEM_SHOWCASE[itemIndex][1];
                 itemCategory = "ACTIVE ITEM";
                 itemDesc = ITEM_SHOWCASE[itemIndex][3];
-                itemId = ITEM_SHOWCASE[itemIndex][0]; // Type ID for items
+                itemId = ITEM_SHOWCASE[itemIndex][0];
             }
-            
-            // Load image for this card (use cache)
+
             BufferedImage cardImage = null;
             if (showcaseTab == 0) {
                 cardImage = loadAttackIntroImage(itemId);
             } else {
                 cardImage = loadItemShowcaseImage(itemId);
             }
-            
-            // Check if this item is locked
+
+            // Check locked status
             int itemUnlockLevel = Integer.parseInt(itemLevel);
             boolean isShowcaseLocked;
             if (debugShowcaseUnlockAll) {
                 isShowcaseLocked = false;
             } else if (showcaseTab == 1) {
-                // For items tab, check against actual unlocked items list
                 try {
                     ActiveItem.ItemType checkType = ActiveItem.ItemType.valueOf(itemId);
                     isShowcaseLocked = !gameData.getUnlockedItems().contains(checkType);
@@ -8758,92 +8718,72 @@ public class Game extends JPanel implements Runnable {
                     isShowcaseLocked = true;
                 }
             } else {
-                // For attacks tab, check against max unlocked level
                 isShowcaseLocked = itemUnlockLevel > gameData.getMaxUnlockedLevel();
             }
-            
-            // Apply alpha for fading effect
+
             Composite originalComposite = g.getComposite();
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            
-            // Selection glow for center card (when animation settled)
+
+            // Use UITheme chamfered cards
+            Color accentColor = offset == 0 ? ColorPalette.ACCENT_ORANGE : ColorPalette.BORDER_STEEL;
             if (offset == 0 && Math.abs(showcaseCarouselOffset) < 0.3) {
-                float glowAlpha = (float)(1.0 - Math.abs(showcaseCarouselOffset) * 3); // Fade glow during animation
-                float glowPulse = (float)(0.2 + 0.15 * Math.sin(time * 4)) * glowAlpha;
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0, glowPulse)));
-                g.setColor(new Color(100, 150, 255));
-                g.fillRoundRect(cardX - 15, cardY - 15, cardW + 30, cardH + 30, 30, 30);
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                UITheme.drawCardSelected(g, cardX, cardY, cardW, cardH, accentColor, time);
+            } else {
+                UITheme.drawCard(g, cardX, cardY, cardW, cardH, accentColor);
             }
-            
-            // Card shadow
-            g.setColor(new Color(0, 0, 0, (int)(100 * alpha)));
-            g.fillRoundRect(cardX + 5, cardY + 5, cardW, cardH, 20, 20);
-            
-            // Card background gradient
-            GradientPaint cardGradient = new GradientPaint(
-                cardX, cardY, new Color(45, 55, 75),
-                cardX, cardY + cardH, new Color(30, 35, 50)
-            );
-            g.setPaint(cardGradient);
-            g.fillRoundRect(cardX, cardY, cardW, cardH, 20, 20);
-            
-            // Card border
-            g.setColor(offset == 0 ? new Color(120, 170, 255, 200) : new Color(80, 100, 140, 150));
-            g.setStroke(new BasicStroke(offset == 0 ? 3 : 2));
-            g.drawRoundRect(cardX, cardY, cardW, cardH, 20, 20);
-            
+
             if (isShowcaseLocked) {
-                // === LOCKED CARD OVERLAY ===
-                // Dark tint over card
-                g.setColor(new Color(0, 0, 0, (int)(120 * alpha)));
-                g.fillRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 18, 18);
-                
-                // Lock icon
+                // Locked card overlay
+                g.setColor(new Color(0, 0, 0, (int)(150 * alpha)));
+                g.fillRect(cardX + 5, cardY + 5, cardW - 10, cardH - 10);
+
                 int lockSize = (int)(60 * scale);
                 g.setFont(FontPalette.get(Font.BOLD, lockSize));
-                g.setColor(new Color(220, 180, 100, (int)(220 * alpha)));
+                g.setColor(new Color(ColorPalette.ACCENT_YELLOW.getRed(), ColorPalette.ACCENT_YELLOW.getGreen(),
+                                     ColorPalette.ACCENT_YELLOW.getBlue(), (int)(220 * alpha)));
                 fm = g.getFontMetrics();
                 String lockStr = "[X]";
                 int lockX = cardX + (cardW - fm.stringWidth(lockStr)) / 2;
                 int lockY = cardY + cardH / 2 - (int)(20 * scale);
                 g.drawString(lockStr, lockX, lockY);
-                
-                // "Unlocks at Level X" text
-                int unlockFontSize = (int)(18 * scale);
-                g.setFont(FontPalette.get(Font.BOLD, Math.max(10, unlockFontSize)));
-                g.setColor(new Color(240, 210, 150, (int)(200 * alpha)));
+
+                int unlockFontSize = Math.max(10, (int)(18 * scale));
+                g.setFont(FontPalette.get(Font.BOLD, unlockFontSize));
+                g.setColor(new Color(ColorPalette.TEXT_GOLD.getRed(), ColorPalette.TEXT_GOLD.getGreen(),
+                                     ColorPalette.TEXT_GOLD.getBlue(), (int)(200 * alpha)));
                 fm = g.getFontMetrics();
                 String unlockStr = "Unlocks at Level " + itemLevel;
                 int unlockX = cardX + (cardW - fm.stringWidth(unlockStr)) / 2;
                 g.drawString(unlockStr, unlockX, lockY + (int)(40 * scale));
-                
+
                 g.setComposite(originalComposite);
-                continue; // Skip normal card content
+                continue;
             }
-            
+
             // Item name at top
-            int fontSize = (int)(28 * scale);
-            g.setFont(FontPalette.get(Font.BOLD, Math.max(14, fontSize)));
-            g.setColor(new Color(200, 220, 255));
+            int fontSize = Math.max(14, (int)(28 * scale));
+            g.setFont(FontPalette.get(Font.BOLD, fontSize));
+            g.setColor(ColorPalette.TEXT_PRIMARY);
             fm = g.getFontMetrics();
             int nameX = cardX + (cardW - fm.stringWidth(itemName)) / 2;
+            // Shadow
+            g.setColor(ColorPalette.TEXT_SHADOW);
+            g.drawString(itemName, nameX + 2, cardY + (int)(35 * scale) + 2);
+            g.setColor(ColorPalette.TEXT_PRIMARY);
             g.drawString(itemName, nameX, cardY + (int)(35 * scale));
-            
-            // Item image - LARGER and with correct aspect ratio
-            int maxImageWidth = (int)(cardW * 0.88);  // 88% of card width
-            int maxImageHeight = (int)(cardH * 0.52); // 52% of card height for image area
+
+            // Item image
+            int maxImageWidth = (int)(cardW * 0.88);
+            int maxImageHeight = (int)(cardH * 0.52);
             int imageY = cardY + (int)(48 * scale);
-            
+
             if (cardImage != null) {
-                // Calculate scaled size preserving aspect ratio
                 int imgWidth = cardImage.getWidth();
                 int imgHeight = cardImage.getHeight();
                 double imgAspect = (double) imgWidth / imgHeight;
-                
+
                 int drawWidth, drawHeight;
                 if (imgAspect > 1) {
-                    // Wider than tall
                     drawWidth = maxImageWidth;
                     drawHeight = (int)(maxImageWidth / imgAspect);
                     if (drawHeight > maxImageHeight) {
@@ -8851,7 +8791,6 @@ public class Game extends JPanel implements Runnable {
                         drawWidth = (int)(maxImageHeight * imgAspect);
                     }
                 } else {
-                    // Taller than wide or square
                     drawHeight = maxImageHeight;
                     drawWidth = (int)(maxImageHeight * imgAspect);
                     if (drawWidth > maxImageWidth) {
@@ -8859,13 +8798,12 @@ public class Game extends JPanel implements Runnable {
                         drawHeight = (int)(maxImageWidth / imgAspect);
                     }
                 }
-                
+
                 int imageX = cardX + (cardW - drawWidth) / 2;
                 int imageCenterY = imageY + (maxImageHeight - drawHeight) / 2;
-                
-                // Pulse effect for center card
+
                 if (offset == 0) {
-                    double pulseScale = 1.0 + (pulse - 1.0) * 0.5; // Subtle pulse
+                    double pulseScale = 1.0 + (pulse - 1.0) * 0.5;
                     int pulseW = (int)(drawWidth * pulseScale);
                     int pulseH = (int)(drawHeight * pulseScale);
                     int pulseX = imageX - (pulseW - drawWidth) / 2;
@@ -8875,34 +8813,30 @@ public class Game extends JPanel implements Runnable {
                     g.drawImage(cardImage, imageX, imageCenterY, drawWidth, drawHeight, null);
                 }
             } else {
-                // Placeholder if no image
                 int placeholderSize = (int)(Math.min(maxImageWidth, maxImageHeight) * 0.8);
                 int imageX = cardX + (cardW - placeholderSize) / 2;
-                g.setColor(new Color(50, 55, 70, (int)(255 * alpha)));
-                g.fillRoundRect(imageX, imageY, placeholderSize, placeholderSize, 10, 10);
-                g.setColor(new Color(100, 150, 200, (int)(200 * alpha)));
+                g.setColor(new Color(20, 25, 35, (int)(255 * alpha)));
+                g.fillRoundRect(imageX, imageY, placeholderSize, placeholderSize, 8, 8);
+                g.setColor(ColorPalette.BORDER_STEEL);
                 g.setStroke(new BasicStroke(2));
-                g.drawRoundRect(imageX, imageY, placeholderSize, placeholderSize, 10, 10);
+                g.drawRoundRect(imageX, imageY, placeholderSize, placeholderSize, 8, 8);
                 g.setFont(FontPalette.get(Font.BOLD, (int)(24 * scale)));
-                g.setColor(new Color(130, 140, 160, (int)(255 * alpha)));
+                g.setColor(ColorPalette.TEXT_DIM);
                 fm = g.getFontMetrics();
                 g.drawString("?", imageX + placeholderSize/2 - fm.stringWidth("?")/2, imageY + placeholderSize/2 + fm.getAscent()/3);
             }
-            
-            // Description area - below image with more spacing
+
+            // Description (center card only)
             int descStartY = imageY + maxImageHeight + (int)(30 * scale);
-            
-            // Only show description on center card
             if (offset == 0 && itemDesc != null) {
                 g.setFont(FontPalette.INFO);
-                g.setColor(new Color(190, 205, 225));
+                g.setColor(ColorPalette.TEXT_DIM);
                 String[] lines = itemDesc.split("\n");
                 fm = g.getFontMetrics();
                 int descY = descStartY;
-                int descPadding = 25; // Padding from card edges
+                int descPadding = 25;
                 int maxDescWidth = cardW - descPadding * 2;
                 for (String line : lines) {
-                    // Truncate if too long
                     String displayLine = line;
                     while (fm.stringWidth(displayLine) > maxDescWidth && displayLine.length() > 3) {
                         displayLine = displayLine.substring(0, displayLine.length() - 4) + "...";
@@ -8912,22 +8846,23 @@ public class Game extends JPanel implements Runnable {
                     descY += 24;
                 }
             }
-            
+
             // Level text (bottom left)
             g.setFont(FontPalette.get(Font.BOLD, Math.max(12, (int)(14 * scale))));
-            g.setColor(new Color(200, 150, 100, (int)(255 * alpha)));
+            g.setColor(new Color(ColorPalette.TEXT_GOLD.getRed(), ColorPalette.TEXT_GOLD.getGreen(),
+                                 ColorPalette.TEXT_GOLD.getBlue(), (int)(255 * alpha)));
             String lvlText = showcaseTab == 0 ? "Lv." + itemLevel : "Unlocks Lv." + itemLevel;
-            g.drawString(lvlText, cardX + (int)(12 * scale), cardY + cardH - (int)(12 * scale));
-            
-            // Category (bottom right) - only on center
+            g.drawString(lvlText, cardX + (int)(16 * scale), cardY + cardH - (int)(16 * scale));
+
+            // Category + START button (center card only)
             if (offset == 0) {
-                Color categoryColor = showcaseTab == 0 ? getCategoryColor(itemCategory) : new Color(100, 200, 255);
+                Color categoryColor = showcaseTab == 0 ? getCategoryColor(itemCategory) : ColorPalette.ACCENT_CYAN;
                 g.setColor(categoryColor);
                 g.setFont(FontPalette.get(Font.BOLD, 14));
                 fm = g.getFontMetrics();
-                g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 12, cardY + cardH - 12);
-                
-                // "START" button at bottom of center card
+                g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 16, cardY + cardH - 16);
+
+                // START button — military style
                 int startBtnW = 200;
                 int startBtnH = 50;
                 int startBtnX = cardCenterX - startBtnW / 2;
@@ -8935,208 +8870,169 @@ public class Game extends JPanel implements Runnable {
                 boolean startHover = mouseX >= startBtnX && mouseX <= startBtnX + startBtnW &&
                                      mouseY >= startBtnY && mouseY <= startBtnY + startBtnH;
                 float btnPulse = (float)(0.6 + 0.4 * Math.sin(time * 3));
+
                 if (startHover) {
-                    g.setColor(new Color(80, 200, 120, (int)(60 * btnPulse)));
-                    g.fillRoundRect(startBtnX - 4, startBtnY - 4, startBtnW + 8, startBtnH + 8, 18, 18);
-                    g.setColor(new Color(50, 180, 100));
-                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
-                    g.setColor(new Color(120, 255, 160));
+                    // Glow
+                    g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(),
+                                         ColorPalette.ACCENT_ORANGE.getBlue(), (int)(60 * btnPulse)));
+                    g.fillRoundRect(startBtnX - 4, startBtnY - 4, startBtnW + 8, startBtnH + 8, 10, 10);
+                    // Fill
+                    GradientPaint btnGrad = new GradientPaint(startBtnX, startBtnY, ColorPalette.ACCENT_ORANGE,
+                                                              startBtnX, startBtnY + startBtnH, ColorPalette.ACCENT_RED);
+                    g.setPaint(btnGrad);
+                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 8, 8);
+                    g.setColor(ColorPalette.ACCENT_YELLOW);
                     g.setStroke(new BasicStroke(2.5f));
-                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 8, 8);
                 } else {
-                    g.setColor(new Color(40, 120, 70));
-                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
-                    g.setColor(new Color(80, 180, 120, (int)(150 + 80 * btnPulse)));
+                    GradientPaint btnGrad = new GradientPaint(startBtnX, startBtnY, new Color(60, 70, 90),
+                                                              startBtnX, startBtnY + startBtnH, new Color(40, 45, 60));
+                    g.setPaint(btnGrad);
+                    g.fillRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 8, 8);
+                    g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(),
+                                         ColorPalette.ACCENT_ORANGE.getBlue(), (int)(150 + 80 * btnPulse)));
                     g.setStroke(new BasicStroke(2f));
-                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 14, 14);
+                    g.drawRoundRect(startBtnX, startBtnY, startBtnW, startBtnH, 8, 8);
                 }
                 g.setFont(FontPalette.getDisplay(Font.BOLD, 22));
-                g.setColor(new Color(220, 255, 230));
+                g.setColor(ColorPalette.TEXT_WHITE);
                 fm = g.getFontMetrics();
                 String startLabel = "START";
                 g.drawString(startLabel, startBtnX + (startBtnW - fm.stringWidth(startLabel)) / 2,
                              startBtnY + startBtnH / 2 + fm.getAscent() / 2 - 2);
             }
-            
+
             g.setComposite(originalComposite);
         }
-        
-        // Arrow indicators on the sides - now as selectable boxes
+
+        // === ARROW BOXES ===
         int arrowBoxWidth = 80;
         int arrowBoxHeight = 120;
-        int arrowY = height / 2 - 50 - arrowBoxHeight / 2; // Match card center offset
+        int arrowY = height / 2 - 30 - arrowBoxHeight / 2;
         int leftArrowX = 15;
         int rightArrowX = width - arrowBoxWidth - 15;
-        
+
         float arrowPulse = (float)(0.5 + 0.5 * Math.sin(time * 4));
-        
-        // Check if at edges (disable arrows)
+
         boolean canGoLeft = debugShowcaseIndex > 0;
         boolean canGoRight = debugShowcaseIndex < maxIndex - 1;
-        
-        // Left arrow box
-        boolean leftHover = showcaseHoveredButton == 2;
-        if (!canGoLeft) {
-            // Disabled state - very dim
-            g.setColor(new Color(30, 35, 45, 100));
-            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(50, 60, 80, 80));
-            g.setStroke(new BasicStroke(1));
-            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(80, 90, 110, 100));
-            fm = g.getFontMetrics();
-            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        } else if (leftHover) {
-            // Glowing selection box
-            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
-            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
-            g.fillRoundRect(leftArrowX - 5, arrowY - 5, arrowBoxWidth + 10, arrowBoxHeight + 10, 20, 20);
-            g.setColor(new Color(60, 100, 160));
-            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(120, 180, 255));
-            g.setStroke(new BasicStroke(3));
-            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(255, 255, 255));
-            fm = g.getFontMetrics();
-            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        } else {
-            g.setColor(new Color(40, 50, 70, 180));
-            g.fillRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(80, 100, 130, 150));
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
-            fm = g.getFontMetrics();
-            g.drawString("<", leftArrowX + (arrowBoxWidth - fm.stringWidth("<")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        }
-        
-        // Right arrow box
-        boolean rightHover = showcaseHoveredButton == 3;
-        if (!canGoRight) {
-            // Disabled state - very dim
-            g.setColor(new Color(30, 35, 45, 100));
-            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(50, 60, 80, 80));
-            g.setStroke(new BasicStroke(1));
-            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(80, 90, 110, 100));
-            fm = g.getFontMetrics();
-            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        } else if (rightHover) {
-            // Glowing selection box
-            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
-            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
-            g.fillRoundRect(rightArrowX - 5, arrowY - 5, arrowBoxWidth + 10, arrowBoxHeight + 10, 20, 20);
-            g.setColor(new Color(60, 100, 160));
-            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(120, 180, 255));
-            g.setStroke(new BasicStroke(3));
-            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(255, 255, 255));
-            fm = g.getFontMetrics();
-            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        } else {
-            g.setColor(new Color(40, 50, 70, 180));
-            g.fillRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setColor(new Color(80, 100, 130, 150));
-            g.setStroke(new BasicStroke(2));
-            g.drawRoundRect(rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, 15, 15);
-            g.setFont(FontPalette.get(Font.BOLD, 48));
-            g.setColor(new Color(150, 160, 180, (int)(150 + 100 * arrowPulse)));
-            fm = g.getFontMetrics();
-            g.drawString(">", rightArrowX + (arrowBoxWidth - fm.stringWidth(">")) / 2, arrowY + arrowBoxHeight / 2 + 15);
-        }
-        
+
+        // Left arrow
+        drawShowcaseArrowBox(g, leftArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, true,
+                             showcaseHoveredButton == 2, canGoLeft, time, arrowPulse);
+
+        // Right arrow
+        drawShowcaseArrowBox(g, rightArrowX, arrowY, arrowBoxWidth, arrowBoxHeight, false,
+                             showcaseHoveredButton == 3, canGoRight, time, arrowPulse);
+
         // Instructions at bottom
         g.setFont(FontPalette.XS_16);
-        g.setColor(new Color(130, 140, 160));
+        g.setColor(ColorPalette.TEXT_DIM);
         String instructions = moveKeysText() + " to navigate  |  " + keyText(KeyBindManager.Action.CONFIRM) + "/CLICK to start  |  " + keyText(KeyBindManager.Action.BACK) + " to exit";
         fm = g.getFontMetrics();
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
+    }
+
+    /** Draw an arrow box for the showcase carousel — military style */
+    private void drawShowcaseArrowBox(Graphics2D g, int x, int y, int w, int h, boolean isLeft,
+                                       boolean hovered, boolean enabled, double time, float arrowPulse) {
+        String arrow = isLeft ? "<" : ">";
+        FontMetrics fm;
+
+        if (!enabled) {
+            g.setColor(new Color(15, 18, 28, 100));
+            g.fillRoundRect(x, y, w, h, 8, 8);
+            g.setColor(new Color(50, 55, 70, 80));
+            g.setStroke(new BasicStroke(1));
+            g.drawRoundRect(x, y, w, h, 8, 8);
+            g.setFont(FontPalette.get(Font.BOLD, 48));
+            g.setColor(new Color(60, 65, 80, 100));
+            fm = g.getFontMetrics();
+            g.drawString(arrow, x + (w - fm.stringWidth(arrow)) / 2, y + h / 2 + 15);
+        } else if (hovered) {
+            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
+            g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(),
+                                 ColorPalette.ACCENT_ORANGE.getBlue(), (int)(200 * glowPulse)));
+            g.fillRoundRect(x - 5, y - 5, w + 10, h + 10, 12, 12);
+            GradientPaint arrowGrad = new GradientPaint(x, y, new Color(60, 50, 40), x, y + h, new Color(40, 35, 30));
+            g.setPaint(arrowGrad);
+            g.fillRoundRect(x, y, w, h, 8, 8);
+            g.setColor(ColorPalette.ACCENT_ORANGE);
+            g.setStroke(new BasicStroke(3));
+            g.drawRoundRect(x, y, w, h, 8, 8);
+            g.setFont(FontPalette.get(Font.BOLD, 48));
+            g.setColor(ColorPalette.TEXT_WHITE);
+            fm = g.getFontMetrics();
+            g.drawString(arrow, x + (w - fm.stringWidth(arrow)) / 2, y + h / 2 + 15);
+        } else {
+            GradientPaint arrowGrad = new GradientPaint(x, y, new Color(30, 35, 50), x, y + h, new Color(20, 25, 38));
+            g.setPaint(arrowGrad);
+            g.fillRoundRect(x, y, w, h, 8, 8);
+            g.setColor(ColorPalette.BORDER_STEEL);
+            g.setStroke(new BasicStroke(2));
+            g.drawRoundRect(x, y, w, h, 8, 8);
+            g.setFont(FontPalette.get(Font.BOLD, 48));
+            g.setColor(new Color(ColorPalette.TEXT_DIM.getRed(), ColorPalette.TEXT_DIM.getGreen(),
+                                 ColorPalette.TEXT_DIM.getBlue(), (int)(150 + 100 * arrowPulse)));
+            fm = g.getFontMetrics();
+            g.drawString(arrow, x + (w - fm.stringWidth(arrow)) / 2, y + h / 2 + 15);
+        }
     }
     
     /**
      * Draw a tab button for the showcase screen
      */
     private void drawShowcaseTab(Graphics2D g, int x, int y, int width, int height, String label, boolean active, boolean hovered, boolean keyboardSelected) {
-        double time = System.currentTimeMillis() / 1000.0;
-        
-        // Keyboard selection glow (outer glow)
+        double time = gradientTime;
+
+        // Keyboard selection glow
         if (keyboardSelected) {
             float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 5));
-            g.setColor(new Color(100, 180, 255, (int)(255 * glowPulse)));
-            g.fillRoundRect(x - 5, y - 5, width + 10, height + 10, 16, 16);
+            g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(),
+                                 ColorPalette.ACCENT_ORANGE.getBlue(), (int)(200 * glowPulse)));
+            g.fillRoundRect(x - 5, y - 5, width + 10, height + 10, 10, 10);
         }
-        
-        // Tab background
+
+        // Tab background — metallic gradient
         if (active) {
-            g.setColor(keyboardSelected ? new Color(90, 120, 180) : new Color(80, 100, 150));
+            GradientPaint tabGrad = new GradientPaint(x, y, new Color(50, 60, 85), x, y + height, new Color(35, 40, 60));
+            g.setPaint(tabGrad);
         } else if (hovered || keyboardSelected) {
-            g.setColor(new Color(60, 80, 120));
+            GradientPaint tabGrad = new GradientPaint(x, y, new Color(40, 50, 70), x, y + height, new Color(28, 33, 50));
+            g.setPaint(tabGrad);
         } else {
-            g.setColor(new Color(40, 55, 85));
+            GradientPaint tabGrad = new GradientPaint(x, y, new Color(25, 30, 45), x, y + height, new Color(18, 22, 35));
+            g.setPaint(tabGrad);
         }
-        g.fillRoundRect(x, y, width, height, 12, 12);
-        
+        g.fillRoundRect(x, y, width, height, 8, 8);
+
         // Tab border
         if (keyboardSelected) {
-            g.setColor(new Color(120, 200, 255));
+            g.setColor(ColorPalette.ACCENT_ORANGE);
             g.setStroke(new BasicStroke(3));
         } else if (active) {
-            g.setColor(new Color(150, 180, 255));
-            g.setStroke(new BasicStroke(3));
-        } else {
-            g.setColor(new Color(100, 130, 180));
+            g.setColor(ColorPalette.ACCENT_CYAN);
             g.setStroke(new BasicStroke(2));
+        } else {
+            g.setColor(ColorPalette.BORDER_STEEL);
+            g.setStroke(new BasicStroke(1));
         }
-        g.drawRoundRect(x, y, width, height, 12, 12);
-        
+        g.drawRoundRect(x, y, width, height, 8, 8);
+
+        // Accent line on bottom for active tab
+        if (active) {
+            g.setColor(ColorPalette.ACCENT_ORANGE);
+            g.setStroke(new BasicStroke(3));
+            g.drawLine(x + 8, y + height, x + width - 8, y + height);
+        }
+
         // Tab label
         g.setFont(FontPalette.TINY);
-        g.setColor((active || keyboardSelected) ? Color.WHITE : new Color(180, 190, 210));
+        g.setColor((active || keyboardSelected) ? ColorPalette.TEXT_WHITE : ColorPalette.TEXT_DIM);
         FontMetrics fm = g.getFontMetrics();
         int labelX = x + (width - fm.stringWidth(label)) / 2;
         int labelY = y + height / 2 + 6;
         g.drawString(label, labelX, labelY);
-    }
-    
-    /**
-     * Draw an arrow button for the showcase screen
-     */
-    private void drawShowcaseArrow(Graphics2D g, int x, int y, int width, int height, boolean leftArrow, boolean hovered) {
-        // Arrow button background
-        if (hovered) {
-            g.setColor(new Color(70, 90, 130));
-        } else {
-            g.setColor(new Color(50, 65, 95));
-        }
-        g.fillRoundRect(x, y, width, height, 15, 15);
-        
-        // Arrow button border
-        g.setColor(new Color(100, 140, 200));
-        g.setStroke(new BasicStroke(hovered ? 3 : 2));
-        g.drawRoundRect(x, y, width, height, 15, 15);
-        
-        // Arrow symbol
-        g.setColor(Color.WHITE);
-        int centerX = x + width / 2;
-        int centerY = y + height / 2;
-        int arrowSize = 25;
-        
-        int[] xPoints, yPoints;
-        if (leftArrow) {
-            xPoints = new int[]{centerX + arrowSize/2, centerX - arrowSize/2, centerX + arrowSize/2};
-            yPoints = new int[]{centerY - arrowSize/2, centerY, centerY + arrowSize/2};
-        } else {
-            xPoints = new int[]{centerX - arrowSize/2, centerX + arrowSize/2, centerX - arrowSize/2};
-            yPoints = new int[]{centerY - arrowSize/2, centerY, centerY + arrowSize/2};
-        }
-        g.fillPolygon(xPoints, yPoints, 3);
     }
     
     /**

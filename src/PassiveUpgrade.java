@@ -89,7 +89,7 @@ public class PassiveUpgrade {
             case LUCKY_DODGE:
                 return activeLevel * 0.1; // 10% chance to phase through bullets
             case TARGETING:
-                return activeLevel * 0.015; // Aim-assist strength
+                return activeLevel * 0.045; // Aim-assist strength (tripled per level)
             default:
                 return 1.0;
         }

@@ -36,7 +36,7 @@ public class PassiveUpgradeManager {
         addUpgrade("critical", "Critical Strike", "+2% instant-kill chance per level", 
                    PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3);
         
-        addUpgrade("targeting", "Targeting", "Stronger auto-aim per level", 
+        addUpgrade("targeting", "Targeting", "Much stronger auto-aim + range per level", 
                    PassiveUpgrade.UpgradeType.TARGETING, 900, 3);
         
         addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
