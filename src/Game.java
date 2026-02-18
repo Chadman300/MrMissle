@@ -38,6 +38,10 @@ public class Game extends JPanel implements Runnable {
     private int selectedMenuItem; // For main menu navigation
     private int mouseX, mouseY; // Mouse position for UI navigation
     private boolean mouseEnabled = true; // Track if mouse navigation is active
+    private boolean controllerHudMouseDown = false; // Track controller A button for HUD editor drag
+    private static final float CONTROLLER_CURSOR_SPEED = 8.0f; // Pixels per frame at full stick deflection
+    private static Game instance; // For static access to instance fields (e.g. mouse position)
+    private java.awt.Robot robot; // For warping the system cursor to follow controller input
     private Cursor blankCursor; // Hidden cursor for gameplay
     private Cursor defaultCursor; // Normal cursor for menus
     private double levelSelectScroll; // Target scroll position for level select
@@ -608,10 +612,14 @@ public class Game extends JPanel implements Runnable {
     private int selectedGameModeIndex = 1; // 0=EASY, 1=HARD, 2=MASTER (default to HARD)
     
     public Game() {
+        instance = this;
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
         setDoubleBuffered(true); // Enable double buffering for smoother rendering
+        
+        // Initialize Robot for controller cursor warping
+        try { robot = new java.awt.Robot(); } catch (AWTException e) { robot = null; }
         
         // Create blank cursor for hiding during gameplay
         blankCursor = Toolkit.getDefaultToolkit().createCustomCursor(
@@ -1243,6 +1251,11 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 else if (key == KeyEvent.VK_TAB) {
+                    // Release any controller HUD drag before switching tabs
+                    if (controllerHudMouseDown && renderer != null) {
+                        renderer.hudLayoutEditor.handleMouseReleased(hudLayout);
+                        controllerHudMouseDown = false;
+                    }
                     // Switch category and move to tabs
                     selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
                     clampSettingsItem();
@@ -1622,6 +1635,7 @@ public class Game extends JPanel implements Runnable {
                             // Boss not spawned yet, transition directly to WIN
                             soundManager.stopMusic();
                             gameState = GameState.WIN;
+                            if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
                             screenShakeIntensity = 15;
                             System.out.println("DEBUG: Level skipped via T key - direct to WIN");
                         }
@@ -2270,13 +2284,13 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if hovering over risk contract cards
-            // Card dimensions (from drawRiskContract method)
-            int cardWidth = 200;
-            int cardHeight = 280;
-            int cardSpacing = 30;
+            // Card dimensions must match drawRiskContract in Renderer
+            int cardWidth = 280;
+            int cardHeight = 380;
+            int cardSpacing = 40;
             int totalWidth = RISK_CONTRACT_NAMES.length * cardWidth + (RISK_CONTRACT_NAMES.length - 1) * cardSpacing;
             int startX = (WIDTH - totalWidth) / 2;
-            int cardY = 160;
+            int cardY = (HEIGHT - cardHeight) / 2 - 40;
             
             for (int i = 0; i < RISK_CONTRACT_NAMES.length; i++) {
                 int cardX = startX + i * (cardWidth + cardSpacing);
@@ -2677,12 +2691,13 @@ public class Game extends JPanel implements Runnable {
             }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if clicking on risk contract cards
-            int cardWidth = 200;
-            int cardHeight = 280;
-            int cardSpacing = 30;
+            // Card dimensions must match drawRiskContract in Renderer
+            int cardWidth = 280;
+            int cardHeight = 380;
+            int cardSpacing = 40;
             int totalWidth = RISK_CONTRACT_NAMES.length * cardWidth + (RISK_CONTRACT_NAMES.length - 1) * cardSpacing;
             int startX = (WIDTH - totalWidth) / 2;
-            int cardY = 160;
+            int cardY = (HEIGHT - cardHeight) / 2 - 40;
             
             for (int i = 0; i < RISK_CONTRACT_NAMES.length; i++) {
                 int cardX = startX + i * (cardWidth + cardSpacing);
@@ -3121,6 +3136,7 @@ public class Game extends JPanel implements Runnable {
             tookDamageThisBoss = true;
             hasSavedGame = false;
             gameState = GameState.GAME_OVER;
+            if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
             performAutoSave();
             return;
         }
@@ -3282,6 +3298,7 @@ public class Game extends JPanel implements Runnable {
         tookDamageThisBoss = true;
         hasSavedGame = false;
         gameState = GameState.GAME_OVER;
+        if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
         
         // Auto-save on game over
         performAutoSave();
@@ -5093,6 +5110,7 @@ public class Game extends JPanel implements Runnable {
                             
                             player = null; // Kill player
                             gameState = GameState.GAME_OVER;
+                            if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
                             soundManager.stopMusic();
                         }
                     } else {
@@ -6091,6 +6109,7 @@ public class Game extends JPanel implements Runnable {
                 soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
                 soundManager.stopMusic();
                 gameState = GameState.WIN;
+                if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
                 bossDeathAnimation = false;
                 hasSavedGame = false; // Clear saved game on win so purchases persist
                 
@@ -7516,26 +7535,67 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SETTINGS:
-                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
-                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
-                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_LEFT, ' '));
-                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, ' '));
-                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
-                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
-                } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
-                    // Tab switch with RB
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
-                } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.Y)) {
-                    // Reset settings to defaults with Y button
-                    resetSettingsToDefaults();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 5;
+                if (selectedSettingsCategory == 5 && renderer != null) {
+                    // HUD tab: controller sticks move a virtual mouse cursor
+                    float stickX = controllerManager.getRawLeftStickX();
+                    float stickY = controllerManager.getRawLeftStickY();
+                    boolean cursorMoved = false;
+                    if (stickX != 0 || stickY != 0) {
+                        mouseX = Math.max(0, Math.min(WIDTH, mouseX + (int)(stickX * CONTROLLER_CURSOR_SPEED)));
+                        mouseY = Math.max(0, Math.min(HEIGHT, mouseY + (int)(stickY * CONTROLLER_CURSOR_SPEED)));
+                        cursorMoved = true;
+                    }
+                    // D-pad also moves cursor (digital, fixed speed)
+                    if (controllerManager.isPressed(KeyBindManager.ControllerButton.DPAD_LEFT))  { mouseX = Math.max(0, mouseX - 5); cursorMoved = true; }
+                    if (controllerManager.isPressed(KeyBindManager.ControllerButton.DPAD_RIGHT)) { mouseX = Math.min(WIDTH, mouseX + 5); cursorMoved = true; }
+                    if (controllerManager.isPressed(KeyBindManager.ControllerButton.DPAD_UP))    { mouseY = Math.max(0, mouseY - 5); cursorMoved = true; }
+                    if (controllerManager.isPressed(KeyBindManager.ControllerButton.DPAD_DOWN))  { mouseY = Math.min(HEIGHT, mouseY + 5); cursorMoved = true; }
+                    // A button = mouse press/drag/release
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        controllerHudMouseDown = true;
+                        renderer.hudLayoutEditor.handleMousePressed(mouseX, mouseY, hudLayout);
+                    } else if (controllerHudMouseDown && !controllerManager.isActionPressed(KeyBindManager.Action.CONFIRM)) {
+                        controllerHudMouseDown = false;
+                        renderer.hudLayoutEditor.handleMouseReleased(hudLayout);
+                    } else if (controllerHudMouseDown && cursorMoved) {
+                        renderer.hudLayoutEditor.handleMouseDragged(mouseX, mouseY, hudLayout);
+                    }
+                    // Update hover state and warp system cursor when cursor moves
+                    if (cursorMoved) {
+                        handleMouseMove();
+                        warpCursorToGameCoords(mouseX, mouseY);
+                    }
+                    // RB = tab switch (still works in HUD tab)
+                    if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
+                    }
+                    // B = back
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                    }
+                } else {
+                    // Non-HUD settings tabs: normal keyboard-style navigation
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_LEFT, ' '));
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, ' '));
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                    } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
+                        // Tab switch with RB
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
+                    } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.Y)) {
+                        // Reset settings to defaults with Y button
+                        resetSettingsToDefaults();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 5;
+                    }
                 }
                 break;
                 
@@ -7654,7 +7714,45 @@ public class Game extends JPanel implements Runnable {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
                 }
                 break;
+
+            case ATTACK_SHOWCASE:
+                // Showcase carousel: controller mirrors keyboard navigation
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_LEFT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_RIGHT, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
+                    // Quick tab switch with RB
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
+                }
+                break;
                 
+            case RISK_CONTRACT:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                    selectedRiskContract = Math.max(0, selectedRiskContract - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                    selectedRiskContract = Math.min(RISK_CONTRACT_NAMES.length - 1, selectedRiskContract + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    confirmRiskContract();
+                    screenShakeIntensity = 5;
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    transitionToState(GameState.LEVEL_SELECT);
+                    screenShakeIntensity = 3;
+                }
+                break;
+
             default:
                 // For other states, map confirm/back to their equivalent keys
                 if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
@@ -7664,6 +7762,32 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
         }
+    }
+
+    /** Get the current virtual mouse X position (for controller cursor in Renderer). */
+    public static int getMouseX() { return instance != null ? instance.mouseX : 0; }
+
+    /** Get the current virtual mouse Y position (for controller cursor in Renderer). */
+    public static int getMouseY() { return instance != null ? instance.mouseY : 0; }
+
+    /**
+     * Warp the system cursor so it matches the current game-space mouseX/mouseY.
+     * Transforms game coordinates back to screen coordinates and moves the OS pointer.
+     */
+    private void warpCursorToGameCoords(int gx, int gy) {
+        if (robot == null) return;
+        try {
+            Point screenPos = getLocationOnScreen();
+            int panelW = getWidth();
+            int panelH = getHeight();
+            double sx = (double) panelW / WIDTH;
+            double sy = (double) panelH / HEIGHT;
+            double scale = Math.min(sx, sy);
+            int offX = (panelW - (int)(WIDTH * scale)) / 2;
+            int offY = (panelH - (int)(HEIGHT * scale)) / 2;
+            robot.mouseMove(screenPos.x + offX + (int)(gx * scale),
+                            screenPos.y + offY + (int)(gy * scale));
+        } catch (Exception ignored) {}
     }
     
     private void toggleFullscreen() {
@@ -7741,70 +7865,122 @@ public class Game extends JPanel implements Runnable {
     private void startAssetLoading() {
         Thread loadingThread = new Thread(() -> {
             try {
-                // Start loading screen music immediately (before preloading sounds)
+                // Start loading screen music immediately
                 soundManager.playMusicEarly("SFX/Music Tracks/Main/Chilling Outside.wav");
-                
                 targetLoadingProgress = 2;
                 repaint();
-                
-                // Preload sounds (0% to 30%) - reports progress every few sounds
-                soundManager.preloadSounds((int soundPercent) -> {
-                    targetLoadingProgress = (int)(soundPercent * 0.30);
-                    repaint();
-                });
-                targetLoadingProgress = 30;
-                repaint();
-                
-                // Preload game sprites (Boss, Bullet, Player) on background thread
-                // so they are ready before first level starts
-                // Preload boss sprites (30% to 45%) - reports per-sprite progress
-                Boss.preloadSprites((int bossPercent) -> {
-                    targetLoadingProgress = 30 + (int)(bossPercent * 0.15);
-                    repaint();
-                });
-                targetLoadingProgress = 45;
-                repaint();
-                // Preload bullet sprites (45% to 55%) - reports per-sprite progress
-                Bullet.preloadSprites((int bulletPercent) -> {
-                    targetLoadingProgress = 45 + (int)(bulletPercent * 0.10);
-                    repaint();
-                });
-                targetLoadingProgress = 55;
-                repaint();
-                Player.preloadSprites();
+
+                // --- Phase 1: Parallel asset loading ---
+                // Weights: sounds=28%, boss=15%, bullet+player=15%, fonts+input=5% = 63% total
+                java.util.concurrent.atomic.AtomicInteger progress = new java.util.concurrent.atomic.AtomicInteger(2);
+                java.util.concurrent.CountDownLatch allAssets = new java.util.concurrent.CountDownLatch(4);
+                java.util.concurrent.CountDownLatch fontsReady = new java.util.concurrent.CountDownLatch(1);
+
+                // Thread 1: Preload all sound effects (28% of bar)
+                Thread soundThread = new Thread(() -> {
+                    try {
+                        final int[] last = {0};
+                        soundManager.preloadSounds((int pct) -> {
+                            int now = (int)(pct * 0.28);
+                            int delta = now - last[0];
+                            if (delta > 0) {
+                                last[0] = now;
+                                targetLoadingProgress = progress.addAndGet(delta);
+                                repaint();
+                            }
+                        });
+                    } catch (Exception e) { e.printStackTrace(); }
+                    finally { allAssets.countDown(); }
+                }, "Load-Sounds");
+
+                // Thread 2: Preload boss sprites (15% of bar)
+                Thread bossThread = new Thread(() -> {
+                    try {
+                        final int[] last = {0};
+                        Boss.preloadSprites((int pct) -> {
+                            int now = (int)(pct * 0.15);
+                            int delta = now - last[0];
+                            if (delta > 0) {
+                                last[0] = now;
+                                targetLoadingProgress = progress.addAndGet(delta);
+                                repaint();
+                            }
+                        });
+                    } catch (Exception e) { e.printStackTrace(); }
+                    finally { allAssets.countDown(); }
+                }, "Load-Boss");
+
+                // Thread 3: Preload bullet + player sprites (15% of bar)
+                Thread bulletThread = new Thread(() -> {
+                    try {
+                        final int[] last = {0};
+                        Bullet.preloadSprites((int pct) -> {
+                            int now = (int)(pct * 0.10);
+                            int delta = now - last[0];
+                            if (delta > 0) {
+                                last[0] = now;
+                                targetLoadingProgress = progress.addAndGet(delta);
+                                repaint();
+                            }
+                        });
+                        Player.preloadSprites();
+                        targetLoadingProgress = progress.addAndGet(5);
+                        repaint();
+                    } catch (Exception e) { e.printStackTrace(); }
+                    finally { allAssets.countDown(); }
+                }, "Load-Bullets");
+
+                // Thread 4: Fonts + controller/keyboard sprites (5% of bar)
+                Thread fontThread = new Thread(() -> {
+                    try {
+                        AssetLoader.initAll();
+                        fontsReady.countDown();
+                        if (keyBindManager != null) {
+                            keyBindManager.loadControllerSprites();
+                            keyBindManager.loadKeyboardSprites();
+                        }
+                        targetLoadingProgress = progress.addAndGet(5);
+                        repaint();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        fontsReady.countDown();
+                    } finally { allAssets.countDown(); }
+                }, "Load-Fonts");
+
+                soundThread.setDaemon(true);
+                bossThread.setDaemon(true);
+                bulletThread.setDaemon(true);
+                fontThread.setDaemon(true);
+                soundThread.start();
+                bossThread.start();
+                bulletThread.start();
+                fontThread.start();
+
+                // Wait for all parallel tasks to finish
+                allAssets.await();
                 targetLoadingProgress = 65;
                 repaint();
-                
-                // Initialize fonts before renderer
-                AssetLoader.initAll();
-                
-                // Create renderer (this loads backgrounds and overlay)
-                // Create renderer with background progress (65% to 90%)
+
+                // --- Phase 2: Create renderer (requires fonts) ---
+                fontsReady.await();
                 renderer = new Renderer(gameData, shopManager, passiveUpgradeManager, (int bgPercent) -> {
                     targetLoadingProgress = 65 + (int)(bgPercent * 0.25);
                     repaint();
                 });
-                renderer.hudLayout = hudLayout; // Share HUD layout with renderer
+                renderer.hudLayout = hudLayout;
                 targetLoadingProgress = 90;
                 repaint();
-                
-                // Load controller and keyboard sprites if available
-                if (keyBindManager != null) {
-                    keyBindManager.loadControllerSprites();
-                    keyBindManager.loadKeyboardSprites();
-                }
-                
-                // Small delay to ensure everything is ready
+
+                // --- Phase 3: Finalize ---
                 Thread.sleep(200);
                 targetLoadingProgress = 100;
                 repaint();
-                
-                // Wait a moment then switch to save selection
+
                 Thread.sleep(300);
                 loadingComplete = true;
                 transitionToState(GameState.SAVE_SELECT);
                 repaint();
-                
+
             } catch (Exception e) {
                 e.printStackTrace();
                 // On error, still go to save selection

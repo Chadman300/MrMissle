@@ -632,58 +632,254 @@ public class UITheme {
     /**
      * Draw a rank medal badge at the given position.
      * rank: "S", "A", "B", "C", "D"
+     * Enhanced military medal design with metallic finish, star shape,
+     * rotating rays, shine sweep, and ribbon banner.
      */
     public static void drawRankBadge(Graphics2D g, int cx, int cy, int radius, String rank, double time) {
         Graphics2D g2 = (Graphics2D) g.create();
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
         // Color based on rank
-        Color rankColor;
+        Color rankColor, rankColorDark, rankColorBright;
         switch (rank) {
-            case "S": rankColor = ColorPalette.MEDAL_GOLD; break;
-            case "A": rankColor = ColorPalette.SUCCESS_GREEN; break;
-            case "B": rankColor = ColorPalette.ACCENT_CYAN; break;
-            case "C": rankColor = ColorPalette.ACCENT_YELLOW; break;
-            default: rankColor = ColorPalette.TEXT_DIM; break;
+            case "S":
+                rankColor = ColorPalette.MEDAL_GOLD;
+                rankColorDark = new Color(180, 140, 0);
+                rankColorBright = new Color(255, 245, 150);
+                break;
+            case "A":
+                rankColor = ColorPalette.SUCCESS_GREEN;
+                rankColorDark = new Color(40, 130, 40);
+                rankColorBright = new Color(160, 255, 160);
+                break;
+            case "B":
+                rankColor = ColorPalette.ACCENT_CYAN;
+                rankColorDark = new Color(30, 100, 140);
+                rankColorBright = new Color(160, 230, 255);
+                break;
+            case "C":
+                rankColor = ColorPalette.ACCENT_YELLOW;
+                rankColorDark = new Color(140, 130, 30);
+                rankColorBright = new Color(255, 255, 160);
+                break;
+            default:
+                rankColor = ColorPalette.TEXT_DIM;
+                rankColorDark = new Color(80, 80, 80);
+                rankColorBright = new Color(180, 180, 180);
+                break;
         }
 
-        // Glow
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float)(0.3 + 0.1 * Math.sin(time * 3))));
-        g2.setColor(rankColor);
-        g2.fillOval(cx - radius - 8, cy - radius - 8, (radius + 8) * 2, (radius + 8) * 2);
+        // ── Rotating light rays behind the badge (S and A ranks) ──
+        if ("S".equals(rank) || "A".equals(rank)) {
+            int rayCount = "S".equals(rank) ? 12 : 8;
+            float rayAlpha = "S".equals(rank) ? 0.18f : 0.10f;
+            double rotSpeed = "S".equals(rank) ? 0.4 : 0.25;
+            Graphics2D gr = (Graphics2D) g2.create();
+            gr.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, rayAlpha));
+            for (int i = 0; i < rayCount; i++) {
+                double a = time * rotSpeed + i * Math.PI * 2.0 / rayCount;
+                double halfW = Math.PI / (rayCount * 2.5);
+                Path2D ray = new Path2D.Double();
+                ray.moveTo(cx, cy);
+                ray.lineTo(cx + Math.cos(a - halfW) * radius * 2.8, cy + Math.sin(a - halfW) * radius * 2.8);
+                ray.lineTo(cx + Math.cos(a + halfW) * radius * 2.8, cy + Math.sin(a + halfW) * radius * 2.8);
+                ray.closePath();
+                gr.setColor(rankColorBright);
+                gr.fill(ray);
+            }
+            gr.dispose();
+        }
+
+        // ── Multi-layered outer glow ──
+        for (int layer = 3; layer >= 0; layer--) {
+            float glowAlpha = (float)(0.08 + 0.05 * Math.sin(time * 3.0 + layer * 0.5)) * (4 - layer) / 4.0f;
+            int expand = 6 + layer * 5;
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, Math.min(glowAlpha, 1.0f))));
+            g2.setColor(rankColor);
+            g2.fillOval(cx - radius - expand, cy - radius - expand, (radius + expand) * 2, (radius + expand) * 2);
+        }
         g2.setComposite(ColorPalette.ALPHA_FULL);
 
-        // Dark circle
-        g2.setColor(new Color(20, 20, 30));
+        // ── 8-pointed star shape behind the circle ──
+        int starOuter = (int)(radius * 1.35);
+        int starInner = (int)(radius * 1.05);
+        Path2D star = new Path2D.Double();
+        int starPoints = 8;
+        for (int i = 0; i < starPoints * 2; i++) {
+            double a = -Math.PI / 2 + i * Math.PI / starPoints;
+            int r = (i % 2 == 0) ? starOuter : starInner;
+            double px = cx + r * Math.cos(a);
+            double py = cy + r * Math.sin(a);
+            if (i == 0) star.moveTo(px, py); else star.lineTo(px, py);
+        }
+        star.closePath();
+
+        // Star metallic gradient fill
+        g2.setPaint(new RadialGradientPaint(cx, cy, starOuter,
+            new float[]{0.0f, 0.5f, 1.0f},
+            new Color[]{rankColorBright, rankColor, rankColorDark}));
+        g2.fill(star);
+
+        // Star border
+        g2.setStroke(new BasicStroke(2f));
+        g2.setColor(new Color(rankColorDark.getRed(), rankColorDark.getGreen(), rankColorDark.getBlue(), 200));
+        g2.draw(star);
+
+        // ── Main circle — metallic gradient fill ──
+        g2.setPaint(new RadialGradientPaint(
+            cx - radius / 4, cy - radius / 4, radius * 1.4f,
+            new float[]{0.0f, 0.4f, 0.85f, 1.0f},
+            new Color[]{
+                new Color(60, 60, 80),
+                new Color(35, 35, 50),
+                new Color(20, 20, 30),
+                new Color(10, 10, 18)
+            }));
         g2.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
 
-        // Border
-        g2.setStroke(new BasicStroke(3));
-        g2.setColor(rankColor);
+        // ── Thick ornamental border ring ──
+        g2.setStroke(new BasicStroke(4f));
+        g2.setPaint(new RadialGradientPaint(cx, cy, radius,
+            new float[]{0.85f, 0.92f, 1.0f},
+            new Color[]{rankColorDark, rankColor, rankColorBright}));
         g2.drawOval(cx - radius, cy - radius, radius * 2, radius * 2);
 
-        // Inner ring
-        g2.setStroke(new BasicStroke(1));
-        g2.setColor(new Color(rankColor.getRed(), rankColor.getGreen(), rankColor.getBlue(), 100));
-        g2.drawOval(cx - radius + 5, cy - radius + 5, (radius - 5) * 2, (radius - 5) * 2);
-
-        // Star points around the circle for S rank
-        if ("S".equals(rank)) {
-            int tips = 8;
-            for (int i = 0; i < tips; i++) {
-                double a = time * 0.5 + i * Math.PI * 2 / tips;
-                int sx = cx + (int)((radius + 5) * Math.cos(a));
-                int sy = cy + (int)((radius + 5) * Math.sin(a));
-                g2.setColor(new Color(255, 215, 0, 150));
-                g2.fillOval(sx - 2, sy - 2, 4, 4);
-            }
+        // ── Compass tick marks around the border ──
+        g2.setStroke(new BasicStroke(1.5f));
+        int ticks = 24;
+        for (int i = 0; i < ticks; i++) {
+            double a = i * Math.PI * 2.0 / ticks;
+            boolean major = (i % 6 == 0);
+            int innerR = major ? radius - 8 : radius - 5;
+            int outerR = radius - 2;
+            int x1 = cx + (int)(innerR * Math.cos(a));
+            int y1 = cy + (int)(innerR * Math.sin(a));
+            int x2 = cx + (int)(outerR * Math.cos(a));
+            int y2 = cy + (int)(outerR * Math.sin(a));
+            g2.setColor(new Color(rankColor.getRed(), rankColor.getGreen(), rankColor.getBlue(), major ? 180 : 80));
+            g2.drawLine(x1, y1, x2, y2);
         }
 
-        // Rank letter
-        g2.setFont(FontPalette.get(Font.BOLD, radius * 1.2f));
+        // ── Inner decorative ring ──
+        g2.setStroke(new BasicStroke(1.5f));
+        g2.setColor(new Color(rankColor.getRed(), rankColor.getGreen(), rankColor.getBlue(), 120));
+        int innerRing = radius - 10;
+        g2.drawOval(cx - innerRing, cy - innerRing, innerRing * 2, innerRing * 2);
+
+        // ── Dotted accent ring ──
+        int dotRing = radius - 14;
+        int dotCount = 32;
+        for (int i = 0; i < dotCount; i++) {
+            double a = i * Math.PI * 2.0 / dotCount;
+            int dx = cx + (int)(dotRing * Math.cos(a));
+            int dy = cy + (int)(dotRing * Math.sin(a));
+            g2.setColor(new Color(rankColor.getRed(), rankColor.getGreen(), rankColor.getBlue(), 60));
+            g2.fillOval(dx - 1, dy - 1, 2, 2);
+        }
+
+        // ── Orbiting sparkles for S rank ──
+        if ("S".equals(rank)) {
+            int sparkles = 6;
+            for (int i = 0; i < sparkles; i++) {
+                double a = time * 1.2 + i * Math.PI * 2.0 / sparkles;
+                double dist = radius + 12 + 4 * Math.sin(time * 2.5 + i);
+                int sx = cx + (int)(dist * Math.cos(a));
+                int sy = cy + (int)(dist * Math.sin(a));
+                int sSize = 3 + (int)(2 * Math.abs(Math.sin(time * 3.0 + i * 1.5)));
+                float sAlpha = 0.5f + 0.4f * (float)Math.abs(Math.sin(time * 2.0 + i));
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, sAlpha));
+                g2.setColor(rankColorBright);
+                // Draw a tiny 4-pointed star sparkle
+                Path2D sparkle = new Path2D.Double();
+                sparkle.moveTo(sx, sy - sSize);
+                sparkle.lineTo(sx + sSize / 3.0, sy);
+                sparkle.lineTo(sx, sy + sSize);
+                sparkle.lineTo(sx - sSize / 3.0, sy);
+                sparkle.closePath();
+                g2.fill(sparkle);
+                sparkle = new Path2D.Double();
+                sparkle.moveTo(sx - sSize, sy);
+                sparkle.lineTo(sx, sy + sSize / 3.0);
+                sparkle.lineTo(sx + sSize, sy);
+                sparkle.lineTo(sx, sy - sSize / 3.0);
+                sparkle.closePath();
+                g2.fill(sparkle);
+            }
+            g2.setComposite(ColorPalette.ALPHA_FULL);
+        }
+
+        // ── Rank letter — embossed 3D effect ──
+        Font rankFont = FontPalette.get(Font.BOLD, radius * 1.1f);
+        g2.setFont(rankFont);
         FontMetrics fm = g2.getFontMetrics();
-        g2.setColor(rankColor);
-        g2.drawString(rank, cx - fm.stringWidth(rank) / 2, cy + fm.getAscent() / 2 - 2);
+        int tx = cx - fm.stringWidth(rank) / 2;
+        int ty = cy + fm.getAscent() / 2 - 2;
+
+        // Shadow (offset down-right)
+        g2.setColor(new Color(0, 0, 0, 160));
+        g2.drawString(rank, tx + 2, ty + 2);
+
+        // Highlight (offset up-left)
+        g2.setColor(new Color(rankColorBright.getRed(), rankColorBright.getGreen(), rankColorBright.getBlue(), 80));
+        g2.drawString(rank, tx - 1, ty - 1);
+
+        // Main letter with gradient
+        g2.setPaint(new GradientPaint(tx, ty - fm.getAscent(), rankColorBright, tx, ty, rankColor));
+        g2.drawString(rank, tx, ty);
+
+        // ── Diagonal shine sweep (periodic) ──
+        double shinePhase = (time * 0.5) % 3.0;
+        if (shinePhase < 1.0) {
+            Graphics2D gs = (Graphics2D) g2.create();
+            gs.setClip(new java.awt.geom.Ellipse2D.Double(cx - radius, cy - radius, radius * 2, radius * 2));
+            float sweepX = (float)(shinePhase * 3.0 - 1.0);
+            float x1 = cx - radius + (radius * 2) * sweepX;
+            int shineW = (int)(radius * 0.4);
+            gs.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
+            gs.setPaint(new GradientPaint(x1, cy - radius, new Color(255, 255, 255, 0),
+                x1 + shineW / 2f, cy, new Color(255, 255, 255, 120),
+                true));
+            gs.fillRect((int) x1, cy - radius, shineW, radius * 2);
+            gs.dispose();
+        }
+
+        // ── Ribbon banner below the badge ──
+        int ribbonW = (int)(radius * 1.6);
+        int ribbonH = (int)(radius * 0.45);
+        int ribbonY = cy + radius + 4;
+        int ribbonX = cx - ribbonW / 2;
+        // Ribbon notch shape
+        Path2D ribbon = new Path2D.Double();
+        ribbon.moveTo(ribbonX - 6, ribbonY);
+        ribbon.lineTo(ribbonX + ribbonW + 6, ribbonY);
+        ribbon.lineTo(ribbonX + ribbonW + 6, ribbonY + ribbonH);
+        ribbon.lineTo(ribbonX + ribbonW / 2.0, ribbonY + ribbonH - 5);
+        ribbon.lineTo(ribbonX - 6, ribbonY + ribbonH);
+        ribbon.closePath();
+        // Ribbon fill
+        g2.setPaint(new GradientPaint(ribbonX, ribbonY, rankColor, ribbonX, ribbonY + ribbonH, rankColorDark));
+        g2.fill(ribbon);
+        // Ribbon border
+        g2.setStroke(new BasicStroke(1f));
+        g2.setColor(new Color(0, 0, 0, 100));
+        g2.draw(ribbon);
+        // Ribbon text
+        String rankName;
+        switch (rank) {
+            case "S": rankName = "ELITE"; break;
+            case "A": rankName = "EXCELLENT"; break;
+            case "B": rankName = "GOOD"; break;
+            case "C": rankName = "AVERAGE"; break;
+            default: rankName = "ROOKIE"; break;
+        }
+        Font ribbonFont = FontPalette.get(Font.BOLD, radius * 0.28f);
+        g2.setFont(ribbonFont);
+        FontMetrics rfm = g2.getFontMetrics();
+        g2.setColor(new Color(0, 0, 0, 150));
+        g2.drawString(rankName, cx - rfm.stringWidth(rankName) / 2 + 1, ribbonY + ribbonH / 2 + rfm.getAscent() / 2 - 3 + 1);
+        g2.setColor(new Color(255, 255, 255, 230));
+        g2.drawString(rankName, cx - rfm.stringWidth(rankName) / 2, ribbonY + ribbonH / 2 + rfm.getAscent() / 2 - 3);
 
         g2.dispose();
     }

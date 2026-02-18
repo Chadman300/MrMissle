@@ -24,6 +24,10 @@ public class ControllerManager {
     // Stick deadzone
     private static final float DEADZONE = 0.35f;
 
+    // Raw analog stick values (for virtual cursor support)
+    private float rawLeftStickX = 0;
+    private float rawLeftStickY = 0;
+
     // JInput reflection handles (to avoid compile-time dependency)
     private Method controllerPoll;
     private Method controllerGetComponents;
@@ -200,6 +204,10 @@ public class ControllerManager {
                 }
             }
 
+            // Store raw analog values for virtual cursor support
+            rawLeftStickX = Math.abs(leftX) > DEADZONE ? leftX : 0;
+            rawLeftStickY = Math.abs(leftY) > DEADZONE ? leftY : 0;
+
             // Map left stick to directional buttons
             if (leftY < -DEADZONE) currentState.put(KeyBindManager.ControllerButton.LEFT_STICK_UP, true);
             if (leftY > DEADZONE) currentState.put(KeyBindManager.ControllerButton.LEFT_STICK_DOWN, true);
@@ -288,18 +296,36 @@ public class ControllerManager {
 
     /**
      * Check if the controller button mapped to an action is currently pressed.
+     * D-pad directions always count as MOVE_UP/DOWN/LEFT/RIGHT for UI navigation.
      */
     public boolean isActionPressed(KeyBindManager.Action action) {
         KeyBindManager.ControllerButton btn = keyBindManager.getControllerButton(action);
-        return isPressed(btn);
+        if (isPressed(btn)) return true;
+        // D-pad always works for directional navigation
+        return switch (action) {
+            case MOVE_UP    -> isPressed(KeyBindManager.ControllerButton.DPAD_UP);
+            case MOVE_DOWN  -> isPressed(KeyBindManager.ControllerButton.DPAD_DOWN);
+            case MOVE_LEFT  -> isPressed(KeyBindManager.ControllerButton.DPAD_LEFT);
+            case MOVE_RIGHT -> isPressed(KeyBindManager.ControllerButton.DPAD_RIGHT);
+            default -> false;
+        };
     }
 
     /**
      * Check if the controller button mapped to an action was just pressed this frame.
+     * D-pad directions always count as MOVE_UP/DOWN/LEFT/RIGHT for UI navigation.
      */
     public boolean isActionJustPressed(KeyBindManager.Action action) {
         KeyBindManager.ControllerButton btn = keyBindManager.getControllerButton(action);
-        return isJustPressed(btn);
+        if (isJustPressed(btn)) return true;
+        // D-pad always works for directional navigation
+        return switch (action) {
+            case MOVE_UP    -> isJustPressed(KeyBindManager.ControllerButton.DPAD_UP);
+            case MOVE_DOWN  -> isJustPressed(KeyBindManager.ControllerButton.DPAD_DOWN);
+            case MOVE_LEFT  -> isJustPressed(KeyBindManager.ControllerButton.DPAD_LEFT);
+            case MOVE_RIGHT -> isJustPressed(KeyBindManager.ControllerButton.DPAD_RIGHT);
+            default -> false;
+        };
     }
 
     // ── Connection Status ────────────────────────────────────────────
@@ -401,5 +427,23 @@ public class ControllerManager {
         if (isPressed(KeyBindManager.ControllerButton.LEFT_STICK_UP)) return -1;
         if (isPressed(KeyBindManager.ControllerButton.LEFT_STICK_DOWN)) return 1;
         return 0;
+    }
+
+    /**
+     * Get raw left stick X axis value (-1 to 1) with deadzone applied.
+     * Returns 0 if not connected or within deadzone. Used for analog cursor movement.
+     */
+    public float getRawLeftStickX() {
+        if (!connected) return 0;
+        return rawLeftStickX;
+    }
+
+    /**
+     * Get raw left stick Y axis value (-1 to 1) with deadzone applied.
+     * Returns 0 if not connected or within deadzone. Used for analog cursor movement.
+     */
+    public float getRawLeftStickY() {
+        if (!connected) return 0;
+        return rawLeftStickY;
     }
 }

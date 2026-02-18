@@ -189,6 +189,27 @@ public class Renderer {
 
     private int lastComboCount = 0;
 
+    // Slam animation for game over / win screens
+    private double screenEnteredTime = -1;
+    private boolean slamSoundPlayed = false;
+    // Random placement for stamp / badge each time screens appear
+    private int stampOffsetX = 0;
+    private int stampOffsetY = 0;
+    private double stampAngleOffset = 0;
+    private int badgeCorner = 0; // 0=top-right, 1=top-left, 2=bottom-right, 3=bottom-left
+    private static final java.util.Random screenRng = new java.util.Random();
+
+    public void setScreenEnteredTime(double time) {
+        this.screenEnteredTime = time;
+        this.slamSoundPlayed = false;
+        // Randomize stamp placement
+        this.stampOffsetX = screenRng.nextInt(61) - 30; // -30 to +30
+        this.stampOffsetY = screenRng.nextInt(41) - 20; // -20 to +20
+        this.stampAngleOffset = (screenRng.nextDouble() - 0.5) * 0.3; // -0.15 to +0.15 radians extra
+        // Randomize badge corner
+        this.badgeCorner = screenRng.nextInt(4);
+    }
+
     
 
     public Renderer(GameData gameData, ShopManager shopManager, PassiveUpgradeManager passiveUpgradeManager, java.util.function.IntConsumer bgProgressCallback) {
@@ -1170,21 +1191,81 @@ public class Renderer {
 
         int cardWidth = 700;
 
-        int cardHeight = 130;
-
         int cardX = (width - cardWidth) / 2;
 
         int startY = 180;
 
-        int cardSpacing = 150;
+        int cardGap = 20;
+
+        int textMaxWidth = cardWidth - 50;
 
         
+
+        // Pre-calculate wrapped text and card heights
+
+        int[] cardHeights = new int[modes.length];
+
+        java.util.List<String>[] descLines = new java.util.List[modes.length];
+
+        java.util.List<String>[] detailLines = new java.util.List[modes.length];
+
+        String[] details = new String[modes.length];
+
+        for (int i = 0; i < modes.length; i++) {
+
+            switch (modes[i]) {
+
+                case EASY:
+
+                    details[i] = "Bosses attack slower with longer rest periods. Progress is saved on death.";
+
+                    break;
+
+                case HARD:
+
+                    details[i] = "Full boss difficulty. Progress is saved on death \u2014 no level resets.";
+
+                    break;
+
+                case MASTER:
+
+                    details[i] = "Full boss difficulty. Roguelike resets \u2014 levels and lives reset on death.";
+
+                    break;
+
+                default:
+
+                    details[i] = "";
+
+            }
+
+            g.setFont(FONT_MEDIUM);
+
+            descLines[i] = wrapText(modes[i].getDescription(), g.getFontMetrics(), textMaxWidth);
+
+            g.setFont(FONT_SMALL);
+
+            detailLines[i] = wrapText(details[i], g.getFontMetrics(), textMaxWidth);
+
+            int descHeight = descLines[i].size() * g.getFontMetrics(FONT_MEDIUM).getHeight();
+
+            int detailHeight = detailLines[i].size() * g.getFontMetrics(FONT_SMALL).getHeight();
+
+            cardHeights[i] = 50 + descHeight + 6 + detailHeight + 10;
+
+        }
+
+        
+
+        int currentY = startY;
 
         for (int i = 0; i < modes.length; i++) {
 
             GameMode mode = modes[i];
 
-            int cardY = startY + i * cardSpacing;
+            int cardHeight = cardHeights[i];
+
+            int cardY = currentY;
 
             boolean isSelected = (i == selectedIndex);
 
@@ -1276,51 +1357,39 @@ public class Renderer {
 
             
 
-            // Description
+            // Description (wrapped)
 
             g2.setFont(FONT_MEDIUM);
 
             g2.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 220));
 
-            g2.drawString(mode.getDescription(), cardX + 25, cardY + 70);
+            int textY = cardY + 70;
+
+            for (String line : descLines[i]) {
+
+                g2.drawString(line, cardX + 25, textY);
+
+                textY += g2.getFontMetrics().getHeight();
+
+            }
 
             
 
-            // Detail text
+            // Detail text (wrapped)
 
             g2.setFont(FONT_SMALL);
 
             g2.setColor(ColorPalette.TEXT_DIM);
 
-            String detail;
+            textY += 6;
 
-            switch (mode) {
+            for (String line : detailLines[i]) {
 
-                case EASY:
+                g2.drawString(line, cardX + 25, textY);
 
-                    detail = "Bosses attack slower with longer rest periods. Progress is saved on death.";
-
-                    break;
-
-                case HARD:
-
-                    detail = "Full boss difficulty. Progress is saved on death \u2014 no level resets.";
-
-                    break;
-
-                case MASTER:
-
-                    detail = "Full boss difficulty. Roguelike resets \u2014 levels and lives reset on death.";
-
-                    break;
-
-                default:
-
-                    detail = "";
+                textY += g2.getFontMetrics().getHeight();
 
             }
-
-            g2.drawString(detail, cardX + 25, cardY + 100);
 
             
 
@@ -1348,6 +1417,8 @@ public class Renderer {
 
             g2.dispose();
 
+            currentY += cardHeight + cardGap;
+
         }
 
         
@@ -1363,6 +1434,31 @@ public class Renderer {
     }
 
     
+
+    /**
+     * Wraps text into multiple lines that fit within the given pixel width.
+     */
+    private java.util.List<String> wrapText(String text, FontMetrics fm, int maxWidth) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        if (text == null || text.isEmpty()) return lines;
+        String[] words = text.split(" ");
+        StringBuilder currentLine = new StringBuilder();
+        for (String word : words) {
+            if (currentLine.length() == 0) {
+                currentLine.append(word);
+            } else {
+                String test = currentLine + " " + word;
+                if (fm.stringWidth(test) > maxWidth) {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder(word);
+                } else {
+                    currentLine.append(" ").append(word);
+                }
+            }
+        }
+        if (currentLine.length() > 0) lines.add(currentLine.toString());
+        return lines;
+    }
 
     private void drawGeometricBackground(Graphics2D g, int width, int height, double time) {
 
@@ -8600,9 +8696,65 @@ public class Renderer {
 
         
 
-        // Stencil stamp overlay on top
+        // Stencil stamp overlay — slam animation (randomized position/rotation)
 
-        UITheme.drawStencilStamp(g, "FAILED", width / 2, height / 2 - 140, ColorPalette.ACCENT_RED, FontPalette.getDisplay(Font.BOLD, 48));
+        double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
+
+        double slamDuration = 0.5;
+
+        int stampCX = width / 2 + stampOffsetX;
+
+        int stampCY = height / 2 - 140 + stampOffsetY;
+
+        if (elapsed < slamDuration) {
+
+            float t = (float)(elapsed / slamDuration);
+
+            float scale = 1.0f + 3.0f * (1.0f - easeOutBack(t));
+
+            float alpha = Math.min(1.0f, t * 3.0f);
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            g2.translate(stampCX, stampCY);
+
+            g2.rotate(stampAngleOffset);
+
+            g2.scale(scale, scale);
+
+            g2.translate(-stampCX, -stampCY);
+
+            UITheme.drawStencilStamp(g2, "FAILED", stampCX, stampCY, ColorPalette.ACCENT_RED, FontPalette.getDisplay(Font.BOLD, 48));
+
+            g2.dispose();
+
+        } else {
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.translate(stampCX, stampCY);
+
+            g2.rotate(stampAngleOffset);
+
+            g2.translate(-stampCX, -stampCY);
+
+            UITheme.drawStencilStamp(g2, "FAILED", stampCX, stampCY, ColorPalette.ACCENT_RED, FontPalette.getDisplay(Font.BOLD, 48));
+
+            g2.dispose();
+
+        }
+
+        // Play slam sound when stamp lands
+
+        if (!slamSoundPlayed && elapsed >= slamDuration) {
+
+            SoundManager.getInstance().playSound(SoundManager.Sound.HIT_STRONG, 0.8f);
+
+            slamSoundPlayed = true;
+
+        }
 
         
 
@@ -8838,13 +8990,97 @@ public class Renderer {
 
         
 
-        // Rank badge
+        // Rank badge — slam animation (randomized corner)
 
         int scoreForRank = gameData.getScore();
 
         String rank = UITheme.calculateRank(scoreForRank);
 
-        UITheme.drawRankBadge(g, width - 120, height / 2 - 160, 50, rank, time);
+        double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
+
+        double rankDelay = 0.4;
+
+        double rankSlamDuration = 0.45;
+
+        double rankElapsed = elapsed - rankDelay;
+
+        int badgeRadius = 60;
+
+        int badgeCX, badgeCY;
+
+        switch (badgeCorner) {
+
+            case 1:  badgeCX = 140;          badgeCY = height / 2 - 150; break; // top-left
+
+            case 2:  badgeCX = width - 140;  badgeCY = height / 2 + 70;  break; // bottom-right
+
+            case 3:  badgeCX = 140;          badgeCY = height / 2 + 70;  break; // bottom-left
+
+            default: badgeCX = width - 140;  badgeCY = height / 2 - 150; break; // top-right
+
+        }
+
+        if (rankElapsed < 0) {
+
+            // Not yet visible
+
+        } else if (rankElapsed < rankSlamDuration) {
+
+            float t = (float)(rankElapsed / rankSlamDuration);
+
+            float scale = 1.0f + 3.5f * (1.0f - easeOutBack(t));
+
+            float alpha = Math.min(1.0f, t * 3.0f);
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            g2.translate(badgeCX, badgeCY);
+
+            g2.scale(scale, scale);
+
+            g2.translate(-badgeCX, -badgeCY);
+
+            UITheme.drawRankBadge(g2, badgeCX, badgeCY, badgeRadius, rank, time);
+
+            g2.dispose();
+
+        } else {
+
+            // Gentle float/bob after slam
+
+            double postSlam = rankElapsed - rankSlamDuration;
+
+            float bobY = (float)(Math.sin(postSlam * 1.8) * 3.0);
+
+            float pulse = 1.0f + 0.015f * (float)Math.sin(postSlam * 2.5);
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.translate(badgeCX, badgeCY + bobY);
+
+            g2.scale(pulse, pulse);
+
+            g2.translate(-badgeCX, -(badgeCY + bobY));
+
+            UITheme.drawRankBadge(g2, badgeCX, (int)(badgeCY + bobY), badgeRadius, rank, time);
+
+            g2.dispose();
+
+        }
+
+        // Play slam sound when rank lands
+
+        if (!slamSoundPlayed && rankElapsed >= rankSlamDuration) {
+
+            SoundManager.getInstance().playSound(SoundManager.Sound.HIT_METAL, 0.9f);
+
+            SoundManager.getInstance().playSound(SoundManager.Sound.RANK_UP, 0.7f);
+
+            slamSoundPlayed = true;
+
+        }
 
         
 
