@@ -196,7 +196,8 @@ public class Renderer {
     private int stampOffsetX = 0;
     private int stampOffsetY = 0;
     private double stampAngleOffset = 0;
-    private int badgeCorner = 0; // 0=top-right, 1=top-left, 2=bottom-right, 3=bottom-left
+    private int badgeCorner = 0; // 0-3 quadrant around the text
+    private double badgeRotation = 0; // random slight tilt for badge
     private static final java.util.Random screenRng = new java.util.Random();
 
     public void setScreenEnteredTime(double time) {
@@ -206,8 +207,9 @@ public class Renderer {
         this.stampOffsetX = screenRng.nextInt(61) - 30; // -30 to +30
         this.stampOffsetY = screenRng.nextInt(41) - 20; // -20 to +20
         this.stampAngleOffset = (screenRng.nextDouble() - 0.5) * 0.3; // -0.15 to +0.15 radians extra
-        // Randomize badge corner
+        // Randomize badge quadrant and slight rotation
         this.badgeCorner = screenRng.nextInt(4);
+        this.badgeRotation = (screenRng.nextDouble() - 0.5) * 0.25; // -0.125 to +0.125 radians
     }
 
     
@@ -8674,10 +8676,6 @@ public class Renderer {
 
         
 
-        // Warning lights in corners
-
-        UITheme.drawWarningLights(g, width, height, time);
-
         
 
         // Red overlay pulse
@@ -9008,15 +9006,21 @@ public class Renderer {
 
         int badgeCX, badgeCY;
 
+        // Badge placed near the text area with slight random offset per quadrant
+
+        int textCenterX = width / 2;
+
+        int textTopY = height / 2 - 180;
+
         switch (badgeCorner) {
 
-            case 1:  badgeCX = 140;          badgeCY = height / 2 - 150; break; // top-left
+            case 0:  badgeCX = textCenterX + 220; badgeCY = textTopY - 10;  break; // right of title
 
-            case 2:  badgeCX = width - 140;  badgeCY = height / 2 + 70;  break; // bottom-right
+            case 1:  badgeCX = textCenterX - 220; badgeCY = textTopY - 10;  break; // left of title
 
-            case 3:  badgeCX = 140;          badgeCY = height / 2 + 70;  break; // bottom-left
+            case 2:  badgeCX = textCenterX + 200; badgeCY = textTopY + 60;  break; // right-below
 
-            default: badgeCX = width - 140;  badgeCY = height / 2 - 150; break; // top-right
+            default: badgeCX = textCenterX - 200; badgeCY = textTopY + 60;  break; // left-below
 
         }
 
@@ -9037,6 +9041,8 @@ public class Renderer {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
 
             g2.translate(badgeCX, badgeCY);
+
+            g2.rotate(badgeRotation);
 
             g2.scale(scale, scale);
 
@@ -9059,6 +9065,8 @@ public class Renderer {
             Graphics2D g2 = (Graphics2D) g.create();
 
             g2.translate(badgeCX, badgeCY + bobY);
+
+            g2.rotate(badgeRotation);
 
             g2.scale(pulse, pulse);
 

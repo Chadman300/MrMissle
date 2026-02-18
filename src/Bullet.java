@@ -491,17 +491,31 @@ public class Bullet {
     public void draw(Graphics2D g) {
         // Draw warning indicator during warning phase
         if (warningTime > 0) {
-            float alpha = Math.min(0.5f, (float)(warningTime % 20) / 20.0f + 0.2f);
-            g.setColor(new Color(180, 40, 40, (int)(alpha * 180))); // Dim red with transparency
+            // Rapid flicker when about to activate (last 25% of warning)
+            double flickerThreshold = WARNING_DURATION * 0.25;
+            boolean rapidFlicker = warningTime < flickerThreshold;
+            float alpha;
+            if (rapidFlicker) {
+                // Fast on/off flicker that gets faster as it gets closer to spawning
+                double flickerSpeed = 8.0 + (flickerThreshold - warningTime) * 0.8;
+                float flick = (float)(0.5 + 0.5 * Math.sin(warningTime * flickerSpeed));
+                alpha = 0.3f + 0.7f * flick;
+            } else {
+                alpha = Math.min(0.5f, (float)(warningTime % 20) / 20.0f + 0.2f);
+            }
+            
+            int baseAlpha = rapidFlicker ? 255 : 180;
+            g.setColor(new Color(rapidFlicker ? 220 : 180, 40, 40, (int)(alpha * baseAlpha)));
             int warningSize = (int)(8 + (WARNING_DURATION - warningTime) / 6);
             
             // Draw crosshair warning
-            g.setStroke(new BasicStroke(2));
+            float strokeW = rapidFlicker ? 3f : 2f;
+            g.setStroke(new BasicStroke(strokeW));
             g.drawLine((int)x - warningSize, (int)y, (int)x + warningSize, (int)y);
             g.drawLine((int)x, (int)y - warningSize, (int)x, (int)y + warningSize);
             
             // Draw warning circle
-            g.setStroke(new BasicStroke(1.5f));
+            g.setStroke(new BasicStroke(rapidFlicker ? 2f : 1.5f));
             g.drawOval((int)x - warningSize/2, (int)y - warningSize/2, warningSize, warningSize);
             return;
         }
