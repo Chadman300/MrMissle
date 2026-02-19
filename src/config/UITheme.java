@@ -25,6 +25,20 @@ public class UITheme {
     private static BufferedImage cachedMetalBg = null;
     private static int cachedBgW = 0, cachedBgH = 0;
 
+    // ── Full composite background cache (updated at ~10fps) ──────────
+    private static BufferedImage cachedFullBg = null;
+    private static int cachedFullBgW = 0, cachedFullBgH = 0;
+    private static long lastBgUpdateNanos = 0;
+    private static final long BG_UPDATE_INTERVAL_NANOS = 100_000_000L; // 100ms
+
+    // ── Vignette cache (fully static — only depends on size) ─────────
+    private static BufferedImage cachedVignette = null;
+    private static int cachedVigW = 0, cachedVigH = 0;
+
+    // ── Radial glow cache (for journey map nodes etc.) ───────────────
+    private static final java.util.Map<Integer, BufferedImage> glowCache = new java.util.HashMap<>();
+    private static final int GLOW_IMG_SIZE = 256;
+
     // Ember particle state (simple procedural, no external state needed)
     private static double[][] embers = null;
 
@@ -39,23 +53,42 @@ public class UITheme {
      * animated radar sweep glow.
      */
     public static void drawScreenBackground(Graphics2D g, int width, int height, double time) {
-        // 1. Base gradient — deep dark military
-        drawMilitaryGradient(g, width, height, time);
+        long now = System.nanoTime();
+        boolean sizeChanged = cachedFullBgW != width || cachedFullBgH != height;
+        boolean stale = (now - lastBgUpdateNanos) > BG_UPDATE_INTERVAL_NANOS;
 
-        // 2. Subtle metallic noise texture (procedural)
-        drawMetalTexture(g, width, height);
+        if (cachedFullBg == null || sizeChanged || stale) {
+            if (cachedFullBg == null || sizeChanged) {
+                cachedFullBg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                cachedFullBgW = width;
+                cachedFullBgH = height;
+            }
+            Graphics2D bg = cachedFullBg.createGraphics();
+            bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 3. Warning stripes along top and bottom edges
-        drawWarningStripes(g, width, height, time);
+            // 1. Base gradient — deep dark military
+            drawMilitaryGradient(bg, width, height, time);
 
-        // 4. Radar sweep glow in bottom-right corner
-        drawRadarSweep(g, width, height, time);
+            // 2. Subtle metallic noise texture (procedural)
+            drawMetalTexture(bg, width, height);
 
-        // 5. Corner rivets / brackets
-        drawMilitaryCorners(g, width, height, time);
+            // 3. Warning stripes along top and bottom edges
+            drawWarningStripes(bg, width, height, time);
 
-        // 6. Subtle vignette overlay
-        drawDarkVignette(g, width, height);
+            // 4. Radar sweep glow in bottom-right corner
+            drawRadarSweep(bg, width, height, time);
+
+            // 5. Corner rivets / brackets
+            drawMilitaryCorners(bg, width, height, time);
+
+            // 6. Subtle vignette overlay
+            drawDarkVignette(bg, width, height);
+
+            bg.dispose();
+            lastBgUpdateNanos = now;
+        }
+
+        g.drawImage(cachedFullBg, 0, 0, null);
     }
 
     private static void drawMilitaryGradient(Graphics2D g, int width, int height, double time) {
@@ -196,26 +229,35 @@ public class UITheme {
     }
 
     private static void drawDarkVignette(Graphics2D g, int width, int height) {
-        // Edge darkening
-        int edgeW = width / 4;
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-        // Left
-        GradientPaint left = new GradientPaint(0, 0, new Color(0, 0, 0, 120), edgeW, 0, new Color(0, 0, 0, 0));
-        g.setPaint(left);
-        g.fillRect(0, 0, edgeW, height);
-        // Right
-        GradientPaint right = new GradientPaint(width - edgeW, 0, new Color(0, 0, 0, 0), width, 0, new Color(0, 0, 0, 120));
-        g.setPaint(right);
-        g.fillRect(width - edgeW, 0, edgeW, height);
-        // Top
-        GradientPaint top = new GradientPaint(0, 0, new Color(0, 0, 0, 80), 0, height / 5, new Color(0, 0, 0, 0));
-        g.setPaint(top);
-        g.fillRect(0, 0, width, height / 5);
-        // Bottom
-        GradientPaint bot = new GradientPaint(0, height - height / 5, new Color(0, 0, 0, 0), 0, height, new Color(0, 0, 0, 80));
-        g.setPaint(bot);
-        g.fillRect(0, height - height / 5, width, height / 5);
-        g.setComposite(ColorPalette.ALPHA_FULL);
+        // Cache vignette as BufferedImage — it's fully static (no time dependency)
+        if (cachedVignette == null || cachedVigW != width || cachedVigH != height) {
+            cachedVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D vg = cachedVignette.createGraphics();
+
+            int edgeW = width / 4;
+            vg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+            // Left
+            GradientPaint left = new GradientPaint(0, 0, new Color(0, 0, 0, 120), edgeW, 0, new Color(0, 0, 0, 0));
+            vg.setPaint(left);
+            vg.fillRect(0, 0, edgeW, height);
+            // Right
+            GradientPaint right = new GradientPaint(width - edgeW, 0, new Color(0, 0, 0, 0), width, 0, new Color(0, 0, 0, 120));
+            vg.setPaint(right);
+            vg.fillRect(width - edgeW, 0, edgeW, height);
+            // Top
+            GradientPaint top = new GradientPaint(0, 0, new Color(0, 0, 0, 80), 0, height / 5, new Color(0, 0, 0, 0));
+            vg.setPaint(top);
+            vg.fillRect(0, 0, width, height / 5);
+            // Bottom
+            GradientPaint bot = new GradientPaint(0, height - height / 5, new Color(0, 0, 0, 0), 0, height, new Color(0, 0, 0, 80));
+            vg.setPaint(bot);
+            vg.fillRect(0, height - height / 5, width, height / 5);
+
+            vg.dispose();
+            cachedVigW = width;
+            cachedVigH = height;
+        }
+        g.drawImage(cachedVignette, 0, 0, null);
     }
 
     // ─── SCREEN TITLE ────────────────────────────────────────────────────
@@ -886,38 +928,87 @@ public class UITheme {
 
     // ─── JET SILHOUETTE ──────────────────────────────────────────────────
 
+    // Pre-computed jet polygon templates (avoid per-frame array allocation)
+    private static final int[][] JET_XP_TEMPLATES = new int[2][];
+    private static final int[][] JET_YP_TEMPLATES = new int[2][];
+    private static final Color CONTRAIL_COLOR = new Color(200, 200, 220, 30);
+    private static final float[] JET_ALPHAS = {0.08f, 0.11f};
+    private static final BasicStroke CONTRAIL_STROKE = new BasicStroke(2);
+    static {
+        int[] baseXp = {0, -30, -40, -50, -40, -30, -50, -55, -50, -30, 0, 20};
+        int[] baseYp = {0, -5, -5, -15, -5, -8, -8, -3, 0, 3, 3, 0};
+        for (int j = 0; j < 2; j++) {
+            int scale = 2 + j;
+            JET_XP_TEMPLATES[j] = new int[baseXp.length];
+            JET_YP_TEMPLATES[j] = new int[baseYp.length];
+            for (int i = 0; i < baseXp.length; i++) {
+                JET_XP_TEMPLATES[j][i] = baseXp[i] * scale;
+                JET_YP_TEMPLATES[j][i] = baseYp[i] * scale;
+            }
+        }
+    }
+
     /**
      * Draw an animated jet silhouette streaking across the background.
+     * Uses pre-computed polygon templates and cached Color/Stroke objects.
      */
     public static void drawJetSilhouette(Graphics2D g, int width, int height, double time) {
-        // Two jets at different speeds/heights
+        Composite origComposite = g.getComposite();
+        AffineTransform origTransform = g.getTransform();
+
         for (int j = 0; j < 2; j++) {
             double speed = 80 + j * 40;
             double yPos = height * (0.25 + j * 0.3);
             double xPos = ((time * speed) % (width + 200)) - 100;
 
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f + j * 0.03f));
-            g2.setColor(ColorPalette.TEXT_DIM);
-            g2.translate(xPos, yPos);
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, JET_ALPHAS[j]));
+            g.setColor(ColorPalette.TEXT_DIM);
+            g.translate(xPos, yPos);
 
-            // Simple jet shape
-            int[] xp = {0, -30, -40, -50, -40, -30, -50, -55, -50, -30, 0, 20};
-            int[] yp = {0, -5, -5, -15, -5, -8, -8, -3, 0, 3, 3, 0};
-            int scale = 2 + j;
-            for (int i = 0; i < xp.length; i++) { xp[i] *= scale; yp[i] *= scale; }
-            g2.fillPolygon(xp, yp, xp.length);
+            g.fillPolygon(JET_XP_TEMPLATES[j], JET_YP_TEMPLATES[j], JET_XP_TEMPLATES[j].length);
 
             // Contrail
-            g2.setStroke(new BasicStroke(2));
-            g2.setColor(new Color(200, 200, 220, 30));
-            g2.drawLine(-55 * scale, 0, -55 * scale - 200, (int)(Math.sin(time + j) * 3));
+            int scale = 2 + j;
+            g.setStroke(CONTRAIL_STROKE);
+            g.setColor(CONTRAIL_COLOR);
+            g.drawLine(-55 * scale, 0, -55 * scale - 200, (int)(Math.sin(time + j) * 3));
 
-            g2.dispose();
+            g.setTransform(origTransform);
         }
+        g.setComposite(origComposite);
     }
 
     // ─── UTILITY ─────────────────────────────────────────────────────────
+
+    /**
+     * Get a cached radial glow image for the given base color.
+     * Returns a pre-rendered GLOW_IMG_SIZE x GLOW_IMG_SIZE BufferedImage
+     * with a soft radial gradient from the color center to transparent edge.
+     * Use with AlphaComposite to control per-instance intensity.
+     */
+    public static BufferedImage getCachedGlow(Color baseColor) {
+        int key = baseColor.getRGB();
+        BufferedImage glow = glowCache.get(key);
+        if (glow == null) {
+            glow = new BufferedImage(GLOW_IMG_SIZE, GLOW_IMG_SIZE, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D gg = glow.createGraphics();
+            gg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            float radius = GLOW_IMG_SIZE / 2f;
+            Color transparent = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 0);
+            Color center = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 180);
+            Color mid = new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), 100);
+            java.awt.RadialGradientPaint rgp = new java.awt.RadialGradientPaint(
+                radius, radius, radius,
+                new float[]{0.0f, 0.6f, 1.0f},
+                new Color[]{center, mid, transparent}
+            );
+            gg.setPaint(rgp);
+            gg.fillOval(0, 0, GLOW_IMG_SIZE, GLOW_IMG_SIZE);
+            gg.dispose();
+            glowCache.put(key, glow);
+        }
+        return glow;
+    }
 
     /**
      * Calculate a rank string based on a score and base threshold.

@@ -101,7 +101,7 @@ public class Bullet {
     }
     
     public static void setBulletSizeMultiplier(double multiplier) {
-        bulletSizeMultiplier = multiplier;
+        bulletSizeMultiplier = Math.max(0.6, multiplier);
     }
     
     // Maximum rendered size for any bullet sprite (SIZE * 7 = 42 for nuke)

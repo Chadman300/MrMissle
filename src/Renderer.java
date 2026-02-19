@@ -127,7 +127,52 @@ public class Renderer {
 
     private static final BasicStroke STROKE_3 = new BasicStroke(3f);
 
-    
+    // ── Cached Colors for journey map & UI menus (avoid per-frame new Color()) ──
+    private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
+    private static final Color NODE_CURRENT_BLUE = new Color(100, 200, 255);
+    private static final Color NODE_LOCKED_GRAY = new Color(60, 60, 70);
+    private static final Color NODE_SHADOW = new Color(0, 0, 0, 80);
+    private static final Color NODE_COMPLETED_RING = new Color(255, 200, 50);
+    private static final Color NODE_BORDER_CURRENT = new Color(150, 255, 150);
+    private static final Color NODE_BORDER_COMPLETED = new Color(220, 180, 60);
+    private static final Color NODE_BORDER_LOCKED = new Color(70, 70, 80);
+    private static final Color NODE_LOCKED_TEXT = new Color(80, 80, 85);
+    private static final Color NODE_LOCKED_ICON = new Color(100, 100, 110);
+    private static final Color NODE_CLEARED_LABEL = new Color(220, 190, 60);
+    private static final Color PATH_LINE_COLOR = new Color(50, 55, 65);
+    private static final Color ARROW_DIM = new Color(150, 150, 160);
+    private static final Color BADGE_GREEN = new Color(40, 160, 60);
+    // Node fill gradient endpoint colors
+    private static final Color MEGA_COMPLETED_1 = new Color(120, 80, 40);
+    private static final Color MEGA_COMPLETED_2 = new Color(170, 130, 60);
+    private static final Color MEGA_CURRENT_1 = new Color(150, 80, 180);
+    private static final Color MEGA_CURRENT_2 = new Color(200, 120, 220);
+    private static final Color MEGA_LOCKED = new Color(50, 40, 60);
+    private static final Color MINI_COMPLETED_1 = new Color(90, 75, 30);
+    private static final Color MINI_COMPLETED_2 = new Color(130, 110, 50);
+    private static final Color MINI_CURRENT_1 = new Color(60, 150, 80);
+    private static final Color MINI_CURRENT_2 = new Color(80, 200, 100);
+    private static final Color MINI_LOCKED = new Color(45, 45, 50);
+    // Glow colors for sprite preview
+    private static final Color GLOW_MEGA_BOSS = new Color(200, 150, 255);
+    private static final Color GLOW_COMPLETED = new Color(100, 255, 150);
+    private static final Color GLOW_CURRENT = new Color(100, 200, 255);
+    private static final Color GLOW_AVAILABLE = new Color(255, 255, 200);
+    // Selection glow colors
+    private static final Color SEL_GLOW_CURRENT = new Color(100, 255, 100);
+    private static final Color SEL_GLOW_COMPLETED = new Color(100, 180, 255);
+    private static final Color SEL_GLOW_OTHER = new Color(255, 150, 100);
+    // drawTitle ember color base
+    private static final Color PANEL_BG = new Color(25, 30, 40, 240);
+    private static final Color PANEL_BORDER_COMPLETED = new Color(80, 160, 80);
+    private static final Color PANEL_BORDER_CURRENT = new Color(100, 200, 255);
+    private static final Color PANEL_BORDER_LOCKED = new Color(70, 70, 80);
+    private static final Color PANEL_TEXT_NAME = new Color(230, 235, 245);
+    private static final Color PANEL_MEGA_LABEL = new Color(255, 200, 100);
+    private static final Color PANEL_DIM_LABEL = new Color(140, 150, 170);
+    private static final Color PANEL_STATS_TEXT = new Color(160, 170, 180);
+    private static final Color PANEL_LOCK_TEXT = new Color(120, 120, 130);
+    private static final Color PANEL_NAV_HINT = new Color(100, 110, 130);
 
     // Cached vignette for performance
 
@@ -188,6 +233,10 @@ public class Renderer {
     private double comboPulseScale = 1.0;
 
     private int lastComboCount = 0;
+
+    // Boss health bar pop-in animation
+    private boolean lastBossPresent = false;
+    private double bossHealthBarAnim = 0.0; // 0 = hidden, 1 = fully shown
 
     // Slam animation for game over / win screens
     private double screenEnteredTime = -1;
@@ -2421,7 +2470,7 @@ public class Renderer {
 
                 // Lock icon
 
-                g.setColor(new Color(100, 100, 110));
+                g.setColor(NODE_LOCKED_ICON);
 
                 g.fillOval(iconX, iconY, iconSize, iconSize);
 
@@ -3580,15 +3629,15 @@ public class Renderer {
 
             if (i < currentLevel) {
 
-                g.setColor(new Color(220, 180, 50)); // Completed - gold
+                g.setColor(NODE_COMPLETED_GOLD); // Completed - gold
 
             } else if (i == currentLevel) {
 
-                g.setColor(new Color(100, 200, 255)); // Current
+                g.setColor(NODE_CURRENT_BLUE); // Current
 
             } else {
 
-                g.setColor(new Color(60, 60, 70)); // Locked
+                g.setColor(NODE_LOCKED_GRAY); // Locked
 
             }
 
@@ -3620,7 +3669,7 @@ public class Renderer {
 
         // Draw the horizontal path line behind the nodes
 
-        g.setColor(new Color(50, 55, 65));
+        g.setColor(PATH_LINE_COLOR);
 
         g.setStroke(new BasicStroke(6, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
@@ -3736,9 +3785,9 @@ public class Renderer {
 
                 g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, glowPulse * alpha));
 
-                Color glowColor = isCurrent ? new Color(100, 255, 100) : 
+                Color glowColor = isCurrent ? SEL_GLOW_CURRENT : 
 
-                                  isCompleted ? new Color(100, 180, 255) : new Color(255, 150, 100);
+                                  isCompleted ? SEL_GLOW_COMPLETED : SEL_GLOW_OTHER;
 
                 g.setColor(glowColor);
 
@@ -3766,7 +3815,7 @@ public class Renderer {
 
                 g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, ringPulse * alpha));
 
-                g.setColor(new Color(255, 200, 50));
+                g.setColor(NODE_COMPLETED_RING);
 
                 g.setStroke(new BasicStroke(4));
 
@@ -3784,23 +3833,23 @@ public class Renderer {
 
                 if (isCompleted) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(120, 80, 40), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MEGA_COMPLETED_1, 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(170, 130, 60));
+                                                           x + nodeRadius, centerY + nodeRadius, MEGA_COMPLETED_2);
 
                     g.setPaint(grad);
 
                 } else if (isCurrent) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(150, 80, 180), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MEGA_CURRENT_1, 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(200, 120, 220));
+                                                           x + nodeRadius, centerY + nodeRadius, MEGA_CURRENT_2);
 
                     g.setPaint(grad);
 
                 } else {
 
-                    g.setColor(new Color(50, 40, 60));
+                    g.setColor(MEGA_LOCKED);
 
                 }
 
@@ -3808,23 +3857,23 @@ public class Renderer {
 
                 if (isCompleted) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(90, 75, 30), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MINI_COMPLETED_1, 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(130, 110, 50));
+                                                           x + nodeRadius, centerY + nodeRadius, MINI_COMPLETED_2);
 
                     g.setPaint(grad);
 
                 } else if (isCurrent) {
 
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, new Color(60, 150, 80), 
+                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MINI_CURRENT_1, 
 
-                                                           x + nodeRadius, centerY + nodeRadius, new Color(80, 200, 100));
+                                                           x + nodeRadius, centerY + nodeRadius, MINI_CURRENT_2);
 
                     g.setPaint(grad);
 
                 } else {
 
-                    g.setColor(new Color(45, 45, 50));
+                    g.setColor(MINI_LOCKED);
 
                 }
 
@@ -3844,19 +3893,19 @@ public class Renderer {
 
             } else if (isCurrent) {
 
-                g.setColor(new Color(150, 255, 150));
+                g.setColor(NODE_BORDER_CURRENT);
 
                 g.setStroke(new BasicStroke(3));
 
             } else if (isCompleted) {
 
-                g.setColor(new Color(220, 180, 60));
+                g.setColor(NODE_BORDER_COMPLETED);
 
                 g.setStroke(new BasicStroke(3));
 
             } else {
 
-                g.setColor(new Color(70, 70, 80));
+                g.setColor(NODE_BORDER_LOCKED);
 
                 g.setStroke(new BasicStroke(2));
 
@@ -3916,75 +3965,34 @@ public class Renderer {
 
                     
 
-                    // Glow effect for unlocked planes using radial gradient
-
+                    // Glow effect for unlocked planes using cached glow image
                     if (!isLocked) {
-
                         float glowIntensity = (float)(0.5 + 0.3 * Math.sin(time * 0.8));
-
                         
-
                         Color glowColor;
-
                         if (isMegaBoss) {
-
-                            glowColor = new Color(200, 150, 255); // Purple glow for mega bosses
-
+                            glowColor = GLOW_MEGA_BOSS; // Purple glow for mega bosses
                         } else if (isCompleted) {
-
-                            glowColor = new Color(100, 255, 150); // Green glow for completed
-
+                            glowColor = GLOW_COMPLETED; // Green glow for completed
                         } else if (isCurrent) {
-
-                            glowColor = new Color(100, 200, 255); // Blue glow for current
-
+                            glowColor = GLOW_CURRENT; // Blue glow for current
                         } else {
-
-                            glowColor = new Color(255, 255, 200); // Yellow glow for available
-
+                            glowColor = GLOW_AVAILABLE; // Yellow glow for available
                         }
-
                         
-
-                        // Draw smooth radial gradient glow (fixed position, doesn't bounce)
-
-                        AffineTransform glowTransform = g.getTransform();
-
-                        int fixedGlowY = centerY - nodeRadius - spriteHeight - 110; // Fixed position without bounce
-
-                        g.translate(spriteX, fixedGlowY + spriteHeight / 2);
-
-                        
-
+                        // Use cached glow image instead of per-frame RadialGradientPaint
+                        BufferedImage glowImg = UITheme.getCachedGlow(glowColor);
+                        int fixedGlowY = centerY - nodeRadius - spriteHeight - 110;
                         float glowRadius = Math.max(spriteWidth, spriteHeight) * 0.7f;
-
-                        Color transparent = new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), 0);
-
-                        Color center = new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), (int)(180 * glowIntensity * alpha));
-
+                        int glowDiameter = (int)(glowRadius * 2);
+                        int glowDrawX = spriteX - (int)glowRadius;
+                        int glowDrawY = fixedGlowY + spriteHeight / 2 - (int)glowRadius;
                         
-
-                        RadialGradientPaint gradient = new RadialGradientPaint(
-
-                            0, 0, glowRadius,
-
-                            new float[]{0.0f, 0.6f, 1.0f},
-
-                            new Color[]{center, new Color(glowColor.getRed(), glowColor.getGreen(), glowColor.getBlue(), (int)(100 * glowIntensity * alpha)), transparent}
-
-                        );
-
-                        g.setPaint(gradient);
-
-                        g.fillOval((int)(-glowRadius), (int)(-glowRadius), (int)(glowRadius * 2), (int)(glowRadius * 2));
-
-                        
-
-                        g.setTransform(glowTransform);
-
+                        Composite prevGlowComposite = g.getComposite();
+                        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1.0f, glowIntensity * alpha)));
+                        g.drawImage(glowImg, glowDrawX, glowDrawY, glowDiameter, glowDiameter, null);
+                        g.setComposite(prevGlowComposite);
                     }
-
-                    
 
                     // Set alpha - dim for locked levels
 
@@ -4170,7 +4178,7 @@ public class Renderer {
 
             if (isLocked) {
 
-                g.setColor(new Color(80, 80, 85));
+                g.setColor(NODE_LOCKED_TEXT);
 
             } else {
 
@@ -4214,7 +4222,7 @@ public class Renderer {
 
                 // Green circle background
 
-                g.setColor(new Color(40, 160, 60));
+                g.setColor(BADGE_GREEN);
 
                 g.fillOval(badgeX - 2, badgeY - 2, badgeSize + 4, badgeSize + 4);
 
@@ -4250,7 +4258,7 @@ public class Renderer {
 
                 g.setFont(FontPalette.get(Font.BOLD, lockSize));
 
-                g.setColor(new Color(100, 100, 110));
+                g.setColor(NODE_LOCKED_ICON);
 
                 String lock = "[L]";
 
@@ -4310,7 +4318,7 @@ public class Renderer {
 
         // Panel background with rounded corners
 
-        g.setColor(new Color(25, 30, 40, 240));
+        g.setColor(PANEL_BG);
 
         g.fillRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
 
@@ -4354,15 +4362,15 @@ public class Renderer {
 
         if (isMegaBoss) {
 
-            GradientPaint nameGrad = new GradientPaint(nameX, panelY + 40, new Color(200, 150, 255), 
+            GradientPaint nameGrad = new GradientPaint(nameX, panelY + 40, GLOW_MEGA_BOSS, 
 
-                                                        nameX + fm.stringWidth(bossName), panelY + 40, new Color(255, 200, 100));
+                                                        nameX + fm.stringWidth(bossName), panelY + 40, PANEL_MEGA_LABEL);
 
             g.setPaint(nameGrad);
 
         } else {
 
-            g.setColor(new Color(230, 235, 245));
+            g.setColor(PANEL_TEXT_NAME);
 
         }
 
@@ -4374,7 +4382,7 @@ public class Renderer {
 
         g.setFont(FONT_EXTRA_SMALL_16);
 
-        g.setColor(isMegaBoss ? new Color(255, 200, 100) : new Color(140, 150, 170));
+        g.setColor(isMegaBoss ? PANEL_MEGA_LABEL : PANEL_DIM_LABEL);
 
         String typeLabel = isMegaBoss ? "* MEGA BOSS - Level " + selectedLevel : "Level " + selectedLevel;
 
@@ -4394,7 +4402,7 @@ public class Renderer {
 
         if (isCompleted) {
 
-            g.setColor(new Color(220, 190, 60));
+            g.setColor(NODE_CLEARED_LABEL);
 
             String status = "\u2713 DEFEATED";
 
@@ -4428,7 +4436,7 @@ public class Renderer {
 
             g.setFont(FONT_EXTRA_SMALL_13);
 
-            g.setColor(new Color(160, 170, 180));
+            g.setColor(PANEL_STATS_TEXT);
 
             infoY += 20;
 
@@ -4566,7 +4574,7 @@ public class Renderer {
 
         } else {
 
-            g.setColor(new Color(120, 120, 130));
+            g.setColor(PANEL_LOCK_TEXT);
 
             String lockText = "[L] LOCKED";
 
@@ -4582,7 +4590,7 @@ public class Renderer {
 
         g.setFont(FontPalette.get(Font.PLAIN, 14));
 
-        g.setColor(new Color(100, 110, 130));
+        g.setColor(PANEL_NAV_HINT);
 
         drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - 15,
 
@@ -4708,7 +4716,7 @@ public class Renderer {
 
             // Card border
 
-            g.setColor(isSelected ? new Color(255, 255, 200) : new Color(80, 85, 95));
+            g.setColor(isSelected ? GLOW_AVAILABLE : new Color(80, 85, 95));
 
             g.setStroke(new BasicStroke(isSelected ? 3 : 2));
 
@@ -6718,14 +6726,51 @@ public class Renderer {
 
         
 
-        // Draw boss health bar at bottom - layout-aware
+        // Draw boss health bar at bottom - layout-aware (with pop-in animation)
         HUDLayout bossLayout = Game.hudLayout != null ? Game.hudLayout : HUDLayout.defaultLayout();
         HUDLayout.HUDElementConfig bossCfg = bossLayout.getConfig(HUDLayout.HUDElement.BOSS_HEALTH);
-        if (boss != null && bossCfg.visible) {
+        // Animate boss health bar in/out
+        boolean bossPresent = boss != null && bossCfg.visible;
+        if (bossPresent && !lastBossPresent) {
+            bossHealthBarAnim = 0.0; // Reset animation on new boss
+        }
+        lastBossPresent = bossPresent;
+        if (bossPresent) {
+            bossHealthBarAnim = Math.min(1.0, bossHealthBarAnim + 0.025); // ~40 frames to fully appear
+        } else {
+            bossHealthBarAnim = Math.max(0.0, bossHealthBarAnim - 0.05); // Faster fade out
+        }
+        if (bossHealthBarAnim > 0.0 && boss != null) {
             Composite bossOrigComposite = g.getComposite();
-            if (bossCfg.opacity < 1.0f) {
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, bossCfg.opacity)));
+            
+            // Pop-in animation: elastic scale + slide up + alpha fade
+            float animT = (float) bossHealthBarAnim;
+            float animAlpha;
+            float animScale;
+            float animSlideY;
+            if (animT < 0.4f) {
+                // Phase 1: Slide up + fade in + overshoot scale
+                float t = animT / 0.4f;
+                float ease = 1.0f - (1.0f - t) * (1.0f - t); // ease-out quad
+                animAlpha = ease;
+                animScale = 0.5f + 0.8f * ease; // 0.5 -> 1.3 (overshoot)
+                animSlideY = (1.0f - ease) * 60; // slide up 60px
+            } else if (animT < 0.65f) {
+                // Phase 2: Settle from overshoot
+                float t = (animT - 0.4f) / 0.25f;
+                animAlpha = 1.0f;
+                animScale = 1.3f - 0.3f * t; // 1.3 -> 1.0
+                animSlideY = 0;
+            } else {
+                // Phase 3: Fully visible with subtle pulse
+                animAlpha = 1.0f;
+                animScale = 1.0f + 0.015f * (float) Math.sin(animT * Math.PI * 6);
+                animSlideY = 0;
             }
+            
+            // Combine layout opacity with animation alpha
+            float combinedAlpha = Math.max(0.01f, animAlpha * (bossCfg.opacity < 1.0f ? bossCfg.opacity : 1.0f));
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, combinedAlpha));
 
             int barWidth = 600;
 
@@ -6735,7 +6780,15 @@ public class Renderer {
 
             int barX = (int)(bossCfg.xPercent * width);
 
-            int barY = (int)(bossCfg.yPercent * height);
+            int barY = (int)(bossCfg.yPercent * height + animSlideY);
+            
+            // Apply scale transform centered on the bar
+            AffineTransform bossBarTransform = g.getTransform();
+            int barCenterX = barX + barWidth / 2;
+            int barCenterY = barY + (barHeight + 45) / 2;
+            g.translate(barCenterX, barCenterY);
+            g.scale(animScale, animScale);
+            g.translate(-barCenterX, -barCenterY);
 
             
 
@@ -6967,6 +7020,7 @@ public class Renderer {
 
             g.drawRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
 
+            g.setTransform(bossBarTransform);
             g.setComposite(bossOrigComposite);
         }
 
@@ -7024,6 +7078,8 @@ public class Renderer {
 
             String announcement = comboSystem.getCurrentAnnouncement();
 
+            boolean isBossHP = announcement.startsWith("BOSS HP:");
+
             float announcementProgress = (float)(comboSystem.getAnnouncementTimer() / 90.0); // 1.0 = just started, 0.0 = ending
 
             float lifeProgress = 1.0f - announcementProgress; // 0.0 = just started, 1.0 = ending
@@ -7033,6 +7089,19 @@ public class Renderer {
             // Smooth elastic pop-in effect (overshoots then settles)
 
             float scale;
+
+            if (isBossHP) {
+                // Smaller, snappier pop for boss HP
+                if (lifeProgress < 0.1f) {
+                    float t = lifeProgress / 0.1f;
+                    scale = 1.15f * easeOutBack(t);
+                } else if (lifeProgress < 0.18f) {
+                    float t = (lifeProgress - 0.1f) / 0.08f;
+                    scale = 1.15f - 0.15f * t;
+                } else {
+                    scale = 1.0f + 0.02f * (float)Math.sin(lifeProgress * Math.PI * 4);
+                }
+            } else {
 
             if (lifeProgress < 0.15f) {
 
@@ -7057,6 +7126,7 @@ public class Renderer {
                 scale = 1.0f + 0.05f * (float)Math.sin(lifeProgress * Math.PI * 4);
 
             }
+            } // end else (non-boss-HP scale)
 
             
 
@@ -7080,9 +7150,9 @@ public class Renderer {
 
             
 
-            // Gentle sway rotation (like hanging text)
+            // Gentle sway rotation (like hanging text) — reduced for boss HP
 
-            float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / 24); // +/- 7.5 degrees
+            float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / (isBossHP ? 48 : 24));
 
             // Dampen sway as it fades out
 
@@ -7090,9 +7160,9 @@ public class Renderer {
 
             
 
-            // Smooth float upward with easing
+            // Smooth float upward with easing — less float for boss HP
 
-            float floatUp = easeOutQuad(lifeProgress) * 80;
+            float floatUp = easeOutQuad(lifeProgress) * (isBossHP ? 40 : 80);
 
             
 
@@ -7103,6 +7173,11 @@ public class Renderer {
             int textX = (int)comboSystem.getAnnouncementSpawnX();
 
             int textY = (int)(comboSystem.getAnnouncementSpawnY() - 60 - floatUp);
+
+            // Clamp to screen bounds so text never goes off-screen
+            int margin = isBossHP ? 80 : 150;
+            textX = Math.max(margin, Math.min(width - margin, textX));
+            textY = Math.max(margin, Math.min(height - 40, textY));
 
             
 
@@ -7116,9 +7191,9 @@ public class Renderer {
 
             
 
-            // Draw with larger font
+            // Use Arial Black for boss HP, Inlanders title font for other announcements
 
-            g.setFont(FONT_TITLE);
+            g.setFont(isBossHP ? FontPalette.get(Font.BOLD, 28) : FONT_TITLE);
 
             FontMetrics announceFm = g.getFontMetrics();
 
@@ -7162,7 +7237,11 @@ public class Renderer {
 
             // Draw main text with color based on announcement
 
-            Color announceColor = switch(announcement) {
+            Color announceColor;
+            if (announcement.startsWith("BOSS HP:")) {
+                announceColor = new Color(255, 80, 80, (int)(255 * alpha)); // Red for boss HP
+            } else {
+                announceColor = switch(announcement) {
 
                 case "NICE!" -> new Color(163, 190, 140, (int)(255 * alpha)); // Green
 
@@ -7194,7 +7273,8 @@ public class Renderer {
 
                 default -> new Color(255, 255, 255, (int)(255 * alpha));
 
-            };
+                };
+            }
 
             g.setColor(announceColor);
 
@@ -11352,7 +11432,7 @@ public class Renderer {
 
                     g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
 
-                    g.setColor(new Color(255, 200, 100)); // Orange glow for particles
+                    g.setColor(PANEL_MEGA_LABEL); // Orange glow for particles
 
                     double glowSize = 15 + (i * 8);
 
@@ -13447,7 +13527,7 @@ public class Renderer {
 
                                  bx + (int)(Math.cos(angle) * 280), by + (int)(Math.sin(angle) * 280));
 
-                    spG.setColor(new Color(255, 200, 100));
+                    spG.setColor(PANEL_MEGA_LABEL);
 
                     spG.setStroke(new BasicStroke(3f));
 
@@ -13699,7 +13779,7 @@ public class Renderer {
                     int subW = sfm.stringWidth(subtitle);
                     npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
                         Math.max(0f, Math.min(1f, na * 0.6f))));
-                    npg.setColor(new Color(255, 200, 100));
+                    npg.setColor(PANEL_MEGA_LABEL);
                     npg.drawString(subtitle, nx + nw / 2 - subW / 2, ny - fm.getAscent() - 18);
                     // Text drop shadow
                     npg.setFont(FontPalette.get(Font.BOLD, fs));
@@ -14049,7 +14129,7 @@ public class Renderer {
 
                     gg.translate(-cx, -(vsY - fm.getAscent() / 2));
 
-                    gg.setColor(new Color(255, 200, 100));
+                    gg.setColor(PANEL_MEGA_LABEL);
 
                     gg.drawString(vsText, vsX, vsY);
 

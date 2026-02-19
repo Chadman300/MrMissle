@@ -4,6 +4,7 @@ import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
 import java.io.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Centralized font palette — loads the custom display font and derives all
@@ -138,37 +139,50 @@ public class FontPalette {
 
     // ─── PUBLIC HELPERS ──────────────────────────────────────────────────
 
+    // ─── FONT DERIVATION CACHES (avoids per-frame deriveFont() calls) ───
+    private static final ConcurrentHashMap<Long, Font> bodyFontCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, Font> displayFontCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, Font> cinematicFontCache = new ConcurrentHashMap<>();
+
+    private static long fontCacheKey(int style, float size) {
+        return ((long) style << 32) | Float.floatToIntBits(size);
+    }
+
     /**
      * Get a one-off size/style variant — uses Arial Black (body font)
      * so that numbers and digits always render correctly.
+     * Results are cached to avoid repeated deriveFont() calls.
      */
     public static Font get(int style, float size) {
         ensureInit();
-        return bodyFont.deriveFont(style, size);
+        return bodyFontCache.computeIfAbsent(fontCacheKey(style, size),
+            k -> bodyFont.deriveFont(style, size));
     }
 
     /**
      * Get a one-off size/style variant of the body font (Arial Black).
+     * Results are cached.
      */
     public static Font getBody(int style, float size) {
-        ensureInit();
-        return bodyFont.deriveFont(style, size);
+        return get(style, size);
     }
 
     /**
      * Get a one-off size/style variant of the display font (Inlanders).
      * Use ONLY for text that is guaranteed to contain NO digits (0-9),
-     * e.g. screen titles, button labels, headers.
+     * e.g. screen titles, button labels, headers. Results are cached.
      */
     public static Font getDisplay(int style, float size) {
         ensureInit();
-        return baseFont.deriveFont(style, size);
+        return displayFontCache.computeIfAbsent(fontCacheKey(style, size),
+            k -> baseFont.deriveFont(style, size));
     }
 
-    /** Same as {@link #get} but from the cinematic (Impact-like) base. */
+    /** Same as {@link #get} but from the cinematic (Impact-like) base. Cached. */
     public static Font getCinematic(int style, float size) {
         ensureInit();
-        return cinematicBaseFont.deriveFont(style, size);
+        return cinematicFontCache.computeIfAbsent(fontCacheKey(style, size),
+            k -> cinematicBaseFont.deriveFont(style, size));
     }
 
     /** True if the custom font could not be loaded. */
@@ -183,6 +197,9 @@ public class FontPalette {
         if (test == null) return false;
         FONT_PATH = newPath;
         initialized = false;   // force re-init
+        bodyFontCache.clear();
+        displayFontCache.clear();
+        cinematicFontCache.clear();
         init();
         return true;
     }

@@ -21,6 +21,7 @@ public class Particle {
     private static final AlphaComposite[] ALPHA_CACHE = new AlphaComposite[101];
     private static final BasicStroke STROKE_3 = new BasicStroke(3f);
     private static final BasicStroke[] STROKE_CACHE = new BasicStroke[20];
+    private static Font cachedMoneyFont = null; // Cached font for MONEY_SIGN particles
     static {
         for (int i = 0; i <= 100; i++) {
             ALPHA_CACHE[i] = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, i / 100f);
@@ -158,9 +159,10 @@ public class Particle {
                 break;
                 
             case MONEY_SIGN:
-                // Draw a falling "$" sign
+                // Draw a falling "$" sign - use cached font
                 g.setColor(color);
-                g.setFont(new Font("Arial", Font.BOLD, (int)size));
+                if (cachedMoneyFont == null) cachedMoneyFont = new Font("Arial", Font.BOLD, (int)size);
+                g.setFont(cachedMoneyFont);
                 g.drawString("$", (int)x, (int)y);
                 break;
                 

@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
 import javax.swing.*;
 import config.ColorPalette;
 import config.FontPalette;
@@ -127,6 +130,19 @@ public class Game extends JPanel implements Runnable {
     private static final double INV_GRID_CELL_SIZE = 1.0 / GRID_CELL_SIZE; // Pre-computed inverse
     private Map<Integer, List<Bullet>> bulletGrid;
     private List<Bullet> nearbyBulletsCache = new ArrayList<>(); // Reusable list for performance
+    
+    // Thread pool for parallel game updates (bullet + particle processing)
+    private static final int THREAD_COUNT = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+    private ExecutorService updateThreadPool = Executors.newFixedThreadPool(THREAD_COUNT, r -> {
+        Thread t = new Thread(r, "GameUpdate-Worker");
+        t.setDaemon(true);
+        return t;
+    });
+    
+    // Off-screen render buffer for rendering on game thread (avoids blocking EDT)
+    private volatile BufferedImage renderBuffer;
+    private volatile BufferedImage displayBuffer;
+    private final Object bufferSwapLock = new Object();
     
     // Player trail effect
     private double trailSpawnTimer;
@@ -3620,6 +3636,10 @@ public class Game extends JPanel implements Runnable {
     public void saveOnExit() {
         System.out.println("Game closing - performing auto-save...");
         performAutoSave();
+        // Shut down thread pool cleanly
+        if (updateThreadPool != null) {
+            updateThreadPool.shutdownNow();
+        }
     }
 
     /**
@@ -4235,6 +4255,10 @@ public class Game extends JPanel implements Runnable {
         double nsPerTick = 1000000000.0 / targetFPS;
         double delta = 0;
         
+        // Initialize off-screen render buffers
+        renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        
         while (running) {
             long now = System.nanoTime();
             
@@ -4283,7 +4307,19 @@ public class Game extends JPanel implements Runnable {
                 delta--;
             }
             
+            // Render frame to off-screen buffer on game thread (avoids blocking EDT)
+            renderToBuffer();
+            
+            // Swap buffers and trigger lightweight repaint (EDT just blits the buffer)
+            synchronized (bufferSwapLock) {
+                BufferedImage temp = displayBuffer;
+                displayBuffer = renderBuffer;
+                renderBuffer = temp;
+            }
             repaint();
+            
+            // Sync display for smoother frame delivery
+            Toolkit.getDefaultToolkit().sync();
             
             try {
                 // Sleep time based on target FPS
@@ -4704,14 +4740,16 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = Math.max(screenShakeIntensity, 8);
                     
                     // Destroy bullets within explosion radius (no per-bullet particles)
+                    // Use squared distance to avoid sqrt per bullet
+                    double bombRadiusSq = BOMB_EXPLOSION_RADIUS * BOMB_EXPLOSION_RADIUS;
                     int bulletsDestroyed = 0;
                     for (int i = bullets.size() - 1; i >= 0; i--) {
                         Bullet bullet = bullets.get(i);
                         double dx = bullet.getX() - bombX;
                         double dy = bullet.getY() - bombY;
-                        double dist = Math.sqrt(dx * dx + dy * dy);
+                        double distSq = dx * dx + dy * dy;
                         
-                        if (dist < BOMB_EXPLOSION_RADIUS) {
+                        if (distSq < bombRadiusSq) {
                             bullets.remove(i);
                             returnBulletToPool(bullet);
                             bulletsDestroyed++;
@@ -5617,13 +5655,46 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Update particles using iterator for efficient removal
-        for (java.util.Iterator<Particle> it = particles.iterator(); it.hasNext();) {
-            Particle p = it.next();
-            p.update(deltaTime);
-            if (!p.isAlive()) {
-                it.remove();
-                returnParticleToPool(p);
+        // Update particles - parallel update then single-threaded removal
+        {
+            final double particleDt = deltaTime;
+            int pSize = particles.size();
+            if (pSize > 50 && THREAD_COUNT > 1) {
+                // Parallel particle position update (particles are independent)
+                int chunkSize = (pSize + THREAD_COUNT - 1) / THREAD_COUNT;
+                CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
+                for (int t = 0; t < THREAD_COUNT; t++) {
+                    final int start = t * chunkSize;
+                    final int end = Math.min(start + chunkSize, pSize);
+                    updateThreadPool.submit(() -> {
+                        try {
+                            for (int pi = start; pi < end; pi++) {
+                                particles.get(pi).update(particleDt);
+                            }
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                }
+                try { latch.await(); } catch (InterruptedException ignored) {}
+            } else {
+                for (int pi = 0; pi < pSize; pi++) {
+                    particles.get(pi).update(particleDt);
+                }
+            }
+            // Efficient compaction: move live particles to front, trim dead ones
+            int writeIdx = 0;
+            for (int readIdx = 0; readIdx < particles.size(); readIdx++) {
+                Particle p = particles.get(readIdx);
+                if (p.isAlive()) {
+                    if (writeIdx != readIdx) particles.set(writeIdx, p);
+                    writeIdx++;
+                } else {
+                    returnParticleToPool(p);
+                }
+            }
+            if (writeIdx < particles.size()) {
+                particles.subList(writeIdx, particles.size()).clear();
             }
         }
         
@@ -5706,10 +5777,11 @@ public class Game extends JPanel implements Runnable {
                 
                 // Show popup text
                 if (remainingHealth > 0) {
-                    // Small damage number for boss HP
-                    damageNumbers.add(new DamageNumber("BOSS HP: " + remainingHealth, 
-                        currentBoss.getX(), currentBoss.getY() - 60, 
-                        new Color(255, 80, 80), 42));
+                    // Animated announcement for boss HP (same style as other popups)
+                    if (comboSystem != null) {
+                        comboSystem.setAnnouncement("BOSS HP: " + remainingHealth, 
+                            currentBoss.getX(), currentBoss.getY());
+                    }
                 } else {
                     // Big dramatic announcement for boss defeated
                     if (comboSystem != null) {
@@ -6301,27 +6373,56 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Update bullets
-        for (int i = bullets.size() - 1; i >= 0; i--) {
+        // ===== OPTIMIZED BULLET UPDATE =====
+        // Phase 1: Parallel bullet position updates (bullets are independent during movement)
+        {
+            final int bulletSlowLevel = getActiveBulletSlowLevel();
+            final double bulletSlowMult = bulletSlowLevel > 0 ? passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.BULLET_SLOW) : 1.0;
+            final boolean timeSlowActive = equippedItem != null && equippedItem.isActive() && 
+                equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW;
+            final Player playerRef = player; // Capture for lambda
+            final double bulletDt = deltaTime;
+            int bSize = bullets.size();
+            
+            if (bSize > 80 && THREAD_COUNT > 1) {
+                // Parallel position update across thread pool
+                int chunkSize = (bSize + THREAD_COUNT - 1) / THREAD_COUNT;
+                CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
+                for (int t = 0; t < THREAD_COUNT; t++) {
+                    final int start = t * chunkSize;
+                    final int end = Math.min(start + chunkSize, bSize);
+                    updateThreadPool.submit(() -> {
+                        try {
+                            for (int bi = start; bi < end; bi++) {
+                                Bullet bullet = bullets.get(bi);
+                                bullet.resetFrameSpeedMultiplier();
+                                if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
+                                if (timeSlowActive) bullet.applySlow(0.15);
+                                bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
+                            }
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+                }
+                try { latch.await(); } catch (InterruptedException ignored) {}
+            } else {
+                for (int i = 0; i < bSize; i++) {
+                    Bullet bullet = bullets.get(i);
+                    bullet.resetFrameSpeedMultiplier();
+                    if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
+                    if (timeSlowActive) bullet.applySlow(0.15);
+                    bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
+                }
+            }
+        }
+        
+        // Phase 2: Sequential post-processing (explosions, trails, removal)
+        // Collect new fragments separately to avoid modifying list during iteration
+        List<Bullet> newFragments = null;
+        int writeIdx = 0;
+        for (int i = 0; i < bullets.size(); i++) {
             Bullet bullet = bullets.get(i);
-            
-            // Reset frame speed multiplier before applying slows
-            bullet.resetFrameSpeedMultiplier();
-            
-            // Apply bullet slow upgrade (from PassiveUpgradeManager) - scales with level
-            int bulletSlowLevel = getActiveBulletSlowLevel();
-            if (bulletSlowLevel > 0) {
-                double bulletSlowMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.BULLET_SLOW);
-                bullet.applySlow(bulletSlowMult);
-            }
-            
-            // Apply time slow from active item
-            if (equippedItem != null && equippedItem.isActive() && 
-                equippedItem.getType() == ActiveItem.ItemType.TIME_SLOW) {
-                bullet.applySlow(0.15); // 15% speed (85% slow)
-            }
-            
-            bullet.update(player, WORLD_WIDTH, WORLD_HEIGHT, deltaTime);
             
             // Spawn trail particles for fast-moving bullets
             if (enableParticles && bullet.shouldSpawnTrail() && Math.random() < 0.10 * deltaTime) {
@@ -6350,7 +6451,6 @@ public class Game extends JPanel implements Runnable {
                 
                 // Create explosion particles with shockwave
                 if (enableParticles) {
-                    // Scale down particle count if too many bullets
                     List<Particle> explosionParticles = bullet.createExplosionParticles();
                     int particlesToAdd = bullets.size() > 200 ? explosionParticles.size() / 2 : explosionParticles.size();
                     for (int j = 0; j < particlesToAdd && particles.size() < MAX_PARTICLES; j++) {
@@ -6358,19 +6458,33 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
                 
-                // Create fragments from explosion
+                // Collect fragments to add after loop
                 List<Bullet> fragments = bullet.createFragments();
-                bullets.addAll(fragments);
-                bullets.remove(i);
+                if (!fragments.isEmpty()) {
+                    if (newFragments == null) newFragments = new ArrayList<>();
+                    newFragments.addAll(fragments);
+                }
                 returnBulletToPool(bullet);
-                continue;
+                continue; // Don't keep this bullet
             }
             
-            // Remove off-screen bullets and return to pool
+            // Check if bullet is off-screen
             if (bullet.isOffScreen(WORLD_WIDTH, WORLD_HEIGHT)) {
-                bullets.remove(i);
                 returnBulletToPool(bullet);
+                continue; // Don't keep this bullet
             }
+            
+            // Keep this bullet - compact in-place (avoids O(n) shift from remove(i))
+            if (writeIdx != i) bullets.set(writeIdx, bullet);
+            writeIdx++;
+        }
+        // Trim removed bullets from end
+        if (writeIdx < bullets.size()) {
+            bullets.subList(writeIdx, bullets.size()).clear();
+        }
+        // Add any new fragments
+        if (newFragments != null) {
+            bullets.addAll(newFragments);
         }
         
         // Rebuild spatial grid after all bullet updates for optimized collision
@@ -6488,13 +6602,19 @@ public class Game extends JPanel implements Runnable {
                     return;
                 }
                 
-                // Check for graze (near miss)
-                double grazeRadius = GRAZE_DISTANCE; // Graze radius no longer has passive upgrade
-                double closeCallRadius = CLOSE_CALL_DISTANCE; // Close call radius no longer has passive upgrade
+                // Check for graze (near miss) - use squared distance to avoid sqrt
+                double grazeRadius = GRAZE_DISTANCE;
+                double closeCallRadius = CLOSE_CALL_DISTANCE;
                 double perfectDodgeRadius = PERFECT_DODGE_DISTANCE;
-                double dist = Math.sqrt(Math.pow(bullet.getX() - player.getX(), 2) + Math.pow(bullet.getY() - player.getY(), 2));
+                double gdx = bullet.getX() - player.getX();
+                double gdy = bullet.getY() - player.getY();
+                double distSq = gdx * gdx + gdy * gdy;
+                double grazeRadiusSq = grazeRadius * grazeRadius;
+                double playerRadiusHalf = player.getSize() / 2.0;
+                double playerRadiusHalfSq = playerRadiusHalf * playerRadiusHalf;
                 
-                if (!bullet.hasGrazed() && dist < grazeRadius && dist > player.getSize() / 2.0) {
+                if (!bullet.hasGrazed() && distSq < grazeRadiusSq && distSq > playerRadiusHalfSq) {
+                    double dist = Math.sqrt(distSq); // Only compute sqrt when actually grazing
                     bullet.setGrazed(true);
                     totalGrazesThisRun++;
                     
@@ -6686,7 +6806,7 @@ public class Game extends JPanel implements Runnable {
                             player.getY() + Math.sin(angle) * playerRadius,
                             Math.cos(angle) * speed,
                             Math.sin(angle) * speed,
-                            new Color(100, 200, 255, 200),
+                            GRAZE_BLUE,
                             20, 3,
                             Particle.ParticleType.SPARK
                         );
@@ -6753,36 +6873,23 @@ public class Game extends JPanel implements Runnable {
         return nearbyBulletsCache;
     }
     
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
+    /**
+     * Render the current frame to an off-screen buffer on the game thread.
+     * This moves all heavy rendering work OFF the EDT, drastically reducing lag.
+     */
+    private void renderToBuffer() {
+        BufferedImage buf = renderBuffer;
+        if (buf == null) return;
+        Graphics2D g2d = buf.createGraphics();
         
-        // Calculate scaling to fit window while maintaining aspect ratio
-        int panelWidth = getWidth();
-        int panelHeight = getHeight();
-        
-        double scaleX = (double) panelWidth / WIDTH;
-        double scaleY = (double) panelHeight / HEIGHT;
-        double scale = Math.min(scaleX, scaleY); // Use smaller scale to fit entirely
-        
-        // Calculate offsets to center the game
-        int scaledWidth = (int) (WIDTH * scale);
-        int scaledHeight = (int) (HEIGHT * scale);
-        int offsetX = (panelWidth - scaledWidth) / 2;
-        int offsetY = (panelHeight - scaledHeight) / 2;
-        
-        // Fill background with black (letterboxing/pillarboxing)
+        // Clear buffer
+        g2d.setComposite(AlphaComposite.Src);
         g2d.setColor(Color.BLACK);
-        g2d.fillRect(0, 0, panelWidth, panelHeight);
-        
-        // Apply transforms
-        g2d.translate(offsetX, offsetY);
-        g2d.scale(scale, scale);
+        g2d.fillRect(0, 0, WIDTH, HEIGHT);
+        g2d.setComposite(AlphaComposite.SrcOver);
         
         // Apply rendering hints based on settings
         if (enableAntiAliasing) {
-            // Use faster rendering during intense gameplay, better quality for menus
             if (gameState == GameState.PLAYING && bullets.size() > 100) {
                 g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
                 g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
@@ -6799,21 +6906,16 @@ public class Game extends JPanel implements Runnable {
         
         // Draw previous state if transitioning
         if (stateTransitionProgress < 1.0f && previousState != null) {
-            // Draw old state with fade out
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f - stateTransitionProgress));
             drawState(g2d, previousState);
-            
-            // Draw new state with fade in
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, stateTransitionProgress));
             drawState(g2d, gameState);
-            
-            // Reset composite
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
         } else {
             drawState(g2d, gameState);
         }
         
-        // Draw auto-save indicator overlay (on top of everything)
+        // Draw auto-save indicator overlay
         if (showAutoSaveIndicator) {
             drawAutoSaveIndicator(g2d, WIDTH, HEIGHT);
         }
@@ -6833,6 +6935,41 @@ public class Game extends JPanel implements Runnable {
                 g2d.setColor(new Color(180, 255, 180));
                 g2d.drawString(label, px, py);
             }
+        }
+        
+        g2d.dispose();
+    }
+    
+    @Override
+    protected void paintComponent(Graphics g) {
+        // Lightweight blit: just draw the pre-rendered buffer to screen
+        // All heavy rendering was done on the game thread in renderToBuffer()
+        BufferedImage buf;
+        synchronized (bufferSwapLock) {
+            buf = displayBuffer;
+        }
+        if (buf != null) {
+            Graphics2D g2d = (Graphics2D) g;
+            int panelWidth = getWidth();
+            int panelHeight = getHeight();
+            
+            // Calculate scaling to fit window
+            double scaleX = (double) panelWidth / WIDTH;
+            double scaleY = (double) panelHeight / HEIGHT;
+            double scale = Math.min(scaleX, scaleY);
+            int scaledWidth = (int) (WIDTH * scale);
+            int scaledHeight = (int) (HEIGHT * scale);
+            int offsetX = (panelWidth - scaledWidth) / 2;
+            int offsetY = (panelHeight - scaledHeight) / 2;
+            
+            // Fill letterbox areas
+            if (offsetX > 0 || offsetY > 0) {
+                g2d.setColor(Color.BLACK);
+                g2d.fillRect(0, 0, panelWidth, panelHeight);
+            }
+            
+            // Draw the pre-rendered buffer scaled to fit
+            g2d.drawImage(buf, offsetX, offsetY, scaledWidth, scaledHeight, null);
         }
     }
     
