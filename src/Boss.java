@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1673,10 +1674,14 @@ public class Boss {
     }
     
     public void draw(Graphics2D g) {
-        Graphics2D g2d = (Graphics2D) g.create();
-        // Respect global anti-aliasing setting for performance
+        // Save state instead of g.create() — avoids Graphics2D allocation
+        AffineTransform savedTx = g.getTransform();
+        Composite savedComp = g.getComposite();
+        RenderingHints savedHints = null;
+        
         if (Game.enableAntiAliasing) {
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            savedHints = g.getRenderingHints();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         }
         
         // Get appropriate sprite and shadow
@@ -1703,7 +1708,7 @@ public class Boss {
         if (sprite != null) {
             // Use smooth rotation angle
             // Rotate and draw sprite with shadow
-            g2d.translate(x, y);
+            g.translate(x, y);
             
             // Get native sprite dimensions
             int nativeWidth = sprite.getWidth();
@@ -1734,10 +1739,10 @@ public class Boss {
                 }
                 
                 // Rotate to match object orientation
-                g2d.rotate(rotation - Math.PI / 2);
+                g.rotate(rotation - Math.PI / 2);
                 
-                // Number of layers based on shadow quality: Low=3, Medium=6, High=10
-                int layerCount = Game.shadowQuality == 1 ? 3 : Game.shadowQuality == 2 ? 6 : 10;
+                // Reduced layer count for performance: Low=2, Medium=3, High=5
+                int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
                 
                 // Draw layers from outermost (largest, most transparent) to innermost
                 for (int i = 0; i < layerCount; i++) {
@@ -1758,20 +1763,20 @@ public class Boss {
                         layerW = (int)(layerW * Math.abs(shadowScaleX));
                     }
                     
-                    g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha));
-                    g2d.drawImage(shadow,
+                    g.setComposite(RenderCache.getAlpha(layerAlpha));
+                    g.drawImage(shadow,
                         (int)(-layerW / 2), (int)(-layerH / 2 + SHADOW_GLOW_OFFSET_Y),
                         layerW, layerH, null);
                 }
                 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+                g.setComposite(RenderCache.ALPHA_FULL);
                 
                 // Reset rotation for sprite
-                g2d.rotate(-(rotation - Math.PI / 2));
+                g.rotate(-(rotation - Math.PI / 2));
             }
             
             // Now rotate for the sprite itself
-            g2d.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
+            g.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
             // Apply z-axis rotation (wobble and/or twirl)
             double spriteScaleX;
@@ -1790,10 +1795,10 @@ public class Boss {
             }
             
             if (Math.abs(spriteScaleX - 1.0) > 0.001) {
-                g2d.scale(spriteScaleX, 1.0);
+                g.scale(spriteScaleX, 1.0);
             }
             
-            g2d.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
+            g.drawImage(sprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
             
             // Draw spinning helicopter blades if this is a helicopter
             if (isHelicopter && helicopterBlades[0] != null) {
@@ -1801,12 +1806,13 @@ public class Boss {
                 BufferedImage bladeSprite = helicopterBlades[bladeIndex];
                 
                 if (bladeSprite != null) {
-                    Graphics2D bladeG2d = (Graphics2D) g2d.create();
-                    bladeG2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f)); // Add transparency
-                    bladeG2d.rotate(bladeRotation); // Apply blade rotation
-                    int bladeSize = (int)(spriteWidth * 1.2); // Blades slightly larger than body
-                    bladeG2d.drawImage(bladeSprite, -bladeSize/2, -bladeSize/2, bladeSize, bladeSize, null);
-                    bladeG2d.dispose();
+                    // Save/restore instead of g.create() for blade
+                    AffineTransform bladeTx = g.getTransform();
+                    g.setComposite(RenderCache.ALPHA_HALF);
+                    g.rotate(bladeRotation);
+                    int bladeSize = (int)(spriteWidth * 1.2);
+                    g.drawImage(bladeSprite, -bladeSize/2, -bladeSize/2, bladeSize, bladeSize, null);
+                    g.setTransform(bladeTx);
                 }
             }
         } else {
@@ -1819,21 +1825,22 @@ public class Boss {
                 int py = (int)(y + size * Math.sin(angle));
                 shape.addPoint(px, py);
             }
-            // Draw shadow
-            g2d.setColor(new Color(0, 0, 0, 100));
-            g2d.translate(2, 2);
-            g2d.fillPolygon(shape);
-            g2d.translate(-2, -2);
-            // Draw shape - mega bosses have red tint
+            g.setColor(RenderCache.BLACK_100);
+            g.translate(2, 2);
+            g.fillPolygon(shape);
+            g.translate(-2, -2);
             if (isMegaBoss) {
-                g2d.setColor(new Color(255, 50, 50)); // Red for mega boss
+                g.setColor(RenderCache.BULLET_RED);
             } else {
-                g2d.setColor(new Color(0, 100, 255)); // Blue for mini boss
+                g.setColor(RenderCache.BULLET_BLUE);
             }
-            g2d.fillPolygon(shape);
+            g.fillPolygon(shape);
         }
         
-        g2d.dispose();
+        // Restore all state
+        g.setTransform(savedTx);
+        g.setComposite(savedComp);
+        if (savedHints != null) g.setRenderingHints(savedHints);
     }
     
     private String getVehicleName(int lvl) {

@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -496,7 +497,6 @@ public class Bullet {
             boolean rapidFlicker = warningTime < flickerThreshold;
             float alpha;
             if (rapidFlicker) {
-                // Fast on/off flicker that gets faster as it gets closer to spawning
                 double flickerSpeed = 8.0 + (flickerThreshold - warningTime) * 0.8;
                 float flick = (float)(0.5 + 0.5 * Math.sin(warningTime * flickerSpeed));
                 alpha = 0.3f + 0.7f * flick;
@@ -509,13 +509,12 @@ public class Bullet {
             int warningSize = (int)(8 + (WARNING_DURATION - warningTime) / 6);
             
             // Draw crosshair warning
-            float strokeW = rapidFlicker ? 3f : 2f;
-            g.setStroke(new BasicStroke(strokeW));
+            g.setStroke(RenderCache.getStroke(rapidFlicker ? 3f : 2f));
             g.drawLine((int)x - warningSize, (int)y, (int)x + warningSize, (int)y);
             g.drawLine((int)x, (int)y - warningSize, (int)x, (int)y + warningSize);
             
             // Draw warning circle
-            g.setStroke(new BasicStroke(rapidFlicker ? 2f : 1.5f));
+            g.setStroke(RenderCache.getStroke(rapidFlicker ? 2f : 1.5f));
             g.drawOval((int)x - warningSize/2, (int)y - warningSize/2, warningSize, warningSize);
             return;
         }
@@ -602,25 +601,26 @@ public class Bullet {
         
         // Draw sprite if loaded, otherwise fallback to orb
         if (spritesLoaded && bulletSprites[spriteIndex] != null) {
-            Graphics2D g2d = (Graphics2D) g.create();
+            // Save state instead of g.create() — avoids Graphics2D allocation per bullet
+            AffineTransform savedTx = g.getTransform();
+            Composite savedComp = g.getComposite();
+            
             // Calculate rotation angle based on velocity
             double angle = Math.atan2(vy, vx);
             
-            g2d.translate(x, y);
+            g.translate(x, y);
             
             // Draw dark glow shadow centered underneath
             if (Game.enableShadows) {
                 double objectRotation = angle + HALF_PI;
-                g2d.rotate(objectRotation);
+                g.rotate(objectRotation);
                 
-                // Check if we have a dedicated shadow sprite for this bullet
                 BufferedImage shadowSprite = bulletShadows[spriteIndex];
                 
-                // Number of layers based on shadow quality: Low=3, Medium=6, High=10
-                int layerCount = Game.shadowQuality == 1 ? 3 : Game.shadowQuality == 2 ? 6 : 10;
+                // Reduced layer count for performance: Low=2, Medium=3, High=5
+                int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
                 
                 if (shadowSprite != null) {
-                    // Use the actual bullet sprite dimensions for proper proportional shadow
                     int nativeBulletW = bulletSprites[spriteIndex].getWidth();
                     int nativeBulletH = bulletSprites[spriteIndex].getHeight();
                     double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
@@ -629,11 +629,9 @@ public class Bullet {
                     
                     int nativeShadowWidth = shadowSprite.getWidth();
                     int nativeShadowHeight = shadowSprite.getHeight();
-                    // Scale shadow to match the bullet's drawn dimensions
                     double shadowScaleW = (double)bulletDrawW / nativeShadowWidth;
                     double shadowScaleH = (double)bulletDrawH / nativeShadowHeight;
                     
-                    // Draw layers from outermost (largest, most transparent) to innermost
                     for (int i = 0; i < layerCount; i++) {
                         double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
                         double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
@@ -641,20 +639,19 @@ public class Bullet {
                         
                         int drawShadowWidth = (int)(nativeShadowWidth * shadowScaleW * layerScale * SHADOW_WIDTH_STRETCH);
                         int drawShadowHeight = (int)(nativeShadowHeight * shadowScaleH * layerScale);
-                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha * finalAlpha));
-                        g2d.drawImage(shadowSprite,
+                        g.setComposite(RenderCache.getAlpha(layerAlpha * finalAlpha));
+                        g.drawImage(shadowSprite,
                             (int)(-drawShadowWidth / 2), (int)(-drawShadowHeight / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
                             drawShadowWidth, drawShadowHeight, null);
                     }
                 } else {
-                    // Fallback: draw oval glow layers matching bullet sprite aspect ratio
                     int nativeBulletW = bulletSprites[spriteIndex].getWidth();
                     int nativeBulletH = bulletSprites[spriteIndex].getHeight();
                     double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
                     int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
                     int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
                     
-                    g2d.setColor(new Color(0, 0, 0));
+                    g.setColor(Color.BLACK);
                     for (int i = 0; i < layerCount; i++) {
                         double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
                         double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
@@ -662,21 +659,20 @@ public class Bullet {
                         
                         int shadowW = (int)(bulletDrawW * layerScale * SHADOW_WIDTH_STRETCH);
                         int shadowH = (int)(bulletDrawH * layerScale);
-                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layerAlpha * finalAlpha));
-                        g2d.fillOval(
+                        g.setComposite(RenderCache.getAlpha(layerAlpha * finalAlpha));
+                        g.fillOval(
                             (int)(-shadowW / 2), (int)(-shadowH / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
                             shadowW, shadowH);
                     }
                 }
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, finalAlpha));
+                g.setComposite(RenderCache.getAlpha(finalAlpha));
                 
                 // Reset rotation for sprite drawing
-                g2d.rotate(-objectRotation);
+                g.rotate(-objectRotation);
             } else {
-                // Apply fade alpha even if shadows are disabled
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, finalAlpha));
+                g.setComposite(RenderCache.getAlpha(finalAlpha));
             }
-            g2d.rotate(angle + HALF_PI); // Rotate sprite to face direction of travel
+            g.rotate(angle + HALF_PI); // Rotate sprite to face direction of travel
             
             // Get native sprite dimensions and scale proportionally
             int nativeWidth = bulletSprites[spriteIndex].getWidth();
@@ -686,25 +682,27 @@ public class Bullet {
             int drawHeight = (int)(nativeHeight * scale);
             
             // Draw sprite centered with proportional dimensions
-            g2d.drawImage(bulletSprites[spriteIndex], 
+            g.drawImage(bulletSprites[spriteIndex], 
                 -drawWidth/2, -drawHeight/2, 
                 drawWidth, drawHeight, null);
             
             // Draw frost overlay if bullet is frozen
             if (freezeTimer > 0) {
                 // Ice blue tint overlay
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
-                g2d.setColor(new Color(136, 192, 208)); // Ice blue
-                g2d.fillOval(-drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
+                g.setComposite(RenderCache.ALPHA_HALF);
+                g.setColor(RenderCache.ICE_BLUE);
+                g.fillOval(-drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
                 
                 // Sparkle effect for frost
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.8f));
-                g2d.setColor(new Color(200, 235, 255)); // Icy white
+                g.setComposite(RenderCache.getAlpha(0.8f));
+                g.setColor(RenderCache.ICY_WHITE);
                 int sparkleSize = Math.max(4, drawWidth / 4);
-                g2d.fillOval(-sparkleSize/2, -sparkleSize/2, sparkleSize, sparkleSize);
+                g.fillOval(-sparkleSize/2, -sparkleSize/2, sparkleSize, sparkleSize);
             }
             
-            g2d.dispose();
+            // Restore state
+            g.setTransform(savedTx);
+            g.setComposite(savedComp);
         } else {
             // Fallback: draw colored orb
             int size = SIZE;
@@ -713,59 +711,55 @@ public class Bullet {
             switch (type) {
                 case FAST:
                     size = SIZE - 2;
-                    color = new Color(255, 220, 0); // Bright yellow
+                    color = RenderCache.BULLET_YELLOW;
                     break;
                 case LARGE:
                     size = SIZE + 4;
-                    color = new Color(0, 100, 255); // Bright blue
+                    color = RenderCache.BULLET_BLUE;
                     break;
                 case HOMING:
-                    color = new Color(255, 50, 200); // Hot pink
+                    color = RenderCache.BULLET_PINK;
                     break;
                 case BOUNCING:
-                    color = new Color(50, 255, 100); // Bright green
+                    color = RenderCache.BULLET_GREEN;
                     break;
                 case SPIRAL:
-                    color = new Color(0, 255, 255); // Bright cyan
+                    color = RenderCache.BULLET_CYAN;
                     break;
                 case ACCELERATING:
-                    color = new Color(200, 50, 255); // Bright purple
+                    color = RenderCache.BULLET_PURPLE;
                     break;
                 case WAVE:
-                    color = new Color(180, 0, 255); // Purple for wave
+                    color = RenderCache.BULLET_WAVE_PURPLE;
                     break;
                 default:
-                    color = new Color(255, 50, 50); // Bright red
+                    color = RenderCache.BULLET_RED;
                     break;
             }
             
             // Draw vibrant orb with glow effect (apply fade alpha)
             // Outer glow
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f * fadeAlpha));
+            g.setComposite(RenderCache.getAlpha(0.3f * fadeAlpha));
             g.setColor(color);
             g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
             
             // Main orb
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f * fadeAlpha));
+            g.setComposite(RenderCache.getAlpha(fadeAlpha));
             g.setColor(color);
             g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
             
             // Bright highlight for depth
-            g.setColor(new Color(255, 255, 255, (int)(200 * fadeAlpha)));
+            g.setComposite(RenderCache.getAlpha(fadeAlpha * 0.78f));
+            g.setColor(Color.WHITE);
             g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
             
-            // Inner core (brighter)
-            Color brightCore = new Color(
-                Math.min(255, color.getRed() + 100),
-                Math.min(255, color.getGreen() + 100),
-                Math.min(255, color.getBlue() + 100),
-                (int)(255 * fadeAlpha)
-            );
-            g.setColor(brightCore);
+            // Inner core (brighter) — use white with composite instead of new Color
+            g.setComposite(RenderCache.getAlpha(fadeAlpha * 0.6f));
+            g.setColor(Color.WHITE);
             g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
             
             // Reset composite
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setComposite(RenderCache.ALPHA_FULL);
         }
     }
     

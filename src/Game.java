@@ -144,6 +144,9 @@ public class Game extends JPanel implements Runnable {
     private volatile BufferedImage displayBuffer;
     private final Object bufferSwapLock = new Object();
     
+    // Cached debug font (avoid per-frame allocation)
+    private Font debugTrackFont;
+    
     // Player trail effect
     private double trailSpawnTimer;
     
@@ -4251,43 +4254,48 @@ public class Game extends JPanel implements Runnable {
     @Override
     public void run() {
         long lastTime = System.nanoTime();
-        double targetFPS = getTargetFPS();
-        double nsPerTick = 1000000000.0 / targetFPS;
+        // Fixed-timestep: game logic ALWAYS ticks at 60 Hz regardless of
+        // the display frame-rate chosen in settings.  This guarantees every
+        // timer, counter, and velocity in the game behaves identically no
+        // matter which FPS option the player selects.  The FPS setting only
+        // controls how often we *render* (and thus how smooth the image
+        // looks), not how fast the game runs.
+        final double FIXED_UPDATE_HZ = 60.0;
+        final double nsPerTick = 1000000000.0 / FIXED_UPDATE_HZ;
         double delta = 0;
         
-        // Initialize off-screen render buffers
-        renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
-        displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        // Initialize off-screen render buffers (TYPE_INT_RGB — no alpha needed for display)
+        renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+        displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         
         while (running) {
             long now = System.nanoTime();
             
-            // Update target FPS if it changed
-            double newTargetFPS = getTargetFPS();
-            if (newTargetFPS != targetFPS) {
-                targetFPS = newTargetFPS;
-                nsPerTick = 1000000000.0 / targetFPS;
-            }
-            
             delta += (now - lastTime) / nsPerTick;
             lastTime = now;
             
+            // Cap delta to prevent spiral-of-death: if the game can't keep up
+            // (e.g. slow I/O or long GC pause), drop frames instead of
+            // queuing ever-more updates that make the lag worse.
+            if (delta > 5) delta = 5;
+            
             while (delta >= 1) {
-                // Normalize deltaTime relative to 60 FPS (base framerate)
-                // At 60 FPS: deltaTime = 1.0, at 120 FPS: deltaTime = 0.5, etc.
-                double deltaTime = 60.0 / targetFPS;
+                // deltaTime is always 1.0 (one tick = 1/60th of a second).
+                // All game logic was written for this base rate, so no
+                // per-value scaling is needed.
+                double deltaTime = 1.0;
                 update(deltaTime);
-                gradientTime += 0.02 * deltaTime; // Animate gradient with delta time
+                gradientTime += 0.02; // Animate gradient (1 tick = 1 unit)
                 
                 // Update escape timer
                 if (escapeTimer > 0) {
-                    escapeTimer -= deltaTime;
+                    escapeTimer -= 1.0;
                     if (escapeTimer < 0) escapeTimer = 0;
                 }
                 
                 // Update scroll cooldown
                 if (scrollCooldown > 0) {
-                    scrollCooldown -= deltaTime;
+                    scrollCooldown -= 1.0;
                 }
                 
                 // Update game timer (only during gameplay)
@@ -4295,16 +4303,16 @@ public class Game extends JPanel implements Runnable {
                     gameTimeSeconds = (System.currentTimeMillis() - gameStartTime) / 1000.0;
                 }
                 
-                // Calculate FPS
-                frameCount++;
-                long currentTime = System.currentTimeMillis();
-                if (currentTime - lastFPSTime >= 1000) {
-                    currentFPS = frameCount;
-                    frameCount = 0;
-                    lastFPSTime = currentTime;
-                }
-                
                 delta--;
+            }
+            
+            // Count *rendered* frames for the FPS display (not update ticks)
+            frameCount++;
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastFPSTime >= 1000) {
+                currentFPS = frameCount;
+                frameCount = 0;
+                lastFPSTime = currentTime;
             }
             
             // Render frame to off-screen buffer on game thread (avoids blocking EDT)
@@ -4321,10 +4329,23 @@ public class Game extends JPanel implements Runnable {
             // Sync display for smoother frame delivery
             Toolkit.getDefaultToolkit().sync();
             
+            // Sleep to hit the *display* frame-rate chosen in settings.
+            // The update tick-rate is fixed at 60 Hz above; this only
+            // controls how often we present a new image to the screen.
+            double displayFPS = getTargetFPS();
             try {
-                // Sleep time based on target FPS
-                long sleepTime = fpsLimit == 4 ? 1 : Math.max(1, (long)(1000.0 / targetFPS / 2));
-                Thread.sleep(sleepTime);
+                if (fpsLimit == 4) {
+                    // Unlimited FPS - minimal yield
+                    Thread.sleep(1);
+                } else {
+                    long targetNs = (long)(1000000000.0 / displayFPS);
+                    long remainingMs = (targetNs - (System.nanoTime() - now)) / 1000000;
+                    if (remainingMs > 1) {
+                        Thread.sleep(remainingMs);
+                    } else {
+                        Thread.sleep(1);
+                    }
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -4532,8 +4553,9 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            // Refresh save metadata cache periodically
-            refreshSaveMetadata();
+            // NOTE: refreshSaveMetadata() is already called on state entry
+            // (transitionToState) and after delete operations. No need to
+            // poll the filesystem every frame — that caused a death-spiral freeze.
             
             // Smooth scroll animation for save select
             double saveScrollDiff = saveSelectScroll - saveSelectScrollAnimated;
@@ -6906,11 +6928,11 @@ public class Game extends JPanel implements Runnable {
         
         // Draw previous state if transitioning
         if (stateTransitionProgress < 1.0f && previousState != null) {
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f - stateTransitionProgress));
+            g2d.setComposite(RenderCache.getAlpha(1.0f - stateTransitionProgress));
             drawState(g2d, previousState);
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, stateTransitionProgress));
+            g2d.setComposite(RenderCache.getAlpha(stateTransitionProgress));
             drawState(g2d, gameState);
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g2d.setComposite(RenderCache.ALPHA_FULL);
         } else {
             drawState(g2d, gameState);
         }
@@ -6924,15 +6946,16 @@ public class Game extends JPanel implements Runnable {
         if (showTrackName) {
             String trackName = soundManager.getCurrentMusicName();
             if (trackName != null) {
-                g2d.setFont(new Font("Monospaced", Font.PLAIN, 11));
+                if (debugTrackFont == null) debugTrackFont = new Font("Monospaced", Font.PLAIN, 11);
+                g2d.setFont(debugTrackFont);
                 FontMetrics fm = g2d.getFontMetrics();
                 String label = "Now Playing: " + trackName;
                 int textW = fm.stringWidth(label);
                 int px = WIDTH - textW - 12;
                 int py = 18;
-                g2d.setColor(new Color(0, 0, 0, 140));
+                g2d.setColor(RenderCache.BLACK_140);
                 g2d.fillRoundRect(px - 6, py - 12, textW + 12, 16, 6, 6);
-                g2d.setColor(new Color(180, 255, 180));
+                g2d.setColor(RenderCache.GREEN_TRACK);
                 g2d.drawString(label, px, py);
             }
         }

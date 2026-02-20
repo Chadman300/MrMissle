@@ -121,15 +121,15 @@ public class Renderer {
     private static final Color SHIELD_RING = ColorPalette.SHIELD_RING;
     private static final Color SHIELD_CORE = ColorPalette.SHIELD_CORE;
 
-    private static final BasicStroke STROKE_1 = new BasicStroke(1f);
+    private static final BasicStroke STROKE_1 = RenderCache.getStroke(1f);
 
-    private static final BasicStroke STROKE_2 = new BasicStroke(2f);
+    private static final BasicStroke STROKE_2 = RenderCache.getStroke(2f);
 
-    private static final BasicStroke STROKE_3 = new BasicStroke(3f);
+    private static final BasicStroke STROKE_3 = RenderCache.getStroke(3f);
 
-    // ── Cached Colors for journey map & UI menus (avoid per-frame new Color()) ──
+    // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
-    private static final Color NODE_CURRENT_BLUE = new Color(100, 200, 255);
+    private static final Color NODE_CURRENT_BLUE = RenderCache.BLUE_100_200_255;
     private static final Color NODE_LOCKED_GRAY = new Color(60, 60, 70);
     private static final Color NODE_SHADOW = new Color(0, 0, 0, 80);
     private static final Color NODE_COMPLETED_RING = new Color(255, 200, 50);
@@ -156,16 +156,16 @@ public class Renderer {
     // Glow colors for sprite preview
     private static final Color GLOW_MEGA_BOSS = new Color(200, 150, 255);
     private static final Color GLOW_COMPLETED = new Color(100, 255, 150);
-    private static final Color GLOW_CURRENT = new Color(100, 200, 255);
+    private static final Color GLOW_CURRENT = RenderCache.BLUE_100_200_255;
     private static final Color GLOW_AVAILABLE = new Color(255, 255, 200);
     // Selection glow colors
     private static final Color SEL_GLOW_CURRENT = new Color(100, 255, 100);
-    private static final Color SEL_GLOW_COMPLETED = new Color(100, 180, 255);
+    private static final Color SEL_GLOW_COMPLETED = RenderCache.BLUE_100_180_255;
     private static final Color SEL_GLOW_OTHER = new Color(255, 150, 100);
     // drawTitle ember color base
     private static final Color PANEL_BG = new Color(25, 30, 40, 240);
     private static final Color PANEL_BORDER_COMPLETED = new Color(80, 160, 80);
-    private static final Color PANEL_BORDER_CURRENT = new Color(100, 200, 255);
+    private static final Color PANEL_BORDER_CURRENT = RenderCache.BLUE_100_200_255;
     private static final Color PANEL_BORDER_LOCKED = new Color(70, 70, 80);
     private static final Color PANEL_TEXT_NAME = new Color(230, 235, 245);
     private static final Color PANEL_MEGA_LABEL = new Color(255, 200, 100);
@@ -184,7 +184,7 @@ public class Renderer {
 
     
 
-    // Cached Font objects â€” all derived from FontPalette (custom font with fallback)
+    // Cached Font objects Ã¢â‚¬â€ all derived from FontPalette (custom font with fallback)
     // FontPalette.init() must be called before first use (done in AssetLoader.initAll())
     private static Font FONT_TITLE_LARGE;
     private static Font FONT_TITLE;
@@ -287,7 +287,7 @@ public class Renderer {
 
         
 
-        // Initialize menu buttons â€” military/rock themed colors
+        // Initialize menu buttons Ã¢â‚¬â€ military/rock themed colors
         menuButtons = new UIButton[7];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, 300, 55, ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
         menuButtons[1] = new UIButton("Armory", "shop", 0, 0, 300, 55, ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
@@ -591,7 +591,7 @@ public class Renderer {
         // Military themed background
         UITheme.drawScreenBackground(g, width, height, time);
 
-        // Title â€” stencil-style with ember particles
+        // Title Ã¢â‚¬â€ stencil-style with ember particles
         UITheme.drawTitle(g, "MR. MISSLE", width, height / 2 - 100,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
@@ -633,7 +633,7 @@ public class Renderer {
             g.fillRect(0, 0, width, height);
         }
 
-        // Title â€” stencil-style with embers
+        // Title Ã¢â‚¬â€ stencil-style with embers
         UITheme.drawTitle(g, "MR. MISSLE", width, 150,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE);
@@ -669,13 +669,13 @@ public class Renderer {
             g2.rotate(wobbleAngle);
             g2.scale(scalePulse, scalePulse);
 
-            g2.setColor(new Color(0, 0, 0, 120));
+            g2.setColor(RenderCache.BLACK_120);
             g2.drawString(splashText, offsetX + 2, offsetY + 2);
 
             g2.setColor(gameMode.getColor());
             g2.drawString(splashText, offsetX, offsetY);
 
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, (float)(0.2 + 0.15 * Math.sin(time * 4))));
+            g2.setComposite(RenderCache.getAlpha((float)(0.2 + 0.15 * Math.sin(time * 4))));
             g2.setColor(Color.WHITE);
             g2.drawString(splashText, offsetX, offsetY);
 
@@ -683,7 +683,7 @@ public class Renderer {
             g2.dispose();
         }
 
-        // Draw buttons â€” mission briefing clipboard stack
+        // Draw buttons Ã¢â‚¬â€ mission briefing clipboard stack
         int buttonY = 240;
         int buttonSpacing = 75;
         for (int i = 0; i < menuButtons.length; i++) {
@@ -776,15 +776,7 @@ public class Renderer {
 
             
 
-            // Draw slot background
-
-            Graphics2D g2 = (Graphics2D) g.create();
-
-            if (Game.enableAntiAliasing) {
-
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            }
+            // Draw slot background (anti-aliasing already set by renderToBuffer)
 
             
 
@@ -792,11 +784,11 @@ public class Renderer {
 
             if (isSelected) {
 
-                g2.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(), ColorPalette.ACCENT_ORANGE.getBlue(), 80));
+                g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(), ColorPalette.ACCENT_ORANGE.getBlue(), 80));
 
                 Shape glowShape = UITheme.createChamferedRect(slotX - 8, slotY - 8, slotWidth + 16, slotHeight + 16, 12);
 
-                g2.fill(glowShape);
+                g.fill(glowShape);
 
             }
 
@@ -810,15 +802,15 @@ public class Renderer {
 
                 
 
-                // Main slot background â€” chamfered military card
+                // Main slot background Ã¢â‚¬â€ chamfered military card
 
                 Color slotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
-                g2.setColor(slotColor);
+                g.setColor(slotColor);
 
                 Shape cardShape = UITheme.createChamferedRect(slotX, slotY, slotWidth, slotHeight, 10);
 
-                g2.fill(cardShape);
+                g.fill(cardShape);
 
                 
 
@@ -826,31 +818,31 @@ public class Renderer {
 
                 Color borderColor = isSelected ? ColorPalette.ACCENT_ORANGE : ColorPalette.BORDER_STEEL;
 
-                g2.setStroke(new BasicStroke(isSelected ? 3f : 2f));
+                g.setStroke(RenderCache.getStroke(isSelected ? 3f : 2f));
 
-                g2.setColor(borderColor);
+                g.setColor(borderColor);
 
-                g2.draw(cardShape);
+                g.draw(cardShape);
 
                 
 
                 // Accent line on left
 
-                g2.setColor(ColorPalette.ACCENT_ORANGE);
+                g.setColor(ColorPalette.ACCENT_ORANGE);
 
-                g2.fillRect(slotX, slotY + 8, 4, slotHeight - 16);
+                g.fillRect(slotX, slotY + 8, 4, slotHeight - 16);
 
                 
 
                 // Slot number
 
-                g2.setFont(FONT_LARGE);
+                g.setFont(FONT_LARGE);
 
-                g2.setColor(ColorPalette.TEXT_GOLD);
+                g.setColor(ColorPalette.TEXT_GOLD);
 
                 String slotNum = "SAVE " + meta.slotNumber;
 
-                g2.drawString(slotNum, slotX + 20, slotY + 35);
+                g.drawString(slotNum, slotX + 20, slotY + 35);
 
                 
 
@@ -862,11 +854,11 @@ public class Renderer {
 
                     String modeLabel = mode.getDisplayName();
 
-                    g2.setFont(FONT_EXTRA_SMALL_16);
+                    g.setFont(FONT_EXTRA_SMALL_16);
 
-                    FontMetrics modeFm = g2.getFontMetrics();
+                    FontMetrics modeFm = g.getFontMetrics();
 
-                    int modeX = slotX + 20 + g2.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + 15;
+                    int modeX = slotX + 20 + g.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + 15;
 
                     int modeY = slotY + 35;
 
@@ -876,7 +868,7 @@ public class Renderer {
 
                     int badgeH = 22;
 
-                    g2.setColor(new Color(
+                    g.setColor(new Color(
 
                         mode.getColor().getRed(),
 
@@ -888,15 +880,15 @@ public class Renderer {
 
                     ));
 
-                    g2.fillRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+                    g.fillRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
 
-                    g2.setStroke(new BasicStroke(1.5f));
+                    g.setStroke(RenderCache.getStroke(1.5f));
 
-                    g2.setColor(mode.getColor());
+                    g.setColor(mode.getColor());
 
-                    g2.drawRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+                    g.drawRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
 
-                    g2.drawString(modeLabel, modeX, modeY);
+                    g.drawString(modeLabel, modeX, modeY);
 
                 }
 
@@ -904,23 +896,23 @@ public class Renderer {
 
                 // Save name
 
-                g2.setFont(FONT_MEDIUM_BOLD);
+                g.setFont(FONT_MEDIUM_BOLD);
 
-                g2.setColor(Color.WHITE);
+                g.setColor(Color.WHITE);
 
-                g2.drawString(meta.saveName, slotX + 20, slotY + 65);
+                g.drawString(meta.saveName, slotX + 20, slotY + 65);
 
                 
 
                 // Stats line 1
 
-                g2.setFont(FONT_SMALL);
+                g.setFont(FONT_SMALL);
 
-                g2.setColor(ColorPalette.TEXT_PRIMARY);
+                g.setColor(ColorPalette.TEXT_PRIMARY);
 
                 String stats1 = String.format("Max Level: %d  |  Money: $%d", meta.maxLevel, meta.totalMoney);
 
-                g2.drawString(stats1, slotX + 20, slotY + 90);
+                g.drawString(stats1, slotX + 20, slotY + 90);
 
                 
 
@@ -930,29 +922,29 @@ public class Renderer {
 
                     meta.totalRuns, meta.bestRunLevel, meta.totalBosses);
 
-                g2.drawString(stats2, slotX + 20, slotY + 110);
+                g.drawString(stats2, slotX + 20, slotY + 110);
 
                 
 
                 // Created date (left) and Last saved date (right)
 
-                g2.setFont(FONT_TINY);
+                g.setFont(FONT_TINY);
 
-                g2.setColor(ColorPalette.TEXT_DIM);
+                g.setColor(ColorPalette.TEXT_DIM);
 
                 String createdText = "Created: " + meta.getFormattedCreationDate();
 
-                g2.drawString(createdText, slotX + 20, slotY + 130);
+                g.drawString(createdText, slotX + 20, slotY + 130);
 
                 
 
-                g2.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 180));
+                g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 180));
 
                 String dateText = "Last Saved: " + meta.getFormattedDate();
 
-                FontMetrics dateFm = g2.getFontMetrics();
+                FontMetrics dateFm = g.getFontMetrics();
 
-                g2.drawString(dateText, slotX + slotWidth - 20 - dateFm.stringWidth(dateText), slotY + 130);
+                g.drawString(dateText, slotX + slotWidth - 20 - dateFm.stringWidth(dateText), slotY + 130);
 
                 
 
@@ -972,39 +964,39 @@ public class Renderer {
 
                 Color btnColor = isSelected && deletingSlot ? ColorPalette.ACCENT_RED_BRIGHT : new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 150);
 
-                g2.setColor(btnColor);
+                g.setColor(btnColor);
 
                 Shape delShape = UITheme.createChamferedRect(btnX, btnY, btnWidth, btnHeight, 6);
 
-                g2.fill(delShape);
+                g.fill(delShape);
 
                 
 
                 // Button border
 
-                g2.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
-                g2.setColor(ColorPalette.ACCENT_RED_BRIGHT);
+                g.setColor(ColorPalette.ACCENT_RED_BRIGHT);
 
-                g2.draw(delShape);
+                g.draw(delShape);
 
                 
 
                 // Button text
 
-                g2.setFont(FONT_TINY);
+                g.setFont(FONT_TINY);
 
-                g2.setColor(Color.WHITE);
+                g.setColor(Color.WHITE);
 
                 String btnText = "DELETE";
 
-                fm = g2.getFontMetrics();
+                fm = g.getFontMetrics();
 
                 int textX = btnX + (btnWidth - fm.stringWidth(btnText)) / 2;
 
                 int textY = btnY + (btnHeight + fm.getAscent()) / 2 - 2;
 
-                g2.drawString(btnText, textX, textY);
+                g.drawString(btnText, textX, textY);
 
                 
 
@@ -1028,43 +1020,43 @@ public class Renderer {
 
                     
 
-                    g2.setColor(new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 100));
+                    g.setColor(new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 100));
 
-                    g2.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
+                    g.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
 
                     
 
-                    g2.setColor(ColorPalette.ACCENT_RED);
+                    g.setColor(ColorPalette.ACCENT_RED);
 
-                    g2.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 6, 6);
+                    g.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 6, 6);
 
                     
 
                     // Delete text
 
-                    g2.setFont(FONT_TINY);
+                    g.setFont(FONT_TINY);
 
                     boolean ctrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
 
                     String deleteText = ctrlMode ? "HOLD X..." : "HOLD DELETE...";
 
-                    fm = g2.getFontMetrics();
+                    fm = g.getFontMetrics();
 
-                    g2.drawString(deleteText, barX + (barWidth - fm.stringWidth(deleteText)) / 2, barY - 5);
+                    g.drawString(deleteText, barX + (barWidth - fm.stringWidth(deleteText)) / 2, barY - 5);
 
                 }
 
             } else {
 
-                // "New Save" button â€” dashed military card
+                // "New Save" button Ã¢â‚¬â€ dashed military card
 
                 Color newSlotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
-                g2.setColor(newSlotColor);
+                g.setColor(newSlotColor);
 
                 Shape newShape = UITheme.createChamferedRect(slotX, slotY, slotWidth, slotHeight, 10);
 
-                g2.fill(newShape);
+                g.fill(newShape);
 
                 
 
@@ -1074,47 +1066,43 @@ public class Renderer {
 
                 Color borderColor = isSelected ? ColorPalette.SUCCESS_GREEN : new Color(ColorPalette.BORDER_STEEL.getRed(), ColorPalette.BORDER_STEEL.getGreen(), ColorPalette.BORDER_STEEL.getBlue(), 150);
 
-                g2.setStroke(new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 0, dash, (float)(time * 20)));
+                g.setStroke(new BasicStroke(3, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 0, dash, (float)(time * 20)));
 
-                g2.setColor(borderColor);
+                g.setColor(borderColor);
 
-                g2.draw(newShape);
+                g.draw(newShape);
 
                 
 
                 // Plus icon
 
-                g2.setStroke(new BasicStroke(4));
+                g.setStroke(RenderCache.getStroke(4));
 
-                g2.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
+                g.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
 
                 int plusCenterX = slotX + slotWidth / 2;
 
                 int plusCenterY = slotY + slotHeight / 2 - 12;
 
-                g2.drawLine(plusCenterX - 15, plusCenterY, plusCenterX + 15, plusCenterY);
+                g.drawLine(plusCenterX - 15, plusCenterY, plusCenterX + 15, plusCenterY);
 
-                g2.drawLine(plusCenterX, plusCenterY - 15, plusCenterX, plusCenterY + 15);
+                g.drawLine(plusCenterX, plusCenterY - 15, plusCenterX, plusCenterY + 15);
 
                 
 
                 // Text
 
-                g2.setFont(FONT_MEDIUM);
+                g.setFont(FONT_MEDIUM);
 
-                g2.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
+                g.setColor(isSelected ? ColorPalette.SUCCESS_GREEN : ColorPalette.TEXT_DIM);
 
                 String newText = "New Save";
 
-                FontMetrics newFm = g2.getFontMetrics();
+                FontMetrics newFm = g.getFontMetrics();
 
-                g2.drawString(newText, plusCenterX - newFm.stringWidth(newText) / 2, plusCenterY + 40);
+                g.drawString(newText, plusCenterX - newFm.stringWidth(newText) / 2, plusCenterY + 40);
 
             }
-
-            
-
-            g2.dispose();
 
         }
 
@@ -1358,7 +1346,7 @@ public class Renderer {
 
             
 
-            // Card background â€” chamfered military card
+            // Card background Ã¢â‚¬â€ chamfered military card
 
             Color bgColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1621,7 +1609,7 @@ public class Renderer {
 
     private void drawPerspectiveGrid(Graphics2D g, int width, int height, double time) {
 
-        g.setStroke(new BasicStroke(1));
+        g.setStroke(RenderCache.getStroke(1));
 
         int gridSpacing = 60;
 
@@ -1701,7 +1689,7 @@ public class Renderer {
 
         
 
-        g.setStroke(new BasicStroke(2));
+        g.setStroke(RenderCache.getStroke(2));
 
         
 
@@ -1765,7 +1753,7 @@ public class Renderer {
 
         int cornerSize = 80;
 
-        g.setStroke(new BasicStroke(2));
+        g.setStroke(RenderCache.getStroke(2));
 
         
 
@@ -1953,7 +1941,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, borderAlpha));
 
-        g.setStroke(new BasicStroke(2));
+        g.setStroke(RenderCache.getStroke(2));
 
         g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
 
@@ -2047,37 +2035,37 @@ public class Renderer {
 
             "VULNERABILITY SYSTEM:",
 
-            "  Ã¢â‚¬Â¢ Boss invulnerable for 20 seconds",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Boss invulnerable for 20 seconds",
 
-            "  Ã¢â‚¬Â¢ Watch for GOLDEN GLOW = Attack Window!",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Watch for GOLDEN GLOW = Attack Window!",
 
-            "  Ã¢â‚¬Â¢ Window lasts 20 seconds (longer with upgrades)",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Window lasts 20 seconds (longer with upgrades)",
 
-            "  Ã¢â‚¬Â¢ Hit boss 3 times to win",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Hit boss 3 times to win",
 
             "",
 
             "GRAZE SYSTEM:",
 
-            "  Ã¢â‚¬Â¢ 25px from bullet = Graze (+score, +combo)",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 25px from bullet = Graze (+score, +combo)",
 
-            "  Ã¢â‚¬Â¢ 15px = Close Call (bonus points)",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 15px = Close Call (bonus points)",
 
-            "  Ã¢â‚¬Â¢ 8px = Perfect Dodge (grants i-frames!)",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 8px = Perfect Dodge (grants i-frames!)",
 
-            "  Ã¢â‚¬Â¢ Build combos: Chain dodges within 3s",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Build combos: Chain dodges within 3s",
 
             "",
 
             "DEATH & RESPAWN:",
 
-            "  Ã¢â‚¬Â¢ One hit = death (unless Lucky Dodge procs)",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ One hit = death (unless Lucky Dodge procs)",
 
-            "  Ã¢â‚¬Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
 
-            "  Ã¢â‚¬Â¢ Use extra missiles for second chances",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Use extra missiles for second chances",
 
-            "  Ã¢â‚¬Â¢ Lucky Dodge upgrade = revival chance"
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Lucky Dodge upgrade = revival chance"
 
         };
 
@@ -2115,37 +2103,37 @@ public class Renderer {
 
             "SPEED BOOST (Max Lv 10):",
 
-            "  Ã¢â‚¬Â¢ +10% movement speed per level",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ +10% movement speed per level",
 
-            "  Ã¢â‚¬Â¢ Essential for dodging dense patterns",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Essential for dodging dense patterns",
 
             "",
 
             "BULLET SLOW (Max Lv 50):",
 
-            "  Ã¢â‚¬Â¢ Slows enemy bullets by 2% per level",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Slows enemy bullets by 2% per level",
 
-            "  Ã¢â‚¬Â¢ More time to react and plan dodges",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ More time to react and plan dodges",
 
             "",
 
             "LUCKY DODGE (Max Lv 12):",
 
-            "  Ã¢â‚¬Â¢ 8% chance per level to survive hits",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 8% chance per level to survive hits",
 
-            "  Ã¢â‚¬Â¢ Flicker effect on successful dodge",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Flicker effect on successful dodge",
 
-            "  Ã¢â‚¬Â¢ Stacks with extra missiles",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Stacks with extra missiles",
 
             "",
 
             "ATTACK WINDOW (Max Lv 10):",
 
-            "  Ã¢â‚¬Â¢ +1 second vulnerability per level",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ +1 second vulnerability per level",
 
-            "  Ã¢â‚¬Â¢ Max: 30 seconds to hit boss",
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Max: 30 seconds to hit boss",
 
-            "  Ã¢â‚¬Â¢ More forgiving timing"
+            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ More forgiving timing"
 
         };
 
@@ -2424,7 +2412,7 @@ public class Renderer {
 
             // Border
 
-            g.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
             if (ach.isUnlocked()) {
 
@@ -2460,7 +2448,7 @@ public class Renderer {
 
                 g.setColor(Color.WHITE);
 
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(RenderCache.getStroke(3));
 
                 g.drawLine(iconX + 10, iconY + 20, iconX + 18, iconY + 28);
 
@@ -2480,7 +2468,7 @@ public class Renderer {
 
                 g.setColor(new Color(80, 80, 90));
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawArc(iconX + 13, iconY + 10, 14, 16, 0, 180);
 
@@ -2510,7 +2498,7 @@ public class Renderer {
 
             g.setFont(FONT_EXTRA_SMALL_13);
 
-            g.setColor(ach.isUnlocked() ? new Color(200, 200, 210) : new Color(100, 100, 110));
+            g.setColor(ach.isUnlocked() ? RenderCache.SLATE_200_200_210 : new Color(100, 100, 110));
 
             {
                 String desc = ach.getDescription();
@@ -2558,7 +2546,7 @@ public class Renderer {
 
                 // Background
 
-                g.setColor(new Color(40, 45, 55));
+                g.setColor(RenderCache.DARK_40_45_55);
 
                 g.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
 
@@ -2773,7 +2761,7 @@ public class Renderer {
         // Card shadow
 
 
-        g.setColor(new Color(0, 0, 0, 100));
+        g.setColor(RenderCache.BLACK_100);
 
 
         g.fillRoundRect(itemX + 3, y + 3, cardWidth, singleCardH, 12, 12);
@@ -2839,13 +2827,13 @@ public class Renderer {
             g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 200));
 
 
-            g.setStroke(new BasicStroke(2.5f));
+            g.setStroke(RenderCache.getStroke(2.5f));
 
 
             g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
 
 
-            g.setStroke(new BasicStroke(1f));
+            g.setStroke(RenderCache.getStroke(1f));
 
 
         } else if (isEquipped) {
@@ -2854,13 +2842,13 @@ public class Renderer {
             g.setColor(new Color(163, 210, 140, 180));
 
 
-            g.setStroke(new BasicStroke(2f));
+            g.setStroke(RenderCache.getStroke(2f));
 
 
             g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
 
 
-            g.setStroke(new BasicStroke(1f));
+            g.setStroke(RenderCache.getStroke(1f));
 
 
         }
@@ -2878,7 +2866,7 @@ public class Renderer {
             g.setFont(FONT_LARGE);
 
 
-            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : new Color(150, 150, 150));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_150);
 
 
             g.drawString("<", itemX + 14, y + singleCardH / 2 + 10);
@@ -2899,7 +2887,7 @@ public class Renderer {
             g.setFont(FONT_LARGE);
 
 
-            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : new Color(150, 150, 150));
+            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_150);
 
 
             String rightArrow = ">";
@@ -2945,7 +2933,7 @@ public class Renderer {
 
             // Get item-specific color and symbol
 
-            Color itemIconColor = new Color(100, 200, 255);
+            Color itemIconColor = RenderCache.BLUE_100_200_255;
 
             String itemSymbol = "?";
 
@@ -2953,7 +2941,7 @@ public class Renderer {
 
                 case LUCKY_CHARM: itemIconColor = new Color(255, 215, 80); itemSymbol = "$"; break;
 
-                case SHIELD: itemIconColor = new Color(100, 180, 255); itemSymbol = "O"; break;
+                case SHIELD: itemIconColor = RenderCache.BLUE_100_180_255; itemSymbol = "O"; break;
 
                 case BOMBS: itemIconColor = new Color(255, 110, 80); itemSymbol = "*"; break;
 
@@ -2979,17 +2967,17 @@ public class Renderer {
 
             g.fillOval(iconX - 3, iconY - 3, iconSize + 6, iconSize + 6);
 
-            g.setColor(new Color(40, 45, 55));
+            g.setColor(RenderCache.DARK_40_45_55);
 
             g.fillOval(iconX, iconY, iconSize, iconSize);
 
             g.setColor(new Color(itemIconColor.getRed(), itemIconColor.getGreen(), itemIconColor.getBlue(), isEquipped ? 255 : 200));
 
-            g.setStroke(new BasicStroke(2f));
+            g.setStroke(RenderCache.getStroke(2f));
 
             g.drawOval(iconX, iconY, iconSize, iconSize);
 
-            g.setStroke(new BasicStroke(1f));
+            g.setStroke(RenderCache.getStroke(1f));
 
 
 
@@ -3017,7 +3005,7 @@ public class Renderer {
 
             g.setFont(FONT_TINY);
 
-            g.setColor(isEquipped ? new Color(163, 210, 140) : Color.WHITE);
+            g.setColor(isEquipped ? RenderCache.GREEN_163_210_140 : Color.WHITE);
 
             String displayName = itemName;
 
@@ -3053,7 +3041,7 @@ public class Renderer {
 
                 g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 8, 8);
 
-                g.setColor(new Color(163, 210, 140));
+                g.setColor(RenderCache.GREEN_163_210_140);
 
                 g.drawString(badge, badgeX + 6, badgeY + 13);
 
@@ -3117,11 +3105,11 @@ public class Renderer {
 
             g.setColor(new Color(100, 90, 70, 120));
 
-            g.setStroke(new BasicStroke(2f));
+            g.setStroke(RenderCache.getStroke(2f));
 
             g.drawOval(iconX, iconY, iconSize, iconSize);
 
-            g.setStroke(new BasicStroke(1f));
+            g.setStroke(RenderCache.getStroke(1f));
 
 
 
@@ -3330,7 +3318,7 @@ public class Renderer {
 
         // Shadow
 
-        g.setColor(new Color(0, 0, 0, 120));
+        g.setColor(RenderCache.BLACK_120);
 
         g.fillRoundRect(x + 3, y + 3, width, height, 15, 15);
 
@@ -3342,7 +3330,7 @@ public class Renderer {
 
         if (current >= max && max > 0) {
 
-            cardColor = new Color(85, 75, 45, 200); // Dark gold for maxed - better text contrast
+            cardColor = RenderCache.TAN_85_75_45_200; // Dark gold for maxed - better text contrast
 
         } else if (isSelected && !isReadOnly) {
 
@@ -3366,13 +3354,13 @@ public class Renderer {
 
         if (isSelected && !isReadOnly) {
 
-            g.setColor(new Color(180, 170, 130, 140)); // Softer border glow
+            g.setColor(RenderCache.TAN_180_170_130_140); // Softer border glow
 
-            g.setStroke(new BasicStroke(2f));
+            g.setStroke(RenderCache.getStroke(2f));
 
             g.drawRoundRect(x, y, width, height, 15, 15);
 
-            g.setStroke(new BasicStroke(1f));
+            g.setStroke(RenderCache.getStroke(1f));
 
         }
 
@@ -3402,7 +3390,7 @@ public class Renderer {
 
         g.setFont(FontPalette.get(Font.PLAIN, 14));
 
-        g.setColor(new Color(200, 200, 200));
+        g.setColor(RenderCache.GRAY_200);
 
         String levelInfo;
 
@@ -3438,7 +3426,7 @@ public class Renderer {
 
             // Background
 
-            g.setColor(new Color(40, 40, 50, 180));
+            g.setColor(RenderCache.DARK_40_40_50_180);
 
             g.fillRoundRect(barX, barY, barWidth, barHeight, 5, 5);
 
@@ -3500,13 +3488,13 @@ public class Renderer {
 
             
 
-            g.setColor(current > 0 ? ColorPalette.ACCENT_RED : new Color(80, 80, 80));
+            g.setColor(current > 0 ? ColorPalette.ACCENT_RED : RenderCache.GRAY_80);
 
             g.fillRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
 
             g.setColor(Color.WHITE);
 
-            g.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
             g.drawRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
 
@@ -3520,13 +3508,13 @@ public class Renderer {
 
             int plusX = x + 845;
 
-            g.setColor(current < max ? ColorPalette.SUCCESS_GREEN : new Color(80, 80, 80));
+            g.setColor(current < max ? ColorPalette.SUCCESS_GREEN : RenderCache.GRAY_80);
 
             g.fillRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
 
             g.setColor(Color.WHITE);
 
-            g.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
             g.drawRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
 
@@ -3773,7 +3761,7 @@ public class Renderer {
 
             
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g.setComposite(RenderCache.getAlpha(alpha));
 
             
 
@@ -3783,7 +3771,7 @@ public class Renderer {
 
                 float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 4));
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, glowPulse * alpha));
+                g.setComposite(RenderCache.getAlpha(glowPulse * alpha));
 
                 Color glowColor = isCurrent ? SEL_GLOW_CURRENT : 
 
@@ -3793,7 +3781,7 @@ public class Renderer {
 
                 g.fillOval(x - nodeRadius - 25, centerY - nodeRadius - 25, (nodeRadius + 25) * 2, (nodeRadius + 25) * 2);
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setComposite(RenderCache.getAlpha(alpha));
 
             }
 
@@ -3813,15 +3801,15 @@ public class Renderer {
 
                 float ringPulse = (float)(0.6 + 0.4 * Math.sin(time * 2 + level * 0.3));
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, ringPulse * alpha));
+                g.setComposite(RenderCache.getAlpha(ringPulse * alpha));
 
                 g.setColor(NODE_COMPLETED_RING);
 
-                g.setStroke(new BasicStroke(4));
+                g.setStroke(RenderCache.getStroke(4));
 
                 g.drawOval(x - nodeRadius - 8, centerY - nodeRadius - 8, (nodeRadius + 8) * 2, (nodeRadius + 8) * 2);
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setComposite(RenderCache.getAlpha(alpha));
 
             }
 
@@ -3889,25 +3877,25 @@ public class Renderer {
 
                 g.setColor(Color.WHITE);
 
-                g.setStroke(new BasicStroke(5));
+                g.setStroke(RenderCache.getStroke(5));
 
             } else if (isCurrent) {
 
                 g.setColor(NODE_BORDER_CURRENT);
 
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(RenderCache.getStroke(3));
 
             } else if (isCompleted) {
 
                 g.setColor(NODE_BORDER_COMPLETED);
 
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(RenderCache.getStroke(3));
 
             } else {
 
                 g.setColor(NODE_BORDER_LOCKED);
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
             }
 
@@ -3989,7 +3977,7 @@ public class Renderer {
                         int glowDrawY = fixedGlowY + spriteHeight / 2 - (int)glowRadius;
                         
                         Composite prevGlowComposite = g.getComposite();
-                        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1.0f, glowIntensity * alpha)));
+                        g.setComposite(RenderCache.getAlpha(Math.min(1.0f, glowIntensity * alpha)));
                         g.drawImage(glowImg, glowDrawX, glowDrawY, glowDiameter, glowDiameter, null);
                         g.setComposite(prevGlowComposite);
                     }
@@ -3998,7 +3986,7 @@ public class Renderer {
 
                     float spriteAlpha = isLocked ? 0.3f : 1.0f;
 
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, spriteAlpha * alpha));
+                    g.setComposite(RenderCache.getAlpha(spriteAlpha * alpha));
 
                     
 
@@ -4066,7 +4054,7 @@ public class Renderer {
 
                             // Make rotors slightly transparent
 
-                            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+                            g.setComposite(RenderCache.getAlpha(0.2f));
 
                             
 
@@ -4110,7 +4098,7 @@ public class Renderer {
 
                     if (isCompleted && !isLocked && distFromCenter < 0.5) {
 
-                        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        g.setComposite(RenderCache.getAlpha(alpha));
 
                         float sparkle = (float)(Math.sin(time * 7 + level) * 0.5 + 0.5);
 
@@ -4142,7 +4130,7 @@ public class Renderer {
 
                     if (oldAntialiasing != null) g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntialiasing);
 
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    g.setComposite(RenderCache.getAlpha(alpha));
 
                 }
 
@@ -4170,7 +4158,7 @@ public class Renderer {
 
             
 
-            g.setColor(new Color(0, 0, 0, 100));
+            g.setColor(RenderCache.BLACK_100);
 
             g.drawString(levelNum, textX + 1, textY + 1);
 
@@ -4230,7 +4218,7 @@ public class Renderer {
 
                 g.setColor(Color.WHITE);
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawOval(badgeX - 2, badgeY - 2, badgeSize + 4, badgeSize + 4);
 
@@ -4290,7 +4278,7 @@ public class Renderer {
 
             
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setComposite(RenderCache.getAlpha(1.0f));
 
         }
 
@@ -4336,13 +4324,13 @@ public class Renderer {
 
         Color borderColor = isCompleted ? new Color(80, 160, 80) :
 
-                           isCurrent ? new Color(100, 200, 255) :
+                           isCurrent ? RenderCache.BLUE_100_200_255 :
 
                            new Color(70, 70, 80);
 
         g.setColor(borderColor);
 
-        g.setStroke(new BasicStroke(3));
+        g.setStroke(RenderCache.getStroke(3));
 
         g.drawRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
 
@@ -4672,7 +4660,7 @@ public class Renderer {
 
             // Card shadow
 
-            g.setColor(new Color(0, 0, 0, 100));
+            g.setColor(RenderCache.BLACK_100);
 
             g.fillRoundRect(cardX + offsetX + 5, cardY + offsetY + 5, scaledWidth, scaledHeight, 15, 15);
 
@@ -4706,7 +4694,7 @@ public class Renderer {
 
             } else {
 
-                g.setColor(new Color(40, 45, 55));
+                g.setColor(RenderCache.DARK_40_45_55);
 
             }
 
@@ -4732,13 +4720,13 @@ public class Renderer {
 
             Color iconColor = i == 0 ? new Color(100, 180, 100) :
 
-                             i == 1 ? new Color(255, 100, 100) :
+                             i == 1 ? RenderCache.RED_255_100_100 :
 
-                             i == 2 ? new Color(100, 150, 255) : new Color(255, 180, 100);
+                             i == 2 ? new Color(100, 150, 255) : RenderCache.WARM_255_180_100;
 
-            g.setColor(isSelected ? iconColor : new Color(100, 100, 100));
+            g.setColor(isSelected ? iconColor : RenderCache.GRAY_100);
 
-            g.setStroke(new BasicStroke(4));
+            g.setStroke(RenderCache.getStroke(4));
 
             
 
@@ -4748,7 +4736,7 @@ public class Renderer {
 
                 g.drawOval(iconCenterX - 35, iconY - 50, 70, 70);
 
-                g.setStroke(new BasicStroke(5));
+                g.setStroke(RenderCache.getStroke(5));
 
                 g.drawLine(iconCenterX - 15, iconY - 15, iconCenterX, iconY);
 
@@ -4794,7 +4782,7 @@ public class Renderer {
 
                 g.drawLine(iconCenterX + 28, iconY + 7, iconCenterX, iconY + 21);
 
-                g.setStroke(new BasicStroke(4));
+                g.setStroke(RenderCache.getStroke(4));
 
                 g.drawLine(iconCenterX - 21, iconY - 28, iconCenterX + 21, iconY + 14);
 
@@ -4802,7 +4790,7 @@ public class Renderer {
 
             }
 
-            g.setStroke(new BasicStroke(1));
+            g.setStroke(RenderCache.getStroke(1));
 
             
 
@@ -4812,7 +4800,7 @@ public class Renderer {
 
             FontMetrics nameFm = g.getFontMetrics();
 
-            g.setColor(isSelected ? Color.WHITE : new Color(150, 150, 150));
+            g.setColor(isSelected ? Color.WHITE : RenderCache.GRAY_150);
 
             g.drawString(contractNames[i], cardX + offsetX + (scaledWidth - nameFm.stringWidth(contractNames[i])) / 2, 
 
@@ -4828,7 +4816,7 @@ public class Renderer {
 
             FontMetrics multFm = g.getFontMetrics();
 
-            g.setColor(i == 0 ? new Color(150, 150, 150) : ColorPalette.ACCENT_YELLOW);
+            g.setColor(i == 0 ? RenderCache.GRAY_150 : ColorPalette.ACCENT_YELLOW);
 
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
 
@@ -4840,7 +4828,7 @@ public class Renderer {
 
             g.setFont(FONT_EXTRA_SMALL_16);
 
-            g.setColor(isSelected ? new Color(200, 200, 200) : new Color(120, 120, 120));
+            g.setColor(isSelected ? RenderCache.GRAY_200 : RenderCache.GRAY_120);
 
             String desc = contractDescriptions[i];
 
@@ -4894,7 +4882,7 @@ public class Renderer {
 
         g.setFont(FONT_INFO);
 
-        g.setColor(new Color(150, 150, 150));
+        g.setColor(RenderCache.GRAY_150);
 
         drawPromptWithIcons(g, width / 2, height - 40,
 
@@ -4990,7 +4978,7 @@ public class Renderer {
 
         // Button shadow
 
-        g.setColor(new Color(0, 0, 0, 100));
+        g.setColor(RenderCache.BLACK_100);
 
         g.fillRoundRect(startX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
 
@@ -5028,7 +5016,7 @@ public class Renderer {
 
         g.setColor(yesSelected ? new Color(200, 230, 180) : new Color(120, 130, 110));
 
-        g.setStroke(new BasicStroke(2));
+        g.setStroke(RenderCache.getStroke(2));
 
         g.drawRoundRect(startX, buttonY, buttonWidth, buttonHeight, 10, 10);
 
@@ -5064,7 +5052,7 @@ public class Renderer {
 
         // Button shadow
 
-        g.setColor(new Color(0, 0, 0, 100));
+        g.setColor(RenderCache.BLACK_100);
 
         g.fillRoundRect(noButtonX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
 
@@ -5102,7 +5090,7 @@ public class Renderer {
 
         g.setColor(noSelected ? new Color(230, 130, 140) : new Color(120, 70, 80));
 
-        g.setStroke(new BasicStroke(2));
+        g.setStroke(RenderCache.getStroke(2));
 
         g.drawRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, 10, 10);
 
@@ -5128,7 +5116,7 @@ public class Renderer {
 
         g.setFont(FONT_INFO);
 
-        g.setColor(new Color(150, 150, 150));
+        g.setColor(RenderCache.GRAY_150);
 
         drawPromptWithIcons(g, width / 2, height - 40,
 
@@ -5232,29 +5220,29 @@ public class Renderer {
 
             
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _mc = g.getComposite();
 
             
 
             // Draw combined transparent green fill
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
+            g.setComposite(RenderCache.getAlpha(0.2f));
 
-            g2d.setColor(new Color(50, 200, 80)); // Green
+            g.setColor(RenderCache.GREEN_50_200_80); // Green
 
-            g2d.fill(combinedArea);
+            g.fill(combinedArea);
 
             
 
             // Draw combined outer ring
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.6f));
+            g.setComposite(RenderCache.getAlpha(0.6f));
 
-            g2d.setColor(new Color(50, 200, 80)); // Green
+            g.setColor(RenderCache.GREEN_50_200_80); // Green
 
-            g2d.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
-            g2d.draw(combinedArea);
+            g.draw(combinedArea);
 
             
 
@@ -5264,13 +5252,13 @@ public class Renderer {
 
             boolean[] visited = new boolean[moneyCircles.size()];
 
-            g2d.setFont(FontPalette.get(Font.BOLD, 36));
+            g.setFont(FontPalette.get(Font.BOLD, 36));
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.5f));
+            g.setComposite(RenderCache.getAlpha(0.5f));
 
-            g2d.setColor(new Color(50, 200, 80)); // Green
+            g.setColor(RenderCache.GREEN_50_200_80); // Green
 
-            FontMetrics fm = g2d.getFontMetrics();
+            FontMetrics fm = g.getFontMetrics();
 
             String symbol = "$";
 
@@ -5336,13 +5324,13 @@ public class Renderer {
 
                 gy /= group.size();
 
-                g2d.drawString(symbol, (int)(gx - fm.stringWidth(symbol) / 2), (int)(gy + fm.getAscent() / 3));
+                g.drawString(symbol, (int)(gx - fm.stringWidth(symbol) / 2), (int)(gy + fm.getAscent() / 3));
 
             }
 
             
 
-            g2d.dispose();
+            g.setComposite(_mc);
 
         }
 
@@ -5804,7 +5792,7 @@ public class Renderer {
 
                     
 
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    g.setComposite(RenderCache.getAlpha(alpha));
 
                     g.setColor(AFTERIMAGE_COLOR);
 
@@ -5830,7 +5818,7 @@ public class Renderer {
             if (respawnBlinkTimer > 0) {
                 // Toggle between semi-transparent and fully opaque
                 float blinkAlpha = (respawnBlinkTimer % 12 < 6) ? 0.3f : 1.0f;
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, blinkAlpha));
+                g.setComposite(RenderCache.getAlpha(blinkAlpha));
             }
 
             player.draw(g);
@@ -5944,7 +5932,7 @@ public class Renderer {
 
                 g.setColor(new Color(100, 200, 255, 25));
 
-                g.setStroke(new BasicStroke(1.5f));
+                g.setStroke(RenderCache.getStroke(1.5f));
 
                 g.drawOval(px - orbitRadius, py - orbitRadius, orbitRadius * 2, orbitRadius * 2);
 
@@ -6020,7 +6008,7 @@ public class Renderer {
 
             // Add red/orange tint for fire effect
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+            g2d.setComposite(RenderCache.getAlpha(0.3f));
 
             g2d.setColor(new Color(255, 100, 0));
 
@@ -6056,7 +6044,7 @@ public class Renderer {
 
                     float pulse = 0.7f + 0.3f * (float)Math.sin(time * 6);
 
-                    bloomColor = new Color(255, 240, 200); // Warm golden white
+                    bloomColor = RenderCache.WARM_255_240_200; // Warm golden white
 
                     
 
@@ -6066,7 +6054,7 @@ public class Renderer {
 
                         float alpha = (0.08f * pulse) / i;
 
-                        bloomG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(alpha, 1.0f)));
+                        bloomG.setComposite(RenderCache.getAlpha(Math.min(alpha, 1.0f)));
 
                         bloomG.setColor(bloomColor);
 
@@ -6086,7 +6074,7 @@ public class Renderer {
 
                         float alpha = 0.04f / i;
 
-                        bloomG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        bloomG.setComposite(RenderCache.getAlpha(alpha));
 
                         bloomG.setColor(bloomColor);
 
@@ -6110,37 +6098,37 @@ public class Renderer {
 
                 // Red pulsing glow during assault
 
-                Graphics2D g2d = (Graphics2D) g.create();
+                Composite _gc = g.getComposite();
 
                 float pulseAlpha = 0.15f + (float)(Math.sin(time * 8) * 0.08f);
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulseAlpha));
+                g.setComposite(RenderCache.getAlpha(pulseAlpha));
 
-                g2d.setColor(new Color(255, 50, 50));
+                g.setColor(RenderCache.RED_255_50_50);
 
                 double glowSize = boss.getSize() * 1.6;
 
-                g2d.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
 
-                g2d.dispose();
+                g.setComposite(_gc);
 
             } else {
 
                 // Blue calm glow during recovery
 
-                Graphics2D g2d = (Graphics2D) g.create();
+                Composite _gc = g.getComposite();
 
                 float pulseAlpha = 0.1f + (float)(Math.sin(time * 3) * 0.05f);
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, pulseAlpha));
+                g.setComposite(RenderCache.getAlpha(pulseAlpha));
 
-                g2d.setColor(new Color(80, 150, 255));
+                g.setColor(new Color(80, 150, 255));
 
                 double glowSize = boss.getSize() * 1.4;
 
-                g2d.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
 
-                g2d.dispose();
+                g.setComposite(_gc);
 
             }
 
@@ -6288,7 +6276,7 @@ public class Renderer {
 
                 g.setColor(new Color(sr, sg, sb, (int)(25 * shieldAlpha)));
 
-                g.setStroke(new BasicStroke(1.5f));
+                g.setStroke(RenderCache.getStroke(1.5f));
 
                 g.drawOval(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2);
 
@@ -6348,9 +6336,9 @@ public class Renderer {
 
                         float bgAlpha = (float)((1.0 - (ringRadius / 250.0)) * 0.4f) / (i * 0.3f + 1);
 
-                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, bgAlpha));
+                        g2d.setComposite(RenderCache.getAlpha(bgAlpha));
 
-                        g2d.setColor(new Color(150, 200, 255));
+                        g2d.setColor(RenderCache.BLUE_150_200_255);
 
                         g2d.fillArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
 
@@ -6366,9 +6354,9 @@ public class Renderer {
 
                         alpha = Math.min(alpha, 1.0f); // Clamp to max 1.0
 
-                        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                        g2d.setComposite(RenderCache.getAlpha(alpha));
 
-                        g2d.setColor(new Color(100, 180, 255));
+                        g2d.setColor(RenderCache.BLUE_100_180_255);
 
                         g2d.setStroke(new BasicStroke(12 - i * 1.5f)); // Slightly thicker
 
@@ -6392,19 +6380,19 @@ public class Renderer {
 
             if (bossFlashTimer > 0) {
 
-                Graphics2D g2d = (Graphics2D) g.create();
+                Composite _fc = g.getComposite();
 
                 float flashAlpha = (float)bossFlashTimer / 12.0f * 0.5f; // Fade out over 12 frames
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+                g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-                g2d.setColor(Color.WHITE);
+                g.setColor(Color.WHITE);
 
                 double size = boss.getSize() * 1.2;
 
-                g2d.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
+                g.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
 
-                g2d.dispose();
+                g.setComposite(_fc);
 
             }
 
@@ -6450,7 +6438,7 @@ public class Renderer {
 
             Graphics2D g2d = (Graphics2D) g.create();
 
-            g2d.setStroke(new BasicStroke(2));
+            g2d.setStroke(RenderCache.getStroke(2));
 
             
 
@@ -6480,7 +6468,7 @@ public class Renderer {
 
                 // Actual hitbox (solid green)
 
-                g2d.setStroke(new BasicStroke(2));
+                g2d.setStroke(RenderCache.getStroke(2));
 
                 g2d.setColor(new Color(0, 255, 0, 200));
 
@@ -6528,7 +6516,7 @@ public class Renderer {
 
             g2d.setColor(new Color(255, 255, 0, 150));
 
-            g2d.setStroke(new BasicStroke(1));
+            g2d.setStroke(RenderCache.getStroke(1));
 
             for (int i = 0; i < bullets.size(); i++) {
 
@@ -6580,7 +6568,7 @@ public class Renderer {
 
             Color solidBlack = new Color(0, 0, 0, 80);
 
-            Color transparent = new Color(0, 0, 0, 0);
+            Color transparent = RenderCache.BLACK_0;
 
             
 
@@ -6638,7 +6626,7 @@ public class Renderer {
 
             
 
-            // Corner pieces â€” radial gradients for smooth diagonal fade
+            // Corner pieces Ã¢â‚¬â€ radial gradients for smooth diagonal fade
 
             float[] cornerDist = {0.0f, 1.0f};
 
@@ -6770,7 +6758,7 @@ public class Renderer {
             
             // Combine layout opacity with animation alpha
             float combinedAlpha = Math.max(0.01f, animAlpha * (bossCfg.opacity < 1.0f ? bossCfg.opacity : 1.0f));
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, combinedAlpha));
+            g.setComposite(RenderCache.getAlpha(combinedAlpha));
 
             int barWidth = 600;
 
@@ -6802,11 +6790,11 @@ public class Renderer {
 
             // Background panel with shadow
 
-            g.setColor(new Color(0, 0, 0, 100));
+            g.setColor(RenderCache.BLACK_100);
 
             g.fillRoundRect(barX + 3, barY + 3, barWidth, barHeight + 45, 15, 15);
 
-            g.setColor(new Color(20, 20, 30, 200));
+            g.setColor(RenderCache.DARK_20_20_30_200);
 
             g.fillRoundRect(barX, barY, barWidth, barHeight + 45, 15, 15);
 
@@ -6818,7 +6806,7 @@ public class Renderer {
 
             FontMetrics fm = g.getFontMetrics();
 
-            Color typeColor = boss.isMegaBoss() ? new Color(255, 50, 50) : new Color(100, 200, 100);
+            Color typeColor = boss.isMegaBoss() ? RenderCache.RED_255_50_50 : RenderCache.GREEN_100_200_100;
 
             g.setColor(typeColor);
 
@@ -6840,7 +6828,7 @@ public class Renderer {
 
             // Health bar background
 
-            g.setColor(new Color(60, 60, 60));
+            g.setColor(RenderCache.GRAY_60);
 
             g.fillRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
 
@@ -6856,7 +6844,7 @@ public class Renderer {
 
                     barX + 10, 0, new Color(200, 50, 50),
 
-                    barX + barWidth - 10, 0, new Color(255, 100, 100)
+                    barX + barWidth - 10, 0, RenderCache.RED_255_100_100
 
                 );
 
@@ -6864,9 +6852,9 @@ public class Renderer {
 
                 healthGradient = new GradientPaint(
 
-                    barX + 10, 0, new Color(50, 150, 50),
+                    barX + 10, 0, RenderCache.GREEN_50_150_50,
 
-                    barX + barWidth - 10, 0, new Color(100, 200, 100)
+                    barX + barWidth - 10, 0, RenderCache.GREEN_100_200_100
 
                 );
 
@@ -6882,7 +6870,7 @@ public class Renderer {
 
             int maxHits = boss.getMaxHealth();
 
-            g.setColor(new Color(0, 0, 0, 150));
+            g.setColor(RenderCache.BLACK_150);
 
             int segmentWidth = (barWidth - 20) / maxHits;
 
@@ -6898,7 +6886,7 @@ public class Renderer {
 
             // Darken segments that have been hit
 
-            g.setColor(new Color(0, 0, 0, 120));
+            g.setColor(RenderCache.BLACK_120);
 
             for (int i = 0; i < bossHitCount && i < maxHits; i++) {
 
@@ -6938,7 +6926,7 @@ public class Renderer {
 
             String phaseText = boss.isAssaultPhase() ? "[!] ASSAULT" : "[-] RECOVERY";
 
-            Color phaseColor = boss.isAssaultPhase() ? new Color(255, 80, 80) : new Color(80, 180, 255);
+            Color phaseColor = boss.isAssaultPhase() ? RenderCache.RED_255_80_80 : RenderCache.BLUE_80_180_255;
 
             
 
@@ -6988,7 +6976,7 @@ public class Renderer {
 
                 phaseGradient = new GradientPaint(
 
-                    phaseBarX, 0, new Color(255, 50, 50),
+                    phaseBarX, 0, RenderCache.RED_255_50_50,
 
                     phaseBarX + phaseBarWidth, 0, new Color(255, 150, 50)
 
@@ -7014,9 +7002,9 @@ public class Renderer {
 
             // Health bar border
 
-            g.setColor(new Color(200, 200, 200));
+            g.setColor(RenderCache.GRAY_200);
 
-            g.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
             g.drawRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
 
@@ -7150,7 +7138,7 @@ public class Renderer {
 
             
 
-            // Gentle sway rotation (like hanging text) — reduced for boss HP
+            // Gentle sway rotation (like hanging text) â€” reduced for boss HP
 
             float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / (isBossHP ? 48 : 24));
 
@@ -7160,7 +7148,7 @@ public class Renderer {
 
             
 
-            // Smooth float upward with easing — less float for boss HP
+            // Smooth float upward with easing â€” less float for boss HP
 
             float floatUp = easeOutQuad(lifeProgress) * (isBossHP ? 40 : 80);
 
@@ -7310,7 +7298,7 @@ public class Renderer {
 
             g.setFont(FONT_TINY);
 
-            g.setColor(new Color(255, 255, 255, 180));
+            g.setColor(RenderCache.WHITE_180);
 
             int textY = height - 30;
 
@@ -7318,13 +7306,13 @@ public class Renderer {
 
             // Draw shadow for better visibility
 
-            g.setColor(new Color(0, 0, 0, 150));
+            g.setColor(RenderCache.BLACK_150);
 
             drawPromptWithIcons(g, width / 2 + 2, textY + 2,
 
                 "Press ", KeyBindManager.Action.CONFIRM, " to skip");
 
-            g.setColor(new Color(255, 255, 255, 180));
+            g.setColor(RenderCache.WHITE_180);
 
             drawPromptWithIcons(g, width / 2, textY,
 
@@ -7360,7 +7348,7 @@ public class Renderer {
 
                 double blurProgress = Math.min(1.0, (bossIntroTimer - 320) / 60.0);
 
-                // Scale factor: starts at 0.15 (heavy blur) â†’ 1.0 (sharp) as phase progresses
+                // Scale factor: starts at 0.15 (heavy blur) Ã¢â€ â€™ 1.0 (sharp) as phase progresses
 
                 double scaleFactor = 0.25 + 0.75 * blurProgress;
 
@@ -7490,9 +7478,9 @@ public class Renderer {
 
             // Border
 
-            g.setColor(new Color(200, 200, 200));
+            g.setColor(RenderCache.GRAY_200);
 
-            g.setStroke(new BasicStroke(2));
+            g.setStroke(RenderCache.getStroke(2));
 
             g.drawRoundRect(barX, barY, barWidth, barHeight, 10, 10);
 
@@ -7508,7 +7496,7 @@ public class Renderer {
 
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
 
-                                dangerLevel < 0.8 ? "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  MOVE NOW!" : "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â  MOVE! ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ";
+                                dangerLevel < 0.8 ? "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  MOVE NOW!" : "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  MOVE! ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ";
 
             FontMetrics fm = g.getFontMetrics();
 
@@ -7542,7 +7530,7 @@ public class Renderer {
 
             int shakeMargin = 250; // Extends all directions equally
 
-            g.setColor(new Color(0, 0, 0, 200));
+            g.setColor(RenderCache.BLACK_200);
 
             g.fillRect(-shakeMargin, -shakeMargin, width + shakeMargin * 2, height + shakeMargin * 2);
 
@@ -7586,7 +7574,7 @@ public class Renderer {
 
             // Dark overlay
 
-            g.setColor(new Color(0, 0, 0, 150));
+            g.setColor(RenderCache.BLACK_150);
 
             g.fillRect(0, 0, width, height);
 
@@ -7717,11 +7705,11 @@ public class Renderer {
         HUDLayout.HUDElementConfig infoCfg = activeLayout.getConfig(HUDLayout.HUDElement.INFO_PANEL);
         if (infoCfg.visible) {
             if (infoCfg.opacity < 1.0f) {
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, infoCfg.opacity)));
+                g.setComposite(RenderCache.getAlpha(Math.max(0.01f, infoCfg.opacity)));
             }
             int infoX = (int)(infoCfg.xPercent * width);
             int infoY = (int)(infoCfg.yPercent * height);
-            g.setColor(new Color(0, 0, 0, 150));
+            g.setColor(RenderCache.BLACK_150);
             g.fillRoundRect(infoX, infoY, 280, 140, 10, 10);
 
             g.setColor(Color.WHITE);
@@ -7762,9 +7750,9 @@ public class Renderer {
                     dcY = (int)(dodgeCfg.yPercent * height);
                 }
                 if (dodgeCfg.opacity < 1.0f) {
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, dodgeCfg.opacity)));
+                    g.setComposite(RenderCache.getAlpha(Math.max(0.01f, dodgeCfg.opacity)));
                 }
-                g.setColor(new Color(0, 0, 0, 150));
+                g.setColor(RenderCache.BLACK_150);
                 g.fillRoundRect(dcX, dcY, 200, 60, 10, 10);
 
                 AffineTransform comboTransform = g.getTransform();
@@ -7799,7 +7787,7 @@ public class Renderer {
                     ccY = (int)(ccCfg.yPercent * height);
                 }
                 if (ccCfg.opacity < 1.0f) {
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, ccCfg.opacity)));
+                    g.setComposite(RenderCache.getAlpha(Math.max(0.01f, ccCfg.opacity)));
                 }
                 g.setFont(FontPalette.get(Font.BOLD, 14));
                 int ccOffY = 0;
@@ -7833,7 +7821,7 @@ public class Renderer {
             int itemUIW = 200;
             int itemUIH = 80;
             if (itemCfg.opacity < 1.0f) {
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, itemCfg.opacity)));
+                g.setComposite(RenderCache.getAlpha(Math.max(0.01f, itemCfg.opacity)));
             }
             // Determine if any popup/flash is active for glow effect
 
@@ -7845,7 +7833,7 @@ public class Renderer {
 
             // Background
 
-            g.setColor(new Color(0, 0, 0, 150));
+            g.setColor(RenderCache.BLACK_150);
 
             g.fillRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
 
@@ -7869,7 +7857,7 @@ public class Renderer {
 
                 } else if (itemCompleteFlashTimer > 0) {
 
-                    glowColor = new Color(80, 180, 255);
+                    glowColor = RenderCache.BLUE_80_180_255;
 
                     glowAlpha = Math.min(0.8f, (float)itemCompleteFlashTimer / 15.0f);
 
@@ -7881,7 +7869,7 @@ public class Renderer {
 
                 } else if (bossHitFlashTimer > 0) {
 
-                    glowColor = new Color(255, 80, 80);
+                    glowColor = RenderCache.RED_255_80_80;
 
                     glowAlpha = Math.min(0.6f, (float)bossHitFlashTimer / 15.0f);
 
@@ -7899,11 +7887,11 @@ public class Renderer {
 
                 }
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, glowAlpha))));
+                g2d.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, glowAlpha))));
 
                 g2d.setColor(glowColor);
 
-                g2d.setStroke(new BasicStroke(2.5f));
+                g2d.setStroke(RenderCache.getStroke(2.5f));
 
                 g2d.drawRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
 
@@ -7927,7 +7915,7 @@ public class Renderer {
 
             } else {
 
-                g.setColor(new Color(150, 150, 150)); // Gray when on cooldown
+                g.setColor(RenderCache.GRAY_150); // Gray when on cooldown
 
             }
 
@@ -7937,7 +7925,7 @@ public class Renderer {
 
             // Cooldown bar
 
-            g.setColor(new Color(60, 60, 60));
+            g.setColor(RenderCache.GRAY_60);
 
             g.fillRect(itemUIX + 10, itemUIY + 35, 180, 15);
 
@@ -7994,7 +7982,7 @@ public class Renderer {
         HUDLayout.HUDElementConfig missileCfg = activeLayout.getConfig(HUDLayout.HUDElement.MISSILE_BAR);
         if (missileCfg.visible && !introPanActive) {
             if (missileCfg.opacity < 1.0f) {
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, missileCfg.opacity)));
+                g.setComposite(RenderCache.getAlpha(Math.max(0.01f, missileCfg.opacity)));
             }
 
             int currentMissiles = gameData.getMissiles();
@@ -8005,7 +7993,7 @@ public class Renderer {
                 // === HORIZONTAL MISSILE BAR (classic style) ===
                 int missileUIX = (int)(missileCfg.xPercent * width);
                 int missileUIY = (int)(missileCfg.yPercent * height);
-                g.setColor(new Color(0, 0, 0, 150));
+                g.setColor(RenderCache.BLACK_150);
                 g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
                 g.setFont(FontPalette.get(Font.BOLD, 14));
                 g.setColor(ColorPalette.TEXT_PRIMARY);
@@ -8036,11 +8024,11 @@ public class Renderer {
                 int barY = (int)(missileCfg.yPercent * height);
 
                 // Shadow
-                g.setColor(new Color(0, 0, 0, 100));
+                g.setColor(RenderCache.BLACK_100);
                 g.fillRoundRect(barX + 3, barY + 3, panelWidth, panelHeight, 12, 12);
 
                 // Background panel
-                g.setColor(new Color(20, 20, 30, 200));
+                g.setColor(RenderCache.DARK_20_20_30_200);
                 g.fillRoundRect(barX, barY, panelWidth, panelHeight, 12, 12);
 
                 // Label
@@ -8054,7 +8042,7 @@ public class Renderer {
                 // Bar background
                 int barStartX = barX + (panelWidth - mBarWidth) / 2;
                 int barStartY = barY + 24;
-                g.setColor(new Color(60, 60, 60));
+                g.setColor(RenderCache.GRAY_60);
                 g.fillRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
 
                 // Bar fill - bottom-to-top
@@ -8063,7 +8051,7 @@ public class Renderer {
                     GradientPaint segGrad;
                     if (s < baseMissiles) {
                         segGrad = new GradientPaint(
-                            barStartX, 0, new Color(50, 150, 50),
+                            barStartX, 0, RenderCache.GREEN_50_150_50,
                             barStartX + mBarWidth, 0, new Color(120, 210, 120)
                         );
                     } else {
@@ -8079,22 +8067,22 @@ public class Renderer {
                 // Darken empty segments
                 for (int s = currentMissiles; s < totalSlots; s++) {
                     int segY = barStartY + totalBarHeight - (s + 1) * segmentHeight;
-                    g.setColor(new Color(0, 0, 0, 120));
+                    g.setColor(RenderCache.BLACK_120);
                     g.fillRoundRect(barStartX, segY, mBarWidth, segmentHeight, 6, 6);
                 }
 
                 // Segment dividers
-                g.setColor(new Color(0, 0, 0, 150));
+                g.setColor(RenderCache.BLACK_150);
                 for (int s = 1; s < totalSlots; s++) {
                     int divY = barStartY + s * segmentHeight;
                     g.fillRect(barStartX, divY - 1, mBarWidth, 2);
                 }
 
                 // Bar border
-                g.setColor(new Color(200, 200, 200));
-                g.setStroke(new BasicStroke(2));
+                g.setColor(RenderCache.GRAY_200);
+                g.setStroke(RenderCache.getStroke(2));
                 g.drawRoundRect(barStartX, barStartY, mBarWidth, totalBarHeight, 6, 6);
-                g.setStroke(new BasicStroke(1));
+                g.setStroke(RenderCache.getStroke(1));
 
                 // Count text below bar
                 g.setFont(FONT_EXTRA_SMALL_12);
@@ -8119,10 +8107,10 @@ public class Renderer {
                 comboDispY = (int)(comboCfg.yPercent * height);
             }
             if (comboCfg.opacity < 1.0f) {
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0.01f, comboCfg.opacity)));
+                g.setComposite(RenderCache.getAlpha(Math.max(0.01f, comboCfg.opacity)));
             }
 
-            g.setColor(new Color(0, 0, 0, 180));
+            g.setColor(RenderCache.BLACK_180);
             g.fillRoundRect(comboDispX, comboDispY, 200, 80, 15, 15);
 
             g.setFont(FontPalette.get(Font.BOLD, 48));
@@ -8138,7 +8126,7 @@ public class Renderer {
             g.drawString(multText, comboDispX + (200 - fm.stringWidth(multText)) / 2, comboDispY + 65);
 
             float timeoutProgress = comboSystem.getTimeoutProgress();
-            g.setColor(new Color(60, 60, 60));
+            g.setColor(RenderCache.GRAY_60);
             g.fillRect(comboDispX + 10, comboDispY + 72, 180, 3);
             g.setColor(ColorPalette.SUCCESS_GREEN);
             g.fillRect(comboDispX + 10, comboDispY + 72, (int)(180 * timeoutProgress), 3);
@@ -8163,24 +8151,24 @@ public class Renderer {
                 notifY = (int)(achCfg.yPercent * height);
             }
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _ac = g.getComposite();
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, combinedAlpha));
-            g2d.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 230));
-            g2d.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
+            g.setComposite(RenderCache.getAlpha(combinedAlpha));
+            g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 230));
+            g.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
 
-            g2d.setFont(FONT_SMALL);
-            g2d.setColor(ColorPalette.TEXT_GOLD);
-            g2d.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
+            g.setFont(FONT_SMALL);
+            g.setColor(ColorPalette.TEXT_GOLD);
+            g.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
 
-            g2d.setFont(FONT_MEDIUM_BOLD);
-            g2d.setColor(ColorPalette.TEXT_PRIMARY);
-            g2d.drawString(ach.getName(), notifX + 20, notifY + 60);
+            g.setFont(FONT_MEDIUM_BOLD);
+            g.setColor(ColorPalette.TEXT_PRIMARY);
+            g.drawString(ach.getName(), notifX + 20, notifY + 60);
 
-            g2d.setFont(FontPalette.get(Font.PLAIN, 14));
-            g2d.drawString(ach.getDescription(), notifX + 20, notifY + 85);
+            g.setFont(FontPalette.get(Font.PLAIN, 14));
+            g.drawString(ach.getDescription(), notifX + 20, notifY + 85);
 
-            g2d.dispose();
+            g.setComposite(_ac);
         }
 
         
@@ -8189,17 +8177,17 @@ public class Renderer {
 
         if (screenFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)screenFlashTimer / 15.0f * 0.7f; // Fade out over 15 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(Color.WHITE);
+            g.setColor(Color.WHITE);
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
@@ -8209,25 +8197,25 @@ public class Renderer {
 
         if (typePurgeFlashTimer > 0 && typePurgeFlashColor != null) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
-
             // Rapid blink effect with the bullet type's color
 
             boolean blinkOn = (typePurgeFlashTimer / 3) % 2 == 0;
 
             if (blinkOn) {
 
+                Composite _fc = g.getComposite();
+
                 float flashAlpha = Math.min(0.6f, (float)typePurgeFlashTimer / 30.0f * 0.6f);
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+                g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-                g2d.setColor(typePurgeFlashColor);
+                g.setColor(typePurgeFlashColor);
 
-                g2d.fillRect(0, 0, width, height);
+                g.fillRect(0, 0, width, height);
+
+                g.setComposite(_fc);
 
             }
-
-            g2d.dispose();
 
         }
 
@@ -8237,23 +8225,23 @@ public class Renderer {
 
         if (itemReadyFlickerTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
-
             // Flicker on/off every 4 frames
 
             if ((itemReadyFlickerTimer / 4) % 2 == 0) {
 
+                Composite _fc = g.getComposite();
+
                 float flickerAlpha = Math.min(0.3f, (float)itemReadyFlickerTimer / 20.0f * 0.3f);
 
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flickerAlpha));
+                g.setComposite(RenderCache.getAlpha(flickerAlpha));
 
-                g2d.setColor(ColorPalette.SUCCESS_GREEN); // Green tint
+                g.setColor(ColorPalette.SUCCESS_GREEN); // Green tint
 
-                g2d.fillRect(0, 0, width, height);
+                g.fillRect(0, 0, width, height);
+
+                g.setComposite(_fc);
 
             }
-
-            g2d.dispose();
 
         }
 
@@ -8263,17 +8251,17 @@ public class Renderer {
 
         if (itemCompleteFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)itemCompleteFlashTimer / 15.0f * 0.5f; // Fade out over 15 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(new Color(80, 180, 255)); // Blue tint
+            g.setColor(RenderCache.BLUE_80_180_255); // Blue tint
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
@@ -8285,17 +8273,17 @@ public class Renderer {
 
         if (achievementFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)achievementFlashTimer / 20.0f * 0.4f; // Fade out over 20 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(ColorPalette.TEXT_GOLD); // Gold tint
+            g.setColor(ColorPalette.TEXT_GOLD); // Gold tint
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
@@ -8305,17 +8293,17 @@ public class Renderer {
 
         if (bossIntroFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)bossIntroFlashTimer / 25.0f * 0.5f; // Fade out over 25 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(ColorPalette.ACCENT_ORANGE); // Red/orange tint
+            g.setColor(ColorPalette.ACCENT_ORANGE); // Red/orange tint
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
@@ -8325,17 +8313,17 @@ public class Renderer {
 
         if (countdownFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)countdownFlashTimer / 15.0f * 0.3f; // Quick fade over 15 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(new Color(255, 255, 255)); // White flash
+            g.setColor(Color.WHITE); // White flash
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
@@ -8345,35 +8333,35 @@ public class Renderer {
 
         if (bossHitFlashTimer > 0) {
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
 
             float flashAlpha = (float)bossHitFlashTimer / 18.0f * 0.6f; // Strong fade over 18 frames
 
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flashAlpha));
+            g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g2d.setColor(new Color(255, 50, 50)); // Intense red flash
+            g.setColor(RenderCache.RED_255_50_50); // Intense red flash
 
-            g2d.fillRect(0, 0, width, height);
+            g.fillRect(0, 0, width, height);
 
-            g2d.dispose();
+            g.setComposite(_fc);
 
         }
 
         // Death red vignette effect (radial red overlay fading from edges)
         if (deathFlashTimer > 0) {
-            Graphics2D g2d = (Graphics2D) g.create();
+            Composite _fc = g.getComposite();
             float vignetteAlpha = Math.min(0.7f, (float)deathFlashTimer / 25.0f * 0.7f);
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, vignetteAlpha));
+            g.setComposite(RenderCache.getAlpha(vignetteAlpha));
             // Red radial gradient: transparent center -> red edges
             java.awt.RadialGradientPaint deathVignette = new java.awt.RadialGradientPaint(
                 width / 2.0f, height / 2.0f,
                 Math.max(width, height) * 0.6f,
                 new float[]{0.0f, 0.5f, 1.0f},
-                new Color[]{new Color(0, 0, 0, 0), new Color(180, 30, 30, 120), new Color(200, 20, 20, 220)}
+                new Color[]{RenderCache.BLACK_0, new Color(180, 30, 30, 120), new Color(200, 20, 20, 220)}
             );
-            g2d.setPaint(deathVignette);
-            g2d.fillRect(0, 0, width, height);
-            g2d.dispose();
+            g.setPaint(deathVignette);
+            g.fillRect(0, 0, width, height);
+            g.setComposite(_fc);
         }
 
         // Apply vignette effect at the end (darkens edges)
@@ -8416,11 +8404,11 @@ public class Renderer {
 
         // Glow effect
 
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
+        g.setComposite(RenderCache.getAlpha(0.3f));
 
         g.fillRect(moneyX - 20, 140, fm.stringWidth(money) + 40, 50);
 
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.setComposite(RenderCache.getAlpha(1.0f));
 
         g.drawString(money, moneyX, 170);
 
@@ -8488,7 +8476,7 @@ public class Renderer {
 
                 // Draw card background with shadow
 
-                g.setColor(new Color(0, 0, 0, 120));
+                g.setColor(RenderCache.BLACK_120);
 
                 g.fillRoundRect(itemX + 3, scrolledY - 27, 900, 70, 15, 15);
 
@@ -8504,7 +8492,7 @@ public class Renderer {
 
                 } else if (isMaxed) {
 
-                    cardColor = new Color(85, 75, 45, 200); // Dark gold for maxed - better text contrast
+                    cardColor = RenderCache.TAN_85_75_45_200; // Dark gold for maxed - better text contrast
 
                 } else if (!canAfford) {
 
@@ -8532,13 +8520,13 @@ public class Renderer {
 
                 if (i == selectedItem) {
 
-                    g.setColor(new Color(180, 170, 130, 140)); // Softer border glow
+                    g.setColor(RenderCache.TAN_180_170_130_140); // Softer border glow
 
-                    g.setStroke(new BasicStroke(2f));
+                    g.setStroke(RenderCache.getStroke(2f));
 
                     g.drawRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
 
-                    g.setStroke(new BasicStroke(1f));
+                    g.setStroke(RenderCache.getStroke(1f));
 
                 }
 
@@ -8550,7 +8538,7 @@ public class Renderer {
 
                 g.setFont(FontPalette.get(Font.BOLD, 36));
 
-                g.setColor(canAfford ? ColorPalette.TEXT_GOLD : new Color(100, 100, 100));
+                g.setColor(canAfford ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_100);
 
                 g.drawString(icon, itemX + 20, scrolledY + 10);
 
@@ -8568,7 +8556,7 @@ public class Renderer {
 
                 g.setFont(FONT_SMALL);
 
-                g.setColor(canAfford ? Color.WHITE : new Color(120, 120, 120));
+                g.setColor(canAfford ? Color.WHITE : RenderCache.GRAY_120);
 
                 g.drawString(itemName, itemX + 75, scrolledY - 5);
 
@@ -8576,7 +8564,7 @@ public class Renderer {
 
                 g.setFont(FontPalette.get(Font.PLAIN, 14));
 
-                g.setColor(canAfford ? new Color(200, 200, 200) : new Color(100, 100, 100));
+                g.setColor(canAfford ? RenderCache.GRAY_200 : RenderCache.GRAY_100);
 
                 g.drawString(itemDesc, itemX + 75, scrolledY + 15);
 
@@ -8630,7 +8618,7 @@ public class Renderer {
 
                         g.setFont(FONT_EXTRA_SMALL_11);
 
-                        g.setColor(upgrade.isMaxed() || isMaxed ? ColorPalette.TEXT_GOLD : new Color(200, 200, 200));
+                        g.setColor(upgrade.isMaxed() || isMaxed ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_200);
 
                         String levelText = isExtraMissiles ? currentLevel + "/" + maxLevel + " extra missiles" : currentLevel + "/" + maxLevel;
 
@@ -8640,7 +8628,7 @@ public class Renderer {
 
                         // Progress bar background
 
-                        g.setColor(new Color(40, 40, 50, 180));
+                        g.setColor(RenderCache.DARK_40_40_50_180);
 
                         g.fillRoundRect(barX, barY, barWidth, barHeight, 4, 4);
 
@@ -8768,13 +8756,13 @@ public class Renderer {
 
         
 
-        // Title â€” MISSION FAILED stamp
+        // Title Ã¢â‚¬â€ MISSION FAILED stamp
 
         UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - 140, ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
-        // Stencil stamp overlay — slam animation (randomized position/rotation)
+        // Stencil stamp overlay â€” slam animation (randomized position/rotation)
 
         double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
 
@@ -8794,7 +8782,7 @@ public class Renderer {
 
             Graphics2D g2 = (Graphics2D) g.create();
 
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2.setComposite(RenderCache.getAlpha(alpha));
 
             g2.translate(stampCX, stampCY);
 
@@ -8926,21 +8914,21 @@ public class Renderer {
 
             if (riskPercent >= 70) {
 
-                g.setColor(new Color(255, 120, 120));
+                g.setColor(RenderCache.RED_255_120_120);
 
             } else if (riskPercent >= 40) {
 
-                g.setColor(new Color(255, 180, 100));
+                g.setColor(RenderCache.WARM_255_180_100);
 
             } else {
 
-                g.setColor(new Color(150, 200, 255));
+                g.setColor(RenderCache.BLUE_150_200_255);
 
             }
 
             g.drawString(risk, (width - fm.stringWidth(risk)) / 2, statsY);
 
-            g.setColor(new Color(200, 200, 210));
+            g.setColor(RenderCache.SLATE_200_200_210);
 
             statsY += 24;
 
@@ -9062,13 +9050,13 @@ public class Renderer {
 
         
 
-        // Title â€” MISSION COMPLETE
+        // Title Ã¢â‚¬â€ MISSION COMPLETE
 
         UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - 180, ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
         
 
-        // Rank badge — slam animation (randomized corner)
+        // Rank badge â€” slam animation (randomized corner)
 
         int scoreForRank = gameData.getScore();
 
@@ -9118,7 +9106,7 @@ public class Renderer {
 
             Graphics2D g2 = (Graphics2D) g.create();
 
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2.setComposite(RenderCache.getAlpha(alpha));
 
             g2.translate(badgeCX, badgeCY);
 
@@ -9252,7 +9240,7 @@ public class Renderer {
 
             g.drawString(perfect, (width - fm.stringWidth(perfect)) / 2, statsY);
 
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(RenderCache.SLATE_180_190_200);
 
             statsY += 26;
 
@@ -9266,11 +9254,11 @@ public class Renderer {
 
             fm = g.getFontMetrics();
 
-            g.setColor(new Color(255, 165, 0));
+            g.setColor(RenderCache.ORANGE_255_165_0);
 
             g.drawString(nearMiss, (width - fm.stringWidth(nearMiss)) / 2, statsY);
 
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(RenderCache.SLATE_180_190_200);
 
             statsY += 26;
 
@@ -9284,11 +9272,11 @@ public class Renderer {
 
             fm = g.getFontMetrics();
 
-            g.setColor(new Color(100, 200, 255));
+            g.setColor(RenderCache.BLUE_100_200_255);
 
             g.drawString(maxCombo, (width - fm.stringWidth(maxCombo)) / 2, statsY);
 
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(RenderCache.SLATE_180_190_200);
 
             statsY += 26;
 
@@ -9322,21 +9310,21 @@ public class Renderer {
 
             if (riskPercent >= 70) {
 
-                g.setColor(new Color(255, 100, 100)); // High risk - red
+                g.setColor(RenderCache.RED_255_100_100); // High risk - red
 
             } else if (riskPercent >= 40) {
 
-                g.setColor(new Color(255, 165, 0)); // Medium risk - orange
+                g.setColor(RenderCache.ORANGE_255_165_0); // Medium risk - orange
 
             } else {
 
-                g.setColor(new Color(100, 200, 255)); // Low risk - blue
+                g.setColor(RenderCache.BLUE_100_200_255); // Low risk - blue
 
             }
 
             g.drawString(risk, (width - fm.stringWidth(risk)) / 2, statsY);
 
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(RenderCache.SLATE_180_190_200);
 
             statsY += 26;
 
@@ -9354,7 +9342,7 @@ public class Renderer {
 
             g.drawString(damage, (width - fm.stringWidth(damage)) / 2, statsY);
 
-            g.setColor(new Color(180, 190, 200));
+            g.setColor(RenderCache.SLATE_180_190_200);
 
             statsY += 26;
 
@@ -9457,7 +9445,7 @@ public class Renderer {
 
                     g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 200)); // Green glow when focused
 
-                    g.setStroke(new BasicStroke(4));
+                    g.setStroke(RenderCache.getStroke(4));
 
                     g.drawRoundRect(tabX - 1, tabY - 1, tabWidth - 8, 42, 10, 10);
 
@@ -9465,7 +9453,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.TEXT_GOLD);
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
 
@@ -9528,7 +9516,7 @@ public class Renderer {
             drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
 
         } else if (selectedCategory == 5) {
-            // HUD Layout Editor — renders its own mock screen + side panel
+            // HUD Layout Editor â€” renders its own mock screen + side panel
             if (Game.hudLayout != null) {
                 hudLayoutEditor.render(g, 50, 200, width - 100, height - 270, Game.hudLayout, time);
             }
@@ -9972,7 +9960,7 @@ public class Renderer {
 
                 }
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10074,7 +10062,7 @@ public class Renderer {
 
                     g.setColor(ColorPalette.ACCENT_RED);
 
-                    g.setStroke(new BasicStroke(2));
+                    g.setStroke(RenderCache.getStroke(2));
 
                     g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
@@ -10090,7 +10078,7 @@ public class Renderer {
 
                     g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
 
-                    g.setStroke(new BasicStroke(1));
+                    g.setStroke(RenderCache.getStroke(1));
 
                     g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
 
@@ -10230,7 +10218,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.TEXT_GOLD);
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10494,7 +10482,7 @@ public class Renderer {
 
                         g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 120));
 
-                        g.setStroke(new BasicStroke(1));
+                        g.setStroke(RenderCache.getStroke(1));
 
                         g.drawLine(boxX, y - 14, boxX + boxWidth, y - 14);
 
@@ -10552,7 +10540,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.TEXT_GOLD);
 
-                g.setStroke(new BasicStroke(2));
+                g.setStroke(RenderCache.getStroke(2));
 
                 g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
 
@@ -10714,7 +10702,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 255));
 
-                g.setStroke(new BasicStroke(1));
+                g.setStroke(RenderCache.getStroke(1));
 
                 g.drawRoundRect(px, pillY, pillW[j], pillH, 6, 6);
 
@@ -11000,7 +10988,7 @@ public class Renderer {
 
             new Color(138, 43, 226), // Blue violet
 
-            new Color(255, 165, 0),  // Orange
+            RenderCache.ORANGE_255_165_0,  // Orange
 
             new Color(135, 206, 250), // Light sky blue
 
@@ -11026,7 +11014,7 @@ public class Renderer {
 
             float alpha = Math.min(1f, Math.max(0f, 1f - (elapsed / 3000f)));
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g.setComposite(RenderCache.getAlpha(alpha));
 
             g.setFont(FontPalette.get(Font.BOLD, 22));
 
@@ -11046,11 +11034,11 @@ public class Renderer {
 
             g.fillRoundRect(sfxX, sfxY, sfxW, sfxH, 12, 12);
 
-            g.setColor(new Color(255, 120, 120));
+            g.setColor(RenderCache.RED_255_120_120);
 
             g.drawString(sfxLabel, sfxX + 12, sfxY + 25);
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setComposite(RenderCache.getAlpha(1.0f));
 
         }
 
@@ -11070,7 +11058,7 @@ public class Renderer {
 
             // Draw shadow
 
-            g.setColor(new Color(0, 0, 0, 100));
+            g.setColor(RenderCache.BLACK_100);
 
             g.drawString(options[i], x + 3, y + 3);
 
@@ -11092,7 +11080,7 @@ public class Renderer {
 
                 g.setColor(new Color(30, 144, 255, 60));
 
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(RenderCache.getStroke(3));
 
                 for (int wx = 0; wx < width; wx += 40) {
 
@@ -11106,7 +11094,7 @@ public class Renderer {
 
                 g.setColor(new Color(30, 144, 255, 120));
 
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(RenderCache.getStroke(3));
 
                 for (int wx2 = 0; wx2 < width; wx2 += 40) {
 
@@ -11216,7 +11204,7 @@ public class Renderer {
 
                 // Snow cap
 
-                g.setColor(new Color(255, 255, 255, 180));
+                g.setColor(RenderCache.WHITE_180);
 
                 int[] snowX = {baseX + 70, baseX + 100, baseX + 130};
 
@@ -11400,9 +11388,9 @@ public class Renderer {
 
                 float alpha = 0.1f / i;
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setComposite(RenderCache.getAlpha(alpha));
 
-                g.setColor(new Color(150, 200, 255));
+                g.setColor(RenderCache.BLUE_150_200_255);
 
                 double glowSize = 50 + (i * 15);
 
@@ -11430,7 +11418,7 @@ public class Renderer {
 
                     float alpha = 0.05f / i;
 
-                    g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                    g.setComposite(RenderCache.getAlpha(alpha));
 
                     g.setColor(PANEL_MEGA_LABEL); // Orange glow for particles
 
@@ -11476,7 +11464,7 @@ public class Renderer {
 
                 float alpha = 0.3f * (1 - i / (float)trailLength);
 
-                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.setComposite(RenderCache.getAlpha(alpha));
 
                 
 
@@ -11486,7 +11474,7 @@ public class Renderer {
 
                 
 
-                g.setColor(new Color(150, 200, 255));
+                g.setColor(RenderCache.BLUE_150_200_255);
 
                 g.fillOval((int)(trailX - 15), (int)(trailY - 15), 30, 30);
 
@@ -11503,49 +11491,27 @@ public class Renderer {
     
 
     private void applyChromaticAberration(Graphics2D g, int width, int height) {
-
         // Chromatic aberration: subtle color fringing at screen edges
-
         Composite originalComposite = g.getComposite();
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.03f));
-
+        g.setComposite(RenderCache.getAlpha(0.03f));
         
-
         // Red fringe on left edge
-
-        g.setColor(new Color(255, 0, 0));
-
+        g.setColor(Color.RED);
         g.fillRect(0, 0, 15, height);
-
         
-
         // Cyan fringe on right edge
-
-        g.setColor(new Color(0, 255, 255));
-
+        g.setColor(Color.CYAN);
         g.fillRect(width - 15, 0, 15, height);
-
         
-
         // Blue fringe on top
-
-        g.setColor(new Color(0, 0, 255));
-
+        g.setColor(Color.BLUE);
         g.fillRect(0, 0, width, 15);
-
         
-
         // Yellow fringe on bottom
-
-        g.setColor(new Color(255, 255, 0));
-
+        g.setColor(Color.YELLOW);
         g.fillRect(0, height - 15, width, 15);
-
         
-
         g.setComposite(originalComposite);
-
     }
 
     
@@ -11688,7 +11654,7 @@ public class Renderer {
 
                 
 
-                vg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                vg.setComposite(RenderCache.getAlpha(alpha));
 
                 
 
@@ -11700,7 +11666,7 @@ public class Renderer {
 
                     new float[]{0.0f, 0.2f, 1.0f},
 
-                    new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 255)}
+                    new Color[]{RenderCache.BLACK_0, RenderCache.BLACK_0, new Color(0, 0, 0, 255)}
 
                 );
 
@@ -11818,7 +11784,7 @@ public class Renderer {
 
         if (Game.enableGrainEffect) {
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.03f));
+            g.setComposite(RenderCache.getAlpha(0.03f));
 
             for (int i = 0; i < 150; i++) {
 
@@ -11834,7 +11800,7 @@ public class Renderer {
 
             }
 
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+            g.setComposite(RenderCache.getAlpha(1.0f));
 
         }
 
@@ -11842,102 +11808,20 @@ public class Renderer {
 
     
 
+    // Pre-cached level gradient color palettes (avoids 21 new Color() per frame)
+    private static final Color[][] LEVEL_GRADIENT_PALETTES = {
+        { new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106) },  // 0: Dark blue
+        { new Color(59, 66, 82), new Color(76, 86, 106), new Color(88, 91, 112) }, // 1: Purple
+        { new Color(46, 52, 64), new Color(67, 76, 94), new Color(76, 86, 106) },  // 2: Red
+        { new Color(46, 52, 64), new Color(59, 66, 82), new Color(67, 76, 94) },   // 3: Green
+        { new Color(59, 66, 82), new Color(67, 76, 94), new Color(76, 86, 106) },  // 4: Orange
+        { new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106) },  // 5: Teal
+    };
+
     private Color[] getLevelGradientColors(int level) {
-
-        // Different color palettes for different level ranges
-
         int palette = ((level - 1) / 5) % 6;
-
-        
-
-        switch (palette) {
-
-            case 0: // Levels 1-5: Dark blue theme
-
-                return new Color[]{
-
-                    new Color(46, 52, 64),
-
-                    new Color(59, 66, 82),
-
-                    new Color(76, 86, 106)
-
-                };
-
-            case 1: // Levels 6-10: Purple theme
-
-                return new Color[]{
-
-                    new Color(59, 66, 82),
-
-                    new Color(76, 86, 106),
-
-                    new Color(88, 91, 112)
-
-                };
-
-            case 2: // Levels 11-15: Red theme
-
-                return new Color[]{
-
-                    new Color(46, 52, 64),
-
-                    new Color(67, 76, 94),
-
-                    new Color(76, 86, 106)
-
-                };
-
-            case 3: // Levels 16-20: Green theme
-
-                return new Color[]{
-
-                    new Color(46, 52, 64),
-
-                    new Color(59, 66, 82),
-
-                    new Color(67, 76, 94)
-
-                };
-
-            case 4: // Levels 21-25: Orange theme
-
-                return new Color[]{
-
-                    new Color(59, 66, 82),
-
-                    new Color(67, 76, 94),
-
-                    new Color(76, 86, 106)
-
-                };
-
-            case 5: // Levels 26+: Teal theme
-
-                return new Color[]{
-
-                    new Color(46, 52, 64),
-
-                    new Color(59, 66, 82),
-
-                    new Color(76, 86, 106)
-
-                };
-
-            default:
-
-                return new Color[]{
-
-                    new Color(46, 52, 64),
-
-                    new Color(59, 66, 82),
-
-                    new Color(76, 86, 106)
-
-                };
-
-        }
-
+        if (palette < 0 || palette >= LEVEL_GRADIENT_PALETTES.length) palette = 0;
+        return LEVEL_GRADIENT_PALETTES[palette];
     }
 
     
@@ -12072,7 +11956,7 @@ public class Renderer {
         g.fillRoundRect(boxX, boxY, boxW, boxH + 2, 6, 6);
         // Border
         g.setColor(new Color(120, 130, 150, 180));
-        g.setStroke(new BasicStroke(1.5f));
+        g.setStroke(RenderCache.getStroke(1.5f));
         g.drawRoundRect(boxX, boxY, boxW, boxH + 2, 6, 6);
         // Bottom shadow edge for 3D effect
         g.setColor(new Color(30, 35, 45, 150));
@@ -12131,7 +12015,7 @@ public class Renderer {
                     }
                 }
             } else if (seg instanceof Integer) {
-                // Raw VK key code — render as keyboard sprite or keycap
+                // Raw VK key code â€” render as keyboard sprite or keycap
                 int vkCode = (Integer) seg;
                 java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
                 if (icon != null) {
@@ -12303,7 +12187,7 @@ public class Renderer {
 
             } else if (seg instanceof Integer) {
 
-                // Raw VK key code — render as keyboard sprite or keycap
+                // Raw VK key code â€” render as keyboard sprite or keycap
 
                 int vkCode = (Integer) seg;
 
@@ -12657,7 +12541,7 @@ public class Renderer {
 
         fg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        fg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.max(0f, Math.min(1f, alpha))));
+        fg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, alpha))));
 
         fg.translate(x, y);
 
@@ -12833,7 +12717,7 @@ public class Renderer {
 
                             new Color(5, 2, 20, clampA((int)(15 * masterAlpha))),
 
-                            new Color(0, 0, 0, 0)});
+                            RenderCache.BLACK_0});
 
             g.setPaint(neb);
 
@@ -12906,11 +12790,11 @@ public class Renderer {
 
                 sa = Math.max(0f, Math.min(1f, sa * masterAlpha));
 
-                slg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, sa));
+                slg.setComposite(RenderCache.getAlpha(sa));
 
                 slg.setColor(new Color(200, 200, 255));
 
-                slg.setStroke(new BasicStroke(1.5f));
+                slg.setStroke(RenderCache.getStroke(1.5f));
 
                 slg.drawLine(cx + (int)(Math.cos(angle) * 120), cy + (int)(Math.sin(angle) * 120),
 
@@ -12946,13 +12830,13 @@ public class Renderer {
                 if (Game.enableAntiAliasing)
                     flg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 float flAlpha = Math.max(0f, Math.min(1f, (float)(bossIntroFlash * 0.5)));
-                flg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, flAlpha));
-                flg.setStroke(new BasicStroke(3f));
+                flg.setComposite(RenderCache.getAlpha(flAlpha));
+                flg.setStroke(RenderCache.getStroke(3f));
                 flg.setColor(new Color(180, 210, 255));
                 flg.drawLine(cx - width, cy - (int)(width * 0.12), cx + width, cy + (int)(width * 0.12));
                 flg.drawLine(cx - width, cy + (int)(width * 0.12), cx + width, cy - (int)(width * 0.12));
                 flg.setColor(new Color(255, 245, 210));
-                flg.setStroke(new BasicStroke(1.5f));
+                flg.setStroke(RenderCache.getStroke(1.5f));
                 flg.drawLine(cx - width, cy - (int)(width * 0.06), cx + width, cy + (int)(width * 0.06));
                 flg.drawLine(cx - width, cy + (int)(width * 0.06), cx + width, cy - (int)(width * 0.06));
                 for (int lr = 0; lr < 5; lr++) {
@@ -13016,7 +12900,7 @@ public class Renderer {
 
                                 new Color(15, 50, 150, clampA((int)(10 * auraI))),
 
-                                new Color(0, 0, 0, 0)});
+                                RenderCache.BLACK_0});
 
                 g.setPaint(aura);
 
@@ -13044,9 +12928,9 @@ public class Renderer {
 
                     int rr = (int)(20 + rp * 300);
 
-                    rg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, ra)));
+                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
 
-                    rg.setColor(new Color(100, 180, 255));
+                    rg.setColor(RenderCache.BLUE_100_180_255);
 
                     rg.setStroke(new BasicStroke(Math.max(0.5f, 3f - (float)rp * 2.5f)));
 
@@ -13066,7 +12950,7 @@ public class Renderer {
                     double lineLen = 50 + Math.abs(Math.sin(time * 5 + i * 1.3)) * 50;
                     float wAlpha = (float)(0.04 + 0.03 * Math.sin(time * 6 + i * 0.8));
                     wAlpha = Math.max(0f, Math.min(1f, wAlpha * auraI));
-                    wsg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, wAlpha));
+                    wsg.setComposite(RenderCache.getAlpha(wAlpha));
                     wsg.setColor(new Color(140, 210, 255));
                     wsg.setStroke(new BasicStroke(1.2f + (float)(Math.sin(time * 4 + i) * 0.5)));
                     double drift = (time * (70 + i * 10)) % 500;
@@ -13090,11 +12974,11 @@ public class Renderer {
 
                     rAlpha = Math.max(0f, Math.min(1f, rAlpha * auraI));
 
-                    rayG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, rAlpha));
+                    rayG.setComposite(RenderCache.getAlpha(rAlpha));
 
-                    rayG.setColor(new Color(120, 200, 255));
+                    rayG.setColor(RenderCache.BLUE_120_200_255);
 
-                    rayG.setStroke(new BasicStroke(6f));
+                    rayG.setStroke(RenderCache.getStroke(6f));
 
                     rayG.drawLine(px + (int)(Math.cos(angle) * 40), py + (int)(Math.sin(angle) * 40),
 
@@ -13132,7 +13016,7 @@ public class Renderer {
 
                                 new Color(30, 100, 200, clampA((int)(20 * grAlpha))),
 
-                                new Color(0, 0, 0, 0)});
+                                RenderCache.BLACK_0});
 
                 Graphics2D grg = (Graphics2D) g.create();
 
@@ -13186,7 +13070,7 @@ public class Renderer {
                         int aiPy = (int)(py + aiBob + ai * 2);
                         Graphics2D ag = (Graphics2D) g.create();
                         ag.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        ag.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, aiAlpha));
+                        ag.setComposite(RenderCache.getAlpha(aiAlpha));
                         ag.translate(aiPx, aiPy);
                         ag.rotate(Math.toRadians(baseAngle - ai * 0.5));
                         ag.scale(6.0, 6.0);
@@ -13201,8 +13085,7 @@ public class Renderer {
                 pg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 if (Game.enableAntiAliasing)
                     pg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                pg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                    Math.max(0f, Math.min(1f, masterAlpha * auraI))));
+                pg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha * auraI))));
                 pg.translate(drawPx, drawPy);
                 pg.rotate(Math.toRadians(baseAngle));
                 pg.scale(6.0, 6.0);
@@ -13214,8 +13097,7 @@ public class Renderer {
                 if (auraI > 0.3f && !isPhase5) {
                     float rimPulse = 0.15f + 0.1f * (float)Math.sin(time * 5);
                     Graphics2D rimg = (Graphics2D) g.create();
-                    rimg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, rimPulse * auraI * masterAlpha))));
+                    rimg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, rimPulse * auraI * masterAlpha))));
                     rimg.translate(drawPx, drawPy);
                     rimg.rotate(Math.toRadians(baseAngle));
                     rimg.scale(6.15, 6.15);
@@ -13252,26 +13134,24 @@ public class Renderer {
                     panelBg.lineTo(nx + nw + pad - skew, ny + 10);
                     panelBg.lineTo(nx - pad - skew, ny + 10);
                     panelBg.closePath();
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
                     GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
                         new Color(5, 20, 50, 230), nx, ny + 10, new Color(10, 30, 70, 200));
                     npg.setPaint(panelGrad);
                     npg.fill(panelBg);
                     // Bright cyan border
-                    npg.setStroke(new BasicStroke(2.5f));
+                    npg.setStroke(RenderCache.getStroke(2.5f));
                     npg.setColor(new Color(80, 210, 255, clampA((int)(240 * na))));
                     npg.draw(panelBg);
                     // Inner highlight line
-                    npg.setStroke(new BasicStroke(1f));
+                    npg.setStroke(RenderCache.getStroke(1f));
                     npg.setColor(new Color(120, 220, 255, clampA((int)(100 * na))));
                     npg.drawLine(nx - pad + skew + 4, ny - fm.getAscent() - 8,
                                  nx + nw + pad + skew - 4, ny - fm.getAscent() - 8);
                     // Extending horizontal accent lines from corners
                     float lineExt = (float)(ns * 140);
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.7f))));
-                    npg.setStroke(new BasicStroke(2f));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.7f))));
+                    npg.setStroke(RenderCache.getStroke(2f));
                     npg.setColor(new Color(80, 210, 255));
                     npg.drawLine((int)(nx - pad - skew), ny + 10,
                                  (int)(nx - pad - skew - lineExt), ny + 10);
@@ -13287,13 +13167,11 @@ public class Renderer {
                         new int[]{ny - fm.getAscent() - 10 - dSz, ny - fm.getAscent() - 10,
                                   ny - fm.getAscent() - 10 + dSz, ny - fm.getAscent() - 10}, 4);
                     // Text drop shadow
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.5f))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.5f))));
                     npg.setColor(new Color(0, 40, 90));
                     npg.drawString(pName, nx + 2, ny + 2);
                     // Text outline
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
                     npg.setColor(new Color(0, 20, 60, clampA((int)(255 * na))));
                     for (int ox = -2; ox <= 2; ox++)
                         for (int oy = -2; oy <= 2; oy++)
@@ -13305,8 +13183,7 @@ public class Renderer {
                     npg.setPaint(textGrad);
                     npg.drawString(pName, nx, ny);
                     // White highlight pass
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.45f))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.45f))));
                     npg.setColor(Color.WHITE);
                     npg.drawString(pName, nx, ny - 1);
                     npg.dispose();
@@ -13325,7 +13202,7 @@ public class Renderer {
 
                     lg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                lg.setStroke(new BasicStroke(2f));
+                lg.setStroke(RenderCache.getStroke(2f));
 
                 for (int c = 0; c < 6; c++) {
 
@@ -13343,7 +13220,7 @@ public class Renderer {
 
                         float ca = Math.max(0f, Math.min(1f, (0.5f - s * 0.1f) * masterAlpha));
 
-                        lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, ca));
+                        lg.setComposite(RenderCache.getAlpha(ca));
 
                         lg.setColor(new Color(180, 230, 255));
 
@@ -13395,9 +13272,9 @@ public class Renderer {
 
                     float la = Math.max(0f, Math.min(1f, (0.05f + layer * 0.03f) * sa));
 
-                    sg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, la));
+                    sg.setComposite(RenderCache.getAlpha(la));
 
-                    sg.setColor(layer < 2 ? new Color(255, 255, 255) :
+                    sg.setColor(layer < 2 ? Color.WHITE :
 
                                 layer < 4 ? new Color(255, 220, 120) : new Color(255, 180, 60));
 
@@ -13421,11 +13298,9 @@ public class Renderer {
 
                     int ss = Math.max(1, 3 + (int)(Math.sin(time * 8 + i * 2) * 2));
 
-                    sg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
+                    sg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, 0.8f * sa))));
 
-                        Math.max(0f, Math.min(1f, 0.8f * sa))));
-
-                    sg.setColor(new Color(255, 255, 220));
+                    sg.setColor(RenderCache.CREAM_255_255_220);
 
                     sg.fillOval(skx - ss, sky - ss, ss * 2, ss * 2);
 
@@ -13493,7 +13368,7 @@ public class Renderer {
 
                         new Color(80, 10, 5, clampA((int)(12 * ba))),
 
-                        new Color(0, 0, 0, 0)});
+                        RenderCache.BLACK_0});
 
                 g.setPaint(bap);
 
@@ -13517,11 +13392,11 @@ public class Renderer {
 
                     sAlpha = Math.max(0f, Math.min(1f, sAlpha * ba));
 
-                    spG.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, sAlpha));
+                    spG.setComposite(RenderCache.getAlpha(sAlpha));
 
                     spG.setColor(new Color(255, 120, 40));
 
-                    spG.setStroke(new BasicStroke(10f));
+                    spG.setStroke(RenderCache.getStroke(10f));
 
                     spG.drawLine(bx + (int)(Math.cos(angle) * 50), by + (int)(Math.sin(angle) * 50),
 
@@ -13529,7 +13404,7 @@ public class Renderer {
 
                     spG.setColor(PANEL_MEGA_LABEL);
 
-                    spG.setStroke(new BasicStroke(3f));
+                    spG.setStroke(RenderCache.getStroke(3f));
 
                     spG.drawLine(bx + (int)(Math.cos(angle) * 50), by + (int)(Math.sin(angle) * 50),
 
@@ -13561,9 +13436,9 @@ public class Renderer {
 
                     int rr = (int)(30 + rp * 350);
 
-                    rg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, ra)));
+                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
 
-                    rg.setColor(new Color(255, 150, 80));
+                    rg.setColor(RenderCache.WARM_255_150_80);
 
                     rg.setStroke(new BasicStroke(Math.max(0.5f, 4f - (float)rp * 3f)));
 
@@ -13583,8 +13458,8 @@ public class Renderer {
                     double lineLen = 55 + Math.abs(Math.sin(time * 4.5 + i * 1.5)) * 55;
                     float wAlpha = (float)(0.05 + 0.04 * Math.sin(time * 5 + i * 1.1));
                     wAlpha = Math.max(0f, Math.min(1f, wAlpha * ba));
-                    wsg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, wAlpha));
-                    wsg.setColor(new Color(255, 150, 60));
+                    wsg.setComposite(RenderCache.getAlpha(wAlpha));
+                    wsg.setColor(RenderCache.WARM_255_150_60);
                     wsg.setStroke(new BasicStroke(1.3f + (float)(Math.sin(time * 3.5 + i) * 0.6)));
                     double drift = (time * (75 + i * 11)) % 520;
                     int sx = (int)(bx - 260 + drift);
@@ -13619,7 +13494,7 @@ public class Renderer {
 
                                 new Color(200, 40, 10, clampA((int)(18 * grAlpha))),
 
-                                new Color(0, 0, 0, 0)});
+                                RenderCache.BLACK_0});
 
                 Graphics2D grg = (Graphics2D) g.create();
 
@@ -13672,7 +13547,7 @@ public class Renderer {
                         int aiPy = (int)(by + aiBob + ai * 2);
                         Graphics2D ag = (Graphics2D) g.create();
                         ag.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        ag.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, aiAlpha));
+                        ag.setComposite(RenderCache.getAlpha(aiAlpha));
                         ag.translate(aiPx, aiPy);
                         ag.rotate(Math.toRadians(bBaseAngle + ai * 0.5));
                         ag.scale(5.0, 5.0);
@@ -13687,8 +13562,7 @@ public class Renderer {
                 bg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 if (Game.enableAntiAliasing)
                     bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                bg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                    Math.max(0f, Math.min(1f, masterAlpha * ba))));
+                bg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha * ba))));
                 bg.translate(drawBx, drawBy);
                 bg.rotate(Math.toRadians(bBaseAngle));
                 bg.scale(5.0, 5.0);
@@ -13700,8 +13574,7 @@ public class Renderer {
                 if (ba > 0.3f && !isPhase5) {
                     float rimPulse = 0.12f + 0.08f * (float)Math.sin(time * 4);
                     Graphics2D rimg = (Graphics2D) g.create();
-                    rimg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, rimPulse * ba * masterAlpha))));
+                    rimg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, rimPulse * ba * masterAlpha))));
                     rimg.translate(drawBx, drawBy);
                     rimg.rotate(Math.toRadians(bBaseAngle));
                     rimg.scale(5.15, 5.15);
@@ -13738,26 +13611,24 @@ public class Renderer {
                     panelBg.lineTo(nx + nw + pad + skew, ny + 10);
                     panelBg.lineTo(nx - pad + skew, ny + 10);
                     panelBg.closePath();
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
                     GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
                         new Color(50, 10, 5, 230), nx, ny + 10, new Color(70, 15, 10, 200));
                     npg.setPaint(panelGrad);
                     npg.fill(panelBg);
                     // Red-orange border
-                    npg.setStroke(new BasicStroke(2.5f));
+                    npg.setStroke(RenderCache.getStroke(2.5f));
                     npg.setColor(new Color(255, 130, 40, clampA((int)(240 * na))));
                     npg.draw(panelBg);
                     // Inner highlight line
-                    npg.setStroke(new BasicStroke(1f));
+                    npg.setStroke(RenderCache.getStroke(1f));
                     npg.setColor(new Color(255, 180, 80, clampA((int)(100 * na))));
                     npg.drawLine(nx - pad - skew + 4, ny - fm.getAscent() - 8,
                                  nx + nw + pad - skew - 4, ny - fm.getAscent() - 8);
                     // Extending horizontal accent lines
                     float lineExt = (float)(ns * 140);
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.7f))));
-                    npg.setStroke(new BasicStroke(2f));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.7f))));
+                    npg.setStroke(RenderCache.getStroke(2f));
                     npg.setColor(new Color(255, 130, 40));
                     npg.drawLine((int)(nx - pad - skew), ny - fm.getAscent() - 10,
                                  (int)(nx - pad - skew - lineExt), ny - fm.getAscent() - 10);
@@ -13777,19 +13648,16 @@ public class Renderer {
                     FontMetrics sfm = npg.getFontMetrics();
                     String subtitle = "WARNING";
                     int subW = sfm.stringWidth(subtitle);
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.6f))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.6f))));
                     npg.setColor(PANEL_MEGA_LABEL);
                     npg.drawString(subtitle, nx + nw / 2 - subW / 2, ny - fm.getAscent() - 18);
                     // Text drop shadow
                     npg.setFont(FontPalette.get(Font.BOLD, fs));
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.5f))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.5f))));
                     npg.setColor(new Color(100, 20, 0));
                     npg.drawString(bossIntroText, nx + 2, ny + 2);
                     // Text outline
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
                     npg.setColor(new Color(60, 10, 0, clampA((int)(255 * na))));
                     for (int ox = -2; ox <= 2; ox++)
                         for (int oy = -2; oy <= 2; oy++)
@@ -13797,12 +13665,11 @@ public class Renderer {
                                 npg.drawString(bossIntroText, nx + ox, ny + oy);
                     // Gradient text fill
                     GradientPaint textGrad = new GradientPaint(nx, ny - fm.getAscent(),
-                        new Color(255, 235, 180), nx, ny, new Color(255, 150, 60));
+                        new Color(255, 235, 180), nx, ny, RenderCache.WARM_255_150_60);
                     npg.setPaint(textGrad);
                     npg.drawString(bossIntroText, nx, ny);
                     // White highlight pass
-                    npg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                        Math.max(0f, Math.min(1f, na * 0.4f))));
+                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.4f))));
                     npg.setColor(Color.WHITE);
                     npg.drawString(bossIntroText, nx, ny - 1);
                     npg.dispose();
@@ -13821,7 +13688,7 @@ public class Renderer {
 
                     lg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                lg.setStroke(new BasicStroke(2.5f));
+                lg.setStroke(RenderCache.getStroke(2.5f));
 
                 for (int c = 0; c < 8; c++) {
 
@@ -13839,9 +13706,9 @@ public class Renderer {
 
                         float ca = Math.max(0f, Math.min(1f, (0.4f - s * 0.07f) * masterAlpha));
 
-                        lg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, ca));
+                        lg.setComposite(RenderCache.getAlpha(ca));
 
-                        lg.setColor(new Color(255, 160, 80));
+                        lg.setColor(RenderCache.WARM_255_160_80);
 
                         lg.drawLine((int)lx, (int)ly, (int)nx, (int)ny);
 
@@ -13874,7 +13741,7 @@ public class Renderer {
                 // Pulsing energy strands between the two fighters
                 for (int strand = 0; strand < 5; strand++) {
                     float sAlpha = Math.max(0f, Math.min(1f, beamAlpha * (0.6f - strand * 0.1f)));
-                    ebg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, sAlpha));
+                    ebg.setComposite(RenderCache.getAlpha(sAlpha));
                     Path2D beam = new Path2D.Double();
                     beam.moveTo(pDrawX + 80, cy);
                     // Wavy control points
@@ -13887,9 +13754,9 @@ public class Renderer {
                     if (strand < 2)
                         ebg.setColor(new Color(150, 220, 255));
                     else if (strand > 3)
-                        ebg.setColor(new Color(255, 160, 80));
+                        ebg.setColor(RenderCache.WARM_255_160_80);
                     else
-                        ebg.setColor(new Color(255, 255, 220));
+                        ebg.setColor(RenderCache.CREAM_255_255_220);
                     ebg.draw(beam);
                 }
                 ebg.dispose();
@@ -13917,9 +13784,9 @@ public class Renderer {
 
                     int rr = (int)(20 + rp * 500);
 
-                    rg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, ra)));
+                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
 
-                    rg.setColor(r % 2 == 0 ? new Color(120, 200, 255) : new Color(255, 150, 80));
+                    rg.setColor(r % 2 == 0 ? RenderCache.BLUE_120_200_255 : RenderCache.WARM_255_150_80);
 
                     rg.setStroke(new BasicStroke(Math.max(0.5f, 5f - (float)rp * 4f)));
 
@@ -13947,19 +13814,19 @@ public class Renderer {
 
                     aa = Math.max(0f, Math.min(1f, aa * (float)bossIntroVsScale * masterAlpha));
 
-                    fg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, aa));
+                    fg.setComposite(RenderCache.getAlpha(aa));
 
                     fg.setColor(i % 2 == 0 ? new Color(80, 160, 255) : new Color(255, 100, 40));
 
-                    fg.setStroke(new BasicStroke(18f));
+                    fg.setStroke(RenderCache.getStroke(18f));
 
                     fg.drawLine(cx + (int)(Math.cos(angle) * 20), cy + (int)(Math.sin(angle) * 20),
 
                                 cx + (int)(Math.cos(angle) * 200), cy + (int)(Math.sin(angle) * 200));
 
-                    fg.setColor(new Color(255, 255, 255));
+                    fg.setColor(Color.WHITE);
 
-                    fg.setStroke(new BasicStroke(5f));
+                    fg.setStroke(RenderCache.getStroke(5f));
 
                     fg.drawLine(cx + (int)(Math.cos(angle) * 20), cy + (int)(Math.sin(angle) * 20),
 
@@ -13985,7 +13852,7 @@ public class Renderer {
 
                 float impactA = Math.max(0f, Math.min(1f, (float)bossIntroVsScale * 0.4f * masterAlpha));
 
-                mg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, impactA));
+                mg.setComposite(RenderCache.getAlpha(impactA));
 
                 int numWedges = 24;
 
@@ -14011,7 +13878,7 @@ public class Renderer {
 
                     wedge.closePath();
 
-                    mg.setColor(i % 2 == 0 ? new Color(0, 0, 0) : new Color(255, 255, 255));
+                    mg.setColor(i % 2 == 0 ? Color.BLACK : Color.WHITE);
 
                     mg.fill(wedge);
 
@@ -14059,7 +13926,7 @@ public class Renderer {
 
                         new Color(255, 150, 50, clampA((int)(30 * expA * bossIntroVsScale))),
 
-                        new Color(0, 0, 0, 0)});
+                        RenderCache.BLACK_0});
 
                 g.setPaint(expl);
 
@@ -14117,9 +13984,7 @@ public class Renderer {
 
                     Graphics2D gg = (Graphics2D) vg.create();
 
-                    gg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-
-                        Math.max(0f, Math.min(1f, glAlpha))));
+                    gg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, glAlpha))));
 
                     float glScale = 1.0f + gl * 0.08f;
 
@@ -14165,9 +14030,7 @@ public class Renderer {
 
                     Graphics2D cr = (Graphics2D) vg.create();
 
-                    cr.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-
-                        Math.max(0f, Math.min(1f, va * 0.4f))));
+                    cr.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, va * 0.4f))));
 
                     cr.setColor(new Color(255, 60, 60));
 
@@ -14233,9 +14096,7 @@ public class Renderer {
 
                     Graphics2D pg = (Graphics2D) g.create();
 
-                    pg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-
-                        Math.max(0f, Math.min(1f, masterAlpha))));
+                    pg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha))));
 
                     p.draw(pg);
 
@@ -14253,13 +14114,13 @@ public class Renderer {
 
         if (barH > 2) {
 
-            GradientPaint topBar = new GradientPaint(0, -M, new Color(0, 0, 0), 0, barH, new Color(15, 18, 30));
+            GradientPaint topBar = new GradientPaint(0, -M, Color.BLACK, 0, barH, new Color(15, 18, 30));
 
             g.setPaint(topBar);
 
             g.fillRect(-M, -M, width + M * 2, barH + M);
 
-            GradientPaint botBar = new GradientPaint(0, height - barH, new Color(15, 18, 30), 0, height + M, new Color(0, 0, 0));
+            GradientPaint botBar = new GradientPaint(0, height - barH, new Color(15, 18, 30), 0, height + M, Color.BLACK);
 
             g.setPaint(botBar);
 
@@ -14273,7 +14134,7 @@ public class Renderer {
 
             g.setColor(new Color(235, 203, 139, trimA));
 
-            g.setStroke(new BasicStroke(2.5f));
+            g.setStroke(RenderCache.getStroke(2.5f));
 
             g.drawLine(-M, barH, width + M, barH);
 
@@ -14305,7 +14166,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 160));
 
-                g.setStroke(new BasicStroke(1.5f));
+                g.setStroke(RenderCache.getStroke(1.5f));
 
                 g.drawRect(stX - stPad, stY - fm.getAscent() - 3, stW + stPad * 2, fm.getHeight() + 6);
 
@@ -14325,7 +14186,7 @@ public class Renderer {
 
                 GradientPaint stp = new GradientPaint(stX, stY - fm.getAscent(),
 
-                    new Color(255, 240, 200), stX, stY, ColorPalette.TEXT_GOLD);
+                    RenderCache.WARM_255_240_200, stX, stY, ColorPalette.TEXT_GOLD);
 
                 g.setPaint(stp);
 
@@ -14361,8 +14222,8 @@ public class Renderer {
         if (masterAlpha > 0.2f && bossIntroPhase >= 1 && !isPhase5) {
             Graphics2D slg2 = (Graphics2D) g.create();
             float scanAlpha = Math.max(0f, Math.min(1f, 0.04f * masterAlpha));
-            slg2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, scanAlpha));
-            slg2.setColor(new Color(0, 0, 0));
+            slg2.setComposite(RenderCache.getAlpha(scanAlpha));
+            slg2.setColor(Color.BLACK);
             // Draw horizontal scanlines every 4 pixels
             for (int sy = -M; sy < height + M; sy += 4) {
                 slg2.drawLine(-M, sy, width + M, sy);
@@ -14444,7 +14305,7 @@ public class Renderer {
 
                 new float[]{0f, 0.5f, 0.8f, 1f},
 
-                new Color[]{new Color(0, 0, 0, 0),
+                new Color[]{RenderCache.BLACK_0,
 
                            new Color(0, 0, 0, clampA((int)(25 * masterAlpha))),
 
@@ -14486,11 +14347,11 @@ public class Renderer {
                 float edgeAlpha = Math.max(0f, Math.min(1f, 0.1f * masterAlpha));
                 GradientPaint leftEdge = new GradientPaint(
                     -M, cy, new Color(50, 130, 255, clampA((int)(50 * edgeAlpha * 255))),
-                    width / 3, cy, new Color(0, 0, 0, 0));
+                    width / 3, cy, RenderCache.BLACK_0);
                 g.setPaint(leftEdge);
                 g.fillRect(-M, -M, width / 3 + M, height + M * 2);
                 GradientPaint rightEdge = new GradientPaint(
-                    width * 2 / 3, cy, new Color(0, 0, 0, 0),
+                    width * 2 / 3, cy, RenderCache.BLACK_0,
                     width + M, cy, new Color(255, 90, 20, clampA((int)(45 * edgeAlpha * 255))));
                 g.setPaint(rightEdge);
                 g.fillRect(width * 2 / 3, -M, width / 3 + M, height + M * 2);
@@ -14499,8 +14360,7 @@ public class Renderer {
             // Film grain overlay (cinematic noise)
             if (!isPhase5) {
                 Graphics2D grg = (Graphics2D) g.create();
-                grg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER,
-                    Math.max(0f, Math.min(1f, 0.025f * masterAlpha))));
+                grg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, 0.025f * masterAlpha))));
                 int seed = (int)(time * 60);
                 for (int gy = 0; gy < height; gy += 12) {
                     for (int gx = 0; gx < width; gx += 12) {

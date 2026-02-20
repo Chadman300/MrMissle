@@ -1,5 +1,6 @@
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -252,41 +253,37 @@ public class Player {
         // Apply flicker effect if Lucky Dodge was triggered
         float alpha = 1.0f;
         if (flickerTimer > 0) {
-            // Rapid flicker between visible and semi-transparent
             alpha = (flickerTimer % 3 == 0) ? 0.3f : 1.0f;
         }
         
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        g.setComposite(RenderCache.getAlpha(alpha));
         
         // Calculate rotation angle based on velocity (pointing in movement direction)
         double angle = Math.atan2(vy, vx);
-        // If stationary, point upward
         if (vx == 0 && vy == 0) {
             angle = -Math.PI / 2;
         }
         
-        // Save original transform
-        Graphics2D g2d = (Graphics2D) g.create();
-        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-        g2d.translate(x, y);
+        // Save original transform (avoids g.create() allocation)
+        AffineTransform savedTx = g.getTransform();
+        Composite savedComp = g.getComposite();
+        
+        g.setComposite(RenderCache.getAlpha(alpha));
+        g.translate(x, y);
         
         // Apply squash/stretch transformation
-        g2d.scale(squashX, squashY);
+        g.scale(squashX, squashY);
         
         // Calculate sprite dimensions proportionally based on native size
         int spriteWidth, spriteHeight;
         if (missileSprite != null) {
-            // Get native dimensions
             int nativeWidth = missileSprite.getWidth();
             int nativeHeight = missileSprite.getHeight();
-            
-            // Scale proportionally to fit within SIZE * 2 height
             double targetHeight = SIZE * 2;
             double scale = targetHeight / nativeHeight;
             spriteWidth = (int)(nativeWidth * scale);
             spriteHeight = (int)(nativeHeight * scale);
         } else {
-            // Fallback dimensions
             spriteWidth = SIZE;
             spriteHeight = SIZE * 2;
         }
@@ -294,61 +291,58 @@ public class Player {
         // Draw dark glow shadow centered underneath
         if (Game.enableShadows && missileShadow != null) {
             double objectRotation = angle + Math.PI / 2;
-            g2d.rotate(objectRotation);
+            g.rotate(objectRotation);
             
-            // Number of layers based on shadow quality: Low=3, Medium=6, High=10
-            int layerCount = Game.shadowQuality == 1 ? 3 : Game.shadowQuality == 2 ? 6 : 10;
+            // Reduced layer count for performance: Low=2, Medium=3, High=5
+            int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
             
-            // Draw layers from outermost (largest, most transparent) to innermost
             for (int i = 0; i < layerCount; i++) {
-                // t goes from 0.0 (outermost) to 1.0 (innermost)
                 double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
                 double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
                 float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
                 
                 int lw = (int)(spriteWidth * layerScale);
                 int lh = (int)(spriteHeight * layerScale);
-                // Stretch the shorter side slightly so the shadow is more rounded
                 if (lw < lh) {
                     lw = (int)(lw * SHADOW_WIDTH_STRETCH);
                 } else {
                     lh = (int)(lh * SHADOW_WIDTH_STRETCH);
                 }
-                g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * layerAlpha));
-                g2d.drawImage(missileShadow,
+                g.setComposite(RenderCache.getAlpha(alpha * layerAlpha));
+                g.drawImage(missileShadow,
                     (int)(-lw / 2), (int)(-lh / 2 + SHADOW_GLOW_OFFSET_Y),
                     lw, lh, null);
             }
             
-            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            g2d.rotate(-objectRotation);
+            g.setComposite(RenderCache.getAlpha(alpha));
+            g.rotate(-objectRotation);
         }
         
         // Rotate for sprite drawing
-        g2d.rotate(angle + Math.PI / 2); // Back to original rotation since sprite is now pre-rotated
+        g.rotate(angle + Math.PI / 2);
         
         if (missileSprite != null) {
-            // Draw sprite with proportional dimensions
-            g2d.drawImage(missileSprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
+            g.drawImage(missileSprite, -spriteWidth/2, -spriteHeight/2, spriteWidth, spriteHeight, null);
         } else {
-            // Fallback: draw simple circle with shadow if sprite not loaded
-            g2d.setColor(new Color(0, 0, 0, 100));
-            g2d.fillOval(-SIZE/2 + 2, -SIZE/2 + 2, SIZE, SIZE);
-            g2d.setColor(new Color(255, 50, 50));
-            g2d.fillOval(-SIZE/2, -SIZE/2, SIZE, SIZE);
+            g.setColor(RenderCache.BLACK_100);
+            g.fillOval(-SIZE/2 + 2, -SIZE/2 + 2, SIZE, SIZE);
+            g.setColor(RenderCache.BULLET_RED);
+            g.fillOval(-SIZE/2, -SIZE/2, SIZE, SIZE);
         }
         
-        g2d.dispose();
+        // Restore state
+        g.setTransform(savedTx);
+        g.setComposite(savedComp);
         
         // Draw hitbox (small red dot at center) - only when hitboxes enabled
         if (Game.enableHitboxes) {
             g.setColor(Color.RED);
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.5f));
+            g.setComposite(RenderCache.getAlpha(alpha * 0.5f));
             g.fillOval((int)x - 2, (int)y - 2, 4, 4);
         }
         
         // Reset alpha
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.setComposite(RenderCache.ALPHA_FULL);
     }
     
     public boolean collidesWith(Boss boss) {

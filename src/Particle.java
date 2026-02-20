@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 
 public class Particle {
     private double x, y;
@@ -145,16 +146,21 @@ public class Particle {
                 int baseAlpha = color.getAlpha();
                 int fadedAlpha = (int)(baseAlpha * alpha * 0.6);
                 
-                // Outer soft layer (use cached color components)
+                // Use cached AlphaComposite for outer/core layers instead of new Color()
                 int r = color.getRed();
                 int gColor = color.getGreen();
                 int b = color.getBlue();
-                g.setColor(new Color(r, gColor, b, Math.max(0, fadedAlpha / 2)));
+                int outerAlpha = Math.max(0, fadedAlpha / 2);
+                int coreAlpha = Math.max(0, fadedAlpha);
+                
+                // Outer soft layer - use composite for alpha instead of color alpha
+                g.setComposite(ALPHA_CACHE[Math.min(100, outerAlpha * 100 / 255)]);
+                g.setColor(color);
                 g.fillOval((int)(x - expansionSize * 0.7), (int)(y - expansionSize * 0.7), 
                           (int)(expansionSize * 1.4), (int)(expansionSize * 1.4));
                 
                 // Core layer
-                g.setColor(new Color(r, gColor, b, Math.max(0, fadedAlpha)));
+                g.setComposite(ALPHA_CACHE[Math.min(100, coreAlpha * 100 / 255)]);
                 g.fillOval((int)(x - expansionSize/2), (int)(y - expansionSize/2), (int)expansionSize, (int)expansionSize);
                 break;
                 
@@ -168,22 +174,21 @@ public class Particle {
                 
             case DEBRIS:
                 // Draw a spinning missile fragment (small rotated rectangle)
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setComposite(ALPHA_CACHE[alphaIndex]);
-                g2d.translate(x, y);
-                g2d.rotate(rotation);
-                g2d.setColor(color);
+                // Save state instead of g.create() — avoids Graphics2D copy per particle
+                AffineTransform debrisTx = g.getTransform();
+                g.setComposite(ALPHA_CACHE[alphaIndex]);
+                g.translate(x, y);
+                g.rotate(rotation);
+                g.setColor(color);
                 int fw = (int)Math.max(2, size * 0.4);
                 int fh = (int)Math.max(4, size);
-                g2d.fillRect(-fw / 2, -fh / 2, fw, fh);
-                // Bright edge highlight
-                g2d.setColor(new Color(
-                    Math.min(255, color.getRed() + 60),
-                    Math.min(255, color.getGreen() + 60),
-                    Math.min(255, color.getBlue() + 60),
-                    color.getAlpha()));
-                g2d.fillRect(-fw / 2, -fh / 2, Math.max(1, fw / 2), fh);
-                g2d.dispose();
+                g.fillRect(-fw / 2, -fh / 2, fw, fh);
+                // Bright edge highlight — use composite for brightness instead of new Color()
+                int hiAlpha = Math.min(100, alphaIndex);
+                g.setComposite(ALPHA_CACHE[hiAlpha]);
+                g.setColor(Color.WHITE);
+                g.fillRect(-fw / 2, -fh / 2, Math.max(1, fw / 2), fh);
+                g.setTransform(debrisTx);
                 break;
         }
         
