@@ -75,17 +75,17 @@ public class PassiveUpgrade {
             case MAX_HEALTH:
                 return activeLevel; // +1 health per purchase
             case ITEM_COOLDOWN:
-                return 1.0 - (activeLevel * 0.25); // -25% cooldown
+                return 1.0 - (activeLevel * 0.125); // -12.5% cooldown (reduced from 25%)
             case BULLET_SIZE:
-                return 1.0 - (activeLevel * 0.2); // -20% bullet size
+                return 1.0 - (activeLevel * 0.12); // -12% bullet size (reduced from 20%)
             case MONEY_AND_SCORE:
                 return 1.0 + (activeLevel * 0.3); // +30% money and score
             case CRITICAL_HIT:
                 return activeLevel * 0.02; // 2% chance to instantly kill boss
             case SPEED_BOOST:
-                return 1.0 + (activeLevel * 0.2); // +20% speed
+                return 1.0 + (activeLevel * 0.15); // +15% speed (max 10 = 2.5x)
             case BULLET_SLOW:
-                return 1.0 - (activeLevel * 0.15); // -15% bullet speed
+                return 1.0 - (activeLevel * 0.075); // -7.5% bullet speed (reduced from 15%)
             case LUCKY_DODGE:
                 return activeLevel * 0.1; // 10% chance to phase through bullets
             case TARGETING:

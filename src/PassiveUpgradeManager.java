@@ -15,20 +15,20 @@ public class PassiveUpgradeManager {
     
     private void initializeUpgrades() {
         // Passive upgrades - multi-level with exponential cost scaling
-        addUpgrade("speed", "Speed Boost", "+20% movement speed per level", 
-                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 500, 5);
+        addUpgrade("speed", "Speed Boost", "+15% movement speed per level", 
+                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 500, 10);
         
-        addUpgrade("bullet_slow", "Bullet Slow", "-15% enemy bullet speed per level", 
-                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 750, 5);
+        addUpgrade("bullet_slow", "Bullet Slow", "-7.5% enemy bullet speed per level (faster bullets slowed more)", 
+                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 750, 8);
         
         addUpgrade("lucky_dodge", "Lucky Dodge", "+10% phase-through chance per level", 
                    PassiveUpgrade.UpgradeType.LUCKY_DODGE, 1000, 3);
         
-        addUpgrade("cooldown", "Quick Charge", "-25% item cooldown per level", 
-                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 3);
+        addUpgrade("cooldown", "Quick Charge", "-12.5% item cooldown per level", 
+                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5);
         
-        addUpgrade("bullet_size", "Small Bullets", "-20% enemy bullet size per level", 
-                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 4);
+        addUpgrade("bullet_size", "Small Bullets", "-12% enemy bullet size per level", 
+                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 8);
         
         addUpgrade("money_score", "Fortune & Glory", "+30% money and score per level", 
                    PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 700, 5);
@@ -37,7 +37,7 @@ public class PassiveUpgradeManager {
                    PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3);
         
         addUpgrade("targeting", "Targeting", "Much stronger auto-aim + range per level", 
-                   PassiveUpgrade.UpgradeType.TARGETING, 900, 3);
+                   PassiveUpgrade.UpgradeType.TARGETING, 900, 5);
         
         addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);

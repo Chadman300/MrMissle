@@ -379,6 +379,20 @@ public class Bullet {
         frameSpeedMultiplier *= factor;
     }
     
+    /**
+     * Apply speed-based slow: faster bullets get slowed more, slower bullets less.
+     * Uses a reference speed of 3.0 as "normal" bullet speed.
+     * Speed ratio is clamped between 0.5x and 2.0x effect.
+     */
+    public void applySpeedBasedSlow(double baseFactor) {
+        double speed = Math.sqrt(vx * vx + vy * vy);
+        double referenceSpeed = 3.0;
+        double speedRatio = Math.max(0.5, Math.min(2.0, speed / referenceSpeed));
+        double slowAmount = (1.0 - baseFactor) * speedRatio;
+        double adjustedFactor = Math.max(0.1, 1.0 - slowAmount);
+        frameSpeedMultiplier *= adjustedFactor;
+    }
+    
     // Set the frame speed multiplier directly (used for Frost Beam freeze)
     public void setFrameSpeedMultiplier(double multiplier) {
         frameSpeedMultiplier = multiplier;

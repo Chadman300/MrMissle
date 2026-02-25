@@ -4647,6 +4647,9 @@ public class Game extends JPanel implements Runnable {
         
         if (gameState != GameState.PLAYING) return;
         
+        // Skip all gameplay updates while paused or during unpause countdown
+        if (isPaused || unpauseCountdownActive) return;
+        
         // Update afterimage trail for player
         if (player != null) {
             afterimageTimer += deltaTime;
@@ -6416,7 +6419,7 @@ public class Game extends JPanel implements Runnable {
                             for (int bi = start; bi < end; bi++) {
                                 Bullet bullet = bullets.get(bi);
                                 bullet.resetFrameSpeedMultiplier();
-                                if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
+                                if (bulletSlowLevel > 0) bullet.applySpeedBasedSlow(bulletSlowMult);
                                 if (timeSlowActive) bullet.applySlow(0.15);
                                 bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
                             }
@@ -6430,7 +6433,7 @@ public class Game extends JPanel implements Runnable {
                 for (int i = 0; i < bSize; i++) {
                     Bullet bullet = bullets.get(i);
                     bullet.resetFrameSpeedMultiplier();
-                    if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
+                    if (bulletSlowLevel > 0) bullet.applySpeedBasedSlow(bulletSlowMult);
                     if (timeSlowActive) bullet.applySlow(0.15);
                     bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
                 }
@@ -8723,7 +8726,8 @@ public class Game extends JPanel implements Runnable {
         int currentY = boxY + boxPaddingV;
 
         // "NEW ATTACK!" header — using stencil title style
-        UITheme.drawTitle(g, "NEW ATTACK!", boxWidth, currentY + 50,
+        // Use full screen width so the title centers on the screen (matching the centered box)
+        UITheme.drawTitle(g, "NEW ATTACK!", width, currentY + 50,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, gradientTime,
             FontPalette.getDisplay(Font.BOLD, Math.min(50, boxWidth / 10)));
         currentY += 70;
