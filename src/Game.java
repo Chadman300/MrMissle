@@ -5677,8 +5677,9 @@ public class Game extends JPanel implements Runnable {
         {
             final double particleDt = deltaTime;
             int pSize = particles.size();
-            if (pSize > 50 && THREAD_COUNT > 1) {
-                // Parallel particle position update (particles are independent)
+            if (pSize > 300 && THREAD_COUNT > 1) {
+                // Parallel particle position update — only worth it above ~300 particles
+                // (thread submission + latch overhead exceeds benefit for small counts)
                 int chunkSize = (pSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {
@@ -6402,8 +6403,9 @@ public class Game extends JPanel implements Runnable {
             final double bulletDt = deltaTime;
             int bSize = bullets.size();
             
-            if (bSize > 80 && THREAD_COUNT > 1) {
-                // Parallel position update across thread pool
+            if (bSize > 500 && THREAD_COUNT > 1) {
+                // Parallel position update — only worth it above ~500 bullets
+                // (thread submission + latch overhead exceeds benefit for <500)
                 int chunkSize = (bSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {

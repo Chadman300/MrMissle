@@ -129,6 +129,13 @@ public class Renderer {
     // Boss shield arc strokes (cached to avoid 32 new BasicStroke per frame)
     private static final BasicStroke SHIELD_STROKE_OUTER = new BasicStroke(16f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke SHIELD_STROKE_MAIN = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    // Shockwave arc strokes (cached — was 5 new BasicStroke per frame in loop)
+    private static final BasicStroke SHOCKWAVE_STROKE_0 = new BasicStroke(12f);
+    private static final BasicStroke SHOCKWAVE_STROKE_1 = new BasicStroke(10.5f);
+    private static final BasicStroke SHOCKWAVE_STROKE_2 = new BasicStroke(9f);
+    private static final BasicStroke SHOCKWAVE_STROKE_3 = new BasicStroke(7.5f);
+    private static final BasicStroke SHOCKWAVE_STROKE_4 = new BasicStroke(6f);
+    private static final BasicStroke[] SHOCKWAVE_STROKES = { SHOCKWAVE_STROKE_0, SHOCKWAVE_STROKE_1, SHOCKWAVE_STROKE_2, SHOCKWAVE_STROKE_3, SHOCKWAVE_STROKE_4 };
 
     // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
@@ -202,6 +209,22 @@ public class Renderer {
     private static final Color RISK_BAR_BG = new Color(40, 40, 40, 200);
     private static final Color RISK_TIME_TEXT = new Color(220, 220, 220);
     private static final Color HP_GRADIENT_MEGA = new Color(200, 50, 50);
+    // Cached boss bar gradient paints (rebuilt only when HUD layout changes barX)
+    private static int cachedBossBarX = -1;
+    private static GradientPaint cachedHPGradMega, cachedHPGradNormal;
+    private static GradientPaint cachedPhaseGradAssault, cachedPhaseGradRecovery;
+    // Cached announcement base colors (used with AlphaComposite instead of per-frame Color+alpha)
+    private static final Color ANNOUNCE_BOSS_HP = new Color(255, 80, 80);
+    private static final Color ANNOUNCE_NICE = new Color(163, 190, 140);
+    private static final Color ANNOUNCE_GREAT = new Color(100, 200, 255);
+    private static final Color ANNOUNCE_AMAZING = new Color(255, 220, 100);
+    private static final Color ANNOUNCE_INCREDIBLE = new Color(255, 150, 80);
+    private static final Color ANNOUNCE_LEGENDARY = new Color(220, 130, 220);
+    private static final Color ANNOUNCE_GODLIKE = new Color(255, 100, 100);
+    private static final Color ANNOUNCE_GOLD = new Color(255, 215, 0);
+    private static final Color ANNOUNCE_GREEN = new Color(100, 255, 100);
+    private static final Color ANNOUNCE_GRAY = new Color(150, 150, 150);
+    private static final Color ANNOUNCE_RED_PINK = new Color(191, 97, 106);
 
     // Cached vignette for performance
 
@@ -5118,9 +5141,9 @@ public class Renderer {
 
             // Gradient mode
 
-            Color[] colors = getLevelGradientColors(level);
+            int palIdx = getLevelGradientPaletteIndex(level);
 
-            drawAnimatedGradient(g, width, height, time, colors);
+            drawAnimatedGradient(g, width, height, time, palIdx);
 
         } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
 
@@ -5138,9 +5161,9 @@ public class Renderer {
 
             // Fallback to gradient if images not loaded
 
-            Color[] colors = getLevelGradientColors(level);
+            int palIdx = getLevelGradientPaletteIndex(level);
 
-            drawAnimatedGradient(g, width, height, time, colors);
+            drawAnimatedGradient(g, width, height, time, palIdx);
 
         }
 
@@ -5734,20 +5757,14 @@ public class Renderer {
 
         
 
-        // Draw particles (behind sprites) - use snapshot to avoid ConcurrentModificationException
-
-        // Skip MONEY_SIGN particles here - they'll be drawn on top later
-
-        java.util.List<Particle> particleSnapshot = new java.util.ArrayList<>(particles);
-
-        for (Particle particle : particleSnapshot) {
-
+        // Draw particles (behind sprites) - indexed loop avoids ArrayList copy
+        // Safe: update() and render run sequentially on game thread
+        int particleCount = particles.size();
+        for (int pi = 0; pi < particleCount; pi++) {
+            Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() != Particle.ParticleType.MONEY_SIGN) {
-
                 particle.draw(g);
-
             }
-
         }
 
         
@@ -6221,8 +6238,9 @@ public class Renderer {
             // Draw shockwave during recovery phase (circular arc directed at player)
 
             if (boss.isShockwaveActive()) {
-
-                Graphics2D g2d = (Graphics2D) g.create();
+                // Save/restore instead of g.create() — avoids Graphics2D clone
+                Composite shockSavedComp = g.getComposite();
+                Stroke shockSavedStroke = g.getStroke();
 
                 double radius = boss.getShockwaveRadius();
 
@@ -6240,10 +6258,6 @@ public class Renderer {
 
                 // Convert angle to degrees for arc drawing
 
-                // atan2 uses screen coordinates (Y down), but drawArc uses math coordinates (Y up)
-
-                // So we negate the angle to flip it correctly
-
                 double adjustedAngle = -Math.toDegrees(angle);
 
                 int startAngleDeg = (int)(adjustedAngle - Math.toDegrees(coneAngle/2));
@@ -6252,23 +6266,21 @@ public class Renderer {
 
                 
 
-                // Draw multiple expanding circular arcs
+                // Draw multiple expanding circular arcs (reduced to 3 for perf)
 
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < 3; i++) {
 
-                    double ringRadius = radius - (i * 20);
+                    double ringRadius = radius - (i * 30);
 
                     if (ringRadius > 0) {
 
-                        // Draw filled arc background with higher opacity for visibility
-
                         float bgAlpha = (float)((1.0 - (ringRadius / 250.0)) * 0.4f) / (i * 0.3f + 1);
 
-                        g2d.setComposite(RenderCache.getAlpha(bgAlpha));
+                        g.setComposite(RenderCache.getAlpha(bgAlpha));
 
-                        g2d.setColor(RenderCache.BLUE_150_200_255);
+                        g.setColor(RenderCache.BLUE_150_200_255);
 
-                        g2d.fillArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
+                        g.fillArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
 
                                    (int)(ringRadius * 2), (int)(ringRadius * 2), 
 
@@ -6276,19 +6288,17 @@ public class Renderer {
 
                         
 
-                        // Draw arc outline with much higher opacity
-
                         float alpha = (float)((1.0 - (ringRadius / 250.0)) * 1.2f) / (i * 0.2f + 1);
 
-                        alpha = Math.min(alpha, 1.0f); // Clamp to max 1.0
+                        alpha = Math.min(alpha, 1.0f);
 
-                        g2d.setComposite(RenderCache.getAlpha(alpha));
+                        g.setComposite(RenderCache.getAlpha(alpha));
 
-                        g2d.setColor(RenderCache.BLUE_100_180_255);
+                        g.setColor(RenderCache.BLUE_100_180_255);
 
-                        g2d.setStroke(new BasicStroke(12 - i * 1.5f)); // Slightly thicker
+                        g.setStroke(SHOCKWAVE_STROKES[i]);
 
-                        g2d.drawArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
+                        g.drawArc((int)(bossX - ringRadius), (int)(bossY - ringRadius), 
 
                                    (int)(ringRadius * 2), (int)(ringRadius * 2), 
 
@@ -6298,7 +6308,8 @@ public class Renderer {
 
                 }
 
-                g2d.dispose();
+                g.setComposite(shockSavedComp);
+                g.setStroke(shockSavedStroke);
 
             }
 
@@ -6347,15 +6358,11 @@ public class Renderer {
         
 
         // Draw MONEY_SIGN particles ON TOP of player and bullets
-
-        for (Particle particle : particleSnapshot) {
-
+        for (int pi = 0; pi < particleCount; pi++) {
+            Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
-
                 particle.draw(g);
-
             }
-
         }
 
         
@@ -6746,33 +6753,16 @@ public class Renderer {
 
             
 
-            // Health bar fill (always full - boss has no health system, just vulnerability window)
-
-            GradientPaint healthGradient;
-
-            if (boss.isMegaBoss()) {
-
-                healthGradient = new GradientPaint(
-
-                    barX + 10, 0, HP_GRADIENT_MEGA,
-
-                    barX + barWidth - 10, 0, RenderCache.RED_255_100_100
-
-                );
-
-            } else {
-
-                healthGradient = new GradientPaint(
-
-                    barX + 10, 0, RenderCache.GREEN_50_150_50,
-
-                    barX + barWidth - 10, 0, RenderCache.GREEN_100_200_100
-
-                );
-
+            // Health bar fill (cached gradients, rebuilt only when barX changes)
+            if (cachedBossBarX != barX) {
+                cachedBossBarX = barX;
+                cachedHPGradMega = new GradientPaint(barX + 10, 0, HP_GRADIENT_MEGA, barX + barWidth - 10, 0, RenderCache.RED_255_100_100);
+                cachedHPGradNormal = new GradientPaint(barX + 10, 0, RenderCache.GREEN_50_150_50, barX + barWidth - 10, 0, RenderCache.GREEN_100_200_100);
+                int pbw = 150, pbx = barX + barWidth - pbw - 15;
+                cachedPhaseGradAssault = new GradientPaint(pbx, 0, RenderCache.RED_255_50_50, pbx + pbw, 0, PHASE_ASSAULT_END);
+                cachedPhaseGradRecovery = new GradientPaint(pbx, 0, PHASE_RECOVERY_START, pbx + pbw, 0, PHASE_RECOVERY_END);
             }
-
-            g.setPaint(healthGradient);
+            g.setPaint(boss.isMegaBoss() ? cachedHPGradMega : cachedHPGradNormal);
 
             g.fillRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
 
@@ -6882,31 +6872,7 @@ public class Renderer {
 
             int fillWidth = (int)(phaseBarWidth * phaseProgress);
 
-            GradientPaint phaseGradient;
-
-            if (boss.isAssaultPhase()) {
-
-                phaseGradient = new GradientPaint(
-
-                    phaseBarX, 0, RenderCache.RED_255_50_50,
-
-                    phaseBarX + phaseBarWidth, 0, PHASE_ASSAULT_END
-
-                );
-
-            } else {
-
-                phaseGradient = new GradientPaint(
-
-                    phaseBarX, 0, PHASE_RECOVERY_START,
-
-                    phaseBarX + phaseBarWidth, 0, PHASE_RECOVERY_END
-
-                );
-
-            }
-
-            g.setPaint(phaseGradient);
+            g.setPaint(boss.isAssaultPhase() ? cachedPhaseGradAssault : cachedPhaseGradRecovery);
 
             g.fillRoundRect(phaseBarX, phaseBarY + 3, fillWidth, phaseBarHeight, 4, 4);
 
@@ -7105,93 +7071,52 @@ public class Renderer {
 
             
 
-            // Draw glow/outline for better visibility
-
-            int glowAlpha = (int)(100 * alpha);
-
-            g.setColor(new Color(0, 0, 0, glowAlpha));
-
+            // Draw glow/outline (AlphaComposite instead of per-frame Color allocs)
+            Composite annSavedComp = g.getComposite();
+            g.setComposite(RenderCache.getAlpha((float)(alpha * 100.0 / 255.0)));
+            g.setColor(Color.BLACK);
             for (int ox = -3; ox <= 3; ox++) {
-
                 for (int oy = -3; oy <= 3; oy++) {
-
                     if (ox != 0 || oy != 0) {
-
                         g.drawString(announcement, textOffsetX + ox, textOffsetY + oy);
-
                     }
-
                 }
-
             }
-
             
-
             // Draw shadow
-
-            g.setColor(new Color(0, 0, 0, (int)(200 * alpha)));
-
+            g.setComposite(RenderCache.getAlpha((float)(alpha * 200.0 / 255.0)));
             g.drawString(announcement, textOffsetX + 4, textOffsetY + 4);
-
             
-
-            // Draw main text with color based on announcement
-
+            // Draw main text (cached opaque Colors + AlphaComposite for fade)
+            g.setComposite(RenderCache.getAlpha((float)alpha));
             Color announceColor;
             if (announcement.startsWith("BOSS HP:")) {
-                announceColor = new Color(255, 80, 80, (int)(255 * alpha)); // Red for boss HP
+                announceColor = ANNOUNCE_BOSS_HP;
             } else {
                 announceColor = switch(announcement) {
-
-                case "NICE!" -> new Color(163, 190, 140, (int)(255 * alpha)); // Green
-
-                case "GREAT!" -> new Color(100, 200, 255, (int)(255 * alpha)); // Bright Blue
-
-                case "AMAZING!" -> new Color(255, 220, 100, (int)(255 * alpha)); // Bright Yellow
-
-                case "INCREDIBLE!" -> new Color(255, 150, 80, (int)(255 * alpha)); // Bright Orange
-
-                case "LEGENDARY!" -> new Color(220, 130, 220, (int)(255 * alpha)); // Bright Purple
-
-                case "GODLIKE!" -> new Color(255, 100, 100, (int)(255 * alpha)); // Bright Red
-
-                case "IMPOSSIBLE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
-
-                case "CRITICAL HIT!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
-
-                case "BOSS DEFEATED!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
-
-                case "EXTRA MISSILE!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold for purchased
-                case "MISSILE USED!" -> new Color(100, 255, 100, (int)(255 * alpha)); // Green for base
-                case "LAST MISSILE!" -> new Color(255, 100, 100, (int)(255 * alpha)); // Red warning
-
-                case "PERFECT!" -> new Color(255, 215, 0, (int)(255 * alpha)); // Gold
-
-                case "DISABLED!" -> new Color(150, 150, 150, (int)(255 * alpha)); // Gray
-
-                case "KEEP MOVING!" -> new Color(191, 97, 106, (int)(255 * alpha)); // Red-pink
-
-                default -> new Color(255, 255, 255, (int)(255 * alpha));
-
+                case "NICE!" -> ANNOUNCE_NICE;
+                case "GREAT!" -> ANNOUNCE_GREAT;
+                case "AMAZING!" -> ANNOUNCE_AMAZING;
+                case "INCREDIBLE!" -> ANNOUNCE_INCREDIBLE;
+                case "LEGENDARY!" -> ANNOUNCE_LEGENDARY;
+                case "GODLIKE!" -> ANNOUNCE_GODLIKE;
+                case "IMPOSSIBLE!", "CRITICAL HIT!", "BOSS DEFEATED!", "EXTRA MISSILE!", "PERFECT!" -> ANNOUNCE_GOLD;
+                case "MISSILE USED!" -> ANNOUNCE_GREEN;
+                case "LAST MISSILE!" -> ANNOUNCE_GODLIKE;
+                case "DISABLED!" -> ANNOUNCE_GRAY;
+                case "KEEP MOVING!" -> ANNOUNCE_RED_PINK;
+                default -> Color.WHITE;
                 };
             }
-
             g.setColor(announceColor);
-
             g.drawString(announcement, textOffsetX, textOffsetY);
-
             
-
             // Add shine highlight on top half
-
-            Color shineColor = new Color(255, 255, 255, (int)(80 * alpha));
-
-            g.setColor(shineColor);
-
+            g.setComposite(RenderCache.getAlpha((float)(alpha * 80.0 / 255.0)));
+            g.setColor(Color.WHITE);
             g.drawString(announcement, textOffsetX, textOffsetY - 1);
-
+            g.setComposite(annSavedComp);
             
-
             g.setTransform(announcementTransform);
 
         }
@@ -11603,84 +11528,41 @@ public class Renderer {
 
     // Optimized Balatro-style animated gradient system
 
-    private void drawAnimatedGradient(Graphics2D g, int width, int height, double time, Color[] colors) {
-
+    private void drawAnimatedGradient(Graphics2D g, int width, int height, double time, int paletteIndex) {
+        Color[] colors = LEVEL_GRADIENT_PALETTES[paletteIndex];
+        Color[] derived = LEVEL_GRADIENT_DERIVED[paletteIndex];
         // Determine offsets based on animation setting
-
         int offset1 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.5) * 150) : 0;
-
         int offset2 = Game.enableGradientAnimation ? (int)(Math.cos(time * 0.4) * 120) : 0;
-
         int offset3 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.6) * 130) : 0;
-
         
-
         // Base layer (always drawn)
-
         GradientPaint base = new GradientPaint(
-
             0, offset1, colors[0],
-
             0, height + offset1, colors[1]
-
         );
-
         g.setPaint(base);
-
         g.fillRect(0, 0, width, height);
-
         
-
         // Draw additional layers based on quality setting
-
         if (Game.gradientQuality >= 1) {
-
-            // Second layer (Medium and High quality)
-
-            Color accentColor = new Color(
-
-                colors[2].getRed(), colors[2].getGreen(), colors[2].getBlue(), 160
-
-            );
-
+            // Second layer — cached derivative colors
             GradientPaint accent = new GradientPaint(
-
-                width / 2, offset2, accentColor,
-
-                width / 2, height + offset2, new Color(colors[2].getRed(), colors[2].getGreen(), colors[2].getBlue(), 0)
-
+                width / 2, offset2, derived[0],
+                width / 2, height + offset2, derived[1]
             );
-
             g.setPaint(accent);
-
             g.fillRect(0, 0, width, height);
-
         }
-
         
-
         if (Game.gradientQuality >= 2) {
-
-            // Third layer (High quality only)
-
-            Color midColor = new Color(
-
-                colors[1].getRed(), colors[1].getGreen(), colors[1].getBlue(), 120
-
-            );
-
+            // Third layer — cached derivative colors
             GradientPaint mid = new GradientPaint(
-
-                offset3, 0, new Color(colors[1].getRed(), colors[1].getGreen(), colors[1].getBlue(), 0),
-
-                width + offset3, height, midColor
-
+                offset3, 0, derived[3],
+                width + offset3, height, derived[2]
             );
-
             g.setPaint(mid);
-
             g.fillRect(0, 0, width, height);
-
         }
 
         
@@ -11722,11 +11604,27 @@ public class Renderer {
         { new Color(59, 66, 82), new Color(67, 76, 94), new Color(76, 86, 106) },  // 4: Orange
         { new Color(46, 52, 64), new Color(59, 66, 82), new Color(76, 86, 106) },  // 5: Teal
     };
+    // Pre-cached derivative colors for drawAnimatedGradient (avoids 4 new Color per frame)
+    private static final Color[][] LEVEL_GRADIENT_DERIVED = new Color[6][4];
+    static {
+        for (int i = 0; i < 6; i++) {
+            Color c2 = LEVEL_GRADIENT_PALETTES[i][2];
+            Color c1 = LEVEL_GRADIENT_PALETTES[i][1];
+            LEVEL_GRADIENT_DERIVED[i][0] = new Color(c2.getRed(), c2.getGreen(), c2.getBlue(), 160); // accent 160
+            LEVEL_GRADIENT_DERIVED[i][1] = new Color(c2.getRed(), c2.getGreen(), c2.getBlue(), 0);   // accent 0
+            LEVEL_GRADIENT_DERIVED[i][2] = new Color(c1.getRed(), c1.getGreen(), c1.getBlue(), 120); // mid 120
+            LEVEL_GRADIENT_DERIVED[i][3] = new Color(c1.getRed(), c1.getGreen(), c1.getBlue(), 0);   // mid 0
+        }
+    }
 
-    private Color[] getLevelGradientColors(int level) {
+    private static int getLevelGradientPaletteIndex(int level) {
         int palette = ((level - 1) / 5) % 6;
         if (palette < 0 || palette >= LEVEL_GRADIENT_PALETTES.length) palette = 0;
-        return LEVEL_GRADIENT_PALETTES[palette];
+        return palette;
+    }
+
+    private Color[] getLevelGradientColors(int level) {
+        return LEVEL_GRADIENT_PALETTES[getLevelGradientPaletteIndex(level)];
     }
 
     
@@ -11734,11 +11632,7 @@ public class Renderer {
     // Public methods for drawing backgrounds (used by Game for zoom-out edge fill)
 
     public void drawAnimatedGradientPublic(Graphics2D g, int width, int height, double time, int level) {
-
-        Color[] colors = getLevelGradientColors(level);
-
-        drawAnimatedGradient(g, width, height, time, colors);
-
+        drawAnimatedGradient(g, width, height, time, getLevelGradientPaletteIndex(level));
     }
 
     
