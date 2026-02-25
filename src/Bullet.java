@@ -30,11 +30,18 @@ public class Bullet {
     private static final Color TRAIL_YELLOW = new Color(255, 220, 0, 180);
     private static final Color TRAIL_PURPLE = new Color(200, 50, 255, 180);
     
+    // Cached warning colors (used with AlphaComposite for per-frame alpha)
+    private static final Color WARNING_COLOR_RAPID = new Color(220, 40, 40);
+    private static final Color WARNING_COLOR_NORMAL = new Color(180, 40, 40);
+    
     // Cached math constants
     private static final double TWO_PI = Math.PI * 2;
     private static final double HALF_PI = Math.PI / 2;
     private static final double SQRT_2 = Math.sqrt(2);
     private static final double INV_SQRT_2 = 1.0 / Math.sqrt(2);
+    
+    // Dynamic shadow reduction based on active bullet count
+    public static int activeBulletCount = 0;
     
     // Bullet size multiplier from passive upgrades
     private static double bulletSizeMultiplier = 1.0;
@@ -217,6 +224,7 @@ public class Bullet {
         this.explosionTimer = EXPLOSION_TIME;
         this.spriteVariant = (int)(Math.random() * 3);
         this.bounceCount = 0;
+        this.hasGrazed = false; // Must reset for pool reuse
         this.fadeOutTimer = -1;
         this.markedForFadeOut = false;
         this.freezeTimer = 0;
@@ -330,10 +338,10 @@ public class Bullet {
             case BOMB:
             case GRENADE:
             case NUKE:
-                // Slow down over time
-                double slowFactor = 0.99; // 1% slowdown per frame (less friction)
-                vx *= Math.pow(slowFactor, deltaTime);
-                vy *= Math.pow(slowFactor, deltaTime);
+                // Slow down over time (deltaTime is always 1.0 fixed timestep)
+                double slowFactor = (deltaTime == 1.0) ? 0.99 : Math.pow(0.99, deltaTime);
+                vx *= slowFactor;
+                vy *= slowFactor;
                 
                 // Count down to explosion
                 explosionTimer -= deltaTime;
@@ -505,7 +513,10 @@ public class Bullet {
             }
             
             int baseAlpha = rapidFlicker ? 255 : 180;
-            g.setColor(new Color(rapidFlicker ? 220 : 180, 40, 40, (int)(alpha * baseAlpha)));
+            // Use cached color + AlphaComposite instead of new Color per frame per bullet
+            Composite savedComp = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(alpha * baseAlpha / 255.0f));
+            g.setColor(rapidFlicker ? WARNING_COLOR_RAPID : WARNING_COLOR_NORMAL);
             int warningSize = (int)(8 + (WARNING_DURATION - warningTime) / 6);
             
             // Draw crosshair warning
@@ -516,6 +527,7 @@ public class Bullet {
             // Draw warning circle
             g.setStroke(RenderCache.getStroke(rapidFlicker ? 2f : 1.5f));
             g.drawOval((int)x - warningSize/2, (int)y - warningSize/2, warningSize, warningSize);
+            g.setComposite(savedComp); // Restore composite after warning draw
             return;
         }
         
@@ -617,8 +629,14 @@ public class Bullet {
                 
                 BufferedImage shadowSprite = bulletShadows[spriteIndex];
                 
-                // Reduced layer count for performance: Low=2, Medium=3, High=5
-                int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
+                // Dynamic shadow reduction based on bullet count (draw-call hotspot)
+                // >100 bullets = skip shadows, >50 = 1 layer, else max 2 layers
+                if (activeBulletCount > 100) {
+                    // Skip shadows entirely — this alone saves 100-500 drawImage calls/frame
+                    g.setComposite(RenderCache.getAlpha(finalAlpha));
+                    g.rotate(-objectRotation); // Undo shadow rotation; sprite rotation applied after this block
+                } else {
+                int layerCount = activeBulletCount > 50 ? 1 : 2;
                 
                 if (shadowSprite != null) {
                     int nativeBulletW = bulletSprites[spriteIndex].getWidth();
@@ -669,6 +687,7 @@ public class Bullet {
                 
                 // Reset rotation for sprite drawing
                 g.rotate(-objectRotation);
+                } // end dynamic shadow else block
             } else {
                 g.setComposite(RenderCache.getAlpha(finalAlpha));
             }
@@ -806,6 +825,8 @@ public class Bullet {
     
     public void setAge(double age) { this.age = age; }
     public void setWarningTime(double time) { this.warningTime = time; }
+    public int getSpriteVariant() { return spriteVariant; }
+    public void setSpriteVariant(int variant) { this.spriteVariant = variant; }
     
     public void multiplySpeed(double factor) {
         vx *= factor;

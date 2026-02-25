@@ -126,6 +126,9 @@ public class Renderer {
     private static final BasicStroke STROKE_2 = RenderCache.getStroke(2f);
 
     private static final BasicStroke STROKE_3 = RenderCache.getStroke(3f);
+    // Boss shield arc strokes (cached to avoid 32 new BasicStroke per frame)
+    private static final BasicStroke SHIELD_STROKE_OUTER = new BasicStroke(16f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke SHIELD_STROKE_MAIN = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 
     // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
@@ -142,16 +145,12 @@ public class Renderer {
     private static final Color PATH_LINE_COLOR = new Color(50, 55, 65);
     private static final Color ARROW_DIM = new Color(150, 150, 160);
     private static final Color BADGE_GREEN = new Color(40, 160, 60);
-    // Node fill gradient endpoint colors
-    private static final Color MEGA_COMPLETED_1 = new Color(120, 80, 40);
-    private static final Color MEGA_COMPLETED_2 = new Color(170, 130, 60);
-    private static final Color MEGA_CURRENT_1 = new Color(150, 80, 180);
-    private static final Color MEGA_CURRENT_2 = new Color(200, 120, 220);
+    // Node fill colors (pre-blended midpoints of former gradients for perf)
+    private static final Color MEGA_COMPLETED = new Color(145, 105, 50);
+    private static final Color MEGA_CURRENT = new Color(175, 100, 200);
     private static final Color MEGA_LOCKED = new Color(50, 40, 60);
-    private static final Color MINI_COMPLETED_1 = new Color(90, 75, 30);
-    private static final Color MINI_COMPLETED_2 = new Color(130, 110, 50);
-    private static final Color MINI_CURRENT_1 = new Color(60, 150, 80);
-    private static final Color MINI_CURRENT_2 = new Color(80, 200, 100);
+    private static final Color MINI_COMPLETED = new Color(110, 93, 40);
+    private static final Color MINI_CURRENT = new Color(70, 175, 90);
     private static final Color MINI_LOCKED = new Color(45, 45, 50);
     // Glow colors for sprite preview
     private static final Color GLOW_MEGA_BOSS = new Color(200, 150, 255);
@@ -173,6 +172,36 @@ public class Renderer {
     private static final Color PANEL_STATS_TEXT = new Color(160, 170, 180);
     private static final Color PANEL_LOCK_TEXT = new Color(120, 120, 130);
     private static final Color PANEL_NAV_HINT = new Color(100, 110, 130);
+
+    // â"€â"€ Cached Colors for in-level drawGame (avoid per-frame new Color()) â"€â"€
+    // Player shield arcs (6 per shield segment, per-frame)
+    private static final Color SHIELD_ARC_OUTER = new Color(60, 180, 255, 50);
+    private static final Color SHIELD_ARC_MID = new Color(80, 200, 255, 90);
+    private static final Color SHIELD_ARC_MAIN = new Color(100, 210, 255, 200);
+    private static final Color SHIELD_ARC_EDGE = new Color(200, 240, 255, 220);
+    private static final Color SHIELD_ARC_TIP = new Color(220, 250, 255, 240);
+    private static final Color SHIELD_ARC_INNER = new Color(100, 200, 255, 25);
+    private static final Color INVINCIBILITY_GLOW = new Color(255, 255, 200, 120);
+    private static final Color BOSS_DEATH_FIRE = new Color(255, 100, 0);
+    private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
+    private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
+    private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
+    // Cached level bounds Paint objects (avoids 8 Paint allocs per frame)
+    private static int cachedWorldW = -1, cachedWorldH = -1;
+    private static GradientPaint cachedTopGrad, cachedBottomGrad, cachedLeftGrad, cachedRightGrad;
+    private static java.awt.RadialGradientPaint cachedCornerTL, cachedCornerTR, cachedCornerBL, cachedCornerBR;
+    private static final Color PHASE_BAR_BG = new Color(40, 40, 50);
+    private static final Color PHASE_ASSAULT_END = new Color(255, 150, 50);
+    private static final Color PHASE_RECOVERY_START = new Color(50, 150, 255);
+    private static final Color PHASE_RECOVERY_END = new Color(100, 200, 150);
+    private static final Color MISSILE_SEG_GREEN = new Color(120, 210, 120);
+    private static final Color MISSILE_SEG_GOLD_START = new Color(200, 170, 0);
+    private static final Color MISSILE_SEG_GOLD_END = new Color(255, 225, 60);
+    private static final Color DEATH_VIGNETTE_MID = new Color(180, 30, 30, 120);
+    private static final Color DEATH_VIGNETTE_EDGE = new Color(200, 20, 20, 220);
+    private static final Color RISK_BAR_BG = new Color(40, 40, 40, 200);
+    private static final Color RISK_TIME_TEXT = new Color(220, 220, 220);
+    private static final Color HP_GRADIENT_MEGA = new Color(200, 50, 50);
 
     // Cached vignette for performance
 
@@ -3789,7 +3818,8 @@ public class Renderer {
 
             // Node shadow
 
-            g.setColor(new Color(0, 0, 0, (int)(80 * alpha)));
+            g.setComposite(RenderCache.getAlpha(alpha));
+            g.setColor(NODE_SHADOW);
 
             g.fillOval(x - nodeRadius + 5, centerY - nodeRadius + 5, nodeRadius * 2, nodeRadius * 2);
 
@@ -3815,58 +3845,12 @@ public class Renderer {
 
             
 
-            // Node fill color
-
+            // Node fill color (solid fills - avoids per-frame GradientPaint allocation)
             if (isMegaBoss) {
-
-                if (isCompleted) {
-
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MEGA_COMPLETED_1, 
-
-                                                           x + nodeRadius, centerY + nodeRadius, MEGA_COMPLETED_2);
-
-                    g.setPaint(grad);
-
-                } else if (isCurrent) {
-
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MEGA_CURRENT_1, 
-
-                                                           x + nodeRadius, centerY + nodeRadius, MEGA_CURRENT_2);
-
-                    g.setPaint(grad);
-
-                } else {
-
-                    g.setColor(MEGA_LOCKED);
-
-                }
-
+                g.setColor(isCompleted ? MEGA_COMPLETED : isCurrent ? MEGA_CURRENT : MEGA_LOCKED);
             } else {
-
-                if (isCompleted) {
-
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MINI_COMPLETED_1, 
-
-                                                           x + nodeRadius, centerY + nodeRadius, MINI_COMPLETED_2);
-
-                    g.setPaint(grad);
-
-                } else if (isCurrent) {
-
-                    GradientPaint grad = new GradientPaint(x - nodeRadius, centerY - nodeRadius, MINI_CURRENT_1, 
-
-                                                           x + nodeRadius, centerY + nodeRadius, MINI_CURRENT_2);
-
-                    g.setPaint(grad);
-
-                } else {
-
-                    g.setColor(MINI_LOCKED);
-
-                }
-
+                g.setColor(isCompleted ? MINI_COMPLETED : isCurrent ? MINI_CURRENT : MINI_LOCKED);
             }
-
             g.fillOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
 
             
@@ -5866,7 +5850,7 @@ public class Renderer {
 
                     int glowR = orbitRadius + 8 + glowPulse;
 
-                    g.setColor(new Color(60, 180, 255, 50));
+                    g.setColor(SHIELD_ARC_OUTER);
 
                     g.setStroke(new BasicStroke(14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
@@ -5876,7 +5860,7 @@ public class Renderer {
 
                     // === Mid glow arc ===
 
-                    g.setColor(new Color(80, 200, 255, 90));
+                    g.setColor(SHIELD_ARC_MID);
 
                     g.setStroke(new BasicStroke(10f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
@@ -5886,7 +5870,7 @@ public class Renderer {
 
                     // === Main shield body - thick curved line ===
 
-                    g.setColor(new Color(100, 210, 255, 200));
+                    g.setColor(SHIELD_ARC_MAIN);
 
                     g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
@@ -5898,7 +5882,7 @@ public class Renderer {
 
                     int innerR = orbitRadius - 3;
 
-                    g.setColor(new Color(200, 240, 255, 220));
+                    g.setColor(SHIELD_ARC_EDGE);
 
                     g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
 
@@ -5914,7 +5898,7 @@ public class Renderer {
 
                     int tipSize = 5;
 
-                    g.setColor(new Color(220, 250, 255, 240));
+                    g.setColor(SHIELD_ARC_TIP);
 
                     g.fillOval(px + (int)(Math.cos(tipAngle1) * orbitRadius) - tipSize/2,
 
@@ -5930,7 +5914,7 @@ public class Renderer {
 
                 // Subtle inner ring connecting all shields
 
-                g.setColor(new Color(100, 200, 255, 25));
+                g.setColor(SHIELD_ARC_INNER);
 
                 g.setStroke(RenderCache.getStroke(1.5f));
 
@@ -5962,7 +5946,7 @@ public class Renderer {
 
                 
 
-                g.setColor(new Color(255, 255, 200, 120));
+                g.setColor(INVINCIBILITY_GLOW);
 
                 g.fillOval((int)player.getX() - glowRadius / 2, 
 
@@ -6010,7 +5994,7 @@ public class Renderer {
 
             g2d.setComposite(RenderCache.getAlpha(0.3f));
 
-            g2d.setColor(new Color(255, 100, 0));
+            g2d.setColor(BOSS_DEATH_FIRE);
 
             double size = boss.getSize() * bossDeathScale;
 
@@ -6030,7 +6014,8 @@ public class Renderer {
 
             if (Game.enableBloom) {
 
-                Graphics2D bloomG = (Graphics2D) g.create();
+                // Use save/restore instead of g.create() to avoid Graphics2D clone
+                Composite savedBossBloomComp = g.getComposite();
 
                 
 
@@ -6044,49 +6029,43 @@ public class Renderer {
 
                     float pulse = 0.7f + 0.3f * (float)Math.sin(time * 6);
 
-                    bloomColor = RenderCache.WARM_255_240_200; // Warm golden white
+                    bloomColor = RenderCache.WARM_255_240_200;
 
                     
 
-                    // Draw layered bloom (larger = more transparent for soft falloff)
+                    // 2 layers instead of 4 (saves 2 fillOval per frame)
 
-                    for (int i = 4; i > 0; i--) {
+                    for (int i = 2; i > 0; i--) {
 
-                        float alpha = (0.08f * pulse) / i;
+                        float alpha = (0.12f * pulse) / i;
 
-                        bloomG.setComposite(RenderCache.getAlpha(Math.min(alpha, 1.0f)));
+                        g.setComposite(RenderCache.getAlpha(Math.min(alpha, 1.0f)));
 
-                        bloomG.setColor(bloomColor);
+                        g.setColor(bloomColor);
 
-                        double glowSize = boss.getSize() * (1.0 + i * 0.4);
+                        double glowSize = boss.getSize() * (1.0 + i * 0.6);
 
-                        bloomG.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
+                        g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
 
                     }
 
                 } else {
 
-                    // Subtle cool bloom when invulnerable
+                    // Subtle cool bloom when invulnerable — 1 layer instead of 3
 
-                    bloomColor = new Color(100, 150, 200);
+                    bloomColor = BOSS_COOL_BLOOM;
 
-                    for (int i = 3; i > 0; i--) {
+                    g.setComposite(RenderCache.getAlpha(0.04f));
 
-                        float alpha = 0.04f / i;
+                    g.setColor(bloomColor);
 
-                        bloomG.setComposite(RenderCache.getAlpha(alpha));
+                    double glowSize = boss.getSize() * 1.5;
 
-                        bloomG.setColor(bloomColor);
-
-                        double glowSize = boss.getSize() * (1.0 + i * 0.3);
-
-                        bloomG.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
-
-                    }
+                    g.fillOval((int)(boss.getX() - glowSize/2), (int)(boss.getY() - glowSize/2), (int)glowSize, (int)glowSize);
 
                 }
 
-                bloomG.dispose();
+                g.setComposite(savedBossBloomComp);
 
             }
 
@@ -6122,7 +6101,7 @@ public class Renderer {
 
                 g.setComposite(RenderCache.getAlpha(pulseAlpha));
 
-                g.setColor(new Color(80, 150, 255));
+                g.setColor(BOSS_CALM_GLOW);
 
                 double glowSize = boss.getSize() * 1.4;
 
@@ -6168,15 +6147,15 @@ public class Renderer {
 
                 
 
-                int bossShieldRadius = (int)(boss.getSize() * 1.4); // Bigger - fully outside the boss
+                int bossShieldRadius = (int)(boss.getSize() * 1.4);
 
                 double TWO_PI_B = Math.PI * 2;
 
-                double bossArcSpan = 35; // Degrees each arc covers (smaller per segment)
+                double bossArcSpan = 45; // Wider arcs with fewer segments
 
-                int numArcs = 8; // 8 shield arcs around boss
+                int numArcs = 5; // Reduced from 8 — saves ~30 draw calls/frame
 
-                double bossShieldAngle = time * 0.12; // Much faster rotation
+                double bossShieldAngle = time * 0.12;
 
                 int bx = (int)boss.getX();
 
@@ -6186,13 +6165,16 @@ public class Renderer {
 
                 // Color transitions from blue (full) to red/yellow (low time)
 
-                int sr = (int)(100 + 155 * (1 - timeRatio)); // 100 -> 255
+                int sr = (int)(100 + 155 * (1 - timeRatio));
 
-                int sg = (int)(210 * timeRatio); // 210 -> 0
+                int sg = (int)(210 * timeRatio);
 
-                int sb = (int)(255 * timeRatio); // 255 -> 0
+                int sb = (int)(255 * timeRatio);
 
                 
+                // Pre-compute Colors ONCE outside loop (was 40 new Color per frame)
+                Color shieldOuter = new Color(sr, sg, sb, (int)(70 * shieldAlpha));
+                Color shieldMain = new Color(sr, sg, sb, (int)(200 * shieldAlpha));
 
                 for (int i = 0; i < numArcs; i++) {
 
@@ -6203,78 +6185,24 @@ public class Renderer {
                     double startAngle = angleDeg - bossArcSpan / 2;
 
                     
-
-                    // Outer glow arc
-
-                    int glowPulse = (int)(Math.sin(time * 0.08 + i * 1.3) * 5);
-
-                    int glowR = bossShieldRadius + 12 + glowPulse;
-
-                    g.setColor(new Color(sr, sg, sb, (int)(50 * shieldAlpha)));
-
-                    g.setStroke(new BasicStroke(18f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
-                    g.drawArc(bx - glowR, by - glowR, glowR * 2, glowR * 2, (int)startAngle, (int)bossArcSpan);
-
-                    
-
-                    // Mid glow arc
-
-                    g.setColor(new Color(sr, sg, sb, (int)(90 * shieldAlpha)));
-
-                    g.setStroke(new BasicStroke(14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
+                    // Outer glow arc (merged outer+mid into one)
+                    g.setColor(shieldOuter);
+                    g.setStroke(SHIELD_STROKE_OUTER);
                     g.drawArc(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2, (int)startAngle, (int)bossArcSpan);
 
                     
-
                     // Main shield body
-
-                    g.setColor(new Color(sr, sg, sb, (int)(200 * shieldAlpha)));
-
-                    g.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
+                    g.setColor(shieldMain);
+                    g.setStroke(SHIELD_STROKE_MAIN);
                     g.drawArc(bx - bossShieldRadius, by - bossShieldRadius, bossShieldRadius * 2, bossShieldRadius * 2, (int)startAngle, (int)bossArcSpan);
-
-                    
-
-                    // Inner edge highlight
-
-                    int innerR = bossShieldRadius - 5;
-
-                    g.setColor(new Color(Math.min(255, sr + 100), Math.min(255, sg + 40), Math.min(255, sb + 40), (int)(220 * shieldAlpha)));
-
-                    g.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-
-                    g.drawArc(bx - innerR, by - innerR, innerR * 2, innerR * 2, (int)startAngle, (int)bossArcSpan);
-
-                    
-
-                    // Bright tips at arc ends
-
-                    double tipAngle1 = Math.toRadians(startAngle);
-
-                    double tipAngle2 = Math.toRadians(startAngle + bossArcSpan);
-
-                    int tipSize = 8;
-
-                    g.setColor(new Color(255, Math.min(255, sg + 40), Math.min(255, sb + 40), (int)(240 * shieldAlpha)));
-
-                    g.fillOval(bx + (int)(Math.cos(tipAngle1) * bossShieldRadius) - tipSize/2,
-
-                              by - (int)(Math.sin(tipAngle1) * bossShieldRadius) - tipSize/2, tipSize, tipSize);
-
-                    g.fillOval(bx + (int)(Math.cos(tipAngle2) * bossShieldRadius) - tipSize/2,
-
-                              by - (int)(Math.sin(tipAngle2) * bossShieldRadius) - tipSize/2, tipSize, tipSize);
 
                 }
 
                 
 
-                // Subtle inner ring connecting all arcs
+                // Subtle inner ring connecting all arcs (reuse shieldOuter color)
 
-                g.setColor(new Color(sr, sg, sb, (int)(25 * shieldAlpha)));
+                g.setColor(shieldOuter);
 
                 g.setStroke(RenderCache.getStroke(1.5f));
 
@@ -6403,7 +6331,7 @@ public class Renderer {
         
 
         // Draw bullets (including warnings for inactive bullets)
-
+        Bullet.activeBulletCount = bullets.size(); // Set for dynamic shadow reduction
         for (int i = 0; i < bullets.size(); i++) {
 
             Bullet bullet = bullets.get(i);
@@ -6566,9 +6494,7 @@ public class Renderer {
 
             int pad = 2000; // Extra padding for solid black fill beyond world
 
-            Color solidBlack = new Color(0, 0, 0, 80);
-
-            Color transparent = RenderCache.BLACK_0;
+            Color solidBlack = WORLD_EDGE_80;
 
             
 
@@ -6586,41 +6512,45 @@ public class Renderer {
 
             
 
-            // Top edge gradient (between corners only)
+            // Top edge gradient — use cached Paint objects
+            if (worldW != cachedWorldW || worldH != cachedWorldH) {
+                // Rebuild Paint cache when world size changes
+                int gs = 80; int go = 80;
+                Color sb = WORLD_EDGE_80; Color tr = RenderCache.BLACK_0;
+                cachedTopGrad = new GradientPaint(0, -go, sb, 0, -go + gs, tr);
+                cachedBottomGrad = new GradientPaint(0, worldH + go - gs, tr, 0, worldH + go, sb);
+                cachedLeftGrad = new GradientPaint(-go, 0, sb, -go + gs, 0, tr);
+                cachedRightGrad = new GradientPaint(worldW + go - gs, 0, tr, worldW + go, 0, sb);
+                float[] cd = {0.0f, 1.0f}; Color[] cc = {tr, sb};
+                cachedCornerTL = new java.awt.RadialGradientPaint((float)(-go+gs), (float)(-go+gs), (float)gs, cd, cc);
+                cachedCornerTR = new java.awt.RadialGradientPaint((float)(worldW+go-gs), (float)(-go+gs), (float)gs, cd, cc);
+                cachedCornerBL = new java.awt.RadialGradientPaint((float)(-go+gs), (float)(worldH+go-gs), (float)gs, cd, cc);
+                cachedCornerBR = new java.awt.RadialGradientPaint((float)(worldW+go-gs), (float)(worldH+go-gs), (float)gs, cd, cc);
+                cachedWorldW = worldW; cachedWorldH = worldH;
+            }
 
-            GradientPaint topGrad = new GradientPaint(0, -gradOffset, solidBlack, 0, -gradOffset + gradSize, transparent);
-
-            g.setPaint(topGrad);
+            g.setPaint(cachedTopGrad);
 
             g.fillRect(-gradOffset + gradSize, -gradOffset, worldW + gradOffset * 2 - gradSize * 2, gradSize);
 
             
 
-            // Bottom edge gradient (between corners only)
-
-            GradientPaint bottomGrad = new GradientPaint(0, worldH + gradOffset - gradSize, transparent, 0, worldH + gradOffset, solidBlack);
-
-            g.setPaint(bottomGrad);
+            // Bottom edge gradient
+            g.setPaint(cachedBottomGrad);
 
             g.fillRect(-gradOffset + gradSize, worldH + gradOffset - gradSize, worldW + gradOffset * 2 - gradSize * 2, gradSize);
 
             
 
-            // Left edge gradient (between corners only)
-
-            GradientPaint leftGrad = new GradientPaint(-gradOffset, 0, solidBlack, -gradOffset + gradSize, 0, transparent);
-
-            g.setPaint(leftGrad);
+            // Left edge gradient
+            g.setPaint(cachedLeftGrad);
 
             g.fillRect(-gradOffset, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
 
             
 
-            // Right edge gradient (between corners only)
-
-            GradientPaint rightGrad = new GradientPaint(worldW + gradOffset - gradSize, 0, transparent, worldW + gradOffset, 0, solidBlack);
-
-            g.setPaint(rightGrad);
+            // Right edge gradient
+            g.setPaint(cachedRightGrad);
 
             g.fillRect(worldW + gradOffset - gradSize, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
 
@@ -6628,19 +6558,13 @@ public class Renderer {
 
             // Corner pieces Ã¢â‚¬â€ radial gradients for smooth diagonal fade
 
-            float[] cornerDist = {0.0f, 1.0f};
-
-            Color[] cornerColors = {transparent, solidBlack};
+            // Corner pieces — use cached radial gradients
 
             
 
             // Top-left corner
 
-            g.setPaint(new java.awt.RadialGradientPaint(
-
-                (float)(-gradOffset + gradSize), (float)(-gradOffset + gradSize), (float)gradSize,
-
-                cornerDist, cornerColors));
+            g.setPaint(cachedCornerTL);
 
             g.fillRect(-gradOffset, -gradOffset, gradSize, gradSize);
 
@@ -6648,11 +6572,7 @@ public class Renderer {
 
             // Top-right corner
 
-            g.setPaint(new java.awt.RadialGradientPaint(
-
-                (float)(worldW + gradOffset - gradSize), (float)(-gradOffset + gradSize), (float)gradSize,
-
-                cornerDist, cornerColors));
+            g.setPaint(cachedCornerTR);
 
             g.fillRect(worldW + gradOffset - gradSize, -gradOffset, gradSize, gradSize);
 
@@ -6660,11 +6580,7 @@ public class Renderer {
 
             // Bottom-left corner
 
-            g.setPaint(new java.awt.RadialGradientPaint(
-
-                (float)(-gradOffset + gradSize), (float)(worldH + gradOffset - gradSize), (float)gradSize,
-
-                cornerDist, cornerColors));
+            g.setPaint(cachedCornerBL);
 
             g.fillRect(-gradOffset, worldH + gradOffset - gradSize, gradSize, gradSize);
 
@@ -6672,11 +6588,7 @@ public class Renderer {
 
             // Bottom-right corner
 
-            g.setPaint(new java.awt.RadialGradientPaint(
-
-                (float)(worldW + gradOffset - gradSize), (float)(worldH + gradOffset - gradSize), (float)gradSize,
-
-                cornerDist, cornerColors));
+            g.setPaint(cachedCornerBR);
 
             g.fillRect(worldW + gradOffset - gradSize, worldH + gradOffset - gradSize, gradSize, gradSize);
 
@@ -6842,7 +6754,7 @@ public class Renderer {
 
                 healthGradient = new GradientPaint(
 
-                    barX + 10, 0, new Color(200, 50, 50),
+                    barX + 10, 0, HP_GRADIENT_MEGA,
 
                     barX + barWidth - 10, 0, RenderCache.RED_255_100_100
 
@@ -6958,7 +6870,7 @@ public class Renderer {
 
             // Phase progress bar background
 
-            g.setColor(new Color(40, 40, 50));
+            g.setColor(PHASE_BAR_BG);
 
             g.fillRoundRect(phaseBarX, phaseBarY + 3, phaseBarWidth, phaseBarHeight, 4, 4);
 
@@ -6978,7 +6890,7 @@ public class Renderer {
 
                     phaseBarX, 0, RenderCache.RED_255_50_50,
 
-                    phaseBarX + phaseBarWidth, 0, new Color(255, 150, 50)
+                    phaseBarX + phaseBarWidth, 0, PHASE_ASSAULT_END
 
                 );
 
@@ -6986,9 +6898,9 @@ public class Renderer {
 
                 phaseGradient = new GradientPaint(
 
-                    phaseBarX, 0, new Color(50, 150, 255),
+                    phaseBarX, 0, PHASE_RECOVERY_START,
 
-                    phaseBarX + phaseBarWidth, 0, new Color(100, 200, 150)
+                    phaseBarX + phaseBarWidth, 0, PHASE_RECOVERY_END
 
                 );
 
@@ -7448,7 +7360,7 @@ public class Renderer {
 
             // Background
 
-            g.setColor(new Color(40, 40, 40, 200));
+            g.setColor(RISK_BAR_BG);
 
             g.fillRoundRect(barX, barY, barWidth, barHeight, 10, 10);
 
@@ -7510,7 +7422,7 @@ public class Renderer {
 
                 g.setFont(FontPalette.get(Font.PLAIN, 14));
 
-                g.setColor(new Color(220, 220, 220));
+                g.setColor(RISK_TIME_TEXT);
 
                 String timeText = String.format("%.1fs", timeRemaining);
 
@@ -8052,12 +7964,12 @@ public class Renderer {
                     if (s < baseMissiles) {
                         segGrad = new GradientPaint(
                             barStartX, 0, RenderCache.GREEN_50_150_50,
-                            barStartX + mBarWidth, 0, new Color(120, 210, 120)
+                            barStartX + mBarWidth, 0, MISSILE_SEG_GREEN
                         );
                     } else {
                         segGrad = new GradientPaint(
-                            barStartX, 0, new Color(200, 170, 0),
-                            barStartX + mBarWidth, 0, new Color(255, 225, 60)
+                            barStartX, 0, MISSILE_SEG_GOLD_START,
+                            barStartX + mBarWidth, 0, MISSILE_SEG_GOLD_END
                         );
                     }
                     g.setPaint(segGrad);
@@ -8357,7 +8269,7 @@ public class Renderer {
                 width / 2.0f, height / 2.0f,
                 Math.max(width, height) * 0.6f,
                 new float[]{0.0f, 0.5f, 1.0f},
-                new Color[]{RenderCache.BLACK_0, new Color(180, 30, 30, 120), new Color(200, 20, 20, 220)}
+                new Color[]{RenderCache.BLACK_0, DEATH_VIGNETTE_MID, DEATH_VIGNETTE_EDGE}
             );
             g.setPaint(deathVignette);
             g.fillRect(0, 0, width, height);
@@ -9734,7 +9646,7 @@ public class Renderer {
 
     private void drawAudioSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, GameData gameData) {
 
-        String[] settingNames = {"Sound Enabled", "Master Volume", "SFX Volume", "UI Volume", "Music Volume"};
+        String[] settingNames = {"Sound Enabled", "Master Volume", "SFX Volume", "UI Volume", "Music Volume", "Spatial Audio"};
 
         String[] settingValues = {
 
@@ -9746,7 +9658,9 @@ public class Renderer {
 
             String.format("%.0f%%", gameData.getUiVolume() * 100),
 
-            String.format("%.0f%%", gameData.getMusicVolume() * 100)
+            String.format("%.0f%%", gameData.getMusicVolume() * 100),
+
+            gameData.isSpatialAudioEnabled() ? "ON" : "OFF"
 
         };
 
@@ -9762,13 +9676,15 @@ public class Renderer {
 
             "Volume for menu sounds (clicks, navigation, etc.)",
 
-            "Volume for background music (not yet implemented)"
+            "Volume for background music (not yet implemented)",
+
+            "Stereo panning based on sound position (left/right channels)"
 
         };
 
         
 
-        float[] volumes = {0, gameData.getMasterVolume(), gameData.getSfxVolume(), gameData.getUiVolume(), gameData.getMusicVolume()};
+        float[] volumes = {0, gameData.getMasterVolume(), gameData.getSfxVolume(), gameData.getUiVolume(), gameData.getMusicVolume(), 0};
 
         drawSettingsList(g, width, height, selectedItem, time, scrollOffset, settingNames, settingValues, descriptions, true, volumes);
 
@@ -10246,7 +10162,7 @@ public class Renderer {
 
             // Value or slider
 
-            if (showSliders && sliderValues != null && i > 0) {
+            if (showSliders && sliderValues != null && i > 0 && !values[i].equals("ON") && !values[i].equals("OFF")) {
 
                 // Volume slider with +/- buttons
 
@@ -11402,34 +11318,23 @@ public class Renderer {
 
         
 
-        // Glow around bright particles (using only X/Y position)
-
-        // Create snapshot to avoid ConcurrentModificationException
-
-        java.util.List<Particle> particleSnapshot = new java.util.ArrayList<>(particles);
-
-        for (Particle p : particleSnapshot) {
-
-            if (p != null && p.isAlive()) {
-
-                // Apply glow to all particles with simple distance-based intensity
-
-                for (int i = 2; i > 0; i--) {
-
-                    float alpha = 0.05f / i;
-
-                    g.setComposite(RenderCache.getAlpha(alpha));
-
-                    g.setColor(PANEL_MEGA_LABEL); // Orange glow for particles
-
-                    double glowSize = 15 + (i * 8);
-
+        // Glow around bright particles — CAPPED for performance
+        // Skip particle bloom entirely when too many (saves 200-400 fillOval/frame)
+        int particleCount = particles.size();
+        if (particleCount <= 80) {
+            int bloomLimit = Math.min(particleCount, 20);
+            int step = Math.max(1, particleCount / Math.max(1, bloomLimit));
+            int drawn = 0;
+            for (int idx = 0; idx < particleCount && drawn < bloomLimit; idx += step) {
+                Particle p = particles.get(idx);
+                if (p != null && p.isAlive()) {
+                    g.setComposite(RenderCache.getAlpha(0.05f));
+                    g.setColor(PANEL_MEGA_LABEL);
+                    double glowSize = 23;
                     g.fillOval((int)(p.getX() - glowSize/2), (int)(p.getY() - glowSize/2), (int)glowSize, (int)glowSize);
-
+                    drawn++;
                 }
-
             }
-
         }
 
         
@@ -11786,7 +11691,7 @@ public class Renderer {
 
             g.setComposite(RenderCache.getAlpha(0.03f));
 
-            for (int i = 0; i < 150; i++) {
+            for (int i = 0; i < 40; i++) {
 
                 int x = (int)(Math.random() * width);
 

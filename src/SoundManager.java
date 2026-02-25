@@ -18,7 +18,13 @@ public class SoundManager {
     private float uiVolume = 0.45f;
     private float musicVolume = 0.5f;
     private boolean soundEnabled = true;
+    private boolean spatialAudioEnabled = true; // Spatial/surround audio panning
+    private static final float MAX_PAN = 0.85f; // Max stereo pan (never fully silent in one ear)
     private boolean soundsReady = false; // Track if sounds are preloaded
+    
+    // Proximity warning hum
+    private Clip proximityHumClip; // Looping hum clip for bullet proximity
+    private boolean proximityHumPlaying = false;
     private Clip ambientClip; // For looping ambient sound
     private Clip musicClip; // For looping background music (WAV only - convert MP3 to WAV)
     private Clip fadingOutClip; // Second clip for crossfade transitions
@@ -183,7 +189,10 @@ public class SoundManager {
         GAME_OVER(GAME_PATH + "Music/Negative/Retro Negative Melody 02 - space voice pad.wav"),
         
         // Ambient/Background
-        AMBIENT_BACKGROUND(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav");
+        AMBIENT_BACKGROUND(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav"),
+        
+        // Proximity warning hum (low-frequency pulse for nearby bullets)
+        PROXIMITY_HUM(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav");
         
         private final String path;
         
@@ -374,6 +383,194 @@ public class SoundManager {
             // Clamp to control's range
             dB = Math.max(volumeControl.getMinimum(), Math.min(dB, volumeControl.getMaximum()));
             volumeControl.setValue(dB);
+        }
+    }
+    
+    /**
+     * Set stereo pan on a clip. Tries PAN (mono) first, then BALANCE (stereo).
+     * @param clip The audio clip
+     * @param pan Value from -1.0 (full left) to 1.0 (full right)
+     */
+    private void setPan(Clip clip, float pan) {
+        if (clip == null || !spatialAudioEnabled) return;
+        pan = Math.max(-1.0f, Math.min(1.0f, pan));
+        try {
+            if (clip.isControlSupported(FloatControl.Type.PAN)) {
+                FloatControl panControl = (FloatControl) clip.getControl(FloatControl.Type.PAN);
+                panControl.setValue(pan);
+            } else if (clip.isControlSupported(FloatControl.Type.BALANCE)) {
+                FloatControl balanceControl = (FloatControl) clip.getControl(FloatControl.Type.BALANCE);
+                balanceControl.setValue(pan);
+            }
+        } catch (Exception e) {
+            // Silently ignore - some audio systems don't support panning
+        }
+    }
+    
+    /**
+     * Calculate pan value from a sound source's X position relative to the world width.
+     * @param sourceX The X position of the sound source in world coordinates
+     * @param worldWidth The total world width
+     * @return Pan value from -MAX_PAN to +MAX_PAN
+     */
+    private float calculatePan(double sourceX, double worldWidth) {
+        if (worldWidth <= 0) return 0.0f;
+        // Map sourceX from [0, worldWidth] to [-1, 1], then scale by MAX_PAN
+        float normalized = (float)((sourceX / worldWidth) * 2.0 - 1.0);
+        return Math.max(-MAX_PAN, Math.min(MAX_PAN, normalized));
+    }
+    
+    /**
+     * Play a sound with spatial panning based on the source's screen position.
+     * Falls back to normal playSound if spatial audio is disabled.
+     * @param sound The sound to play
+     * @param volumeMultiplier Volume scaling factor
+     * @param sourceX The X position of the sound source in world coordinates
+     * @param worldWidth The total world width for pan calculation
+     */
+    public void playSoundSpatial(Sound sound, float volumeMultiplier, double sourceX, double worldWidth) {
+        if (!spatialAudioEnabled) {
+            playSound(sound, volumeMultiplier);
+            return;
+        }
+        if (!soundEnabled || !soundsReady) return;
+        
+        // Apply cooldown for high-frequency sounds
+        boolean needsCooldown = sound.name().startsWith("EXPL_") || 
+                                sound.name().startsWith("BLOP_") || 
+                                sound.name().equals("GRAZE");
+        if (needsCooldown) {
+            long currentTime = System.currentTimeMillis();
+            Long lastPlayTime = soundCooldowns.get(sound.name());
+            if (lastPlayTime != null && (currentTime - lastPlayTime) < SOUND_COOLDOWN_MS) {
+                return;
+            }
+            soundCooldowns.put(sound.name(), currentTime);
+        }
+        
+        try {
+            Clip clip;
+            boolean shouldPool = sound.name().startsWith("UI_") ||
+                                sound.name().startsWith("EXPL_") ||
+                                sound.name().startsWith("BOSS_SHOOT") ||
+                                sound.name().equals("BOSS_HIT") ||
+                                sound.name().equals("GRENADE_EXPLODE") ||
+                                sound.name().equals("BEAM_WARNING") ||
+                                sound.name().equals("SCREEN_SHAKE") ||
+                                sound.name().equals("DODGE") ||
+                                sound.name().equals("PERFECT_DODGE") ||
+                                sound.name().equals("CLOSE_CALL") ||
+                                sound.name().equals("COIN_PICKUP") ||
+                                sound.name().equals("ITEM_PICKUP");
+            
+            if (shouldPool) {
+                clip = getPooledClip(sound);
+            } else {
+                clip = soundCache.get(sound.name());
+                if (clip == null) {
+                    clip = loadSound(sound);
+                }
+            }
+            
+            if (clip != null) {
+                if (clip.isRunning()) {
+                    clip.stop();
+                }
+                clip.flush();
+                clip.setFramePosition(0);
+                
+                // Set volume
+                float volume = masterVolume * volumeMultiplier;
+                if (sound.name().startsWith("UI_")) {
+                    volume *= uiVolume;
+                } else {
+                    volume *= sfxVolume;
+                }
+                if (sound == Sound.PAUSE || sound == Sound.UNPAUSE) {
+                    volume *= 0.4f;
+                }
+                if (volume < 0.001f) return;
+                
+                setVolume(clip, volume);
+                
+                // Apply spatial panning
+                float pan = calculatePan(sourceX, worldWidth);
+                setPan(clip, pan);
+                
+                clip.start();
+                lastPlayedSound = sound.name();
+                lastPlayedTime = System.currentTimeMillis();
+            }
+        } catch (Exception e) {
+            System.err.println("Error playing spatial sound " + sound.name() + ": " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Start or update the proximity warning hum.
+     * Call each frame with the closest bullet distance and its X position.
+     * @param closestDistance Distance to nearest bullet (0 = on top of player)
+     * @param warningRadius Maximum distance at which hum is audible
+     * @param sourceX X position of the closest bullet for panning
+     * @param worldWidth World width for pan calculation
+     */
+    public void updateProximityHum(double closestDistance, double warningRadius, double sourceX, double worldWidth) {
+        if (!soundEnabled || !soundsReady || !spatialAudioEnabled) {
+            stopProximityHum();
+            return;
+        }
+        
+        if (closestDistance > warningRadius || closestDistance <= 0) {
+            stopProximityHum();
+            return;
+        }
+        
+        // Calculate intensity: 0 at warningRadius, 1 at distance=0
+        float intensity = (float)(1.0 - (closestDistance / warningRadius));
+        intensity = Math.max(0, Math.min(1, intensity));
+        
+        // Very subtle volume: max 0.08 * sfx * master
+        float volume = intensity * 0.08f * sfxVolume * masterVolume;
+        if (volume < 0.001f) {
+            stopProximityHum();
+            return;
+        }
+        
+        try {
+            // Start the hum clip if not already playing
+            if (!proximityHumPlaying || proximityHumClip == null || !proximityHumClip.isRunning()) {
+                if (proximityHumClip == null) {
+                    proximityHumClip = loadSoundClip(Sound.PROXIMITY_HUM);
+                }
+                if (proximityHumClip != null) {
+                    proximityHumClip.setFramePosition(0);
+                    proximityHumClip.loop(Clip.LOOP_CONTINUOUSLY);
+                    proximityHumPlaying = true;
+                }
+            }
+            
+            // Update volume and pan each frame
+            if (proximityHumClip != null && proximityHumPlaying) {
+                setVolume(proximityHumClip, volume);
+                float pan = calculatePan(sourceX, worldWidth);
+                setPan(proximityHumClip, pan);
+            }
+        } catch (Exception e) {
+            // Silently ignore proximity hum errors
+        }
+    }
+    
+    /**
+     * Stop the proximity warning hum.
+     */
+    public void stopProximityHum() {
+        if (proximityHumPlaying && proximityHumClip != null) {
+            try {
+                proximityHumClip.stop();
+            } catch (Exception e) {
+                // Ignore
+            }
+            proximityHumPlaying = false;
         }
     }
     
@@ -641,6 +838,15 @@ public class SoundManager {
             stopAmbientSound();
             stopMusic();
             stopAllSounds();
+            stopProximityHum();
+        }
+    }
+    
+    public boolean isSpatialAudioEnabled() { return spatialAudioEnabled; }
+    public void setSpatialAudioEnabled(boolean enabled) { 
+        this.spatialAudioEnabled = enabled; 
+        if (!enabled) {
+            stopProximityHum();
         }
     }
 }

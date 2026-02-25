@@ -29,7 +29,7 @@ public class UITheme {
     private static BufferedImage cachedFullBg = null;
     private static int cachedFullBgW = 0, cachedFullBgH = 0;
     private static long lastBgUpdateNanos = 0;
-    private static final long BG_UPDATE_INTERVAL_NANOS = 100_000_000L; // 100ms
+    private static final long BG_UPDATE_INTERVAL_NANOS = 500_000_000L; // 500ms (~2fps for subtle bg animations)
 
     // ── Vignette cache (fully static — only depends on size) ─────────
     private static BufferedImage cachedVignette = null;
@@ -72,8 +72,7 @@ public class UITheme {
             // 2. Subtle metallic noise texture (procedural)
             drawMetalTexture(bg, width, height);
 
-            // 3. Warning stripes along top and bottom edges
-            drawWarningStripes(bg, width, height, time);
+            // 3. (Warning stripes drawn per-frame below, outside the cache)
 
             // 4. Radar sweep glow in bottom-right corner
             drawRadarSweep(bg, width, height, time);
@@ -89,29 +88,43 @@ public class UITheme {
         }
 
         g.drawImage(cachedFullBg, 0, 0, null);
+
+        // Warning stripes drawn every frame for smooth continuous scrolling
+        drawWarningStripes(g, width, height, time);
     }
 
+    // ── Cached gradient (nearly static — only changes on resize) ─────
+    private static BufferedImage cachedGradient = null;
+    private static int cachedGradW = 0, cachedGradH = 0;
+
     private static void drawMilitaryGradient(Graphics2D g, int width, int height, double time) {
-        // Animated gradient with military colors
-        double phase = time * 0.3;
-        float shift = (float)(Math.sin(phase) * 0.05 + 0.5);
+        // The gradient shift is nearly invisible (sin(time*0.3)*0.05 ≈ ±2.5% wobble)
+        // so we cache it and only regenerate on size change for a huge perf win.
+        if (cachedGradient == null || cachedGradW != width || cachedGradH != height) {
+            cachedGradient = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            Graphics2D gg = cachedGradient.createGraphics();
+            float shift = 0.5f; // Fixed center position (was animated ±2.5%)
 
-        GradientPaint gp1 = new GradientPaint(
-            0, 0, ColorPalette.BG_DARK,
-            width * shift, height, ColorPalette.BG_MID
-        );
-        g.setPaint(gp1);
-        g.fillRect(0, 0, width, height);
+            GradientPaint gp1 = new GradientPaint(
+                0, 0, ColorPalette.BG_DARK,
+                width * shift, height, ColorPalette.BG_MID
+            );
+            gg.setPaint(gp1);
+            gg.fillRect(0, 0, width, height);
 
-        // Second layer for depth
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
-        GradientPaint gp2 = new GradientPaint(
-            width, 0, ColorPalette.BG_LIGHT,
-            0, height, new Color(5, 5, 15, 0)
-        );
-        g.setPaint(gp2);
-        g.fillRect(0, 0, width, height);
-        g.setComposite(ColorPalette.ALPHA_FULL);
+            // Second layer for depth
+            gg.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+            GradientPaint gp2 = new GradientPaint(
+                width, 0, ColorPalette.BG_LIGHT,
+                0, height, new Color(5, 5, 15, 0)
+            );
+            gg.setPaint(gp2);
+            gg.fillRect(0, 0, width, height);
+            gg.dispose();
+            cachedGradW = width;
+            cachedGradH = height;
+        }
+        g.drawImage(cachedGradient, 0, 0, null);
     }
 
     private static void drawMetalTexture(Graphics2D g, int width, int height) {
@@ -138,32 +151,51 @@ public class UITheme {
         g.drawImage(cachedMetalBg, 0, 0, null);
     }
 
+    // ── Cached stripe tile (one repeating unit, drawn twice via drawImage) ──
+    private static BufferedImage cachedStripeTile = null;
+    private static int cachedStripeTileW = 0;
+    private static final int STRIPE_H = 6;
+    private static final int STRIPE_W = 20;
+
     private static void drawWarningStripes(Graphics2D g, int width, int height, double time) {
-        int stripeH = 6;
-        int stripeW = 20;
-        double scroll = time * 30;
-
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.35f));
-
-        // Top edge
-        for (int x = -stripeW; x < width + stripeW; x += stripeW * 2) {
-            int sx = x + (int)(scroll % (stripeW * 2));
-            g.setColor(ColorPalette.ACCENT_YELLOW);
-            g.fillRect(sx, 0, stripeW, stripeH);
-            g.setColor(ColorPalette.STRIPE_DARK);
-            g.fillRect(sx + stripeW, 0, stripeW, stripeH);
+        // Build a single-row tile that is (width + STRIPE_W*2) wide so we can scroll seamlessly
+        int tileW = width + STRIPE_W * 2;
+        if (cachedStripeTile == null || cachedStripeTileW != tileW) {
+            cachedStripeTile = new BufferedImage(tileW, STRIPE_H, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D tg = cachedStripeTile.createGraphics();
+            // Pre-bake the alpha into the tile colors
+            Color yellow = new Color(
+                ColorPalette.ACCENT_YELLOW.getRed(),
+                ColorPalette.ACCENT_YELLOW.getGreen(),
+                ColorPalette.ACCENT_YELLOW.getBlue(), 89); // 0.35 * 255 ≈ 89
+            Color dark = new Color(
+                ColorPalette.STRIPE_DARK.getRed(),
+                ColorPalette.STRIPE_DARK.getGreen(),
+                ColorPalette.STRIPE_DARK.getBlue(), 89);
+            for (int x = 0; x < tileW; x += STRIPE_W * 2) {
+                tg.setColor(yellow);
+                tg.fillRect(x, 0, STRIPE_W, STRIPE_H);
+                tg.setColor(dark);
+                tg.fillRect(x + STRIPE_W, 0, STRIPE_W, STRIPE_H);
+            }
+            tg.dispose();
+            cachedStripeTileW = tileW;
         }
 
-        // Bottom edge
-        for (int x = -stripeW; x < width + stripeW; x += stripeW * 2) {
-            int sx = x - (int)(scroll % (stripeW * 2));
-            g.setColor(ColorPalette.ACCENT_YELLOW);
-            g.fillRect(sx, height - stripeH, stripeW, stripeH);
-            g.setColor(ColorPalette.STRIPE_DARK);
-            g.fillRect(sx + stripeW, height - stripeH, stripeW, stripeH);
-        }
+        int period = STRIPE_W * 2;
+        int scrollTop = ((int)(time * 30) % period + period) % period;
+        int scrollBot = ((int)(-time * 30) % period + period) % period;
 
-        g.setComposite(ColorPalette.ALPHA_FULL);
+        // Top edge — single drawImage call
+        g.drawImage(cachedStripeTile,
+            0, 0, width, STRIPE_H,                         // dest
+            scrollTop, 0, scrollTop + width, STRIPE_H,     // src
+            null);
+        // Bottom edge — single drawImage call (opposite scroll direction)
+        g.drawImage(cachedStripeTile,
+            0, height - STRIPE_H, width, height,           // dest
+            scrollBot, 0, scrollBot + width, STRIPE_H,     // src
+            null);
     }
 
     private static void drawRadarSweep(Graphics2D g, int width, int height, double time) {

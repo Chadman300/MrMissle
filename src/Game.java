@@ -120,7 +120,15 @@ public class Game extends JPanel implements Runnable {
     private static final Color LUCKY_CHARM_GOLD = new Color(255, 215, 0, 200);
     private static final Color CRITICAL_HIT_GOLD = ColorPalette.ACCENT_YELLOW;
     private static final Color BOSS_HIT_RED = new Color(255, 80, 80);
-    
+
+    // Cached colors for particle creation (avoid per-event new Color())
+    private static final Color SPAWN_GREEN = new Color(50, 200, 80);
+    private static final Color BOMB_FLASH = new Color(255, 180, 80, 250);
+    private static final Color BOMB_SPARK = new Color(255, 220, 150);
+    private static final Color PERFECT_DODGE_FLASH = new Color(255, 255, 200, 200);
+    private static final Color FROST_BEAM_ICE = new Color(136, 192, 208);
+    private static final Color STARBURST_WARM = new Color(255, 255, 200);
+
     // Cached math constants
     private static final double TWO_PI = Math.PI * 2;
     
@@ -291,6 +299,7 @@ public class Game extends JPanel implements Runnable {
     private static final double GRAZE_DISTANCE = 25; // Distance for graze detection
     private static final double CLOSE_CALL_DISTANCE = 15; // Very close graze
     private static final double PERFECT_DODGE_DISTANCE = 8; // Frame-perfect dodge
+    private static final double PROXIMITY_WARNING_DISTANCE = 120; // Distance for proximity hum warning
     private int grazeScore = 0; // Accumulate graze score
     private int hitPauseTimer = 0; // Brief pause on impact
     private double screenFlashTimer = 0; // Screen flash on player hit
@@ -613,6 +622,15 @@ public class Game extends JPanel implements Runnable {
     private double displayedLoadingProgress = 0.0;
     private volatile boolean loadingComplete = false;
     
+    // Loading-screen window expansion
+    private java.awt.Rectangle loadingExpandBounds = null;
+    private volatile boolean loadingExpanded = false;
+    
+    /** Called by App to supply the full-screen bounds for expansion at 40% loaded. */
+    public void setLoadingExpandBounds(java.awt.Rectangle bounds) {
+        this.loadingExpandBounds = bounds;
+    }
+    
     // Save system
     private int selectedSaveSlot = 0; // Currently selected save slot index in the list
     private java.util.List<SaveManager.SaveMetadata> saveMetadataCache = new java.util.ArrayList<>(); // Dynamic save metadata
@@ -755,6 +773,7 @@ public class Game extends JPanel implements Runnable {
         soundManager.setUiVolume(gameData.getUiVolume());
         soundManager.setMusicVolume(gameData.getMusicVolume());
         soundManager.setSoundEnabled(gameData.isSoundEnabled());
+        soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
         
         // Initialize game feel effects
         hitFreezeFrames = 0;
@@ -807,37 +826,23 @@ public class Game extends JPanel implements Runnable {
         addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
             @Override
             public void mouseMoved(java.awt.event.MouseEvent e) {
-                // Transform mouse coordinates from screen space to game space
-                int panelWidth = getWidth();
-                int panelHeight = getHeight();
-                double scaleX = (double) panelWidth / WIDTH;
-                double scaleY = (double) panelHeight / HEIGHT;
-                double scale = Math.min(scaleX, scaleY);
-                int scaledWidth = (int) (WIDTH * scale);
-                int scaledHeight = (int) (HEIGHT * scale);
-                int offsetX = (panelWidth - scaledWidth) / 2;
-                int offsetY = (panelHeight - scaledHeight) / 2;
+                // Transform mouse coordinates from screen space to game space (stretch-fill)
+                double scaleX = (double) getWidth() / WIDTH;
+                double scaleY = (double) getHeight() / HEIGHT;
                 
-                mouseX = (int) ((e.getX() - offsetX) / scale);
-                mouseY = (int) ((e.getY() - offsetY) / scale);
+                mouseX = (int) (e.getX() / scaleX);
+                mouseY = (int) (e.getY() / scaleY);
                 handleMouseMove();
             }
             
             @Override
             public void mouseDragged(java.awt.event.MouseEvent e) {
-                // Transform mouse coordinates from screen space to game space
-                int panelWidth = getWidth();
-                int panelHeight = getHeight();
-                double scaleX = (double) panelWidth / WIDTH;
-                double scaleY = (double) panelHeight / HEIGHT;
-                double scale = Math.min(scaleX, scaleY);
-                int scaledWidth = (int) (WIDTH * scale);
-                int scaledHeight = (int) (HEIGHT * scale);
-                int offsetX = (panelWidth - scaledWidth) / 2;
-                int offsetY = (panelHeight - scaledHeight) / 2;
+                // Transform mouse coordinates from screen space to game space (stretch-fill)
+                double scaleX = (double) getWidth() / WIDTH;
+                double scaleY = (double) getHeight() / HEIGHT;
                 
-                mouseX = (int) ((e.getX() - offsetX) / scale);
-                mouseY = (int) ((e.getY() - offsetY) / scale);
+                mouseX = (int) (e.getX() / scaleX);
+                mouseY = (int) (e.getY() / scaleY);
                 
                 // Delegate to HUD layout editor when on HUD tab
                 if (gameState == GameState.SETTINGS && selectedSettingsCategory == 5 && renderer != null) {
@@ -849,18 +854,11 @@ public class Game extends JPanel implements Runnable {
         addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mousePressed(java.awt.event.MouseEvent e) {
-                // Transform mouse coordinates from screen space to game space
-                int panelWidth = getWidth();
-                int panelHeight = getHeight();
-                double scaleX = (double) panelWidth / WIDTH;
-                double scaleY = (double) panelHeight / HEIGHT;
-                double scale = Math.min(scaleX, scaleY);
-                int scaledWidth = (int) (WIDTH * scale);
-                int scaledHeight = (int) (HEIGHT * scale);
-                int offsetX = (panelWidth - scaledWidth) / 2;
-                int offsetY = (panelHeight - scaledHeight) / 2;
-                mouseX = (int) ((e.getX() - offsetX) / scale);
-                mouseY = (int) ((e.getY() - offsetY) / scale);
+                // Transform mouse coordinates from screen space to game space (stretch-fill)
+                double scaleX = (double) getWidth() / WIDTH;
+                double scaleY = (double) getHeight() / HEIGHT;
+                mouseX = (int) (e.getX() / scaleX);
+                mouseY = (int) (e.getY() / scaleY);
 
                 // Handle press for responsive feel
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
@@ -969,6 +967,7 @@ public class Game extends JPanel implements Runnable {
                             soundManager.setUiVolume(gameData.getUiVolume());
                             soundManager.setMusicVolume(gameData.getMusicVolume());
                             soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -1040,6 +1039,7 @@ public class Game extends JPanel implements Runnable {
                         soundManager.setUiVolume(gameData.getUiVolume());
                         soundManager.setMusicVolume(gameData.getMusicVolume());
                         soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                        soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
                         hasSavedGame = false;
                         soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                         screenShakeIntensity = 5;
@@ -1529,6 +1529,7 @@ public class Game extends JPanel implements Runnable {
                     // Regular gameplay controls
                     if (key == KeyEvent.VK_ESCAPE || (keyBindManager != null && keyBindManager.isAction(KeyBindManager.Action.PAUSE, key))) {
                         soundManager.playSound(SoundManager.Sound.PAUSE);
+                        soundManager.stopProximityHum();
                         isPaused = true;
                         selectedPauseItem = 0;
                         renderer.configurePauseMenu(debugShowcaseInGameplay);
@@ -2229,26 +2230,13 @@ public class Game extends JPanel implements Runnable {
                     // HUD tab: delegate to editor
                     renderer.hudLayoutEditor.handleMouseMoved(mouseX, mouseY, hudLayout);
                 } else {
-                // Calculate item positions based on current category
+                // Use actual button positions set by the renderer for accurate hover detection
                 int maxItems = getMaxSettingsItems();
-                int boxX = (WIDTH - 700) / 2;
-                int boxWidth = 700;
-                int itemHeight = 120;
-                int startY = 240 - (int)settingsScroll;
+                UIButton[] buttons = renderer.getSettingsButtons();
                 
                 boolean foundHover = false;
                 for (int i = 0; i <= maxItems; i++) {
-                    int boxY = startY + i * itemHeight - 20;
-                    int boxHeight = 70;
-                    
-                    // Skip if outside visible area (200 to HEIGHT - 60)
-                    if (boxY + boxHeight < 200 || boxY > HEIGHT - 90) {
-                        continue;
-                    }
-                    
-                    // Check if mouse is over this item
-                    if (mouseX >= boxX && mouseX <= boxX + boxWidth &&
-                        mouseY >= boxY && mouseY <= boxY + boxHeight) {
+                    if (i < buttons.length && buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                         if (selectedSettingsItem != i) {
                             selectedSettingsItem = i;
                             screenShakeIntensity = 1;
@@ -2461,6 +2449,7 @@ public class Game extends JPanel implements Runnable {
                             soundManager.setUiVolume(gameData.getUiVolume());
                             soundManager.setMusicVolume(gameData.getMusicVolume());
                             soundManager.setSoundEnabled(gameData.isSoundEnabled());
+                            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
                             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                             screenShakeIntensity = 5;
                             transitionToState(GameState.MENU);
@@ -3144,6 +3133,9 @@ public class Game extends JPanel implements Runnable {
     
     // Handle player death - check for missiles first
     private void handlePlayerDeath() {
+        // Stop proximity hum on death
+        soundManager.stopProximityHum();
+        
         // In debug showcase mode, player is invincible
         if (debugShowcaseMode) {
             return; // Ignore death in showcase mode
@@ -3437,6 +3429,7 @@ public class Game extends JPanel implements Runnable {
         // Restore saved objects (with null checks for safety)
         player = savedPlayer;
         currentBoss = savedBoss;
+        setupBossFactory(currentBoss);
         bullets.clear();
         if (savedBullets != null) bullets.addAll(savedBullets);
         particles.clear();
@@ -3511,6 +3504,7 @@ public class Game extends JPanel implements Runnable {
         
         // Create new boss at saved position with saved state
         currentBoss = new Boss(rs.bossX, rs.bossY, rs.bossLevel, soundManager, gameData.getGameMode());
+        setupBossFactory(currentBoss);
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(rs.bossLevel));
         currentBoss.setPosition(rs.bossX, rs.bossY);
         currentBoss.setVelocity(rs.bossVX, rs.bossVY);
@@ -3656,6 +3650,7 @@ public class Game extends JPanel implements Runnable {
         int speedLevel = getActiveSpeedLevel();
         player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, 1, soundManager, gameData.getGameMode());
+        setupBossFactory(currentBoss);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
@@ -4124,6 +4119,7 @@ public class Game extends JPanel implements Runnable {
         beamAttacks.clear();
         moneyCircles.clear(); // Clear Pool of Loot circles from previous level
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager, gameData.getGameMode()); // Normal position, will move during intro
+        setupBossFactory(currentBoss);
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
@@ -4786,7 +4782,7 @@ public class Game extends JPanel implements Runnable {
                         // Shockwave ring
                         addParticle(
                             bombX, bombY, 0, 0,
-                            new Color(255, 180, 80, 250), 18, (int)(BOMB_EXPLOSION_RADIUS * 1.3),
+                            BOMB_FLASH, 18, (int)(BOMB_EXPLOSION_RADIUS * 1.3),
                             Particle.ParticleType.EXPLOSION
                         );
                         
@@ -4810,7 +4806,7 @@ public class Game extends JPanel implements Runnable {
                             addParticle(
                                 bombX, bombY,
                                 Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(255, 220, 150), 20, 2,
+                                BOMB_SPARK, 20, 2,
                                 Particle.ParticleType.SPARK
                             );
                         }
@@ -4899,7 +4895,7 @@ public class Game extends JPanel implements Runnable {
                                 spawnX, spawnY,
                                 (Math.random() - 0.5) * 1.5, // Slight horizontal drift
                                 2.0 + Math.random() * 1.5, // Fall downward
-                                new Color(50, 200, 80), 60, 18, // Green money color, BIGGER size (was 8)
+                                SPAWN_GREEN, 60, 18, // Green money color, BIGGER size (was 8)
                                 Particle.ParticleType.MONEY_SIGN
                             );
                         }
@@ -5216,7 +5212,7 @@ public class Game extends JPanel implements Runnable {
                         if (progress > 0.1 && particles.size() < MAX_PARTICLES && Math.random() < 0.25) {
                             double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Point upward (thrusters push down)
                             double speed = 1 + Math.random() * 2;
-                            particles.add(new Particle(
+                            addParticle(
                                 currentBoss.getX() + (Math.random() - 0.5) * 30,
                                 currentBoss.getY() + currentBoss.getSize() / 2,
                                 Math.cos(angle) * speed,
@@ -5225,7 +5221,7 @@ public class Game extends JPanel implements Runnable {
                                 60 + (int)(Math.random() * 30),
                                 8.0 + Math.random() * 8.0,
                                 Particle.ParticleType.TRAIL
-                            ));
+                            );
                         }
                     }
                     
@@ -5262,7 +5258,7 @@ public class Game extends JPanel implements Runnable {
                     
                     // Add engine glow particles as boss settles - throttled
                     if (currentBoss != null && particles.size() < MAX_PARTICLES && Math.random() < 0.1) {
-                        particles.add(new Particle(
+                        addParticle(
                             currentBoss.getX() + (Math.random() - 0.5) * 40,
                             currentBoss.getY() + currentBoss.getSize() / 2,
                             (Math.random() - 0.5) * 0.5,
@@ -5271,7 +5267,7 @@ public class Game extends JPanel implements Runnable {
                             40 + (int)(Math.random() * 20),
                             6.0 + Math.random() * 6.0,
                             Particle.ParticleType.SPARK
-                        ));
+                        );
                     }
                     
                 } else {
@@ -5283,7 +5279,7 @@ public class Game extends JPanel implements Runnable {
                             for (int i = 0; i < 12 && particles.size() < MAX_PARTICLES; i++) {
                                 double angle = Math.random() * Math.PI * 2;
                                 double speed = 1 + Math.random() * 3;
-                                particles.add(new Particle(
+                                addParticle(
                                     currentBoss.getX(),
                                     currentBoss.getY(),
                                     Math.cos(angle) * speed,
@@ -5292,7 +5288,7 @@ public class Game extends JPanel implements Runnable {
                                     30 + (int)(Math.random() * 30),
                                     10.0 + Math.random() * 10.0,
                                     Particle.ParticleType.EXPLOSION
-                                ));
+                                );
                             }
                         }
                     }
@@ -5773,7 +5769,7 @@ public class Game extends JPanel implements Runnable {
                 // Trigger wobble effect immediately on hit
                 currentBoss.triggerWobble();
                 
-                soundManager.playSound(SoundManager.Sound.BOSS_HIT);
+                soundManager.playSoundSpatial(SoundManager.Sound.BOSS_HIT, 1.0f, currentBoss.getX(), WORLD_WIDTH);
                 
                 // Check for critical strike (instant kill)
                 double critChance = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.CRITICAL_HIT);
@@ -6133,13 +6129,13 @@ public class Game extends JPanel implements Runnable {
             
             // Smoke trails
             if (enableParticles && Math.random() < 0.3 * deltaTime) {
-                particles.add(new Particle(
+                addParticle(
                     currentBoss.getX() + (Math.random() - 0.5) * 60,
                     currentBoss.getY() + (Math.random() - 0.5) * 60,
                     (Math.random() - 0.5) * 2, 2 + Math.random() * 3,
                     SMOKE_GRAY, 40, 8,
                     Particle.ParticleType.SPARK
-                ));
+                );
             }
             
             // Final explosion and transition to win screen
@@ -6150,12 +6146,12 @@ public class Game extends JPanel implements Runnable {
                         double angle = Math.random() * Math.PI * 2;
                         double speed = 2 + Math.random() * 6;
                         Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
-                        particles.add(new Particle(
+                        addParticle(
                             currentBoss.getX(), currentBoss.getY(),
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
                             fireColor, 60, 8,
                             Particle.ParticleType.SPARK
-                        ));
+                        );
                     }
                 }
                 
@@ -6461,30 +6457,37 @@ public class Game extends JPanel implements Runnable {
                 // Play appropriate explosion sound based on bullet type
                 Bullet.BulletType bulletType = bullet.getType();
                 if (bulletType == Bullet.BulletType.BOMB || bulletType == Bullet.BulletType.GRENADE || bulletType == Bullet.BulletType.NUKE) {
-                    soundManager.playSound(SoundManager.Sound.GRENADE_EXPLODE, 0.6f);
+                    soundManager.playSoundSpatial(SoundManager.Sound.GRENADE_EXPLODE, 0.6f, bullet.getX(), WORLD_WIDTH);
                 } else {
                     SoundManager.Sound[] explosionSounds = {
                         SoundManager.Sound.EXPL_SHORT_1, SoundManager.Sound.EXPL_SHORT_2, 
                         SoundManager.Sound.EXPL_SHORT_3, SoundManager.Sound.EXPL_SHORT_4, 
                         SoundManager.Sound.EXPL_SHORT_5
                     };
-                    soundManager.playSound(explosionSounds[(int)(Math.random() * explosionSounds.length)], 0.4f);
+                    soundManager.playSoundSpatial(explosionSounds[(int)(Math.random() * explosionSounds.length)], 0.4f, bullet.getX(), WORLD_WIDTH);
                 }
                 
-                // Create explosion particles with shockwave
+                // Create explosion particles with shockwave (using particle pool)
                 if (enableParticles) {
                     List<Particle> explosionParticles = bullet.createExplosionParticles();
                     int particlesToAdd = bullets.size() > 200 ? explosionParticles.size() / 2 : explosionParticles.size();
                     for (int j = 0; j < particlesToAdd && particles.size() < MAX_PARTICLES; j++) {
-                        particles.add(explosionParticles.get(j));
+                        Particle ep = explosionParticles.get(j);
+                        addParticle(ep.getX(), ep.getY(), ep.getVX(), ep.getVY(), ep.getColor(), ep.getLifetime(), ep.getSize(), ep.getType());
                     }
                 }
                 
-                // Collect fragments to add after loop
+                // Collect fragments to add after loop (using bullet pool)
                 List<Bullet> fragments = bullet.createFragments();
                 if (!fragments.isEmpty()) {
                     if (newFragments == null) newFragments = new ArrayList<>();
-                    newFragments.addAll(fragments);
+                    for (Bullet frag : fragments) {
+                        Bullet pooled = getBulletFromPool();
+                        pooled.reset(frag.getX(), frag.getY(), frag.getVX(), frag.getVY(), frag.getType());
+                        pooled.setSpriteVariant(frag.getSpriteVariant());
+                        pooled.setWarningTime(0); // Fragments spawn instantly
+                        newFragments.add(pooled);
+                    }
                 }
                 returnBulletToPool(bullet);
                 continue; // Don't keep this bullet
@@ -6512,6 +6515,26 @@ public class Game extends JPanel implements Runnable {
         // Rebuild spatial grid after all bullet updates for optimized collision
         rebuildBulletGrid();
         
+        // Proximity warning hum - find closest bullet to player for subtle audio cue
+        if (player != null && !bossDeathAnimation && !deathSequenceActive) {
+            List<Bullet> nearbyForHum = getNearbyBullets(player.getX(), player.getY());
+            double closestDist = Double.MAX_VALUE;
+            double closestX = 0;
+            for (Bullet bullet : nearbyForHum) {
+                if (!bullet.isActive() || bullet.getWarningTime() > 0) continue;
+                double hdx = bullet.getX() - player.getX();
+                double hdy = bullet.getY() - player.getY();
+                double dist = Math.sqrt(hdx * hdx + hdy * hdy);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestX = bullet.getX();
+                }
+            }
+            soundManager.updateProximityHum(closestDist, PROXIMITY_WARNING_DISTANCE, closestX, WORLD_WIDTH);
+        } else {
+            soundManager.stopProximityHum();
+        }
+        
         // Shield collision check - independent of player hitbox, uses shield's visual radius
         if (player != null && !bossDeathAnimation && shieldActive && shieldHits > 0) {
             List<Bullet> nearbyForShield = getNearbyBullets(player.getX(), player.getY());
@@ -6535,7 +6558,7 @@ public class Game extends JPanel implements Runnable {
                     if (shieldHits <= 0) {
                         shieldActive = false;
                     }
-                    soundManager.playSound(SoundManager.Sound.SHIELD_BREAK);
+                    soundManager.playSoundSpatial(SoundManager.Sound.SHIELD_BREAK, 1.0f, bullet.getX(), WORLD_WIDTH);
                     bullets.remove(bullet);
                     returnBulletToPool(bullet);
                     
@@ -6552,7 +6575,7 @@ public class Game extends JPanel implements Runnable {
                             addParticle(
                                 shieldX, shieldY,
                                 Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(136, 192, 208), 30, 8,
+                                FROST_BEAM_ICE, 30, 8,
                                 Particle.ParticleType.SPARK
                             );
                         }
@@ -6660,7 +6683,7 @@ public class Game extends JPanel implements Runnable {
                     
                     if (isPerfectDodge) {
                         // PERFECT DODGE - highest reward
-                        soundManager.playSound(SoundManager.Sound.PERFECT_DODGE, 1.2f);
+                        soundManager.playSoundSpatial(SoundManager.Sound.PERFECT_DODGE, 1.2f, bullet.getX(), WORLD_WIDTH);
                         grazeValue = 5;
                         moneyBonus = (int)(25 * riskContractMultiplier);
                         particleColor = GRAZE_GOLD; // Use cached color
@@ -6680,7 +6703,7 @@ public class Game extends JPanel implements Runnable {
                         
                     } else if (isCloseCall) {
                         // CLOSE CALL - medium reward
-                        soundManager.playSound(SoundManager.Sound.CLOSE_CALL, 0.9f);
+                        soundManager.playSoundSpatial(SoundManager.Sound.CLOSE_CALL, 0.9f, bullet.getX(), WORLD_WIDTH);
                         grazeValue = 2;
                         moneyBonus = (int)(10 * riskContractMultiplier);
                         particleColor = GRAZE_GREEN; // Use cached color
@@ -6748,7 +6771,7 @@ public class Game extends JPanel implements Runnable {
                                 addParticle(
                                     player.getX(), player.getY(),
                                     Math.cos(angle) * 4, Math.sin(angle) * 4,
-                                    new Color(255, 255, 200, 200), 25, 3,
+                                    PERFECT_DODGE_FLASH, 25, 3,
                                     Particle.ParticleType.SPARK
                                 );
                             }
@@ -6770,6 +6793,17 @@ public class Game extends JPanel implements Runnable {
     private void returnBulletToPool(Bullet bullet) {
         if (bulletPool.size() < 500) { // Cap pool size
             bulletPool.add(bullet);
+        }
+    }
+    
+    /** Wire the bullet pool factory into a Boss so it reuses pooled bullets instead of allocating new ones. */
+    private void setupBossFactory(Boss boss) {
+        if (boss != null) {
+            boss.setBulletFactory((bx, by, bvx, bvy, type) -> {
+                Bullet b = getBulletFromPool();
+                b.reset(bx, by, bvx, bvy, type);
+                return b;
+            });
         }
     }
     
@@ -6972,27 +7006,10 @@ public class Game extends JPanel implements Runnable {
             buf = displayBuffer;
         }
         if (buf != null) {
-            Graphics2D g2d = (Graphics2D) g;
-            int panelWidth = getWidth();
-            int panelHeight = getHeight();
-            
-            // Calculate scaling to fit window
-            double scaleX = (double) panelWidth / WIDTH;
-            double scaleY = (double) panelHeight / HEIGHT;
-            double scale = Math.min(scaleX, scaleY);
-            int scaledWidth = (int) (WIDTH * scale);
-            int scaledHeight = (int) (HEIGHT * scale);
-            int offsetX = (panelWidth - scaledWidth) / 2;
-            int offsetY = (panelHeight - scaledHeight) / 2;
-            
-            // Fill letterbox areas
-            if (offsetX > 0 || offsetY > 0) {
-                g2d.setColor(Color.BLACK);
-                g2d.fillRect(0, 0, panelWidth, panelHeight);
-            }
-            
-            // Draw the pre-rendered buffer scaled to fit
-            g2d.drawImage(buf, offsetX, offsetY, scaledWidth, scaledHeight, null);
+            // Stretch buffer to fill the entire panel — no black bars.
+            // The window is always sized to match the screen's native aspect ratio,
+            // so distortion is negligible.
+            g.drawImage(buf, 0, 0, getWidth(), getHeight(), null);
         }
     }
     
@@ -7075,8 +7092,11 @@ public class Game extends JPanel implements Runnable {
                     
                     // Draw a semi-transparent dark overlay to make edges less prominent
                     float edgeDarkness = (float)(1.0 - totalZoom) * 0.6f; // Darker when zoomed out more
-                    g2d.setColor(new Color(0, 0, 0, (int)(edgeDarkness * 255)));
+                    Composite edgeOld = g2d.getComposite();
+                    g2d.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, edgeDarkness))));
+                    g2d.setColor(Color.BLACK);
                     g2d.fillRect(0, 0, WIDTH, HEIGHT);
+                    g2d.setComposite(edgeOld);
                 }
                 
                 g2d.translate(WIDTH / 2, HEIGHT / 2);
@@ -7332,6 +7352,10 @@ public class Game extends JPanel implements Runnable {
             if (settingIndex == 0) {
                 gameData.setSoundEnabled(!gameData.isSoundEnabled());
                 soundManager.setSoundEnabled(gameData.isSoundEnabled());
+            } else if (settingIndex == 5) {
+                // Spatial Audio toggle
+                gameData.setSpatialAudioEnabled(!gameData.isSpatialAudioEnabled());
+                soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
             }
         } else if (selectedSettingsCategory == 2) {
             // Gameplay settings
@@ -7445,6 +7469,10 @@ public class Game extends JPanel implements Runnable {
                     gameData.setMusicVolume(gameData.getMusicVolume() + step);
                     soundManager.setMusicVolume(gameData.getMusicVolume());
                     return true;
+                case 5: // Spatial Audio (toggle)
+                    gameData.setSpatialAudioEnabled(!gameData.isSpatialAudioEnabled());
+                    soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
+                    return true;
             }
         } else if (selectedSettingsCategory == 2) {
             // Gameplay settings
@@ -7512,7 +7540,7 @@ public class Game extends JPanel implements Runnable {
     
     private int getMaxSettingsItems() {
         if (selectedSettingsCategory == 0) return 16; // Graphics: 17 items (0-16)
-        if (selectedSettingsCategory == 1) return 4; // Audio: 5 items (0-4)
+        if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
         if (selectedSettingsCategory == 4) return 10; // Controls: 11 items (0-10) - Preset, Input Device, 9 actions
@@ -7570,6 +7598,8 @@ public class Game extends JPanel implements Runnable {
         soundManager.setUiVolume(1.0f);
         gameData.setMusicVolume(1.0f);
         soundManager.setMusicVolume(1.0f);
+        gameData.setSpatialAudioEnabled(true);
+        soundManager.setSpatialAudioEnabled(true);
         
         // Reset gameplay settings to defaults
         gameData.setCountdownMode(0); // None
@@ -7983,20 +8013,18 @@ public class Game extends JPanel implements Runnable {
                 frame.setBounds(screenBounds);
                 device.setFullScreenWindow(frame);
             } else {
-                // Switch to windowed - use current screen size and make 80% of it
+                // Switch to windowed - use screen's native aspect ratio so no black bars
                 device.setFullScreenWindow(null);
                 frame.dispose();
                 frame.setExtendedState(javax.swing.JFrame.NORMAL);
                 frame.setUndecorated(false);
                 
-                int windowWidth = (int)(screenBounds.width * 0.8);
-                int windowHeight = (int)(screenBounds.height * 0.8);
-                
-                // Center on the current monitor
-                int windowX = screenBounds.x + (screenBounds.width - windowWidth) / 2;
-                int windowY = screenBounds.y + (screenBounds.height - windowHeight) / 2;
-                
-                frame.setBounds(windowX, windowY, windowWidth, windowHeight);
+                // Content area at 80% screen height, locked 16:9 aspect ratio
+                int contentH = (int)(screenBounds.height * 0.8);
+                int contentW = (int)(contentH * 16.0 / 9.0);
+                setPreferredSize(new java.awt.Dimension(contentW, contentH));
+                frame.pack(); // sizes frame around content (accounts for title bar)
+                frame.setLocationRelativeTo(null); // center on screen
                 frame.setVisible(true);
             }
             
@@ -8170,6 +8198,22 @@ public class Game extends JPanel implements Runnable {
         displayedLoadingProgress += (targetLoadingProgress - displayedLoadingProgress) * smoothSpeed;
         int smoothProgress = (int)displayedLoadingProgress;
         double time = gradientTime;
+        
+        // Expand window to fullscreen at 55% loaded
+        if (!loadingExpanded && smoothProgress >= 55 && loadingExpandBounds != null) {
+            loadingExpanded = true;
+            isFullscreen = true;
+            java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
+            if (window instanceof javax.swing.JFrame) {
+                javax.swing.JFrame frame = (javax.swing.JFrame) window;
+                // Switch from decorated (windowed) to undecorated (fullscreen)
+                frame.dispose();
+                frame.setUndecorated(true);
+                frame.setBounds(loadingExpandBounds);
+                frame.setVisible(true);
+                this.requestFocusInWindow();
+            }
+        }
         
         // ── Military themed background ──────────────────────────────────
         UITheme.drawScreenBackground(g, width, height, time);
@@ -8398,13 +8442,13 @@ public class Game extends JPanel implements Runnable {
                             if (bullet.getType() == targetType) {
                                 // Create disintegration particles
                                 for (int j = 0; j < 4; j++) {
-                                    particles.add(new Particle(
+                                    addParticle(
                                         bullet.getX(), bullet.getY(),
                                         (Math.random() - 0.5) * 4,
                                         (Math.random() - 0.5) * 4,
                                         typePurgeFlashColor, 15, 20,
                                         Particle.ParticleType.SPARK
-                                    ));
+                                    );
                                 }
                                 bullets.remove(i);
                                 purgedCount++;
@@ -8500,7 +8544,7 @@ public class Game extends JPanel implements Runnable {
                                 addParticle(
                                     closestBulletToFreeze.getX(), closestBulletToFreeze.getY(),
                                     Math.cos(particleAngle) * speed, Math.sin(particleAngle) * speed,
-                                    new Color(136, 192, 208), 20, 3, // Ice blue color
+                                    FROST_BEAM_ICE, 20, 3, // Ice blue color
                                     Particle.ParticleType.SPARK
                                 );
                             }
@@ -8559,7 +8603,7 @@ public class Game extends JPanel implements Runnable {
         
         // Draw electric sparks - also semi-transparent
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 1.2f)); // Slightly brighter
-        g2d.setColor(new Color(255, 255, 200));
+        g2d.setColor(STARBURST_WARM);
         for (int i = 0; i < 6; i++) {
             double angle = (time * 8 + i * Math.PI / 3) % (Math.PI * 2);
             double dist = bossSize * 0.6;
@@ -8599,7 +8643,7 @@ public class Game extends JPanel implements Runnable {
         g.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
         
         // Draw border
-        g.setColor(new Color(136, 192, 208));
+        g.setColor(FROST_BEAM_ICE);
         g.setStroke(new BasicStroke(2));
         g.drawRoundRect(x, y, boxWidth, boxHeight, 10, 10);
         
@@ -8607,7 +8651,7 @@ public class Game extends JPanel implements Runnable {
         int iconX = x + 15;
         int iconY = y + 10;
         int iconSize = 30;
-        g.setColor(new Color(136, 192, 208));
+        g.setColor(FROST_BEAM_ICE);
         g.fillRect(iconX, iconY, iconSize, iconSize);
         g.setColor(ColorPalette.BG_DARK);
         g.fillRect(iconX + 8, iconY + 3, iconSize - 16, 8); // Label area

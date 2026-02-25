@@ -19,6 +19,14 @@ public class BeamAttack {
     private static final int WARNING_DURATION = 210; // 3.5 seconds warning (increased from 150)
     private static final int BEAM_DURATION = 45;     // 0.75 seconds active beam (increased from 30)
     
+    // Cached drawing objects to avoid per-frame allocations
+    private static final Color BEAM_GLOW = new Color(191, 97, 106, 80);
+    private static final Color BEAM_MAIN = new Color(191, 97, 106, 200);
+    private static final Color BEAM_CORE = new Color(255, 150, 150, 220);
+    private static final Color BEAM_SCANLINE = new Color(255, 200, 200, 100);
+    private static final Font WARNING_FONT = new Font("Arial", Font.BOLD, 24);
+    private static final BasicStroke WARNING_STROKE = new BasicStroke(3);
+    
     public BeamAttack(double position, double width, BeamType type) {
         this.position = position;
         this.width = width;
@@ -145,13 +153,13 @@ public class BeamAttack {
                 
                 // Draw warning borders
                 g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(WARNING_STROKE);
                 g.drawLine(x, minY, x, maxY);
                 g.drawLine(x + (int)width, minY, x + (int)width, maxY);
                 
                 // Draw warning text
                 if (warningTimer > 30) {
-                    g.setFont(new Font("Arial", Font.BOLD, 24));
+                    g.setFont(WARNING_FONT);
                     String warning = "!";
                     FontMetrics fm = g.getFontMetrics();
                     int textX = (int)(position - fm.stringWidth(warning) / 2);
@@ -167,13 +175,13 @@ public class BeamAttack {
                 
                 // Draw warning borders
                 g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
-                g.setStroke(new BasicStroke(3));
+                g.setStroke(WARNING_STROKE);
                 g.drawLine(minX, y, maxX, y);
                 g.drawLine(minX, y + (int)width, maxX, y + (int)width);
                 
                 // Draw warning text
                 if (warningTimer > 30) {
-                    g.setFont(new Font("Arial", Font.BOLD, 24));
+                    g.setFont(WARNING_FONT);
                     String warning = "!";
                     FontMetrics fm = g.getFontMetrics();
                     int textY = (int)(position + fm.getHeight() / 3);
@@ -189,19 +197,19 @@ public class BeamAttack {
                 int x = (int)(position - width / 2);
                 
                 // Outer glow
-                g.setColor(new Color(191, 97, 106, 80));
+                g.setColor(BEAM_GLOW);
                 g.fillRect(x - 10, minY, (int)width + 20, maxY - minY);
                 
                 // Main beam (red)
-                g.setColor(new Color(191, 97, 106, 200));
+                g.setColor(BEAM_MAIN);
                 g.fillRect(x, minY, (int)width, maxY - minY);
                 
                 // Inner bright core
-                g.setColor(new Color(255, 150, 150, 220));
+                g.setColor(BEAM_CORE);
                 g.fillRect(x + (int)width / 4, minY, (int)width / 2, maxY - minY);
                 
                 // Animated scanlines for effect
-                g.setColor(new Color(255, 200, 200, 100));
+                g.setColor(BEAM_SCANLINE);
                 for (int y = minY; y < maxY; y += 8) {
                     int offset = (int)((beamTimer * 10) % 8);
                     g.fillRect(x, y + offset, (int)width, 2);
@@ -210,19 +218,19 @@ public class BeamAttack {
                 int y = (int)(position - width / 2);
                 
                 // Outer glow
-                g.setColor(new Color(191, 97, 106, 80));
+                g.setColor(BEAM_GLOW);
                 g.fillRect(minX, y - 10, maxX - minX, (int)width + 20);
                 
                 // Main beam (red)
-                g.setColor(new Color(191, 97, 106, 200));
+                g.setColor(BEAM_MAIN);
                 g.fillRect(minX, y, maxX - minX, (int)width);
                 
                 // Inner bright core
-                g.setColor(new Color(255, 150, 150, 220));
+                g.setColor(BEAM_CORE);
                 g.fillRect(minX, y + (int)width / 4, maxX - minX, (int)width / 2);
                 
                 // Animated scanlines for effect
-                g.setColor(new Color(255, 200, 200, 100));
+                g.setColor(BEAM_SCANLINE);
                 for (int x = minX; x < maxX; x += 8) {
                     int offset = (int)((beamTimer * 10) % 8);
                     g.fillRect(x + offset, y, 2, (int)width);

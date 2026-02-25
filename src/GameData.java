@@ -64,6 +64,7 @@ public class GameData {
     private float uiVolume = 0.8f;
     private float musicVolume = 0.5f;
     private boolean soundEnabled = true;
+    private boolean spatialAudioEnabled = true; // Spatial/surround sound panning
     
     // Gameplay settings
     private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
@@ -475,6 +476,9 @@ public class GameData {
     
     public boolean isSoundEnabled() { return soundEnabled; }
     public void setSoundEnabled(boolean enabled) { this.soundEnabled = enabled; }
+    
+    public boolean isSpatialAudioEnabled() { return spatialAudioEnabled; }
+    public void setSpatialAudioEnabled(boolean enabled) { this.spatialAudioEnabled = enabled; }
     
     // Gameplay settings methods
     public int getCountdownMode() { return countdownMode; }

@@ -158,8 +158,8 @@ public class Player {
         vx += ax * deltaTime;
         vy += ay * deltaTime;
         
-        // Apply friction when no input
-        double frictionFactor = Math.pow(FRICTION, deltaTime);
+        // Apply friction when no input (deltaTime is always 1.0 fixed timestep)
+        double frictionFactor = (deltaTime == 1.0) ? FRICTION : Math.pow(FRICTION, deltaTime);
         if (ax == 0) vx *= frictionFactor;
         if (ay == 0) vy *= frictionFactor;
         

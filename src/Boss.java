@@ -6,6 +6,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Boss {
+    
+    /** Factory interface for creating bullets through the pool system instead of 'new Bullet()'. */
+    @FunctionalInterface
+    public interface BulletFactory {
+        Bullet create(double x, double y, double vx, double vy, Bullet.BulletType type);
+    }
+    
+    private BulletFactory bulletFactory;
+    
+    /** Set the bullet factory (should use Game's pool). Falls back to 'new Bullet()' if null. */
+    public void setBulletFactory(BulletFactory factory) {
+        this.bulletFactory = factory;
+    }
+    
+    /** Create a bullet through the factory (pooled) or fallback to new. */
+    private Bullet createBullet(double x, double y, double vx, double vy, Bullet.BulletType type) {
+        if (bulletFactory != null) {
+            return bulletFactory.create(x, y, vx, vy, type);
+        }
+        return new Bullet(x, y, vx, vy, type);
+    }
+    
     private double x, y;
     private double vx, vy; // Velocity
     private double ax, ay; // Acceleration
@@ -113,9 +135,9 @@ public class Boss {
      * This method ensures sprites are loaded and returns the appropriate sprite.
      */
     public static BufferedImage getSpriteForLevel(int level) {
-        // Ensure sprites are loaded (create temporary boss to trigger loading)
+        // Ensure sprites are loaded
         if (!spritesLoaded) {
-            Boss temp = new Boss(0, 0, 1, null);
+            loadSpritesWithProgress(null);
         }
         
         if (level == 28) {
@@ -153,7 +175,7 @@ public class Boss {
      */
     public static BufferedImage getRotorSpriteForLevel(int level) {
         if (!spritesLoaded) {
-            Boss temp = new Boss(0, 0, 1, null);
+            loadSpritesWithProgress(null);
         }
         
         if (!isHelicopterLevel(level)) return null;
@@ -182,6 +204,7 @@ public class Boss {
     
     // Sound manager for effects
     private SoundManager soundManager;
+    private int lastScreenWidth; // Cached for spatial audio in shoot methods
     
     // Boss phases
     private int maxHealth;
@@ -484,6 +507,9 @@ public class Boss {
     }
     
     public void update(List<Bullet> bullets, Player player, int screenWidth, int screenHeight, double deltaTime, List<Particle> particles) {
+        // Cache screen width for spatial audio in shoot sub-methods
+        this.lastScreenWidth = screenWidth;
+        
         // Smooth movement to target position
         moveTimer += deltaTime;
         
@@ -509,7 +535,6 @@ public class Boss {
             double centerX = screenWidth / 2.0;
             double centerY = screenHeight / 3.0; // Lowered from /4.0 to /3.0
             double radius = Math.min(screenWidth, screenHeight) / 2.0; // Increased from /3.0 to /2.0 for larger circles
-            double angle = Math.random() * Math.PI * 2;
             
             // Bias the angle to point away from player
             double angleToPlayer = Math.atan2(playerY - y, playerX - x);
@@ -558,8 +583,8 @@ public class Boss {
             ay = 0;
         }
         
-        // Apply friction (frame-rate independent)
-        double frictionFactor = Math.pow(FRICTION, deltaTime);
+        // Apply friction (deltaTime is always 1.0 fixed timestep, avoid expensive Math.pow)
+        double frictionFactor = (deltaTime == 1.0) ? FRICTION : Math.pow(FRICTION, deltaTime);
         vx *= frictionFactor;
         vy *= frictionFactor;
         
@@ -591,8 +616,8 @@ public class Boss {
         double angularAccel = rotationDiff * ANGULAR_ACCELERATION * deltaTime;
         angularVelocity += angularAccel;
         
-        // Apply angular friction (frame-rate independent)
-        angularVelocity *= Math.pow(ANGULAR_FRICTION, deltaTime);
+        // Apply angular friction (deltaTime is always 1.0 fixed timestep)
+        angularVelocity *= (deltaTime == 1.0) ? ANGULAR_FRICTION : Math.pow(ANGULAR_FRICTION, deltaTime);
         
         // Apply angular velocity to rotation
         rotation += angularVelocity * deltaTime;
@@ -600,8 +625,8 @@ public class Boss {
         // Update wobble effect (z-axis rotation)
         // Apply spring force to return to zero
         wobbleVelocity += -wobbleRotation * WOBBLE_SPRING * deltaTime;
-        // Apply damping
-        wobbleVelocity *= Math.pow(WOBBLE_DAMPING, deltaTime);
+        // Apply damping (deltaTime is always 1.0 fixed timestep)
+        wobbleVelocity *= (deltaTime == 1.0) ? WOBBLE_DAMPING : Math.pow(WOBBLE_DAMPING, deltaTime);
         // Apply velocity
         wobbleRotation += wobbleVelocity * deltaTime;
         
@@ -743,7 +768,7 @@ public class Boss {
                     shockwaveAngle = Math.atan2(player.getY() - y, player.getX() - x);
                 }
                 if (soundManager != null) {
-                    soundManager.playSound(SoundManager.Sound.MAGIC_CHARGE);
+                    soundManager.playSoundSpatial(SoundManager.Sound.MAGIC_CHARGE, 1.0f, this.x, lastScreenWidth);
                 }
             }
             
@@ -871,7 +896,7 @@ public class Boss {
             }
             // Play boss shoot sound
             if (soundManager != null && bullets.size() > bulletCountBefore) {
-                soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
+                soundManager.playSoundSpatial(SoundManager.Sound.BOSS_SHOOT, 0.25f, this.x, lastScreenWidth);
             }
             return;
         }
@@ -1000,7 +1025,7 @@ public class Boss {
                     shootSound = SoundManager.Sound.BOSS_SHOOT;
                     break;
             }
-            soundManager.playSound(shootSound, 0.25f);
+            soundManager.playSoundSpatial(shootSound, 0.25f, this.x, lastScreenWidth);
         }
     }
     
@@ -1031,14 +1056,14 @@ public class Boss {
             double angle = spiralRotation;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * spiralSpeed, Math.sin(angle) * spiralSpeed));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * spiralSpeed, Math.sin(angle) * spiralSpeed, Bullet.BulletType.NORMAL));
             
             spiralBulletsSpawned++;
             spiralRotation += 0.3; // Rotate for next bullet (creates the spiral)
             
             // Play sound for each bullet spawn (quieter)
             if (soundManager != null && spiralBulletsSpawned % 3 == 1) {
-                soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.1f);
+                soundManager.playSoundSpatial(SoundManager.Sound.BOSS_SHOOT, 0.1f, this.x, lastScreenWidth);
             }
         }
         
@@ -1054,7 +1079,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.NORMAL));
         }
     }
     
@@ -1065,7 +1090,7 @@ public class Boss {
             double angle = angleToPlayer + (i * 0.2);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 4 * speedMultiplier, Math.sin(angle) * 4 * speedMultiplier));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 4 * speedMultiplier, Math.sin(angle) * 4 * speedMultiplier, Bullet.BulletType.NORMAL));
         }
     }
     
@@ -1077,7 +1102,7 @@ public class Boss {
             double speed = (2 + Math.sin(i * 0.5) * 1.5) * speedMultiplier;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, Bullet.BulletType.NORMAL));
         }
     }
     
@@ -1088,7 +1113,7 @@ public class Boss {
             double speed = (2 + Math.random() * 2) * speedMultiplier;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, Bullet.BulletType.NORMAL));
         }
     }
     
@@ -1099,7 +1124,7 @@ public class Boss {
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.5;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 6 * speedMultiplier, Math.sin(angle) * 6 * speedMultiplier, Bullet.BulletType.FAST));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 6 * speedMultiplier, Math.sin(angle) * 6 * speedMultiplier, Bullet.BulletType.FAST));
         }
     }
     
@@ -1110,7 +1135,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.LARGE));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.LARGE));
         }
     }
     
@@ -1123,7 +1148,7 @@ public class Boss {
             double angle = angleToPlayer + (i - numBullets/2) * 0.25;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.HOMING));
         }
     }
     
@@ -1135,7 +1160,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
         }
     }
     
@@ -1149,7 +1174,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numSpiral;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.SPIRAL));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.SPIRAL));
         }
         
         // Circle of bouncing bullets
@@ -1158,7 +1183,7 @@ public class Boss {
                 double angle = Math.PI * 2 * i / 8; // Updated divisor
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
+                bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, Bullet.BulletType.BOUNCING));
             }
         }
     }
@@ -1170,7 +1195,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2 * speedMultiplier, Math.sin(angle) * 2 * speedMultiplier, Bullet.BulletType.SPIRAL));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2 * speedMultiplier, Math.sin(angle) * 2 * speedMultiplier, Bullet.BulletType.SPIRAL));
         }
     }
     
@@ -1181,7 +1206,7 @@ public class Boss {
             double angle = angleToPlayer + i * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.ACCELERATING));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.ACCELERATING));
         }
     }
     
@@ -1192,7 +1217,7 @@ public class Boss {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.WAVE));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.WAVE));
         }
     }
     
@@ -1203,7 +1228,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.0 * speedMultiplier, Math.sin(angle) * 2.0 * speedMultiplier, Bullet.BulletType.BOMB));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.0 * speedMultiplier, Math.sin(angle) * 2.0 * speedMultiplier, Bullet.BulletType.BOMB));
         }
     }
     
@@ -1215,7 +1240,7 @@ public class Boss {
             double angle = angleToPlayer + (i - numBullets/2.0) * 0.3;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.GRENADE));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, Bullet.BulletType.GRENADE));
         }
     }
     
@@ -1227,7 +1252,7 @@ public class Boss {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.NUKE));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, Bullet.BulletType.NUKE));
         }
     }
     
@@ -1261,7 +1286,7 @@ public class Boss {
             }
             // At level 3, just large and normal bullets
             
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
         }
     }
     
@@ -1290,7 +1315,7 @@ public class Boss {
                 double speed = speeds[layer] * speedMultiplier;
                 double spawnX = x + Math.cos(angle) * size * 1.5;
                 double spawnY = y + Math.sin(angle) * size * 1.5;
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, types[layer]));
+                bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, types[layer]));
             }
         }
     }
@@ -1315,7 +1340,7 @@ public class Boss {
                 
                 // Large bullets only if level >= 3
                 Bullet.BulletType type = (level >= 3 && i % 3 == 0) ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+                bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
@@ -1327,7 +1352,7 @@ public class Boss {
             Bullet.BulletType type = level >= 6 ? Bullet.BulletType.SPIRAL : 
                                      (level >= 4 ? Bullet.BulletType.FAST : 
                                      (level >= 3 ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL));
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, type));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 2.5 * speedMultiplier, Math.sin(angle) * 2.5 * speedMultiplier, type));
         }
     }
     
@@ -1355,7 +1380,7 @@ public class Boss {
                 } else {
                     type = level >= 3 ? Bullet.BulletType.LARGE : Bullet.BulletType.NORMAL;
                 }
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+                bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
@@ -1365,7 +1390,7 @@ public class Boss {
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, type));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 1.5 * speedMultiplier, Math.sin(angle) * 1.5 * speedMultiplier, type));
         }
     }
     
@@ -1387,7 +1412,7 @@ public class Boss {
                 double spawnY = y + Math.sin(angle) * size * 1.5;
                 // Wave bullets only if level >= 12
                 Bullet.BulletType type = level >= 12 ? Bullet.BulletType.WAVE : Bullet.BulletType.NORMAL;
-                bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
+                bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * speed, Math.sin(angle) * speed, type));
             }
         }
         
@@ -1397,7 +1422,7 @@ public class Boss {
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             Bullet.BulletType type = level >= 10 ? Bullet.BulletType.GRENADE : Bullet.BulletType.NORMAL;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, type));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 3 * speedMultiplier, Math.sin(angle) * 3 * speedMultiplier, type));
         }
         
         // Ring of bullets - accelerating only if level >= 9
@@ -1406,7 +1431,7 @@ public class Boss {
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
-            bullets.add(new Bullet(spawnX, spawnY, Math.cos(angle) * 1.8 * speedMultiplier, Math.sin(angle) * 1.8 * speedMultiplier, type));
+            bullets.add(createBullet(spawnX, spawnY, Math.cos(angle) * 1.8 * speedMultiplier, Math.sin(angle) * 1.8 * speedMultiplier, type));
         }
     }
     

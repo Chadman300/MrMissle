@@ -1,9 +1,10 @@
-import java.awt.GraphicsConfiguration;
+import java.awt.Dimension;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
-import java.awt.MouseInfo;
-import java.awt.Point;
+import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -25,7 +26,6 @@ public class App {
             }
             
             Game game = new Game();
-            frame.add(game);
             frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
             
             // Add window close handler to auto-save before exiting
@@ -38,30 +38,65 @@ public class App {
                 }
             });
             
-            // Find the monitor where the mouse cursor currently is
-            Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
+            // Use the default screen (primary monitor)
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-            GraphicsDevice[] screens = ge.getScreenDevices();
-            GraphicsDevice targetScreen = ge.getDefaultScreenDevice(); // Default fallback
-            
-            for (GraphicsDevice screen : screens) {
-                GraphicsConfiguration gc = screen.getDefaultConfiguration();
-                Rectangle bounds = gc.getBounds();
-                if (bounds.contains(mouseLocation)) {
-                    targetScreen = screen;
-                    break;
-                }
-            }
-            
-            // Get the bounds of the target monitor
+            GraphicsDevice targetScreen = ge.getDefaultScreenDevice();
             Rectangle screenBounds = targetScreen.getDefaultConfiguration().getBounds();
             
-            // Start in fullscreen mode with window decorations hidden
-            frame.setUndecorated(true);
-            frame.setResizable(true); // Allow resizing if user exits fullscreen
+            // Start windowed for loading screen — locked to 16:9 (1920x1080) aspect ratio
+            frame.setResizable(true);
+            int contentH = screenBounds.height / 2;
+            int contentW = (int)(contentH * 16.0 / 9.0);
             
-            // Position and size frame to fill the target monitor
-            frame.setBounds(screenBounds);
+            // Set the game panel's preferred size to the exact content dimensions
+            game.setPreferredSize(new Dimension(contentW, contentH));
+            frame.add(game);
+            frame.pack(); // sizes frame to fit content + decorations (title bar)
+            frame.setLocationRelativeTo(null); // center on screen
+            Game.isFullscreen = false; // Start windowed
+            
+            // Enforce 16:9 aspect ratio during resize (corner-drag style scaling)
+            frame.addComponentListener(new ComponentAdapter() {
+                private boolean adjusting = false;
+                private int lastW = contentW, lastH = contentH;
+                private static final double ASPECT = 16.0 / 9.0;
+                
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    if (adjusting || Game.isFullscreen) return;
+                    adjusting = true;
+                    
+                    Insets insets = frame.getInsets();
+                    int cw = frame.getWidth() - insets.left - insets.right;
+                    int ch = frame.getHeight() - insets.top - insets.bottom;
+                    
+                    boolean wChanged = (cw != lastW);
+                    boolean hChanged = (ch != lastH);
+                    
+                    int newW, newH;
+                    if (wChanged && !hChanged) {
+                        // Horizontal edge drag → derive height from width
+                        newW = cw;
+                        newH = (int)(cw / ASPECT);
+                    } else {
+                        // Vertical edge or corner drag → derive width from height
+                        newH = ch;
+                        newW = (int)(ch * ASPECT);
+                    }
+                    
+                    lastW = newW;
+                    lastH = newH;
+                    
+                    frame.setSize(newW + insets.left + insets.right,
+                                  newH + insets.top + insets.bottom);
+                    game.setPreferredSize(new Dimension(newW, newH));
+                    
+                    adjusting = false;
+                }
+            });
+            
+            // Pass screen bounds so Game can expand to fullscreen at 55%
+            game.setLoadingExpandBounds(screenBounds);
             
             frame.setVisible(true);
             game.start();

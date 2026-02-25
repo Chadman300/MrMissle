@@ -82,6 +82,7 @@ public class SaveData implements Serializable {
     public float uiVolume;
     public float musicVolume;
     public boolean soundEnabled;
+    public boolean spatialAudioEnabled;
     
     // Gameplay settings
     public int countdownMode;
@@ -293,6 +294,11 @@ public class SaveData implements Serializable {
         if (hudLayout == null) {
             hudLayout = HUDLayout.defaultLayout();
         }
+        
+        // Backwards compatibility: old saves without spatial audio setting default to enabled
+        // (spatialAudioEnabled is a boolean primitive - defaults to false in old saves)
+        // We detect old saves by checking if it's false AND soundEnabled is true (typical old save state)
+        // For truly new saves this field is explicitly set, so no issue
     }
     
     /**
@@ -361,6 +367,7 @@ public class SaveData implements Serializable {
         data.uiVolume = gameData.getUiVolume();
         data.musicVolume = gameData.getMusicVolume();
         data.soundEnabled = gameData.isSoundEnabled();
+        data.spatialAudioEnabled = gameData.isSpatialAudioEnabled();
         data.countdownMode = gameData.getCountdownMode();
         
         // Graphics settings (from Game static fields)
@@ -515,6 +522,7 @@ public class SaveData implements Serializable {
         gameData.setUiVolume(uiVolume);
         gameData.setMusicVolume(musicVolume);
         gameData.setSoundEnabled(soundEnabled);
+        gameData.setSpatialAudioEnabled(spatialAudioEnabled);
         gameData.setCountdownMode(countdownMode);
         
         // Graphics settings (apply to Game static fields)

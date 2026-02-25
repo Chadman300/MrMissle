@@ -90,9 +90,11 @@ public class Particle {
             rotation += rotationSpeed * deltaTime;
         }
         
-        // Fade out and slow down (frame-rate independent)
+        // Fade out and slow down
         lifetime -= deltaTime;
-        double damping = Math.pow(0.98, deltaTime);
+        // deltaTime is always 1.0 (fixed timestep), so Math.pow(0.98, 1.0) == 0.98
+        // Avoiding Math.pow() saves ~12,000 calls/sec at max particles
+        double damping = (deltaTime == 1.0) ? 0.98 : Math.pow(0.98, deltaTime);
         vx *= damping;
         vy *= damping;
         
@@ -202,4 +204,9 @@ public class Particle {
     public ParticleType getType() { return type; }
     public double getX() { return x; }
     public double getY() { return y; }
+    public double getVX() { return vx; }
+    public double getVY() { return vy; }
+    public Color getColor() { return color; }
+    public double getLifetime() { return lifetime; }
+    public double getSize() { return size; }
 }
