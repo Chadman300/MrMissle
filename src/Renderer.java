@@ -6500,6 +6500,15 @@ public class Renderer {
 
         {
 
+            // Snap to integer pixel coordinates to prevent subpixel gaps between
+            // the solid fills and gradient strips caused by fractional camera offsets
+            AffineTransform boundsTransform = g.getTransform();
+            double tx = boundsTransform.getTranslateX();
+            double ty = boundsTransform.getTranslateY();
+            AffineTransform snapped = new AffineTransform(boundsTransform);
+            snapped.translate(Math.round(tx) - tx, Math.round(ty) - ty);
+            g.setTransform(snapped);
+
             int worldW = Game.WORLD_WIDTH;
 
             int worldH = Game.WORLD_HEIGHT;
@@ -6545,6 +6554,9 @@ public class Renderer {
             g.drawImage(bakedCornerTR, worldW + gradOffset - gradSize, -gradOffset, null);
             g.drawImage(bakedCornerBL, -gradOffset, worldH + gradOffset - gradSize, null);
             g.drawImage(bakedCornerBR, worldW + gradOffset - gradSize, worldH + gradOffset - gradSize, null);
+
+            // Restore original (fractional) transform for game objects
+            g.setTransform(boundsTransform);
 
         }
 
