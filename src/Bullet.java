@@ -643,14 +643,9 @@ public class Bullet {
                 
                 BufferedImage shadowSprite = bulletShadows[spriteIndex];
                 
-                // Dynamic shadow reduction based on bullet count (draw-call hotspot)
-                // >100 bullets = skip shadows, >50 = 1 layer, else max 2 layers
-                if (activeBulletCount > 100) {
-                    // Skip shadows entirely — this alone saves 100-500 drawImage calls/frame
-                    g.setComposite(RenderCache.getAlpha(finalAlpha));
-                    g.rotate(-objectRotation); // Undo shadow rotation; sprite rotation applied after this block
-                } else {
-                int layerCount = activeBulletCount > 50 ? 1 : 2;
+                // Dynamic shadow reduction — always draw at least 1 layer, 2 layers when fewer bullets
+                {
+                int layerCount = activeBulletCount > 80 ? 1 : 2;
                 
                 if (shadowSprite != null) {
                     int nativeBulletW = bulletSprites[spriteIndex].getWidth();

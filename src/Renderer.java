@@ -193,10 +193,19 @@ public class Renderer {
     private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
     private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
     private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
-    // Cached level bounds Paint objects (avoids 8 Paint allocs per frame)
-    private static int cachedWorldW = -1, cachedWorldH = -1;
-    private static GradientPaint cachedTopGrad, cachedBottomGrad, cachedLeftGrad, cachedRightGrad;
-    private static java.awt.RadialGradientPaint cachedCornerTL, cachedCornerTR, cachedCornerBL, cachedCornerBR;
+    // Baked level bounds images (rendered once — eliminates 8 gradient fills per frame)
+    private static BufferedImage bakedEdgeTop, bakedEdgeBottom, bakedEdgeLeft, bakedEdgeRight;
+    private static BufferedImage bakedCornerTL, bakedCornerTR, bakedCornerBL, bakedCornerBR;
+    private static boolean levelBoundsBaked = false;
+    // Baked background gradient image (refreshes every few frames instead of 3 GradientPaint fills/frame)
+    private BufferedImage cachedBgGradient;
+    private int cachedBgPaletteIdx = -1;
+    private int bgGradientFrameCounter = 0;
+    private double lastBgTime = Double.NaN;
+    private static final int BG_GRADIENT_REFRESH_RATE = 4; // Rebuild every N frames when animated
+    // Baked death vignette image (rendered once per screen size)
+    private static BufferedImage bakedDeathVignette;
+    private static int bakedDeathVigW = -1, bakedDeathVigH = -1;
     private static final Color PHASE_BAR_BG = new Color(40, 40, 50);
     private static final Color PHASE_ASSAULT_END = new Color(255, 150, 50);
     private static final Color PHASE_RECOVERY_START = new Color(50, 150, 255);
@@ -6519,85 +6528,23 @@ public class Renderer {
 
             
 
-            // Top edge gradient — use cached Paint objects
-            if (worldW != cachedWorldW || worldH != cachedWorldH) {
-                // Rebuild Paint cache when world size changes
-                int gs = 80; int go = 80;
-                Color sb = WORLD_EDGE_80; Color tr = RenderCache.BLACK_0;
-                cachedTopGrad = new GradientPaint(0, -go, sb, 0, -go + gs, tr);
-                cachedBottomGrad = new GradientPaint(0, worldH + go - gs, tr, 0, worldH + go, sb);
-                cachedLeftGrad = new GradientPaint(-go, 0, sb, -go + gs, 0, tr);
-                cachedRightGrad = new GradientPaint(worldW + go - gs, 0, tr, worldW + go, 0, sb);
-                float[] cd = {0.0f, 1.0f}; Color[] cc = {tr, sb};
-                cachedCornerTL = new java.awt.RadialGradientPaint((float)(-go+gs), (float)(-go+gs), (float)gs, cd, cc);
-                cachedCornerTR = new java.awt.RadialGradientPaint((float)(worldW+go-gs), (float)(-go+gs), (float)gs, cd, cc);
-                cachedCornerBL = new java.awt.RadialGradientPaint((float)(-go+gs), (float)(worldH+go-gs), (float)gs, cd, cc);
-                cachedCornerBR = new java.awt.RadialGradientPaint((float)(worldW+go-gs), (float)(worldH+go-gs), (float)gs, cd, cc);
-                cachedWorldW = worldW; cachedWorldH = worldH;
+            // Bake level bounds gradient images once (world size never changes)
+            if (!levelBoundsBaked) {
+                bakeLevelBounds(worldW, worldH, gradSize, gradOffset);
+                levelBoundsBaked = true;
             }
 
-            g.setPaint(cachedTopGrad);
+            // Draw baked gradient edge strips
+            g.drawImage(bakedEdgeTop, -gradOffset + gradSize, -gradOffset, null);
+            g.drawImage(bakedEdgeBottom, -gradOffset + gradSize, worldH + gradOffset - gradSize, null);
+            g.drawImage(bakedEdgeLeft, -gradOffset, -gradOffset + gradSize, null);
+            g.drawImage(bakedEdgeRight, worldW + gradOffset - gradSize, -gradOffset + gradSize, null);
 
-            g.fillRect(-gradOffset + gradSize, -gradOffset, worldW + gradOffset * 2 - gradSize * 2, gradSize);
-
-            
-
-            // Bottom edge gradient
-            g.setPaint(cachedBottomGrad);
-
-            g.fillRect(-gradOffset + gradSize, worldH + gradOffset - gradSize, worldW + gradOffset * 2 - gradSize * 2, gradSize);
-
-            
-
-            // Left edge gradient
-            g.setPaint(cachedLeftGrad);
-
-            g.fillRect(-gradOffset, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
-
-            
-
-            // Right edge gradient
-            g.setPaint(cachedRightGrad);
-
-            g.fillRect(worldW + gradOffset - gradSize, -gradOffset + gradSize, gradSize, worldH + gradOffset * 2 - gradSize * 2);
-
-            
-
-            // Corner pieces Ã¢â‚¬â€ radial gradients for smooth diagonal fade
-
-            // Corner pieces — use cached radial gradients
-
-            
-
-            // Top-left corner
-
-            g.setPaint(cachedCornerTL);
-
-            g.fillRect(-gradOffset, -gradOffset, gradSize, gradSize);
-
-            
-
-            // Top-right corner
-
-            g.setPaint(cachedCornerTR);
-
-            g.fillRect(worldW + gradOffset - gradSize, -gradOffset, gradSize, gradSize);
-
-            
-
-            // Bottom-left corner
-
-            g.setPaint(cachedCornerBL);
-
-            g.fillRect(-gradOffset, worldH + gradOffset - gradSize, gradSize, gradSize);
-
-            
-
-            // Bottom-right corner
-
-            g.setPaint(cachedCornerBR);
-
-            g.fillRect(worldW + gradOffset - gradSize, worldH + gradOffset - gradSize, gradSize, gradSize);
+            // Draw baked gradient corner pieces
+            g.drawImage(bakedCornerTL, -gradOffset, -gradOffset, null);
+            g.drawImage(bakedCornerTR, worldW + gradOffset - gradSize, -gradOffset, null);
+            g.drawImage(bakedCornerBL, -gradOffset, worldH + gradOffset - gradSize, null);
+            g.drawImage(bakedCornerBR, worldW + gradOffset - gradSize, worldH + gradOffset - gradSize, null);
 
         }
 
@@ -8184,20 +8131,25 @@ public class Renderer {
 
         }
 
-        // Death red vignette effect (radial red overlay fading from edges)
+        // Death red vignette effect (baked image for performance)
         if (deathFlashTimer > 0) {
+            if (bakedDeathVignette == null || bakedDeathVigW != width || bakedDeathVigH != height) {
+                bakedDeathVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D dv = bakedDeathVignette.createGraphics();
+                dv.setPaint(new java.awt.RadialGradientPaint(
+                    width / 2.0f, height / 2.0f,
+                    Math.max(width, height) * 0.6f,
+                    new float[]{0.0f, 0.5f, 1.0f},
+                    new Color[]{RenderCache.BLACK_0, DEATH_VIGNETTE_MID, DEATH_VIGNETTE_EDGE}
+                ));
+                dv.fillRect(0, 0, width, height);
+                dv.dispose();
+                bakedDeathVigW = width; bakedDeathVigH = height;
+            }
             Composite _fc = g.getComposite();
             float vignetteAlpha = Math.min(0.7f, (float)deathFlashTimer / 25.0f * 0.7f);
             g.setComposite(RenderCache.getAlpha(vignetteAlpha));
-            // Red radial gradient: transparent center -> red edges
-            java.awt.RadialGradientPaint deathVignette = new java.awt.RadialGradientPaint(
-                width / 2.0f, height / 2.0f,
-                Math.max(width, height) * 0.6f,
-                new float[]{0.0f, 0.5f, 1.0f},
-                new Color[]{RenderCache.BLACK_0, DEATH_VIGNETTE_MID, DEATH_VIGNETTE_EDGE}
-            );
-            g.setPaint(deathVignette);
-            g.fillRect(0, 0, width, height);
+            g.drawImage(bakedDeathVignette, 0, 0, null);
             g.setComposite(_fc);
         }
 
@@ -11524,73 +11476,127 @@ public class Renderer {
 
     }
 
-    
+    /** Bake the 4 edge gradient strips + 4 corner radials to BufferedImages (called once). */
+    private static void bakeLevelBounds(int worldW, int worldH, int gs, int go) {
+        Color sb = WORLD_EDGE_80;
+        Color tr = RenderCache.BLACK_0;
+        float[] cd = {0.0f, 1.0f};
+        Color[] cc = {tr, sb};
+
+        int stripW = worldW + go * 2 - gs * 2; // width of top/bottom strips
+        int stripH = worldH + go * 2 - gs * 2; // height of left/right strips
+
+        // Top strip: vertical gradient sb(top) → tr(bottom)
+        bakedEdgeTop = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gt = bakedEdgeTop.createGraphics();
+        gt.setPaint(new GradientPaint(0, 0, sb, 0, gs, tr));
+        gt.fillRect(0, 0, stripW, gs);
+        gt.dispose();
+
+        // Bottom strip: vertical gradient tr(top) → sb(bottom)
+        bakedEdgeBottom = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gb = bakedEdgeBottom.createGraphics();
+        gb.setPaint(new GradientPaint(0, 0, tr, 0, gs, sb));
+        gb.fillRect(0, 0, stripW, gs);
+        gb.dispose();
+
+        // Left strip: horizontal gradient sb(left) → tr(right)
+        bakedEdgeLeft = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gl = bakedEdgeLeft.createGraphics();
+        gl.setPaint(new GradientPaint(0, 0, sb, gs, 0, tr));
+        gl.fillRect(0, 0, gs, stripH);
+        gl.dispose();
+
+        // Right strip: horizontal gradient tr(left) → sb(right)
+        bakedEdgeRight = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gr2 = bakedEdgeRight.createGraphics();
+        gr2.setPaint(new GradientPaint(0, 0, tr, gs, 0, sb));
+        gr2.fillRect(0, 0, gs, stripH);
+        gr2.dispose();
+
+        // Top-left corner: radial gradient, center at inner corner (gs, gs)
+        bakedCornerTL = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gc1 = bakedCornerTL.createGraphics();
+        gc1.setPaint(new java.awt.RadialGradientPaint((float)gs, (float)gs, (float)gs, cd, cc));
+        gc1.fillRect(0, 0, gs, gs);
+        gc1.dispose();
+
+        // Top-right corner: center at (0, gs)
+        bakedCornerTR = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gc2 = bakedCornerTR.createGraphics();
+        gc2.setPaint(new java.awt.RadialGradientPaint(0f, (float)gs, (float)gs, cd, cc));
+        gc2.fillRect(0, 0, gs, gs);
+        gc2.dispose();
+
+        // Bottom-left corner: center at (gs, 0)
+        bakedCornerBL = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gc3 = bakedCornerBL.createGraphics();
+        gc3.setPaint(new java.awt.RadialGradientPaint((float)gs, 0f, (float)gs, cd, cc));
+        gc3.fillRect(0, 0, gs, gs);
+        gc3.dispose();
+
+        // Bottom-right corner: center at (0, 0)
+        bakedCornerBR = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gc4 = bakedCornerBR.createGraphics();
+        gc4.setPaint(new java.awt.RadialGradientPaint(0f, 0f, (float)gs, cd, cc));
+        gc4.fillRect(0, 0, gs, gs);
+        gc4.dispose();
+    }
 
     // Optimized Balatro-style animated gradient system
 
     private void drawAnimatedGradient(Graphics2D g, int width, int height, double time, int paletteIndex) {
         Color[] colors = LEVEL_GRADIENT_PALETTES[paletteIndex];
         Color[] derived = LEVEL_GRADIENT_DERIVED[paletteIndex];
-        // Determine offsets based on animation setting
-        int offset1 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.5) * 150) : 0;
-        int offset2 = Game.enableGradientAnimation ? (int)(Math.cos(time * 0.4) * 120) : 0;
-        int offset3 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.6) * 130) : 0;
-        
-        // Base layer (always drawn)
-        GradientPaint base = new GradientPaint(
-            0, offset1, colors[0],
-            0, height + offset1, colors[1]
-        );
-        g.setPaint(base);
-        g.fillRect(0, 0, width, height);
-        
-        // Draw additional layers based on quality setting
-        if (Game.gradientQuality >= 1) {
-            // Second layer — cached derivative colors
-            GradientPaint accent = new GradientPaint(
-                width / 2, offset2, derived[0],
-                width / 2, height + offset2, derived[1]
-            );
-            g.setPaint(accent);
-            g.fillRect(0, 0, width, height);
-        }
-        
-        if (Game.gradientQuality >= 2) {
-            // Third layer — cached derivative colors
-            GradientPaint mid = new GradientPaint(
-                offset3, 0, derived[3],
-                width + offset3, height, derived[2]
-            );
-            g.setPaint(mid);
-            g.fillRect(0, 0, width, height);
-        }
 
-        
+        // Bake gradient layers to an off-screen image; refresh every N frames (or once when not animated)
+        boolean sizeChanged = cachedBgGradient == null || cachedBgGradient.getWidth() != width || cachedBgGradient.getHeight() != height;
+        boolean paletteChanged = cachedBgPaletteIdx != paletteIndex;
+        boolean animTick = Game.enableGradientAnimation && (++bgGradientFrameCounter >= BG_GRADIENT_REFRESH_RATE);
+        boolean staticFirstBake = !Game.enableGradientAnimation && (sizeChanged || paletteChanged || Double.isNaN(lastBgTime));
 
-        // Optional grain effect
-
-        if (Game.enableGrainEffect) {
-
-            g.setComposite(RenderCache.getAlpha(0.03f));
-
-            for (int i = 0; i < 40; i++) {
-
-                int x = (int)(Math.random() * width);
-
-                int y = (int)(Math.random() * height);
-
-                int size = (int)(Math.random() * 2) + 1;
-
-                g.setColor(Color.WHITE);
-
-                g.fillRect(x, y, size, size);
-
+        if (sizeChanged || paletteChanged || animTick || staticFirstBake) {
+            bgGradientFrameCounter = 0;
+            lastBgTime = time;
+            cachedBgPaletteIdx = paletteIndex;
+            if (sizeChanged) {
+                cachedBgGradient = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             }
+            Graphics2D bg = cachedBgGradient.createGraphics();
 
-            g.setComposite(RenderCache.getAlpha(1.0f));
+            int offset1 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.5) * 150) : 0;
+            int offset2 = Game.enableGradientAnimation ? (int)(Math.cos(time * 0.4) * 120) : 0;
+            int offset3 = Game.enableGradientAnimation ? (int)(Math.sin(time * 0.6) * 130) : 0;
 
+            bg.setPaint(new GradientPaint(0, offset1, colors[0], 0, height + offset1, colors[1]));
+            bg.fillRect(0, 0, width, height);
+
+            if (Game.gradientQuality >= 1) {
+                bg.setPaint(new GradientPaint(width / 2, offset2, derived[0], width / 2, height + offset2, derived[1]));
+                bg.fillRect(0, 0, width, height);
+            }
+            if (Game.gradientQuality >= 2) {
+                bg.setPaint(new GradientPaint(offset3, 0, derived[3], width + offset3, height, derived[2]));
+                bg.fillRect(0, 0, width, height);
+            }
+            bg.dispose();
         }
 
+        // Draw the cached gradient image (one drawImage instead of up to 3 GradientPaint fills)
+        g.drawImage(cachedBgGradient, 0, 0, null);
+
+        // Optional grain effect (drawn live — only 40 tiny rects)
+        if (Game.enableGrainEffect) {
+            g.setComposite(RenderCache.getAlpha(0.03f));
+            for (int i = 0; i < 40; i++) {
+                int x = (int)(Math.random() * width);
+                int y = (int)(Math.random() * height);
+                int size = (int)(Math.random() * 2) + 1;
+                g.setColor(Color.WHITE);
+                g.fillRect(x, y, size, size);
+            }
+            g.setComposite(RenderCache.getAlpha(1.0f));
+        }
     }
 
     
