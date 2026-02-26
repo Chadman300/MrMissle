@@ -6518,7 +6518,7 @@ public class Renderer {
 
             g.setColor(solidBlack);
 
-            g.fillRect(-pad, -pad, pad - gradOffset, worldH + pad * 2); // Left outside (up to where gradient starts)
+            g.fillRect(-pad, -pad, pad - gradOffset, worldH + pad * 2); // Left outside
 
             g.fillRect(worldW + gradOffset, -pad, pad - gradOffset, worldH + pad * 2); // Right outside
 
