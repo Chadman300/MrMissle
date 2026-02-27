@@ -36,14 +36,8 @@ public class Player {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 4; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_MIN_SCALE = 0.75; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.15; // Outermost layer scale
-    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
-    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
     
     private static BufferedImage missileSprite;
-    private static BufferedImage missileShadow;
     
     public Player(double x, double y) {
         this(x, y, 0);
@@ -85,15 +79,6 @@ public class Player {
                 System.err.println("Could not load missile sprite: " + path);
             }
         }
-        if (missileShadow == null) {
-            String path = "sprites/Missle Man Assets/Missles/Missle Black Shadow.png";
-            try {
-                missileShadow = AssetLoader.prescaleImage(
-                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
-            } catch (IOException e) {
-                System.err.println("Could not load missile shadow: " + path);
-            }
-        }
     }
 
     private void loadSprite() {
@@ -104,15 +89,6 @@ public class Player {
                     AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
             } catch (IOException e) {
                 System.err.println("Could not load missile sprite: " + path);
-            }
-        }
-        if (missileShadow == null) {
-            String path = "sprites/Missle Man Assets/Missles/Missle Black Shadow.png";
-            try {
-                missileShadow = AssetLoader.prescaleImage(
-                    AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
-            } catch (IOException e) {
-                System.err.println("Could not load missile shadow: " + path);
             }
         }
     }
@@ -288,32 +264,20 @@ public class Player {
             spriteHeight = SIZE * 2;
         }
         
-        // Draw dark glow shadow centered underneath
-        if (Game.enableShadows && missileShadow != null) {
+        // Draw shadow using ShadowCache (generated from the missile sprite)
+        if (Game.enableShadows && missileSprite != null) {
+            BufferedImage shadowImg = ShadowCache.getShadow(missileSprite);
+            int pad = ShadowCache.getPadding();
+            
+            // Quality-based alpha: Low=0.4, Medium=0.6, High=0.85
+            float shadowAlpha = Game.shadowQuality == 1 ? 0.4f : Game.shadowQuality == 2 ? 0.6f : 0.85f;
+            
             double objectRotation = angle + Math.PI / 2;
             g.rotate(objectRotation);
-            
-            // Reduced layer count for performance: Low=2, Medium=3, High=5
-            int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
-            
-            for (int i = 0; i < layerCount; i++) {
-                double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
-                double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
-                float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
-                
-                int lw = (int)(spriteWidth * layerScale);
-                int lh = (int)(spriteHeight * layerScale);
-                if (lw < lh) {
-                    lw = (int)(lw * SHADOW_WIDTH_STRETCH);
-                } else {
-                    lh = (int)(lh * SHADOW_WIDTH_STRETCH);
-                }
-                g.setComposite(RenderCache.getAlpha(alpha * layerAlpha));
-                g.drawImage(missileShadow,
-                    (int)(-lw / 2), (int)(-lh / 2 + SHADOW_GLOW_OFFSET_Y),
-                    lw, lh, null);
-            }
-            
+            g.setComposite(RenderCache.getAlpha(alpha * shadowAlpha));
+            g.drawImage(shadowImg,
+                -spriteWidth / 2 - pad, -spriteHeight / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
+                spriteWidth + pad * 2, spriteHeight + pad * 2, null);
             g.setComposite(RenderCache.getAlpha(alpha));
             g.rotate(-objectRotation);
         }

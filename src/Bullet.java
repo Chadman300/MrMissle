@@ -11,16 +11,9 @@ public class Bullet {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 2; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_BULK_OFFSET_Y = -2; // Shift shadow toward the nose/top of the sprite
-    private static final double SHADOW_MIN_SCALE = 1.1; // Innermost layer scale (must be >1.0 so shadow extends beyond bullet)
-    private static final double SHADOW_MAX_SCALE = 1.5; // Outermost layer scale
-    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
-    private static final float SHADOW_MAX_ALPHA = 0.30f; // Alpha of innermost (most opaque) layer — higher for small bullets
-    private static final float SHADOW_MIN_ALPHA = 0.06f; // Alpha of outermost (most transparent) layer
     
     // Bullet sprites
     private static BufferedImage[] bulletSprites = new BufferedImage[17];
-    private static BufferedImage[] bulletShadows = new BufferedImage[17];
     private static boolean spritesLoaded = false;
     
     // Cached colors for performance
@@ -151,25 +144,19 @@ public class Bullet {
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             // Load explosive projectiles (bombs, grenades, nuke)
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 1.png", 
-                                        "sprites/Missle Man Assets/Projectiles/Bomb 1 Shadow.png", 8);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Bomb 1.png", 8);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Bomb 2.png",
-                                        "sprites/Missle Man Assets/Projectiles/Bomb 2 Shadow.png", 9);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Bomb 2.png", 9);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 1.png",
-                                        "sprites/Missle Man Assets/Projectiles/Grenade 1 Shadow.png", 10);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 1.png", 10);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 2.png",
-                                        "sprites/Missle Man Assets/Projectiles/Grenade 2 Shadow.png", 11);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 2.png", 11);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Grenade 3.png",
-                                        "sprites/Missle Man Assets/Projectiles/Grenade 3 Shadow.png", 12);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 3.png", 12);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
-            loadSpriteWithPathAndShadow("sprites/Missle Man Assets/Projectiles/Mini Nuke.png",
-                                        "sprites/Missle Man Assets/Projectiles/Mini Nuke Shadow.png", 13);
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Mini Nuke.png", 13);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 1.png", 14);
@@ -190,23 +177,6 @@ public class Bullet {
                 AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
         } catch (IOException e) {
             System.err.println("Could not load bullet sprite: " + path);
-            throw e;
-        }
-    }
-    
-    private static void loadSpriteWithPathAndShadow(String spritePath, String shadowPath, int index) throws IOException {
-        try {
-            bulletSprites[index] = AssetLoader.prescaleImage(
-                AssetLoader.loadImage(spritePath), SPRITE_PRESCALE_SIZE);
-        } catch (IOException e) {
-            System.err.println("Could not load bullet sprite: " + spritePath);
-            throw e;
-        }
-        try {
-            bulletShadows[index] = AssetLoader.prescaleImage(
-                AssetLoader.loadImage(shadowPath), SPRITE_PRESCALE_SIZE);
-        } catch (IOException e) {
-            System.err.println("Could not load bullet shadow: " + shadowPath);
             throw e;
         }
     }
@@ -636,67 +606,34 @@ public class Bullet {
             
             g.translate(x, y);
             
-            // Draw dark glow shadow centered underneath
-            if (Game.enableShadows) {
+            // Draw shadow using ShadowCache (generated from the bullet sprite)
+            // Quality-based: Low=skip bullets for perf, Medium=moderate, High=always visible
+            int bulletShadowThreshold = Game.shadowQuality == 1 ? 30 : Game.shadowQuality == 2 ? 80 : 200;
+            if (Game.enableShadows && activeBulletCount < bulletShadowThreshold) {
+                BufferedImage shadowImg = ShadowCache.getShadow(bulletSprites[spriteIndex]);
+                int pad = ShadowCache.getPadding();
+                
+                // Compute draw size for shadow
+                int nativeBulletW = bulletSprites[spriteIndex].getWidth();
+                int nativeBulletH = bulletSprites[spriteIndex].getHeight();
+                double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
+                int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
+                int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
+                
                 double objectRotation = angle + HALF_PI;
                 g.rotate(objectRotation);
                 
-                BufferedImage shadowSprite = bulletShadows[spriteIndex];
+                // Quality-based alpha: Low=0.4, Medium=0.55, High=0.75
+                // Reduce further when many bullets on screen
+                float baseAlpha = Game.shadowQuality == 1 ? 0.4f : Game.shadowQuality == 2 ? 0.55f : 0.75f;
+                float shadowAlpha = activeBulletCount > 60 ? baseAlpha * 0.7f : baseAlpha;
+                g.setComposite(RenderCache.getAlpha(shadowAlpha * finalAlpha));
+                g.drawImage(shadowImg,
+                    -bulletDrawW / 2 - pad, -bulletDrawH / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
+                    bulletDrawW + pad * 2, bulletDrawH + pad * 2, null);
                 
-                // Dynamic shadow reduction — always draw at least 1 layer, 2 layers when fewer bullets
-                {
-                int layerCount = activeBulletCount > 80 ? 1 : 2;
-                
-                if (shadowSprite != null) {
-                    int nativeBulletW = bulletSprites[spriteIndex].getWidth();
-                    int nativeBulletH = bulletSprites[spriteIndex].getHeight();
-                    double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
-                    int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
-                    int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
-                    
-                    int nativeShadowWidth = shadowSprite.getWidth();
-                    int nativeShadowHeight = shadowSprite.getHeight();
-                    double shadowScaleW = (double)bulletDrawW / nativeShadowWidth;
-                    double shadowScaleH = (double)bulletDrawH / nativeShadowHeight;
-                    
-                    for (int i = 0; i < layerCount; i++) {
-                        double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
-                        double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
-                        float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
-                        
-                        int drawShadowWidth = (int)(nativeShadowWidth * shadowScaleW * layerScale * SHADOW_WIDTH_STRETCH);
-                        int drawShadowHeight = (int)(nativeShadowHeight * shadowScaleH * layerScale);
-                        g.setComposite(RenderCache.getAlpha(layerAlpha * finalAlpha));
-                        g.drawImage(shadowSprite,
-                            (int)(-drawShadowWidth / 2), (int)(-drawShadowHeight / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
-                            drawShadowWidth, drawShadowHeight, null);
-                    }
-                } else {
-                    int nativeBulletW = bulletSprites[spriteIndex].getWidth();
-                    int nativeBulletH = bulletSprites[spriteIndex].getHeight();
-                    double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
-                    int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
-                    int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
-                    
-                    g.setColor(Color.BLACK);
-                    for (int i = 0; i < layerCount; i++) {
-                        double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
-                        double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
-                        float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
-                        
-                        int shadowW = (int)(bulletDrawW * layerScale * SHADOW_WIDTH_STRETCH);
-                        int shadowH = (int)(bulletDrawH * layerScale);
-                        g.setComposite(RenderCache.getAlpha(layerAlpha * finalAlpha));
-                        g.fillOval(
-                            (int)(-shadowW / 2), (int)(-shadowH / 2 + SHADOW_GLOW_OFFSET_Y + SHADOW_BULK_OFFSET_Y),
-                            shadowW, shadowH);
-                    }
-                }
                 g.setComposite(RenderCache.getAlpha(finalAlpha));
-                
-                // Reset rotation for sprite drawing
                 g.rotate(-objectRotation);
-                } // end dynamic shadow else block
             } else {
                 g.setComposite(RenderCache.getAlpha(finalAlpha));
             }

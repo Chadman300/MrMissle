@@ -67,11 +67,6 @@ public class Boss {
     
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 5; // Slight downward offset for "underneath" feel
-    private static final double SHADOW_MIN_SCALE = 0.75; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.15; // Outermost layer scale
-    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
-    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
     
     private double shootTimer;
     private int shootInterval;
@@ -109,11 +104,8 @@ public class Boss {
     // Multiple sprite variants for planes and helicopters
     private static BufferedImage[] miniBossPlaneSprites = new BufferedImage[17]; // Planes 1-9, 11-15, Helicopters 2-4
     private static BufferedImage[] megaBossPlaneSprites = new BufferedImage[9]; // Boss Planes 1-8, Helicopter 1
-    private static BufferedImage[] miniBossPlaneShadows = new BufferedImage[17];
-    private static BufferedImage[] megaBossPlaneShadows = new BufferedImage[9];
     private static BufferedImage[] helicopterBlades = new BufferedImage[3]; // Rotor blade sprites
     private static BufferedImage finalBossSprite;
-    private static BufferedImage finalBossShadow;
     private static boolean spritesLoaded = false;
     
     /**
@@ -335,7 +327,7 @@ public class Boss {
     private static void loadSpritesWithProgress(java.util.function.IntConsumer progressCallback) {
         if (spritesLoaded) return;
         try {
-            int totalAssets = 58;
+            int totalAssets = 30;
             int[] loaded = {0};
             // Load mini boss planes: Planes 1-9, 11-15 (14 planes)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1.png", miniBossPlaneSprites, 0);
@@ -374,42 +366,6 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4.png", miniBossPlaneSprites, 16);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
-            // Load mini boss shadows
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 1 Shadow.png", miniBossPlaneShadows, 0);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 2 Shadow.png", miniBossPlaneShadows, 1);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 3 Shadow.png", miniBossPlaneShadows, 2);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 4 Shadow.png", miniBossPlaneShadows, 3);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 5 Shadow.png", miniBossPlaneShadows, 4);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 6 Shadow.png", miniBossPlaneShadows, 5);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 7 Shadow.png", miniBossPlaneShadows, 6);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 8 Shadow.png", miniBossPlaneShadows, 7);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 9 Shadow.png", miniBossPlaneShadows, 8);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 11 Shadow.png", miniBossPlaneShadows, 9);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 12 Shadow.png", miniBossPlaneShadows, 10);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 13 Shadow.png", miniBossPlaneShadows, 11);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 14 Shadow.png", miniBossPlaneShadows, 12);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Regular Planes\\Plane 15 Shadow.png", miniBossPlaneShadows, 13);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 2 Shadow.png", miniBossPlaneShadows, 14);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 3 Shadow.png", miniBossPlaneShadows, 15);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Shadow.png", miniBossPlaneShadows, 16);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            
             // Load mega boss planes: Boss Planes 1-8 (8 boss planes)
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1.png", megaBossPlaneSprites, 0);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
@@ -431,26 +387,6 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8.png", megaBossPlaneSprites, 8);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
-            // Load mega boss shadows
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 1 Shadow.png", megaBossPlaneShadows, 0);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 2 Shadow.png", megaBossPlaneShadows, 1);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 3 Shadow.png", megaBossPlaneShadows, 2);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 4 Shadow.png", megaBossPlaneShadows, 3);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 5 Shadow.png", megaBossPlaneShadows, 4);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 6 Shadow.png", megaBossPlaneShadows, 5);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 7 Shadow.png", megaBossPlaneShadows, 6);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 1 Shadow.png", megaBossPlaneShadows, 7);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            loadBossSpriteWithPath("sprites\\Missle Man Assets\\Boss Planes\\Boss Plane 8 Shadow.png", megaBossPlaneShadows, 8);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            
             // Load helicopter blade sprites
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter Wings.png", helicopterBlades, 0);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
@@ -462,9 +398,6 @@ public class Boss {
             // Load final boss
             finalBossSprite = AssetLoader.prescaleImage(
                 rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png")), SPRITE_PRESCALE_SIZE);
-            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
-            finalBossShadow = AssetLoader.prescaleImage(
-                rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss Shadow.png")), SPRITE_PRESCALE_SIZE);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             spritesLoaded = true;
@@ -1710,25 +1643,21 @@ public class Boss {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         }
         
-        // Get appropriate sprite and shadow
+        // Get appropriate sprite
         BufferedImage sprite;
-        BufferedImage shadow;
         boolean isHelicopter = isHelicopter();
         
         if (level == 28) {
             // Final boss
             sprite = finalBossSprite;
-            shadow = finalBossShadow;
         } else if (isMegaBoss) {
             // Mega bosses: Boss Planes 1-8 and Helicopter 1
             int megaIndex = ((level / 3) - 1) % 9;
             sprite = megaBossPlaneSprites[megaIndex];
-            shadow = megaBossPlaneShadows[megaIndex];
         } else {
             // Mini bosses: Planes 1-9, 11-15, Helicopters 2-4
             int miniIndex = (level - 1) % 17;
             sprite = miniBossPlaneSprites[miniIndex];
-            shadow = miniBossPlaneShadows[miniIndex];
         }
         
         if (sprite != null) {
@@ -1750,57 +1679,20 @@ public class Boss {
             int spriteWidth = (int)(nativeWidth * scale);
             int spriteHeight = (int)(nativeHeight * scale);
             
-            // Draw dark glow shadow centered underneath
-            if (Game.enableShadows && shadow != null) {
-                // Apply z-axis rotation to shadow
-                // Helicopters don't roll — they stay level during twirls/dives
-                double shadowScaleX;
-                if (isHelicopter) {
-                    shadowScaleX = 1.0;
-                } else if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
-                    shadowScaleX = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
-                } else if (twirlActive) {
-                    shadowScaleX = Math.sin(twirlRotation + Math.PI / 2);
-                } else if (Math.abs(wobbleRotation) > 0.001) {
-                    shadowScaleX = 0.65 + 0.35 * Math.cos(wobbleRotation);
-                } else {
-                    shadowScaleX = 1.0;
-                }
+            // Draw shadow using ShadowCache (generated from the sprite)
+            if (Game.enableShadows) {
+                BufferedImage shadowImg = ShadowCache.getShadow(sprite);
+                int pad = ShadowCache.getPadding();
                 
-                // Rotate to match object orientation
+                // Quality-based alpha: Low=0.4, Medium=0.6, High=0.85
+                float shadowAlpha = Game.shadowQuality == 1 ? 0.4f : Game.shadowQuality == 2 ? 0.6f : 0.85f;
+                
                 g.rotate(rotation - Math.PI / 2);
-                
-                // Reduced layer count for performance: Low=2, Medium=3, High=5
-                int layerCount = Game.shadowQuality == 1 ? 2 : Game.shadowQuality == 2 ? 3 : 5;
-                
-                // Draw layers from outermost (largest, most transparent) to innermost
-                for (int i = 0; i < layerCount; i++) {
-                    double t = (layerCount == 1) ? 1.0 : (double)i / (layerCount - 1);
-                    double layerScale = SHADOW_MAX_SCALE + (SHADOW_MIN_SCALE - SHADOW_MAX_SCALE) * t;
-                    float layerAlpha = SHADOW_MIN_ALPHA + (SHADOW_MAX_ALPHA - SHADOW_MIN_ALPHA) * (float)t;
-                    
-                    int layerW = (int)(spriteWidth * layerScale);
-                    int layerH = (int)(spriteHeight * layerScale);
-                    // Stretch the shorter side slightly so the shadow is more rounded
-                    if (layerW < layerH) {
-                        layerW = (int)(layerW * SHADOW_WIDTH_STRETCH);
-                    } else {
-                        layerH = (int)(layerH * SHADOW_WIDTH_STRETCH);
-                    }
-                    
-                    if (Math.abs(shadowScaleX - 1.0) > 0.001) {
-                        layerW = (int)(layerW * Math.abs(shadowScaleX));
-                    }
-                    
-                    g.setComposite(RenderCache.getAlpha(layerAlpha));
-                    g.drawImage(shadow,
-                        (int)(-layerW / 2), (int)(-layerH / 2 + SHADOW_GLOW_OFFSET_Y),
-                        layerW, layerH, null);
-                }
-                
+                g.setComposite(RenderCache.getAlpha(shadowAlpha));
+                g.drawImage(shadowImg,
+                    -spriteWidth / 2 - pad, -spriteHeight / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
+                    spriteWidth + pad * 2, spriteHeight + pad * 2, null);
                 g.setComposite(RenderCache.ALPHA_FULL);
-                
-                // Reset rotation for sprite
                 g.rotate(-(rotation - Math.PI / 2));
             }
             
