@@ -269,8 +269,8 @@ public class Player {
             BufferedImage shadowImg = ShadowCache.getShadow(missileSprite);
             int pad = ShadowCache.getPadding();
             
-            // Quality-based alpha: Low=0.4, Medium=0.6, High=0.85
-            float shadowAlpha = Game.shadowQuality == 1 ? 0.4f : Game.shadowQuality == 2 ? 0.6f : 0.85f;
+            // Quality-based alpha (40% more transparent): Low=0.24, Medium=0.36, High=0.51
+            float shadowAlpha = Game.shadowQuality == 1 ? 0.24f : Game.shadowQuality == 2 ? 0.36f : 0.51f;
             
             double objectRotation = angle + Math.PI / 2;
             g.rotate(objectRotation);

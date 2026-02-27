@@ -607,9 +607,8 @@ public class Bullet {
             g.translate(x, y);
             
             // Draw shadow using ShadowCache (generated from the bullet sprite)
-            // Quality-based: Low=skip bullets for perf, Medium=moderate, High=always visible
-            int bulletShadowThreshold = Game.shadowQuality == 1 ? 30 : Game.shadowQuality == 2 ? 80 : 200;
-            if (Game.enableShadows && activeBulletCount < bulletShadowThreshold) {
+            // Gradual alpha fade as bullet count increases for smooth performance scaling
+            if (Game.enableShadows) {
                 BufferedImage shadowImg = ShadowCache.getShadow(bulletSprites[spriteIndex]);
                 int pad = ShadowCache.getPadding();
                 
@@ -623,10 +622,20 @@ public class Bullet {
                 double objectRotation = angle + HALF_PI;
                 g.rotate(objectRotation);
                 
-                // Quality-based alpha: Low=0.4, Medium=0.55, High=0.75
-                // Reduce further when many bullets on screen
-                float baseAlpha = Game.shadowQuality == 1 ? 0.4f : Game.shadowQuality == 2 ? 0.55f : 0.75f;
-                float shadowAlpha = activeBulletCount > 60 ? baseAlpha * 0.7f : baseAlpha;
+                // Quality-based alpha (40% more transparent than original)
+                float baseAlpha = Game.shadowQuality == 1 ? 0.24f : Game.shadowQuality == 2 ? 0.33f : 0.45f;
+                // Gradual fade as bullet count increases — never fully disappears
+                int fadeStart = Game.shadowQuality == 1 ? 30 : Game.shadowQuality == 2 ? 80 : 200;
+                int fadeEnd = fadeStart * 2;
+                float shadowAlpha;
+                if (activeBulletCount <= fadeStart) {
+                    shadowAlpha = baseAlpha;
+                } else if (activeBulletCount >= fadeEnd) {
+                    shadowAlpha = baseAlpha * 0.15f;
+                } else {
+                    float t = (float)(activeBulletCount - fadeStart) / (fadeEnd - fadeStart);
+                    shadowAlpha = baseAlpha * (1.0f - t * 0.85f);
+                }
                 g.setComposite(RenderCache.getAlpha(shadowAlpha * finalAlpha));
                 g.drawImage(shadowImg,
                     -bulletDrawW / 2 - pad, -bulletDrawH / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,

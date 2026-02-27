@@ -113,17 +113,6 @@ public class Game extends JPanel implements Runnable {
     private static final Color SHIELD_BLUE = new Color(136, 192, 208);
     private static final Color GRAZE_BLUE = new Color(100, 200, 255, 200);
     private static final Color GRAZE_GOLD = new Color(255, 215, 0, 255);
-    // Boss death particle colors (avoid per-particle Color allocations)
-    private static final Color DEATH_FIRE_WHITE  = new Color(255, 255, 230);
-    private static final Color DEATH_FIRE_YELLOW = new Color(255, 220, 80);
-    private static final Color DEATH_FIRE_ORANGE = new Color(255, 150, 40);
-    private static final Color DEATH_FIRE_RED    = new Color(255, 80, 20);
-    private static final Color[] DEATH_FIRE_COLORS = { DEATH_FIRE_WHITE, DEATH_FIRE_YELLOW, DEATH_FIRE_ORANGE, DEATH_FIRE_RED };
-    private static final Color DEATH_SPARK_WHITE = new Color(255, 255, 210);
-    private static final Color DEATH_SPARK_GOLD  = new Color(255, 200, 100);
-    private static final Color DEATH_SPARK_ORANGE= new Color(255, 130, 50);
-    private static final Color DEATH_EMBER_ORANGE= new Color(255, 160, 40);
-    private static final Color DEATH_EMBER_RED   = new Color(255, 100, 20);
     private static final Color GRAZE_GREEN = new Color(150, 255, 150, 220);
     private static final Color SPAWN_CYAN = new Color(100, 200, 255, 220);
     private static final Color METAL_DEBRIS = new Color(160, 160, 170, 200);
@@ -202,7 +191,6 @@ public class Game extends JPanel implements Runnable {
     private GameState previousState;
     private float stateTransitionProgress; // 0.0 = old state, 1.0 = new state
     private static final float TRANSITION_SPEED = 0.08f; // Speed of state transitions
-    private BufferedImage transitionSnapshot; // Cached screenshot of previous state for transitions
     
     // Visual effects
     private double screenShakeX;
@@ -637,16 +625,10 @@ public class Game extends JPanel implements Runnable {
     // Loading-screen window expansion
     private java.awt.Rectangle loadingExpandBounds = null;
     private volatile boolean loadingExpanded = false;
-    private javax.swing.JFrame loadingExpandFrame = null;
     
-    /** Called by App to supply the full-screen bounds for expansion at 55% loaded. */
+    /** Called by App to supply the full-screen bounds for expansion at 40% loaded. */
     public void setLoadingExpandBounds(java.awt.Rectangle bounds) {
         this.loadingExpandBounds = bounds;
-    }
-    
-    /** Called by App to supply the frame reference for dynamic monitor detection. */
-    public void setLoadingExpandFrame(javax.swing.JFrame frame) {
-        this.loadingExpandFrame = frame;
     }
     
     // Save system
@@ -2370,58 +2352,6 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
-        } else if (gameState == GameState.STATS) {
-            // Hover detection for stats cards — layout must match drawStatsUpgrades in Renderer
-            int cardWidth = 900;
-            int cardHeight = 65;
-            int cardSpacing = 10;
-            int baseY = 180;
-            int itemX = WIDTH / 2 - cardWidth / 2;
-            int y = baseY - (int)statsScrollAnimated;
-            int currentIndex = 0;
-            
-            // Active Item card (singleCardH = 120)
-            int activeItemHeight = 120;
-            y += 30;
-            if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
-                mouseY >= y && mouseY <= y + activeItemHeight) {
-                if (selectedStatItem != 0) {
-                    selectedStatItem = 0;
-                    screenShakeIntensity = 1;
-                }
-            } else {
-                y += activeItemHeight + 30 + cardSpacing;
-                y += 20 + 30;
-                currentIndex++;
-                
-                boolean found = false;
-                if (passiveUpgradeManager != null) {
-                    java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
-                    for (int i = 0; i < upgrades.size() - 1; i++) {
-                        if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
-                            mouseY >= y && mouseY <= y + cardHeight) {
-                            if (selectedStatItem != currentIndex) {
-                                selectedStatItem = currentIndex;
-                                screenShakeIntensity = 1;
-                            }
-                            found = true;
-                            break;
-                        }
-                        y += cardHeight + cardSpacing;
-                        currentIndex++;
-                    }
-                    if (!found && upgrades.size() > 0) {
-                        y += 20 + 30;
-                        if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
-                            mouseY >= y && mouseY <= y + cardHeight) {
-                            if (selectedStatItem != currentIndex) {
-                                selectedStatItem = currentIndex;
-                                screenShakeIntensity = 1;
-                            }
-                        }
-                    }
-                }
-            }
         } else if (gameState == GameState.LEVEL_SELECT) {
             // Check if hovering over level nodes
             int centerY = HEIGHT / 2 - 40;
@@ -2619,21 +2549,12 @@ public class Game extends JPanel implements Runnable {
                                 screenShakeIntensity = 1;
                                 return;
                             }
-                            // Check click on slider track (click-to-set)
-                            float trackVal = renderer.getSliderTrackClick(i, mouseX, mouseY);
-                            if (trackVal >= 0) {
-                                selectedSettingsItem = i;
-                                setSettingBySliderProgress(i, trackVal);
-                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                                screenShakeIntensity = 1;
-                                return;
-                            }
                             break;
                         }
                     }
                 }
                 
-                // Check for volume slider +/- button clicks and track clicks (Audio category)
+                // Check for volume slider +/- button clicks (Audio category)
                 if (selectedSettingsCategory == 1) {
                     UIButton[] buttons = renderer.getSettingsButtons();
                     for (int i = 1; i <= 4; i++) {
@@ -2642,15 +2563,6 @@ public class Game extends JPanel implements Runnable {
                             if (btnClick != 0) {
                                 selectedSettingsItem = i;
                                 adjustSetting(i, btnClick);
-                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                                screenShakeIntensity = 1;
-                                return;
-                            }
-                            // Check click on slider track (click-to-set)
-                            float trackVal = renderer.getSliderTrackClick(i, mouseX, mouseY);
-                            if (trackVal >= 0) {
-                                selectedSettingsItem = i;
-                                setSettingBySliderProgress(i, trackVal);
                                 soundManager.playSound(SoundManager.Sound.UI_SELECT);
                                 screenShakeIntensity = 1;
                                 return;
@@ -2707,7 +2619,7 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.STATS) {
-            // Stats screen mouse controls — layout must match drawStatsUpgrades in Renderer
+            // Stats screen mouse controls
             int cardWidth = 900;
             int cardHeight = 65;
             int cardSpacing = 10;
@@ -2716,8 +2628,8 @@ public class Game extends JPanel implements Runnable {
             int y = baseY - (int)statsScrollAnimated;
             int currentIndex = 0;
             
-            // Active Item card (singleCardH = 120 in Renderer)
-            int activeItemHeight = 120;
+            // Check Active Item card (first card, taller)
+            int activeItemHeight = cardHeight + 30; // 95
             y += 30; // section header offset
             if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
                 mouseY >= y && mouseY <= y + activeItemHeight) {
@@ -2740,19 +2652,12 @@ public class Game extends JPanel implements Runnable {
                 }
                 return;
             }
-            // Advance past active item card + counter text + spacing + section header
-            y += activeItemHeight + 30 + cardSpacing; // card + counter area
-            y += 20 + 30; // section header "SHOP UPGRADES" text + gap
+            y += activeItemHeight + cardSpacing + 50; // +50 for next section header
             currentIndex++;
             
             // Check Upgrade cards
             if (passiveUpgradeManager != null) {
                 java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
-                
-                // +/- button positions must match drawUpgradeCard: btnSize=35, minusX=itemX+800, plusX=itemX+845
-                int btnSize = 35;
-                int minusBtnX = itemX + 800;
-                int plusBtnX = itemX + 845;
                 
                 // All upgrades except Extra Missiles (last one is read-only)
                 for (int i = 0; i < upgrades.size() - 1; i++) {
@@ -2761,21 +2666,17 @@ public class Game extends JPanel implements Runnable {
                         selectedStatItem = currentIndex;
                         updateStatsScroll();
                         
-                        int btnY = y + (cardHeight - btnSize) / 2;
+                        // Left side = decrease, right side = increase
                         PassiveUpgrade upgrade = upgrades.get(i);
-                        
-                        // Check minus button
-                        if (mouseX >= minusBtnX && mouseX <= minusBtnX + btnSize &&
-                            mouseY >= btnY && mouseY <= btnY + btnSize) {
+                        if (mouseX < WIDTH / 2) {
+                            // Decrease active level
                             if (upgrade.getActiveLevel() > 0) {
                                 upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
                                 soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                                 screenShakeIntensity = 2;
                             }
-                        }
-                        // Check plus button
-                        else if (mouseX >= plusBtnX && mouseX <= plusBtnX + btnSize &&
-                                 mouseY >= btnY && mouseY <= btnY + btnSize) {
+                        } else {
+                            // Increase active level (up to purchased level)
                             if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
                                 upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
                                 soundManager.playSound(SoundManager.Sound.UI_CURSOR);
@@ -2789,7 +2690,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 // Extra Missiles card (read-only, just select it)
-                y += 20 + 30; // section header offset (matches Renderer: y+=20 header space, y+=30 text gap)
+                y += 50; // section header offset
                 if (upgrades.size() > 0 && mouseX >= itemX && mouseX <= itemX + cardWidth &&
                     mouseY >= y && mouseY <= y + cardHeight) {
                     selectedStatItem = currentIndex;
@@ -3289,7 +3190,12 @@ public class Game extends JPanel implements Runnable {
             for (int i = 0; i < 55; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 2 + Math.random() * 8;
-                Color fireColor = DEATH_FIRE_COLORS[(int)(Math.random() * 4)];
+                Color fireColor;
+                double r = Math.random();
+                if (r < 0.25) fireColor = new Color(255, 255, 230); // White-hot core
+                else if (r < 0.5) fireColor = new Color(255, 220, 80); // Bright yellow
+                else if (r < 0.75) fireColor = new Color(255, 150, 40); // Orange
+                else fireColor = new Color(255, 80, 20); // Deep orange-red
                 addParticle(
                     deathExplosionX, deathExplosionY,
                     Math.cos(angle) * speed, Math.sin(angle) * speed,
@@ -3314,9 +3220,9 @@ public class Game extends JPanel implements Runnable {
                 double speed = 6 + Math.random() * 10;
                 Color sparkColor;
                 double r = Math.random();
-                if (r < 0.4) sparkColor = DEATH_SPARK_WHITE;
-                else if (r < 0.7) sparkColor = DEATH_SPARK_GOLD;
-                else sparkColor = DEATH_SPARK_ORANGE;
+                if (r < 0.4) sparkColor = new Color(255, 255, 210); // White-yellow
+                else if (r < 0.7) sparkColor = new Color(255, 200, 100); // Gold
+                else sparkColor = new Color(255, 130, 50); // Orange
                 addParticle(
                     deathExplosionX, deathExplosionY,
                     Math.cos(angle) * speed, Math.sin(angle) * speed,
@@ -3344,8 +3250,8 @@ public class Game extends JPanel implements Runnable {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 0.5 + Math.random() * 1.5;
                 Color emberColor = Math.random() < 0.5
-                    ? DEATH_EMBER_ORANGE   // Orange ember
-                    : DEATH_EMBER_RED;     // Red ember
+                    ? new Color(255, 160, 40, 200)   // Orange ember
+                    : new Color(255, 100, 20, 180);   // Red ember
                 addParticle(
                     deathExplosionX + (Math.random() - 0.5) * 30,
                     deathExplosionY + (Math.random() - 0.5) * 30,
@@ -4415,14 +4321,6 @@ public class Game extends JPanel implements Runnable {
                 renderBuffer = temp;
             }
             repaint();
-            
-            // Submit parallax background render for NEXT frame
-            // (runs in parallel with EDT blit + frame sleep)
-            if (renderer != null) {
-                renderer.advanceParallaxScroll();
-                renderer.submitBackgroundRender(updateThreadPool,
-                        gameData != null ? gameData.getCurrentLevel() : 1, WIDTH, HEIGHT);
-            }
             
             // Sync display for smoother frame delivery
             Toolkit.getDefaultToolkit().sync();
@@ -5782,9 +5680,9 @@ public class Game extends JPanel implements Runnable {
         {
             final double particleDt = deltaTime;
             int pSize = particles.size();
-            if (pSize > 80 && THREAD_COUNT > 1) {
-                // Parallel particle position update — worth it above ~80 particles
-                // (thread submission + latch overhead exceeds benefit for smaller counts)
+            if (pSize > 300 && THREAD_COUNT > 1) {
+                // Parallel particle position update — only worth it above ~300 particles
+                // (thread submission + latch overhead exceeds benefit for small counts)
                 int chunkSize = (pSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {
@@ -6508,9 +6406,9 @@ public class Game extends JPanel implements Runnable {
             final double bulletDt = deltaTime;
             int bSize = bullets.size();
             
-            if (bSize > 150 && THREAD_COUNT > 1) {
-                // Parallel position update — worth it above ~150 bullets
-                // (thread submission + latch overhead exceeds benefit for smaller counts)
+            if (bSize > 500 && THREAD_COUNT > 1) {
+                // Parallel position update — only worth it above ~500 bullets
+                // (thread submission + latch overhead exceeds benefit for <500)
                 int chunkSize = (bSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {
@@ -6521,7 +6419,7 @@ public class Game extends JPanel implements Runnable {
                             for (int bi = start; bi < end; bi++) {
                                 Bullet bullet = bullets.get(bi);
                                 bullet.resetFrameSpeedMultiplier();
-                                if (bulletSlowLevel > 0) bullet.applySpeedBasedSlow(bulletSlowMult);
+                                if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
                                 if (timeSlowActive) bullet.applySlow(0.15);
                                 bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
                             }
@@ -6535,7 +6433,7 @@ public class Game extends JPanel implements Runnable {
                 for (int i = 0; i < bSize; i++) {
                     Bullet bullet = bullets.get(i);
                     bullet.resetFrameSpeedMultiplier();
-                    if (bulletSlowLevel > 0) bullet.applySpeedBasedSlow(bulletSlowMult);
+                    if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
                     if (timeSlowActive) bullet.applySlow(0.15);
                     bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
                 }
@@ -7068,18 +6966,14 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Draw previous state if transitioning
-        if (stateTransitionProgress < 1.0f && previousState != null && transitionSnapshot != null) {
-            // Blit the static snapshot of the previous state (avoids full re-render)
+        if (stateTransitionProgress < 1.0f && previousState != null) {
             g2d.setComposite(RenderCache.getAlpha(1.0f - stateTransitionProgress));
-            g2d.drawImage(transitionSnapshot, 0, 0, null);
+            drawState(g2d, previousState);
             g2d.setComposite(RenderCache.getAlpha(stateTransitionProgress));
             drawState(g2d, gameState);
             g2d.setComposite(RenderCache.ALPHA_FULL);
         } else {
             drawState(g2d, gameState);
-            if (transitionSnapshot != null) {
-                transitionSnapshot = null; // Free memory once transition is done
-            }
         }
         
         // Draw auto-save indicator overlay
@@ -7214,8 +7108,8 @@ public class Game extends JPanel implements Runnable {
                 g2d.scale(totalZoom, totalZoom);
                 g2d.translate(-WIDTH / 2, -HEIGHT / 2);
                 
-                // Apply screen shake (rounded to integer pixels to prevent subpixel gaps at level edges)
-                g2d.translate(Math.round(screenShakeX), Math.round(screenShakeY));
+                // Apply screen shake
+                g2d.translate(screenShakeX, screenShakeY);
                 renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer);
                 
                 // Draw boss stun effect
@@ -7383,14 +7277,6 @@ public class Game extends JPanel implements Runnable {
             }
             
             previousState = gameState;
-            // Capture a static screenshot of the current state so we don't
-            // have to fully re-render it every frame during the transition
-            if (renderBuffer != null) {
-                transitionSnapshot = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
-                Graphics2D snapG = transitionSnapshot.createGraphics();
-                snapG.drawImage(renderBuffer, 0, 0, null);
-                snapG.dispose();
-            }
             gameState = newState;
             stateTransitionProgress = 0.0f;
         }
@@ -7439,14 +7325,14 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        // Category 0: Graphics (14 settings)
+        // Category 0: Graphics (17 settings)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
         // Category 3: Debug (2 settings)
         // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
-            // Graphics settings (reorganized: Display, Quality, Effects, Camera)
+            // Graphics settings (reorganized: Display, Quality, Background, Effects, Camera)
             switch (settingIndex) {
                 case 0: toggleFullscreen(); break;
                 case 1: resolutionPreset = (resolutionPreset + 1) % 6; break;
@@ -7456,12 +7342,15 @@ public class Game extends JPanel implements Runnable {
                 case 5: shadowQuality = (shadowQuality + 1) % 4; enableShadows = shadowQuality > 0; break;
                 case 6: enableParticles = !enableParticles; break;
                 case 7: enableBloom = !enableBloom; break;
-                case 8: enableMotionBlur = !enableMotionBlur; break;
-                case 9: enableChromaticAberration = !enableChromaticAberration; break;
-                case 10: enableVignette = !enableVignette; break;
-                case 11: enableGrainEffect = !enableGrainEffect; break;
-                case 12: /* Camera Zoom - handled by adjustSetting */ break;
-                case 13: enableUIParallax = !enableUIParallax; break;
+                case 8: backgroundMode = (backgroundMode + 1) % 3; break;
+                case 9: enableGradientAnimation = !enableGradientAnimation; break;
+                case 10: gradientQuality = (gradientQuality + 1) % 3; break;
+                case 11: enableMotionBlur = !enableMotionBlur; break;
+                case 12: enableChromaticAberration = !enableChromaticAberration; break;
+                case 13: enableVignette = !enableVignette; break;
+                case 14: enableGrainEffect = !enableGrainEffect; break;
+                case 15: /* Camera Zoom - handled by adjustSetting */ break;
+                case 16: enableUIParallax = !enableUIParallax; break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -7502,7 +7391,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private boolean adjustSetting(int settingIndex, int direction) {
-        // Graphics sliders (reorganized: Display, Quality, Effects, Camera)
+        // Graphics sliders (reorganized: Display, Quality, Background, Effects, Camera)
         if (selectedSettingsCategory == 0) {
             if (settingIndex == 0) { // Fullscreen (toggle)
                 toggleFullscreen();
@@ -7530,23 +7419,32 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 7) { // Bloom (toggle)
                 enableBloom = !enableBloom;
                 return true;
-            } else if (settingIndex == 8) { // Motion Blur (toggle)
+            } else if (settingIndex == 8) { // Background Mode
+                backgroundMode = (backgroundMode + direction + 3) % 3;
+                return true;
+            } else if (settingIndex == 9) { // Gradient Animation (toggle)
+                enableGradientAnimation = !enableGradientAnimation;
+                return true;
+            } else if (settingIndex == 10) { // Gradient Quality
+                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
+                return true;
+            } else if (settingIndex == 11) { // Motion Blur (toggle)
                 enableMotionBlur = !enableMotionBlur;
                 return true;
-            } else if (settingIndex == 9) { // Chromatic Aberration (toggle)
+            } else if (settingIndex == 12) { // Chromatic Aberration (toggle)
                 enableChromaticAberration = !enableChromaticAberration;
                 return true;
-            } else if (settingIndex == 10) { // Vignette (toggle)
+            } else if (settingIndex == 13) { // Vignette (toggle)
                 enableVignette = !enableVignette;
                 return true;
-            } else if (settingIndex == 11) { // Grain Effect (toggle)
+            } else if (settingIndex == 14) { // Grain Effect (toggle)
                 enableGrainEffect = !enableGrainEffect;
                 return true;
-            } else if (settingIndex == 12) { // Camera Zoom
+            } else if (settingIndex == 15) { // Camera Zoom
                 double step = 0.05 * direction;
                 cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
                 return true;
-            } else if (settingIndex == 13) { // UI Parallax (toggle)
+            } else if (settingIndex == 16) { // UI Parallax (toggle)
                 enableUIParallax = !enableUIParallax;
                 return true;
             }
@@ -7618,42 +7516,6 @@ public class Game extends JPanel implements Runnable {
         return false;
     }
     
-    /** Set a setting directly from a slider track click (progress 0..1) */
-    private void setSettingBySliderProgress(int settingIndex, float progress) {
-        if (selectedSettingsCategory == 0) {
-            // Graphics sliders
-            if (settingIndex == 15) { // Camera Zoom: 0.75 to 1.5
-                cameraZoom = 0.75 + progress * (1.5 - 0.75);
-                cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom));
-                // Snap to nearest 0.05
-                cameraZoom = Math.round(cameraZoom * 20.0) / 20.0;
-            }
-        } else if (selectedSettingsCategory == 1) {
-            // Audio sliders (indices 1-4 are volume sliders, 0..1 range)
-            float value = Math.max(0f, Math.min(1f, progress));
-            // Snap to nearest 5%
-            value = Math.round(value * 20f) / 20f;
-            switch (settingIndex) {
-                case 1: // Master Volume
-                    gameData.setMasterVolume(value);
-                    soundManager.setMasterVolume(value);
-                    break;
-                case 2: // SFX Volume
-                    gameData.setSfxVolume(value);
-                    soundManager.setSfxVolume(value);
-                    break;
-                case 3: // UI Volume
-                    gameData.setUiVolume(value);
-                    soundManager.setUiVolume(value);
-                    break;
-                case 4: // Music Volume
-                    gameData.setMusicVolume(value);
-                    soundManager.setMusicVolume(value);
-                    break;
-            }
-        }
-    }
-    
     /** Set a graphics setting directly by pill option index */
     private void setGraphicsPillValue(int settingIndex, int pillIndex) {
         switch (settingIndex) {
@@ -7672,11 +7534,17 @@ public class Game extends JPanel implements Runnable {
                 shadowQuality = Math.max(0, Math.min(3, pillIndex));
                 enableShadows = shadowQuality > 0;
                 break;
+            case 8: // Background Mode
+                backgroundMode = Math.max(0, Math.min(2, pillIndex));
+                break;
+            case 10: // Gradient Quality
+                gradientQuality = Math.max(0, Math.min(2, pillIndex));
+                break;
         }
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 13; // Graphics: 14 items (0-13)
+        if (selectedSettingsCategory == 0) return 16; // Graphics: 17 items (0-16)
         if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
@@ -8337,19 +8205,16 @@ public class Game extends JPanel implements Runnable {
         double time = gradientTime;
         
         // Expand window to fullscreen at 55% loaded
-        if (!loadingExpanded && smoothProgress >= 55) {
+        if (!loadingExpanded && smoothProgress >= 55 && loadingExpandBounds != null) {
             loadingExpanded = true;
             isFullscreen = true;
             java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
             if (window instanceof javax.swing.JFrame) {
                 javax.swing.JFrame frame = (javax.swing.JFrame) window;
-                // Detect the monitor the window is currently on
-                java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
-                java.awt.Rectangle currentScreenBounds = gc.getBounds();
-                // Switch from decorated (windowed) to undecorated (fullscreen) on current monitor
+                // Switch from decorated (windowed) to undecorated (fullscreen)
                 frame.dispose();
                 frame.setUndecorated(true);
-                frame.setBounds(currentScreenBounds);
+                frame.setBounds(loadingExpandBounds);
                 frame.setVisible(true);
                 this.requestFocusInWindow();
             }
@@ -8861,8 +8726,7 @@ public class Game extends JPanel implements Runnable {
         int currentY = boxY + boxPaddingV;
 
         // "NEW ATTACK!" header — using stencil title style
-        // Use full screen width so the title centers on the screen (matching the centered box)
-        UITheme.drawTitle(g, "NEW ATTACK!", width, currentY + 50,
+        UITheme.drawTitle(g, "NEW ATTACK!", boxWidth, currentY + 50,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, gradientTime,
             FontPalette.getDisplay(Font.BOLD, Math.min(50, boxWidth / 10)));
         currentY += 70;

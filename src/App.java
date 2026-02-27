@@ -97,7 +97,6 @@ public class App {
             
             // Loading expand will detect current monitor dynamically
             game.setLoadingExpandBounds(screenBounds);
-            game.setLoadingExpandFrame(frame);
             
             frame.setVisible(true);
             game.start();
