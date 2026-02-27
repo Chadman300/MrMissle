@@ -95,8 +95,9 @@ public class App {
                 }
             });
             
-            // Pass screen bounds so Game can expand to fullscreen at 55%
+            // Loading expand will detect current monitor dynamically
             game.setLoadingExpandBounds(screenBounds);
+            game.setLoadingExpandFrame(frame);
             
             frame.setVisible(true);
             game.start();

@@ -155,7 +155,10 @@ public class FontPalette {
      */
     public static Font get(int style, float size) {
         ensureInit();
-        return bodyFontCache.computeIfAbsent(fontCacheKey(style, size),
+        long key = fontCacheKey(style, size);
+        Font cached = bodyFontCache.get(key);
+        if (cached != null) return cached;
+        return bodyFontCache.computeIfAbsent(key,
             k -> bodyFont.deriveFont(style, size));
     }
 
@@ -174,14 +177,20 @@ public class FontPalette {
      */
     public static Font getDisplay(int style, float size) {
         ensureInit();
-        return displayFontCache.computeIfAbsent(fontCacheKey(style, size),
+        long key = fontCacheKey(style, size);
+        Font cached = displayFontCache.get(key);
+        if (cached != null) return cached;
+        return displayFontCache.computeIfAbsent(key,
             k -> baseFont.deriveFont(style, size));
     }
 
     /** Same as {@link #get} but from the cinematic (Impact-like) base. Cached. */
     public static Font getCinematic(int style, float size) {
         ensureInit();
-        return cinematicFontCache.computeIfAbsent(fontCacheKey(style, size),
+        long key = fontCacheKey(style, size);
+        Font cached = cinematicFontCache.get(key);
+        if (cached != null) return cached;
+        return cinematicFontCache.computeIfAbsent(key,
             k -> cinematicBaseFont.deriveFont(style, size));
     }
 

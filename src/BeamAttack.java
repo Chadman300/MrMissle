@@ -27,6 +27,29 @@ public class BeamAttack {
     private static final Font WARNING_FONT = new Font("Arial", Font.BOLD, 24);
     private static final BasicStroke WARNING_STROKE = new BasicStroke(3);
     
+    // Pre-computed warning colors at 20 discrete steps (green → yellow → red)
+    // Eliminates per-frame Color allocation during the 210-frame warning phase
+    private static final int WARNING_COLOR_STEPS = 20;
+    private static final Color[] WARNING_COLORS = new Color[WARNING_COLOR_STEPS];
+    static {
+        for (int i = 0; i < WARNING_COLOR_STEPS; i++) {
+            double progress = (double) i / (WARNING_COLOR_STEPS - 1);
+            int r, g1, b;
+            if (progress < 0.5) {
+                double t = progress * 2;
+                r = (int)(163 + (235 - 163) * t);
+                g1 = (int)(190 + (203 - 190) * t);
+                b = (int)(140 + (139 - 140) * t);
+            } else {
+                double t = (progress - 0.5) * 2;
+                r = (int)(235 + (191 - 235) * t);
+                g1 = (int)(203 + (97 - 203) * t);
+                b = (int)(139 + (106 - 139) * t);
+            }
+            WARNING_COLORS[i] = new Color(r, g1, b);
+        }
+    }
+    
     public BeamAttack(double position, double width, BeamType type) {
         this.position = position;
         this.width = width;
@@ -116,43 +139,29 @@ public class BeamAttack {
         int maxY = (int)cameraY + screenHeight + margin;
         
         if (warningTimer > 0) {
-            // Calculate color transition: green → yellow → red
-            // Progress from 0 (start) to 1 (end of warning)
+            // Look up pre-computed warning color from cached array
             double progress = 1.0 - (warningTimer / (double)WARNING_DURATION);
-            
-            Color warningColor;
-            if (progress < 0.5) {
-                // First half: green to yellow
-                // Green: 163, 190, 140 -> Yellow: 235, 203, 139
-                double t = progress * 2; // 0 to 1
-                int r = (int)(163 + (235 - 163) * t);
-                int g1 = (int)(190 + (203 - 190) * t);
-                int b = (int)(140 + (139 - 140) * t);
-                warningColor = new Color(r, g1, b);
-            } else {
-                // Second half: yellow to red
-                // Yellow: 235, 203, 139 -> Red: 191, 97, 106
-                double t = (progress - 0.5) * 2; // 0 to 1
-                int r = (int)(235 + (191 - 235) * t);
-                int g1 = (int)(203 + (97 - 203) * t);
-                int b = (int)(139 + (106 - 139) * t);
-                warningColor = new Color(r, g1, b);
-            }
+            int colorIdx = Math.min(WARNING_COLOR_STEPS - 1, Math.max(0, (int)(progress * (WARNING_COLOR_STEPS - 1))));
+            Color warningColor = WARNING_COLORS[colorIdx];
             
             // Draw blinking warning line
             // Blink faster as warning time runs out
             double blinkSpeed = 0.1 + (WARNING_DURATION - warningTimer) / WARNING_DURATION * 0.4;
-            int alpha = (int)(Math.abs(Math.sin(warningTimer * blinkSpeed)) * 150 + 50);
+            float alphaF = (float)(Math.abs(Math.sin(warningTimer * blinkSpeed)) * 150 + 50) / 255f;
             
-            g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), alpha));
+            // Use base color + AlphaComposite instead of new Color(r,g,b,alpha)
+            Composite savedComp = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF)));
+            g.setColor(warningColor);
             
             if (type == BeamType.VERTICAL) {
                 // Draw vertical warning line
                 int x = (int)(position - width / 2);
                 g.fillRect(x, minY, (int)width, maxY - minY);
                 
-                // Draw warning borders
-                g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
+                // Draw warning borders — increase alpha for borders
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 100f / 255f)));
+                g.setColor(warningColor);
                 g.setStroke(WARNING_STROKE);
                 g.drawLine(x, minY, x, maxY);
                 g.drawLine(x + (int)width, minY, x + (int)width, maxY);
@@ -173,8 +182,9 @@ public class BeamAttack {
                 int y = (int)(position - width / 2);
                 g.fillRect(minX, y, maxX - minX, (int)width);
                 
-                // Draw warning borders
-                g.setColor(new Color(warningColor.getRed(), warningColor.getGreen(), warningColor.getBlue(), Math.min(255, alpha + 100)));
+                // Draw warning borders — increase alpha for borders
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 100f / 255f)));
+                g.setColor(warningColor);
                 g.setStroke(WARNING_STROKE);
                 g.drawLine(minX, y, maxX, y);
                 g.drawLine(minX, y + (int)width, maxX, y + (int)width);
@@ -191,6 +201,7 @@ public class BeamAttack {
                     }
                 }
             }
+            g.setComposite(savedComp); // Restore composite after warning drawing
         } else if (isActive) {
             // Draw active damage beam with glow effect
             if (type == BeamType.VERTICAL) {

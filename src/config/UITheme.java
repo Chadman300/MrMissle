@@ -198,6 +198,15 @@ public class UITheme {
             null);
     }
 
+    // Cached objects for drawRadarSweep (avoid per-frame allocations)
+    private static final Color RADAR_RING_COLOR = new Color(50, 200, 100);
+    private static final Color RADAR_DOT_COLOR = new Color(50, 255, 100);
+    private static final AlphaComposite ALPHA_008 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f);
+    private static final AlphaComposite ALPHA_015 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f);
+    private static final AlphaComposite ALPHA_030 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.30f);
+    private static final BasicStroke STROKE_1 = new BasicStroke(1f);
+    private static final BasicStroke STROKE_2 = new BasicStroke(2f);
+
     private static void drawRadarSweep(Graphics2D g, int width, int height, double time) {
         int cx = width - 80;
         int cy = height - 80;
@@ -205,38 +214,43 @@ public class UITheme {
         double angle = time * 1.5;
 
         // Sweep arc
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f));
+        g.setComposite(ALPHA_008);
         g.setColor(ColorPalette.RADAR_GREEN);
         g.fillArc(cx - radius, cy - radius, radius * 2, radius * 2,
                   (int)Math.toDegrees(-angle), 60);
 
         // Ring
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f));
-        g.setColor(new Color(50, 200, 100, 40));
-        g.setStroke(new BasicStroke(1));
+        g.setComposite(ALPHA_015);
+        g.setColor(RADAR_RING_COLOR);
+        g.setStroke(STROKE_1);
         g.drawOval(cx - radius, cy - radius, radius * 2, radius * 2);
         g.drawOval(cx - radius / 2, cy - radius / 2, radius, radius);
 
         // Center dot
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.3f));
-        g.setColor(new Color(50, 255, 100));
+        g.setComposite(ALPHA_030);
+        g.setColor(RADAR_DOT_COLOR);
         g.fillOval(cx - 2, cy - 2, 4, 4);
 
         g.setComposite(ColorPalette.ALPHA_FULL);
     }
 
+    // Cached base colors for drawMilitaryCorners (alpha applied via Composite)
+    private static final Color CORNER_BASE = new Color(
+        ColorPalette.ACCENT_ORANGE.getRed(),
+        ColorPalette.ACCENT_ORANGE.getGreen(),
+        ColorPalette.ACCENT_ORANGE.getBlue()
+    );
+    private static final Color RIVET_BASE = new Color(150, 150, 160);
+
     private static void drawMilitaryCorners(Graphics2D g, int width, int height, double time) {
         int sz = 50;
         int inset = 15;
-        int alpha = (int)(140 + 60 * Math.sin(time * 2));
-        Color c = new Color(
-            ColorPalette.ACCENT_ORANGE.getRed(),
-            ColorPalette.ACCENT_ORANGE.getGreen(),
-            ColorPalette.ACCENT_ORANGE.getBlue(),
-            alpha
-        );
-        g.setColor(c);
-        g.setStroke(new BasicStroke(2));
+        float alphaF = (140 + 60 * (float)Math.sin(time * 2)) / 255f;
+        java.awt.Composite savedComp = g.getComposite();
+        alphaF = Math.max(0f, Math.min(1f, alphaF));
+        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaF));
+        g.setColor(CORNER_BASE);
+        g.setStroke(STROKE_2);
 
         // Top-left
         g.drawLine(inset, inset, inset + sz, inset);
@@ -253,11 +267,12 @@ public class UITheme {
 
         // Small rivet dots at corners
         int dotR = 3;
-        g.setColor(new Color(150, 150, 160, alpha));
+        g.setColor(RIVET_BASE);
         g.fillOval(inset - dotR, inset - dotR, dotR * 2, dotR * 2);
         g.fillOval(width - inset - dotR, inset - dotR, dotR * 2, dotR * 2);
         g.fillOval(inset - dotR, height - inset - dotR, dotR * 2, dotR * 2);
         g.fillOval(width - inset - dotR, height - inset - dotR, dotR * 2, dotR * 2);
+        g.setComposite(savedComp);
     }
 
     private static void drawDarkVignette(Graphics2D g, int width, int height) {

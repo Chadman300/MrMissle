@@ -52,6 +52,9 @@ public class Renderer {
 
     private int sliderBtnSize = 26;    // +/- button size
 
+    private int[] sliderTrackStartX;   // [settingIndex] = screen X of slider track left edge
+    private int[] sliderTrackEndX;     // [settingIndex] = screen X of slider track right edge
+
     // HUD Layout Editor
     public HUDLayoutEditor hudLayoutEditor = new HUDLayoutEditor();
     public HUDLayout hudLayout; // active layout reference, set from Game
@@ -129,6 +132,13 @@ public class Renderer {
     // Boss shield arc strokes (cached to avoid 32 new BasicStroke per frame)
     private static final BasicStroke SHIELD_STROKE_OUTER = new BasicStroke(16f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke SHIELD_STROKE_MAIN = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    // Cached rounded strokes used per-frame in shield arcs, HUD brackets, etc.
+    private static final BasicStroke ROUND_STROKE_14 = new BasicStroke(14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke ROUND_STROKE_10 = new BasicStroke(10f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke ROUND_STROKE_8 = new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke ROUND_STROKE_6 = new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke ROUND_STROKE_3_5 = new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+    private static final BasicStroke ROUND_STROKE_2_5 = new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     // Shockwave arc strokes (cached — was 5 new BasicStroke per frame in loop)
     private static final BasicStroke SHOCKWAVE_STROKE_0 = new BasicStroke(12f);
     private static final BasicStroke SHOCKWAVE_STROKE_1 = new BasicStroke(10.5f);
@@ -136,6 +146,8 @@ public class Renderer {
     private static final BasicStroke SHOCKWAVE_STROKE_3 = new BasicStroke(7.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_4 = new BasicStroke(6f);
     private static final BasicStroke[] SHOCKWAVE_STROKES = { SHOCKWAVE_STROKE_0, SHOCKWAVE_STROKE_1, SHOCKWAVE_STROKE_2, SHOCKWAVE_STROKE_3, SHOCKWAVE_STROKE_4 };
+    // Cached identity transform — avoids new AffineTransform() every frame
+    private static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
 
     // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
@@ -190,6 +202,9 @@ public class Renderer {
     private static final Color SHIELD_ARC_INNER = new Color(100, 200, 255, 25);
     private static final Color INVINCIBILITY_GLOW = new Color(255, 255, 200, 120);
     private static final Color BOSS_DEATH_FIRE = new Color(255, 100, 0);
+    // Frost beam cached colors (avoid per-frame new Color() in frost beam rendering)
+    private static final Color FROST_OUTER_GLOW = new Color(100, 180, 230);
+    private static final Color FROST_SPIKE_WHITE = new Color(220, 245, 255);
     private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
     private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
     private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
@@ -432,8 +447,23 @@ public class Renderer {
 
                     
 
-                    // Store the image (can be null if layer doesn't exist for this set)
+                    // Pre-scale to screen height once at load time so drawParallaxBackground()
+                    // can do a simple 1:1 blit instead of per-frame bilinear scaling (saves ~50% render time)
+                    if (image != null) {
+                        int targetH = Game.HEIGHT;
+                        double scale = (double) targetH / image.getHeight();
+                        int targetW = (int)(image.getWidth() * scale);
+                        if (targetW > 0 && targetH > 0) {
+                            BufferedImage prescaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
+                            Graphics2D pg = prescaled.createGraphics();
+                            pg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                            pg.drawImage(image, 0, 0, targetW, targetH, null);
+                            pg.dispose();
+                            image = prescaled; // replace with pre-scaled version
+                        }
+                    }
 
+                    // Store the image (can be null if layer doesn't exist for this set)
                     backgroundLayers[set][layer] = image;
 
                     if (progressCallback != null) progressCallback.accept((int)((set * 6 + layer + 1) * 100.0 / 48));
@@ -541,21 +571,9 @@ public class Renderer {
 
             
 
-            // Calculate how many times to tile the image
+            // Images are pre-scaled to screen height at load time, so use 1:1 blit
 
-            int imgWidth = layer.getWidth();
-
-            int imgHeight = layer.getHeight();
-
-            
-
-            // Scale to fit screen height
-
-            double scale = (double)height / imgHeight;
-
-            int scaledWidth = (int)(imgWidth * scale);
-
-            int scaledHeight = height;
+            int scaledWidth = layer.getWidth();
 
             
 
@@ -565,13 +583,13 @@ public class Renderer {
 
             
 
-            // Draw tiled layers with wrapping
+            // Draw tiled layers with wrapping (no scaling — simple blit)
 
             int x = (int)(-offset);
 
             while (x < width) {
 
-                g.drawImage(layer, x, 0, scaledWidth, scaledHeight, null);
+                g.drawImage(layer, x, 0, null);
 
                 x += scaledWidth;
 
@@ -1421,7 +1439,7 @@ public class Renderer {
 
             // Border in mode color
 
-            g2.setStroke(new BasicStroke(isSelected ? 4 : 2));
+            g2.setStroke(RenderCache.getStroke(isSelected ? 4f : 2f));
 
             g2.setColor(isSelected ? mode.getColor() : new Color(
 
@@ -3720,7 +3738,7 @@ public class Renderer {
 
         g.setColor(PATH_LINE_COLOR);
 
-        g.setStroke(new BasicStroke(6, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.setStroke(ROUND_STROKE_6);
 
         g.drawLine(0, centerY, width, centerY);
 
@@ -4722,7 +4740,7 @@ public class Renderer {
 
             g.setColor(isSelected ? GLOW_AVAILABLE : new Color(80, 85, 95));
 
-            g.setStroke(new BasicStroke(isSelected ? 3 : 2));
+            g.setStroke(RenderCache.getStroke(isSelected ? 3f : 2f));
 
             g.drawRoundRect(cardX + offsetX, cardY + offsetY, scaledWidth, scaledHeight, 15, 15);
 
@@ -5562,9 +5580,17 @@ public class Renderer {
 
             
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            // Save/restore instead of g.create() to avoid Graphics2D clone allocation
 
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            AffineTransform savedFrostTransform = g.getTransform();
+
+            Composite savedFrostComposite = g.getComposite();
+
+            Stroke savedFrostStroke = g.getStroke();
+
+            Object savedFrostAA = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             
 
@@ -5574,13 +5600,15 @@ public class Renderer {
 
             
 
-            // Outer glow circle
+            // Outer glow circle — use base color + AlphaComposite instead of new Color(r,g,b,a)
 
-            g2d.setColor(new Color(100, 180, 230, (int)(80 * circleProgress)));
+            g.setComposite(RenderCache.getAlpha((float)(80 * circleProgress) / 255f));
 
-            g2d.setStroke(new BasicStroke((float)(10 * circleProgress)));
+            g.setColor(FROST_OUTER_GLOW);
 
-            g2d.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
+            g.setStroke(RenderCache.getStroke((float)(10 * circleProgress)));
+
+            g.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
 
                         (int)(circleRadius * 2), (int)(circleRadius * 2));
 
@@ -5588,11 +5616,13 @@ public class Renderer {
 
             // Main circle ring
 
-            g2d.setColor(new Color(136, 192, 208, alpha));
+            g.setComposite(RenderCache.getAlpha((float)alpha / 255f));
 
-            g2d.setStroke(new BasicStroke((float)(5 * circleProgress)));
+            g.setColor(RenderCache.ICE_BLUE);
 
-            g2d.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
+            g.setStroke(RenderCache.getStroke((float)(5 * circleProgress)));
+
+            g.drawOval((int)(circleX - circleRadius), (int)(circleY - circleRadius), 
 
                         (int)(circleRadius * 2), (int)(circleRadius * 2));
 
@@ -5600,13 +5630,13 @@ public class Renderer {
 
             // Inner bright ring
 
-            g2d.setColor(new Color(200, 235, 255, alpha));
+            g.setColor(RenderCache.ICY_WHITE);
 
-            g2d.setStroke(new BasicStroke((float)(2 * circleProgress)));
+            g.setStroke(RenderCache.getStroke((float)(2 * circleProgress)));
 
             int innerOffset = (int)(3 * circleProgress);
 
-            g2d.drawOval((int)(circleX - circleRadius + innerOffset), (int)(circleY - circleRadius + innerOffset), 
+            g.drawOval((int)(circleX - circleRadius + innerOffset), (int)(circleY - circleRadius + innerOffset), 
 
                         (int)(circleRadius * 2 - innerOffset * 2), (int)(circleRadius * 2 - innerOffset * 2));
 
@@ -5618,13 +5648,11 @@ public class Renderer {
 
             if (laserLength > 5) {
 
-                Graphics2D beamG = (Graphics2D) g.create();
+                // Save/restore transform for beam rotation instead of g.create()
 
-                beamG.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.translate(beamStartX, beamStartY);
 
-                beamG.translate(beamStartX, beamStartY);
-
-                beamG.rotate(angle);
+                g.rotate(angle);
 
                 
 
@@ -5640,25 +5668,31 @@ public class Renderer {
 
             int baseRadius = (int)(currentWidth * 0.9);
 
-            beamG.setColor(new Color(100, 180, 230, (int)(60 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(60 * beamAlpha) / 255f));
 
-            beamG.fillArc(-baseRadius/2, -baseRadius, baseRadius, baseRadius * 2, -90, 180);
+            g.setColor(FROST_OUTER_GLOW);
+
+            g.fillArc(-baseRadius/2, -baseRadius, baseRadius, baseRadius * 2, -90, 180);
 
             
 
-            beamG.setColor(new Color(136, 192, 208, (int)(150 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(150 * beamAlpha) / 255f));
+
+            g.setColor(RenderCache.ICE_BLUE);
 
             int innerBaseRadius = (int)(currentWidth * 0.5);
 
-            beamG.fillArc(-innerBaseRadius/2, -innerBaseRadius, innerBaseRadius, innerBaseRadius * 2, -90, 180);
+            g.fillArc(-innerBaseRadius/2, -innerBaseRadius, innerBaseRadius, innerBaseRadius * 2, -90, 180);
 
             
 
-            beamG.setColor(new Color(200, 235, 255, (int)(200 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(200 * beamAlpha) / 255f));
+
+            g.setColor(RenderCache.ICY_WHITE);
 
             int coreBaseRadius = (int)(currentWidth * 0.2);
 
-            beamG.fillArc(-coreBaseRadius/2, -coreBaseRadius, coreBaseRadius, coreBaseRadius * 2, -90, 180);
+            g.fillArc(-coreBaseRadius/2, -coreBaseRadius, coreBaseRadius, coreBaseRadius * 2, -90, 180);
 
             
 
@@ -5666,25 +5700,31 @@ public class Renderer {
 
             // Outer glow beam - ICE BLUE
 
-            beamG.setColor(new Color(100, 180, 230, (int)(50 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(50 * beamAlpha) / 255f));
 
-            beamG.fillRect(0, (int)(-currentWidth * 0.9), (int)laserLength, (int)(currentWidth * 1.8));
+            g.setColor(FROST_OUTER_GLOW);
+
+            g.fillRect(0, (int)(-currentWidth * 0.9), (int)laserLength, (int)(currentWidth * 1.8));
 
             
 
             // Inner beam - ICE BLUE
 
-            beamG.setColor(new Color(136, 192, 208, (int)(180 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(180 * beamAlpha) / 255f));
 
-            beamG.fillRect(0, (int)(-currentWidth * 0.5), (int)laserLength, (int)(currentWidth * 1.0));
+            g.setColor(RenderCache.ICE_BLUE);
+
+            g.fillRect(0, (int)(-currentWidth * 0.5), (int)laserLength, (int)(currentWidth * 1.0));
 
             
 
             // Core beam - ICY WHITE (brightest)
 
-            beamG.setColor(new Color(200, 235, 255, (int)(220 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(220 * beamAlpha) / 255f));
 
-            beamG.fillRect(0, (int)(-currentWidth * 0.2), (int)laserLength, (int)(currentWidth * 0.4));
+            g.setColor(RenderCache.ICY_WHITE);
+
+            g.fillRect(0, (int)(-currentWidth * 0.2), (int)laserLength, (int)(currentWidth * 0.4));
 
             
 
@@ -5696,37 +5736,45 @@ public class Renderer {
 
             // Outer glow end cap (rounded)
 
-            beamG.setColor(new Color(100, 180, 230, (int)(70 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(70 * beamAlpha) / 255f));
+
+            g.setColor(FROST_OUTER_GLOW);
 
             int endCapRadius = (int)(currentWidth * 1.2);
 
-            beamG.fillOval(endX - endCapRadius/2, -endCapRadius, endCapRadius, endCapRadius * 2);
+            g.fillOval(endX - endCapRadius/2, -endCapRadius, endCapRadius, endCapRadius * 2);
 
             
 
             // Inner end cap
 
-            beamG.setColor(new Color(136, 192, 208, (int)(180 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(180 * beamAlpha) / 255f));
+
+            g.setColor(RenderCache.ICE_BLUE);
 
             int innerEndRadius = (int)(currentWidth * 0.7);
 
-            beamG.fillOval(endX - innerEndRadius/3, -innerEndRadius, innerEndRadius, innerEndRadius * 2);
+            g.fillOval(endX - innerEndRadius/3, -innerEndRadius, innerEndRadius, innerEndRadius * 2);
 
             
 
             // Core bright end
 
-            beamG.setColor(new Color(200, 235, 255, (int)(230 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(230 * beamAlpha) / 255f));
+
+            g.setColor(RenderCache.ICY_WHITE);
 
             int coreEndRadius = (int)(currentWidth * 0.35);
 
-            beamG.fillOval(endX - coreEndRadius/4, -coreEndRadius, coreEndRadius, coreEndRadius * 2);
+            g.fillOval(endX - coreEndRadius/4, -coreEndRadius, coreEndRadius, coreEndRadius * 2);
 
             
 
             // Ice crystal spikes at the tip
 
-            beamG.setColor(new Color(220, 245, 255, (int)(200 * beamAlpha)));
+            g.setComposite(RenderCache.getAlpha((float)(200 * beamAlpha) / 255f));
+
+            g.setColor(FROST_SPIKE_WHITE);
 
             int spikeLength = (int)(currentWidth * 0.6);
 
@@ -5736,7 +5784,7 @@ public class Renderer {
 
             int[] spikeY = {(int)(-currentWidth * 0.15), 0, (int)(currentWidth * 0.15)};
 
-            beamG.fillPolygon(spikeX, spikeY, 3);
+            g.fillPolygon(spikeX, spikeY, 3);
 
             // Top spike
 
@@ -5744,7 +5792,7 @@ public class Renderer {
 
             int[] spikeY2 = {(int)(-currentWidth * 0.4), (int)(-currentWidth * 0.2), (int)(-currentWidth * 0.15)};
 
-            beamG.fillPolygon(spikeX2, spikeY2, 3);
+            g.fillPolygon(spikeX2, spikeY2, 3);
 
             // Bottom spike
 
@@ -5752,15 +5800,21 @@ public class Renderer {
 
             int[] spikeY3 = {(int)(currentWidth * 0.4), (int)(currentWidth * 0.2), (int)(currentWidth * 0.15)};
 
-            beamG.fillPolygon(spikeX3, spikeY3, 3);
+            g.fillPolygon(spikeX3, spikeY3, 3);
 
             
 
-            beamG.dispose();
-
             } // End of laserLength > 5 check
 
-            g2d.dispose();
+            // Restore all saved state
+
+            g.setTransform(savedFrostTransform);
+
+            g.setComposite(savedFrostComposite);
+
+            g.setStroke(savedFrostStroke);
+
+            if (savedFrostAA != null) g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, savedFrostAA);
 
         }
 
@@ -5878,7 +5932,7 @@ public class Renderer {
 
                     g.setColor(SHIELD_ARC_OUTER);
 
-                    g.setStroke(new BasicStroke(14f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setStroke(ROUND_STROKE_14);
 
                     g.drawArc(px - glowR, py - glowR, glowR * 2, glowR * 2, (int)startAngle, (int)arcSpan);
 
@@ -5888,7 +5942,7 @@ public class Renderer {
 
                     g.setColor(SHIELD_ARC_MID);
 
-                    g.setStroke(new BasicStroke(10f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setStroke(ROUND_STROKE_10);
 
                     g.drawArc(px - orbitRadius, py - orbitRadius, orbitRadius * 2, orbitRadius * 2, (int)startAngle, (int)arcSpan);
 
@@ -5898,7 +5952,7 @@ public class Renderer {
 
                     g.setColor(SHIELD_ARC_MAIN);
 
-                    g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setStroke(ROUND_STROKE_6);
 
                     g.drawArc(px - orbitRadius, py - orbitRadius, orbitRadius * 2, orbitRadius * 2, (int)startAngle, (int)arcSpan);
 
@@ -5910,7 +5964,7 @@ public class Renderer {
 
                     g.setColor(SHIELD_ARC_EDGE);
 
-                    g.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g.setStroke(ROUND_STROKE_2_5);
 
                     g.drawArc(px - innerR, py - innerR, innerR * 2, innerR * 2, (int)startAngle, (int)arcSpan);
 
@@ -5992,43 +6046,47 @@ public class Renderer {
 
         if (bossDeathAnimation) {
 
-            // Save original transform
+            // Save/restore transform instead of g.create() to avoid Graphics2D clone
 
-            Graphics2D g2d = (Graphics2D) g.create();
+            AffineTransform savedDeathTransform = g.getTransform();
+
+            Composite savedDeathComposite = g.getComposite();
 
             
 
             // Apply death animation transformations
 
-            g2d.translate(boss.getX(), boss.getY());
+            g.translate(boss.getX(), boss.getY());
 
-            g2d.rotate(bossDeathRotation);
+            g.rotate(bossDeathRotation);
 
-            g2d.scale(bossDeathScale, bossDeathScale);
+            g.scale(bossDeathScale, bossDeathScale);
 
-            g2d.translate(-boss.getX(), -boss.getY());
+            g.translate(-boss.getX(), -boss.getY());
 
             
 
             // Draw boss with transformations
 
-            boss.draw(g2d);
+            boss.draw(g);
 
             
 
             // Add red/orange tint for fire effect
 
-            g2d.setComposite(RenderCache.getAlpha(0.3f));
+            g.setComposite(RenderCache.getAlpha(0.3f));
 
-            g2d.setColor(BOSS_DEATH_FIRE);
+            g.setColor(BOSS_DEATH_FIRE);
 
             double size = boss.getSize() * bossDeathScale;
 
-            g2d.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
+            g.fillOval((int)(boss.getX() - size/2), (int)(boss.getY() - size/2), (int)size, (int)size);
 
             
 
-            g2d.dispose();
+            g.setTransform(savedDeathTransform);
+
+            g.setComposite(savedDeathComposite);
 
         } else {
 
@@ -6853,7 +6911,7 @@ public class Renderer {
 
         // Restore to identity transform for remaining UI elements (no zoom, no camera offset)
 
-        g.setTransform(new AffineTransform());
+        g.setTransform(IDENTITY_TRANSFORM);
 
         
 
@@ -7639,7 +7697,11 @@ public class Renderer {
 
             if (popupGlow || equippedItem.canActivate()) {
 
-                Graphics2D g2d = (Graphics2D) g.create();
+                // Save/restore composite instead of g.create() to avoid Graphics2D clone
+
+                Composite savedGlowComposite = g.getComposite();
+
+                Stroke savedGlowStroke = g.getStroke();
 
                 Color glowColor;
 
@@ -7683,15 +7745,17 @@ public class Renderer {
 
                 }
 
-                g2d.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, glowAlpha))));
+                g.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, glowAlpha))));
 
-                g2d.setColor(glowColor);
+                g.setColor(glowColor);
 
-                g2d.setStroke(RenderCache.getStroke(2.5f));
+                g.setStroke(RenderCache.getStroke(2.5f));
 
-                g2d.drawRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
+                g.drawRoundRect(itemUIX, itemUIY, itemUIW, itemUIH, 10, 10);
 
-                g2d.dispose();
+                g.setComposite(savedGlowComposite);
+
+                g.setStroke(savedGlowStroke);
 
             }
 
@@ -9970,6 +10034,8 @@ public class Renderer {
             sliderPlusBtnX = new int[names.length];
 
             sliderBtnYPos = new int[names.length];
+            sliderTrackStartX = new int[names.length];
+            sliderTrackEndX = new int[names.length];
 
         }
 
@@ -9978,6 +10044,8 @@ public class Renderer {
             sliderMinusBtnX[i] = -1;
 
             sliderPlusBtnX[i] = -1;
+            sliderTrackStartX[i] = -1;
+            sliderTrackEndX[i] = -1;
 
         }
 
@@ -10092,6 +10160,8 @@ public class Renderer {
                 sliderPlusBtnX[i] = plusBtnX;
 
                 sliderBtnYPos[i] = centerY - btnSize / 2;
+                sliderTrackStartX[i] = sliderStartX;
+                sliderTrackEndX[i] = sliderEndX;
 
                 
 
@@ -10258,6 +10328,8 @@ public class Renderer {
             sliderPlusBtnX = new int[names.length];
 
             sliderBtnYPos = new int[names.length];
+            sliderTrackStartX = new int[names.length];
+            sliderTrackEndX = new int[names.length];
 
         }
 
@@ -10268,6 +10340,8 @@ public class Renderer {
             sliderMinusBtnX[i] = -1;
 
             sliderPlusBtnX[i] = -1;
+            sliderTrackStartX[i] = -1;
+            sliderTrackEndX[i] = -1;
 
         }
 
@@ -10600,6 +10674,10 @@ public class Renderer {
         sliderPlusBtnX[settingIndex] = plusX;
 
         sliderBtnYPos[settingIndex] = centerY - btnSize / 2;
+        if (sliderTrackStartX != null && settingIndex < sliderTrackStartX.length) {
+            sliderTrackStartX[settingIndex] = sliderStartX;
+            sliderTrackEndX[settingIndex] = sliderEndX;
+        }
 
         
 
@@ -12166,6 +12244,24 @@ public class Renderer {
 
     }
 
+    
+    /** Returns 0..1 progress if click is on the slider track, or -1 if not on track */
+    public float getSliderTrackClick(int settingIndex, int mouseX, int mouseY) {
+        if (sliderTrackStartX == null || settingIndex >= sliderTrackStartX.length) return -1;
+        if (sliderTrackStartX[settingIndex] < 0) return -1;
+        int by = sliderBtnYPos[settingIndex];
+        int bs = sliderBtnSize;
+        // Use button Y range for vertical hit (generous — covers the slider area)
+        if (mouseY >= by && mouseY <= by + bs) {
+            int sx = sliderTrackStartX[settingIndex];
+            int ex = sliderTrackEndX[settingIndex];
+            if (mouseX >= sx && mouseX <= ex) {
+                return Math.max(0f, Math.min(1f, (float)(mouseX - sx) / (float)(ex - sx)));
+            }
+        }
+        return -1;
+    }
+
     public void configurePauseMenu(boolean isShowcase) {
 
         showcasePauseMode = isShowcase;
@@ -12749,7 +12845,7 @@ public class Renderer {
 
                     rg.setColor(RenderCache.BLUE_100_180_255);
 
-                    rg.setStroke(new BasicStroke(Math.max(0.5f, 3f - (float)rp * 2.5f)));
+                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 3f - (float)rp * 2.5f)));
 
                     rg.drawOval(px - rr, py - rr, rr * 2, rr * 2);
 
@@ -12769,7 +12865,7 @@ public class Renderer {
                     wAlpha = Math.max(0f, Math.min(1f, wAlpha * auraI));
                     wsg.setComposite(RenderCache.getAlpha(wAlpha));
                     wsg.setColor(new Color(140, 210, 255));
-                    wsg.setStroke(new BasicStroke(1.2f + (float)(Math.sin(time * 4 + i) * 0.5)));
+                    wsg.setStroke(RenderCache.getStroke(1.2f + (float)(Math.sin(time * 4 + i) * 0.5f)));
                     double drift = (time * (70 + i * 10)) % 500;
                     int sx = (int)(px - 250 + drift);
                     wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
@@ -13095,7 +13191,7 @@ public class Renderer {
 
                                 layer < 4 ? new Color(255, 220, 120) : new Color(255, 180, 60));
 
-                    sg.setStroke(new BasicStroke(2 + layer * 8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    sg.setStroke(RenderCache.getStroke(2 + layer * 8f));
 
                     sg.drawLine(sx1, sy1, sx2, sy2);
 
@@ -13257,7 +13353,7 @@ public class Renderer {
 
                     rg.setColor(RenderCache.WARM_255_150_80);
 
-                    rg.setStroke(new BasicStroke(Math.max(0.5f, 4f - (float)rp * 3f)));
+                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 4f - (float)rp * 3f)));
 
                     rg.drawOval(bx - rr, by - rr, rr * 2, rr * 2);
 
@@ -13277,7 +13373,7 @@ public class Renderer {
                     wAlpha = Math.max(0f, Math.min(1f, wAlpha * ba));
                     wsg.setComposite(RenderCache.getAlpha(wAlpha));
                     wsg.setColor(RenderCache.WARM_255_150_60);
-                    wsg.setStroke(new BasicStroke(1.3f + (float)(Math.sin(time * 3.5 + i) * 0.6)));
+                    wsg.setStroke(RenderCache.getStroke(1.3f + (float)(Math.sin(time * 3.5 + i) * 0.6f)));
                     double drift = (time * (75 + i * 11)) % 520;
                     int sx = (int)(bx - 260 + drift);
                     wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
@@ -13566,7 +13662,7 @@ public class Renderer {
                     double wave2 = Math.cos(time * 5 + strand * 2.0) * (25 + strand * 12);
                     double midX = (pDrawX + bDrawX) / 2.0;
                     beam.curveTo(midX - 80, cy + wave1, midX + 80, cy + wave2, bDrawX - 80, cy);
-                    ebg.setStroke(new BasicStroke(4f - strand * 0.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    ebg.setStroke(RenderCache.getStroke(4f - strand * 0.6f));
                     // Blue near player, red near boss, white in middle
                     if (strand < 2)
                         ebg.setColor(new Color(150, 220, 255));
@@ -13605,7 +13701,7 @@ public class Renderer {
 
                     rg.setColor(r % 2 == 0 ? RenderCache.BLUE_120_200_255 : RenderCache.WARM_255_150_80);
 
-                    rg.setStroke(new BasicStroke(Math.max(0.5f, 5f - (float)rp * 4f)));
+                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 5f - (float)rp * 4f)));
 
                     rg.drawOval(cx - rr, cy - rr, rr * 2, rr * 2);
 
@@ -14064,7 +14160,7 @@ public class Renderer {
 
             // Glow layer
 
-            cg.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            cg.setStroke(ROUND_STROKE_8);
 
             cg.setColor(new Color(235, 203, 139, clampA(bAlpha / 4)));
 
@@ -14086,7 +14182,7 @@ public class Renderer {
 
             // Sharp layer
 
-            cg.setStroke(new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            cg.setStroke(ROUND_STROKE_3_5);
 
             cg.setColor(new Color(235, 203, 139, clampA(bAlpha)));
 
