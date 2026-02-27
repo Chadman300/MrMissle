@@ -77,7 +77,7 @@ public class PassiveUpgrade {
             case ITEM_COOLDOWN:
                 return 1.0 - (activeLevel * 0.125); // -12.5% cooldown (reduced from 25%)
             case BULLET_SIZE:
-                return 1.0 - (activeLevel * 0.12); // -12% bullet size (reduced from 20%)
+                return 1.0 - (activeLevel * 0.06); // -6% bullet size per level
             case MONEY_AND_SCORE:
                 return 1.0 + (activeLevel * 0.3); // +30% money and score
             case CRITICAL_HIT:

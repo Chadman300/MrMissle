@@ -566,6 +566,7 @@ public class Boss {
             // Apply speed boost during twirl attack
             if (twirlAttackActive) {
                 accelStrength *= twirlAttackSpeedBoost;
+   
             }
             
             ax = (dx / distance) * accelStrength * deltaTime;
@@ -1752,8 +1753,11 @@ public class Boss {
             // Draw dark glow shadow centered underneath
             if (Game.enableShadows && shadow != null) {
                 // Apply z-axis rotation to shadow
+                // Helicopters don't roll — they stay level during twirls/dives
                 double shadowScaleX;
-                if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
+                if (isHelicopter) {
+                    shadowScaleX = 1.0;
+                } else if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
                     shadowScaleX = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
                 } else if (twirlActive) {
                     shadowScaleX = Math.sin(twirlRotation + Math.PI / 2);
@@ -1804,8 +1808,11 @@ public class Boss {
             g.rotate(rotation - Math.PI / 2); // Subtract 90 degrees to align sprite
             
             // Apply z-axis rotation (wobble and/or twirl)
+            // Helicopters don't roll — they stay level during twirls/dives
             double spriteScaleX;
-            if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
+            if (isHelicopter) {
+                spriteScaleX = 1.0; // No roll effect for helicopters
+            } else if (twirlActive && Math.abs(wobbleRotation) > 0.001) {
                 // Both twirl and wobble: combine them
                 spriteScaleX = Math.sin(twirlRotation + Math.PI / 2 + wobbleRotation);
             } else if (twirlActive) {
@@ -1835,7 +1842,7 @@ public class Boss {
                     AffineTransform bladeTx = g.getTransform();
                     g.setComposite(RenderCache.ALPHA_HALF);
                     g.rotate(bladeRotation);
-                    int bladeSize = (int)(spriteWidth * 1.2);
+                    int bladeSize = (int)(spriteWidth * 3.6); // 3x bigger blades
                     g.drawImage(bladeSprite, -bladeSize/2, -bladeSize/2, bladeSize, bladeSize, null);
                     g.setTransform(bladeTx);
                 }

@@ -27,7 +27,7 @@ public class PassiveUpgradeManager {
         addUpgrade("cooldown", "Quick Charge", "-12.5% item cooldown per level", 
                    PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5);
         
-        addUpgrade("bullet_size", "Small Bullets", "-12% enemy bullet size per level", 
+        addUpgrade("bullet_size", "Small Bullets", "-6% enemy bullet size per level", 
                    PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 8);
         
         addUpgrade("money_score", "Fortune & Glory", "+30% money and score per level", 

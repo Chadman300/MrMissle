@@ -4416,6 +4416,14 @@ public class Game extends JPanel implements Runnable {
             }
             repaint();
             
+            // Submit parallax background render for NEXT frame
+            // (runs in parallel with EDT blit + frame sleep)
+            if (renderer != null) {
+                renderer.advanceParallaxScroll();
+                renderer.submitBackgroundRender(updateThreadPool,
+                        gameData != null ? gameData.getCurrentLevel() : 1, WIDTH, HEIGHT);
+            }
+            
             // Sync display for smoother frame delivery
             Toolkit.getDefaultToolkit().sync();
             
@@ -5774,9 +5782,9 @@ public class Game extends JPanel implements Runnable {
         {
             final double particleDt = deltaTime;
             int pSize = particles.size();
-            if (pSize > 300 && THREAD_COUNT > 1) {
-                // Parallel particle position update — only worth it above ~300 particles
-                // (thread submission + latch overhead exceeds benefit for small counts)
+            if (pSize > 80 && THREAD_COUNT > 1) {
+                // Parallel particle position update — worth it above ~80 particles
+                // (thread submission + latch overhead exceeds benefit for smaller counts)
                 int chunkSize = (pSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {
@@ -6500,9 +6508,9 @@ public class Game extends JPanel implements Runnable {
             final double bulletDt = deltaTime;
             int bSize = bullets.size();
             
-            if (bSize > 500 && THREAD_COUNT > 1) {
-                // Parallel position update — only worth it above ~500 bullets
-                // (thread submission + latch overhead exceeds benefit for <500)
+            if (bSize > 150 && THREAD_COUNT > 1) {
+                // Parallel position update — worth it above ~150 bullets
+                // (thread submission + latch overhead exceeds benefit for smaller counts)
                 int chunkSize = (bSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
                 for (int t = 0; t < THREAD_COUNT; t++) {
@@ -7431,14 +7439,14 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        // Category 0: Graphics (17 settings)
+        // Category 0: Graphics (14 settings)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
         // Category 3: Debug (2 settings)
         // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
-            // Graphics settings (reorganized: Display, Quality, Background, Effects, Camera)
+            // Graphics settings (reorganized: Display, Quality, Effects, Camera)
             switch (settingIndex) {
                 case 0: toggleFullscreen(); break;
                 case 1: resolutionPreset = (resolutionPreset + 1) % 6; break;
@@ -7448,15 +7456,12 @@ public class Game extends JPanel implements Runnable {
                 case 5: shadowQuality = (shadowQuality + 1) % 4; enableShadows = shadowQuality > 0; break;
                 case 6: enableParticles = !enableParticles; break;
                 case 7: enableBloom = !enableBloom; break;
-                case 8: backgroundMode = (backgroundMode + 1) % 3; break;
-                case 9: enableGradientAnimation = !enableGradientAnimation; break;
-                case 10: gradientQuality = (gradientQuality + 1) % 3; break;
-                case 11: enableMotionBlur = !enableMotionBlur; break;
-                case 12: enableChromaticAberration = !enableChromaticAberration; break;
-                case 13: enableVignette = !enableVignette; break;
-                case 14: enableGrainEffect = !enableGrainEffect; break;
-                case 15: /* Camera Zoom - handled by adjustSetting */ break;
-                case 16: enableUIParallax = !enableUIParallax; break;
+                case 8: enableMotionBlur = !enableMotionBlur; break;
+                case 9: enableChromaticAberration = !enableChromaticAberration; break;
+                case 10: enableVignette = !enableVignette; break;
+                case 11: enableGrainEffect = !enableGrainEffect; break;
+                case 12: /* Camera Zoom - handled by adjustSetting */ break;
+                case 13: enableUIParallax = !enableUIParallax; break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -7497,7 +7502,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private boolean adjustSetting(int settingIndex, int direction) {
-        // Graphics sliders (reorganized: Display, Quality, Background, Effects, Camera)
+        // Graphics sliders (reorganized: Display, Quality, Effects, Camera)
         if (selectedSettingsCategory == 0) {
             if (settingIndex == 0) { // Fullscreen (toggle)
                 toggleFullscreen();
@@ -7525,32 +7530,23 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 7) { // Bloom (toggle)
                 enableBloom = !enableBloom;
                 return true;
-            } else if (settingIndex == 8) { // Background Mode
-                backgroundMode = (backgroundMode + direction + 3) % 3;
-                return true;
-            } else if (settingIndex == 9) { // Gradient Animation (toggle)
-                enableGradientAnimation = !enableGradientAnimation;
-                return true;
-            } else if (settingIndex == 10) { // Gradient Quality
-                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
-                return true;
-            } else if (settingIndex == 11) { // Motion Blur (toggle)
+            } else if (settingIndex == 8) { // Motion Blur (toggle)
                 enableMotionBlur = !enableMotionBlur;
                 return true;
-            } else if (settingIndex == 12) { // Chromatic Aberration (toggle)
+            } else if (settingIndex == 9) { // Chromatic Aberration (toggle)
                 enableChromaticAberration = !enableChromaticAberration;
                 return true;
-            } else if (settingIndex == 13) { // Vignette (toggle)
+            } else if (settingIndex == 10) { // Vignette (toggle)
                 enableVignette = !enableVignette;
                 return true;
-            } else if (settingIndex == 14) { // Grain Effect (toggle)
+            } else if (settingIndex == 11) { // Grain Effect (toggle)
                 enableGrainEffect = !enableGrainEffect;
                 return true;
-            } else if (settingIndex == 15) { // Camera Zoom
+            } else if (settingIndex == 12) { // Camera Zoom
                 double step = 0.05 * direction;
                 cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
                 return true;
-            } else if (settingIndex == 16) { // UI Parallax (toggle)
+            } else if (settingIndex == 13) { // UI Parallax (toggle)
                 enableUIParallax = !enableUIParallax;
                 return true;
             }
@@ -7676,17 +7672,11 @@ public class Game extends JPanel implements Runnable {
                 shadowQuality = Math.max(0, Math.min(3, pillIndex));
                 enableShadows = shadowQuality > 0;
                 break;
-            case 8: // Background Mode
-                backgroundMode = Math.max(0, Math.min(2, pillIndex));
-                break;
-            case 10: // Gradient Quality
-                gradientQuality = Math.max(0, Math.min(2, pillIndex));
-                break;
         }
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 16; // Graphics: 17 items (0-16)
+        if (selectedSettingsCategory == 0) return 13; // Graphics: 14 items (0-13)
         if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)

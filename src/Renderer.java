@@ -83,6 +83,13 @@ public class Renderer {
 
     
 
+    // Async background rendering — renders parallax on worker thread while game thread sleeps
+    private BufferedImage bgBuffer;               // Off-screen buffer for background
+    private volatile boolean bgBufferReady;        // True when bgBuffer has valid content
+    private volatile int bgBufferLevel = -1;       // Level the buffer was rendered for
+    private java.util.concurrent.Future<?> bgRenderFuture;  // Handle to async render task
+    private double[] bgScrollSnapshot = new double[6];      // Snapshot of offsets for async render
+
     // Background overlay
 
     private static BufferedImage overlayImage = null;
@@ -555,7 +562,7 @@ public class Renderer {
 
         
 
-        // Update scroll offsets for each layer
+        // Draw each layer (offsets are advanced by advanceParallaxScroll)
 
         for (int i = 0; i < 6; i++) {
 
@@ -563,11 +570,7 @@ public class Renderer {
 
             BufferedImage layer = backgroundLayers[bgSet][i];
 
-            if (layer == null) continue; // Skip if this layer doesn't exist for this background set
-
-            
-
-            layerScrollOffsets[i] += speeds[i] * 0.5;
+            if (layer == null) continue; // Skip if this layer doesn't exist for this background set;
 
             
 
@@ -600,6 +603,95 @@ public class Renderer {
     }
 
     
+
+    /**
+     * Advance parallax scroll offsets (called every frame, before async render).
+     * This must be called on the game thread so offsets stay in sync with updates.
+     */
+    void advanceParallaxScroll() {
+        if (!backgroundsLoaded) return;
+        double[] speeds = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
+        for (int i = 0; i < 6; i++) {
+            layerScrollOffsets[i] += speeds[i] * 0.5;
+        }
+    }
+
+    /**
+     * Submit background rendering to a thread pool for next frame.
+     * Call this AFTER the buffer swap + repaint in the game loop so the
+     * worker renders in parallel with the EDT blit and the frame sleep.
+     */
+    void submitBackgroundRender(java.util.concurrent.ExecutorService pool, int level, int width, int height) {
+        if (!backgroundsLoaded || Game.backgroundMode != 1) {
+            bgBufferReady = false;
+            return;
+        }
+        // Ensure buffer exists and matches screen size
+        if (bgBuffer == null || bgBuffer.getWidth() != width || bgBuffer.getHeight() != height) {
+            bgBuffer = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        }
+        // Snapshot scroll offsets so the worker reads stable values
+        System.arraycopy(layerScrollOffsets, 0, bgScrollSnapshot, 0, 6);
+        final int bgSet = (level - 1) % BACKGROUND_SET_COUNT;
+        final int w = width;
+        final int h = height;
+        final double[] scrollSnap = bgScrollSnapshot;
+        bgBufferReady = false;
+        bgRenderFuture = pool.submit(() -> {
+            try {
+                Graphics2D bg = bgBuffer.createGraphics();
+                // Clear to transparent
+                bg.setComposite(AlphaComposite.Clear);
+                bg.fillRect(0, 0, w, h);
+                bg.setComposite(AlphaComposite.SrcOver);
+                for (int i = 0; i < 6; i++) {
+                    BufferedImage layer = backgroundLayers[bgSet][i];
+                    if (layer == null) continue;
+                    int scaledWidth = layer.getWidth();
+                    double offset = scrollSnap[i] % scaledWidth;
+                    int x = (int)(-offset);
+                    while (x < w) {
+                        bg.drawImage(layer, x, 0, null);
+                        x += scaledWidth;
+                    }
+                }
+                bg.dispose();
+                bgBufferLevel = bgSet;
+                bgBufferReady = true;
+            } catch (Exception e) {
+                bgBufferReady = false; // Fallback to sync render
+            }
+        });
+    }
+
+    /**
+     * Wait for the async background render to complete (with timeout fallback).
+     * Call at the start of drawGame() before drawing anything.
+     * Returns true if the pre-rendered buffer is ready to blit.
+     */
+    boolean waitForBackground() {
+        if (bgRenderFuture == null) return bgBufferReady;
+        try {
+            bgRenderFuture.get(8, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            // Timed out or failed — fall back to synchronous render
+        }
+        bgRenderFuture = null;
+        return bgBufferReady;
+    }
+
+    /**
+     * Blit the pre-rendered background buffer onto the main graphics context.
+     * Returns true if successful, false if caller should fall back to sync draw.
+     */
+    boolean blitBackground(Graphics2D g, int level) {
+        int bgSet = (level - 1) % BACKGROUND_SET_COUNT;
+        if (bgBufferReady && bgBuffer != null && bgBufferLevel == bgSet) {
+            g.drawImage(bgBuffer, 0, 0, null);
+            return true;
+        }
+        return false;
+    }
 
     private void drawStaticBackground(Graphics2D g, int width, int height, int level) {
 
@@ -5174,9 +5266,15 @@ public class Renderer {
 
         } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
 
-            // Parallax mode
+            // Parallax mode — use async pre-rendered buffer if available
 
-            drawParallaxBackground(g, width, height, level, time);
+            waitForBackground();
+
+            if (!blitBackground(g, level)) {
+
+                drawParallaxBackground(g, width, height, level, time);
+
+            }
 
         } else if (Game.backgroundMode == 2 && backgroundsLoaded) {
 
@@ -9423,9 +9521,9 @@ public class Renderer {
 
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
 
-        // Reorganized into logical groups: Display, Quality, Background, Effects, Camera
+        // Reorganized into logical groups: Display, Quality, Effects, Camera
 
-        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Background Mode", "Gradient Animation", "Gradient Quality", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax"};
+        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax"};
 
         String[] settingValues = {
 
@@ -9444,12 +9542,6 @@ public class Renderer {
             Game.enableParticles ? "ON" : "OFF",
 
             Game.enableBloom ? "ON" : "OFF",
-
-            Game.backgroundMode == 0 ? "Gradient" : Game.backgroundMode == 1 ? "Parallax" : "Static",
-
-            Game.enableGradientAnimation ? "ON" : "OFF",
-
-            Game.gradientQuality == 0 ? "Low" : Game.gradientQuality == 1 ? "Medium" : "High",
 
             Game.enableMotionBlur ? "ON" : "OFF",
 
@@ -9485,12 +9577,6 @@ public class Renderer {
 
             "Glow effect on bright objects (performance impact)",
 
-            "Choose between gradient, parallax images, or static image background",
-
-            "Animate gradient backgrounds (may affect performance)",
-
-            "Number of gradient layers (higher = better but slower)",
-
             "Blur effect on fast moving objects (performance impact)",
 
             "Color fringing on screen edges (cinematic effect)",
@@ -9507,11 +9593,11 @@ public class Renderer {
 
         
 
-        // Only Camera Zoom (15) uses a continuous slider now
+        // Only Camera Zoom (12) uses a continuous slider now
 
         float[][] sliders = new float[settingNames.length][4];
 
-        sliders[15] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom};
+        sliders[12] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom};
 
         
 
@@ -9519,9 +9605,9 @@ public class Renderer {
 
             Game.isFullscreen, false, Game.enableVSync, false, Game.enableAntiAliasing,
 
-            Game.shadowQuality > 0, Game.enableParticles, Game.enableBloom, false,
+            Game.shadowQuality > 0, Game.enableParticles, Game.enableBloom,
 
-            Game.enableGradientAnimation, false, Game.enableMotionBlur, Game.enableChromaticAberration,
+            Game.enableMotionBlur, Game.enableChromaticAberration,
 
             Game.enableVignette, Game.enableGrainEffect, false,
 
@@ -9539,11 +9625,9 @@ public class Renderer {
 
         sectionHeaders[4] = "QUALITY";
 
-        sectionHeaders[8] = "BACKGROUND";
+        sectionHeaders[8] = "EFFECTS";
 
-        sectionHeaders[11] = "EFFECTS";
-
-        sectionHeaders[15] = "CAMERA";
+        sectionHeaders[12] = "CAMERA";
 
         
 
@@ -9576,18 +9660,6 @@ public class Renderer {
         pillOptions[5] = new String[]{"Off", "Low", "Medium", "High"};
 
         pillSelected[5] = Game.shadowQuality;
-
-        
-
-        pillOptions[8] = new String[]{"Gradient", "Parallax", "Static"};
-
-        pillSelected[8] = Game.backgroundMode;
-
-        
-
-        pillOptions[10] = new String[]{"Low", "Medium", "High"};
-
-        pillSelected[10] = Game.gradientQuality;
 
         
 

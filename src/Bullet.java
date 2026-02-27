@@ -12,11 +12,11 @@ public class Bullet {
     // Dark glow shadow settings (centered underneath)
     private static final double SHADOW_GLOW_OFFSET_Y = 2; // Slight downward offset for "underneath" feel
     private static final double SHADOW_BULK_OFFSET_Y = -2; // Shift shadow toward the nose/top of the sprite
-    private static final double SHADOW_MIN_SCALE = 0.9; // Innermost layer scale
-    private static final double SHADOW_MAX_SCALE = 1.45; // Outermost layer scale
-    private static final double SHADOW_WIDTH_STRETCH = 1.25; // Make shadow wider than tall
-    private static final float SHADOW_MAX_ALPHA = 0.14f; // Alpha of innermost (most opaque) layer
-    private static final float SHADOW_MIN_ALPHA = 0.02f; // Alpha of outermost (most transparent) layer
+    private static final double SHADOW_MIN_SCALE = 1.1; // Innermost layer scale (must be >1.0 so shadow extends beyond bullet)
+    private static final double SHADOW_MAX_SCALE = 1.5; // Outermost layer scale
+    private static final double SHADOW_WIDTH_STRETCH = 1.3; // Make shadow wider than tall
+    private static final float SHADOW_MAX_ALPHA = 0.30f; // Alpha of innermost (most opaque) layer — higher for small bullets
+    private static final float SHADOW_MIN_ALPHA = 0.06f; // Alpha of outermost (most transparent) layer
     
     // Bullet sprites
     private static BufferedImage[] bulletSprites = new BufferedImage[17];
@@ -109,7 +109,7 @@ public class Bullet {
     }
     
     public static void setBulletSizeMultiplier(double multiplier) {
-        bulletSizeMultiplier = Math.max(0.6, multiplier);
+        bulletSizeMultiplier = Math.max(0.75, multiplier);
     }
     
     // Maximum rendered size for any bullet sprite (SIZE * 7 = 42 for nuke)
