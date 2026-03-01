@@ -15,7 +15,7 @@ import javax.swing.*;
 public class App {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Mr. Missile");
+            JFrame frame = new JFrame("Missile Man");
             
             // Set application icon
             try {
