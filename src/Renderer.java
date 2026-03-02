@@ -763,7 +763,7 @@ public class Renderer {
         UITheme.drawScreenBackground(g, width, height, time);
 
         // Title Ã¢â‚¬â€ stencil-style with ember particles
-        UITheme.drawTitle(g, "MR. MISSILE", width, height / 2 - 100,
+        UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - 100,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
 
@@ -805,7 +805,7 @@ public class Renderer {
         }
 
         // Title Ã¢â‚¬â€ stencil-style with embers
-        UITheme.drawTitle(g, "MR. MISSILE", width, 150,
+        UITheme.drawTitle(g, "MISSILE MAN", width, 150,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE);
 
@@ -818,13 +818,13 @@ public class Renderer {
 
             g.setFont(FontPalette.TITLE);
             FontMetrics titleFm = g.getFontMetrics();
-            int titleX = (width - titleFm.stringWidth("MR. MISSILE")) / 2;
+            int titleX = (width - titleFm.stringWidth("MISSILE MAN")) / 2;
 
             String splashText = gameMode.getSplashText();
             g2.setFont(FontPalette.MEDIUM_BOLD);
             FontMetrics splashFm = g2.getFontMetrics();
 
-            int anchorX = titleX + titleFm.stringWidth("MR. MISSILE") + 10;
+            int anchorX = titleX + titleFm.stringWidth("MISSILE MAN") + 10;
             int anchorY = 150 - 5;
 
             int textW = splashFm.stringWidth(splashText);
