@@ -7378,11 +7378,11 @@ public class Renderer {
 
         if (riskContractType == 4 && riskContractActive && stoppedMovingTimer > 0 && !isPaused) {
 
-            int gracePerio = 90; // Match STOPPED_GRACE_PERIOD from Game
+            int gracePeriod = 60; // Match STOPPED_GRACE_PERIOD from Game
 
-            double timeRemaining = (gracePerio - stoppedMovingTimer) / 60.0; // Convert to seconds
+            double timeRemaining = (gracePeriod - stoppedMovingTimer) / 60.0; // Convert to seconds
 
-            float dangerLevel = (float) stoppedMovingTimer / gracePerio;
+            float dangerLevel = (float) stoppedMovingTimer / gracePeriod;
 
             
 
@@ -7448,7 +7448,7 @@ public class Renderer {
 
             String warningText = dangerLevel < 0.5 ? "KEEP MOVING!" : 
 
-                                dangerLevel < 0.8 ? "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  MOVE NOW!" : "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â  MOVE! ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ";
+                                dangerLevel < 0.8 ? "!! MOVE NOW!" : "!! MOVE !! !!";
 
             FontMetrics fm = g.getFontMetrics();
 

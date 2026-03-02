@@ -469,7 +469,7 @@ public class Game extends JPanel implements Runnable {
         {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
         {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1 second"},
         {"IMPULSE", "21", "Impulse", "Push all bullets away from you\n5 second cooldown, instant effect"},
-        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 85%\n7.5 second cooldown, lasts 4 seconds"},
+        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 85%\n10 second cooldown, lasts 6 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n15 second cooldown, screen flashes their color"},
         {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown, soft aim assist near boss"},
         {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"}
@@ -3543,6 +3543,7 @@ public class Game extends JPanel implements Runnable {
         waitingForRespawn = false;
         bossDeathAnimation = false;
         stoppedMovingTimer = 0;
+        hasMovedOnce = false; // Reset Can't Stop contract so player must input movement before timer starts
         
         // Set game state to playing with countdown
         gameState = GameState.PLAYING;
@@ -4951,6 +4952,10 @@ public class Game extends JPanel implements Runnable {
                     player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
                     player.resetVelocity();
                     
+                    // Reset Can't Stop contract so player must input movement before timer starts
+                    hasMovedOnce = false;
+                    stoppedMovingTimer = 0;
+                    
                     // Grant temporary invincibility
                     playerInvincible = true;
                     respawnInvincibilityTimer = RESPAWN_BLINK_FRAMES; // 3 seconds
@@ -5152,9 +5157,33 @@ public class Game extends JPanel implements Runnable {
                 if (riskContractType == 4 && riskContractActive) {
                     double playerSpeed = Math.sqrt(player.getVX() * player.getVX() + player.getVY() * player.getVY());
                     
-                    // Mark that player has moved at least once
-                    if (playerSpeed >= MIN_MOVEMENT_SPEED && !hasMovedOnce) {
-                        hasMovedOnce = true;
+                    // Mark that player has moved at least once (based on actual input, not velocity)
+                    // This prevents death at spawn before the player has pressed any movement key
+                    if (!hasMovedOnce) {
+                        boolean movementInputActive = false;
+                        if (keyBindManager != null) {
+                            int upKey = keyBindManager.getKey(KeyBindManager.Action.MOVE_UP);
+                            int downKey = keyBindManager.getKey(KeyBindManager.Action.MOVE_DOWN);
+                            int leftKey = keyBindManager.getKey(KeyBindManager.Action.MOVE_LEFT);
+                            int rightKey = keyBindManager.getKey(KeyBindManager.Action.MOVE_RIGHT);
+                            if ((upKey >= 0 && upKey < keys.length && keys[upKey]) ||
+                                (downKey >= 0 && downKey < keys.length && keys[downKey]) ||
+                                (leftKey >= 0 && leftKey < keys.length && keys[leftKey]) ||
+                                (rightKey >= 0 && rightKey < keys.length && keys[rightKey])) {
+                                movementInputActive = true;
+                            }
+                        }
+                        if (!movementInputActive && controllerManager != null && controllerManager.isConnected()) {
+                            if (controllerManager.isActionPressed(KeyBindManager.Action.MOVE_UP) ||
+                                controllerManager.isActionPressed(KeyBindManager.Action.MOVE_DOWN) ||
+                                controllerManager.isActionPressed(KeyBindManager.Action.MOVE_LEFT) ||
+                                controllerManager.isActionPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                                movementInputActive = true;
+                            }
+                        }
+                        if (movementInputActive) {
+                            hasMovedOnce = true;
+                        }
                     }
                     
                     // Only enforce movement requirement after player has moved once
@@ -5596,8 +5625,8 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            // Spawn fire trail behind player
-            if (player != null && Game.enableParticles) {
+            // Spawn fire trail behind player (skip during death sequence)
+            if (player != null && Game.enableParticles && !playerHidden && !deathSequenceActive) {
                 trailSpawnTimer += deltaTime;
                 if (trailSpawnTimer >= 2) { // Every 2 frames worth of time
                     trailSpawnTimer = 0;
@@ -6329,6 +6358,10 @@ public class Game extends JPanel implements Runnable {
                 // shieldActive is only for the Shield active item
                 playerInvincible = true;
                 respawnInvincibilityTimer = 180; // 3 seconds of invincibility after respawn
+                
+                // Reset Can't Stop contract so player must input movement before timer starts
+                hasMovedOnce = false;
+                stoppedMovingTimer = 0;
                 
                 // Track spawn position for radius check
                 spawnProtectionX = player.getX();
@@ -7198,10 +7231,23 @@ public class Game extends JPanel implements Runnable {
     // Check if a given music path is a menu track (from either chill or heavy pool)
     private boolean isMenuTrack(String path) {
         if (path == null) return false;
+        return isChillTrack(path) || isHeavyTrack(path);
+    }
+    
+    // Check if a given music path is from the chill menu pool
+    private boolean isChillTrack(String path) {
+        if (path == null) return false;
         String wavPath = path.replace(".mp3", ".wav");
         for (String track : CHILL_MENU_TRACKS) {
             if (track.replace(".mp3", ".wav").equals(wavPath)) return true;
         }
+        return false;
+    }
+    
+    // Check if a given music path is from the heavy menu pool
+    private boolean isHeavyTrack(String path) {
+        if (path == null) return false;
+        String wavPath = path.replace(".mp3", ".wav");
         for (String track : HEAVY_MENU_TRACKS) {
             if (track.replace(".mp3", ".wav").equals(wavPath)) return true;
         }
@@ -7224,9 +7270,11 @@ public class Game extends JPanel implements Runnable {
         if (gameState != newState) {
             // Handle music transitions
             if (isMenuState(newState)) {
-                // Only start menu music if not already playing a menu track
+                // Start menu music if not playing, or switch pools if progression crossed the threshold
                 String currentTrack = soundManager.getCurrentMusic();
-                if (!isMenuTrack(currentTrack)) {
+                boolean shouldBeHeavy = gameData.getMaxUnlockedLevel() > 14;
+                boolean wrongPool = (shouldBeHeavy && isChillTrack(currentTrack)) || (!shouldBeHeavy && isHeavyTrack(currentTrack));
+                if (!isMenuTrack(currentTrack) || wrongPool) {
                     soundManager.playMusic(getMenuMusicPath());
                 }
             } else if (newState == GameState.PLAYING) {

@@ -625,17 +625,18 @@ public class Bullet {
                 // Quality-based alpha (40% more transparent than original)
                 float baseAlpha = Game.shadowQuality == 1 ? 0.24f : Game.shadowQuality == 2 ? 0.33f : 0.45f;
                 // Gradual fade as bullet count increases — never fully disappears
-                int fadeStart = Game.shadowQuality == 1 ? 30 : Game.shadowQuality == 2 ? 80 : 200;
+                int fadeStart = Game.shadowQuality == 1 ? 80 : Game.shadowQuality == 2 ? 150 : 350;
                 int fadeEnd = fadeStart * 2;
                 float shadowAlpha;
                 if (activeBulletCount <= fadeStart) {
                     shadowAlpha = baseAlpha;
                 } else if (activeBulletCount >= fadeEnd) {
-                    shadowAlpha = baseAlpha * 0.15f;
+                    shadowAlpha = baseAlpha * 0.35f;
                 } else {
                     float t = (float)(activeBulletCount - fadeStart) / (fadeEnd - fadeStart);
-                    shadowAlpha = baseAlpha * (1.0f - t * 0.85f);
+                    shadowAlpha = baseAlpha * (1.0f - t * 0.65f);
                 }
+                shadowAlpha = Math.max(0.03f, shadowAlpha);
                 g.setComposite(RenderCache.getAlpha(shadowAlpha * finalAlpha));
                 g.drawImage(shadowImg,
                     -bulletDrawW / 2 - pad, -bulletDrawH / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
