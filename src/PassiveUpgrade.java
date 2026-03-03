@@ -19,7 +19,8 @@ public class PassiveUpgrade {
         SPEED_BOOST,        // Increase movement speed
         BULLET_SLOW,        // Slow enemy bullets
         LUCKY_DODGE,        // Chance to phase through bullets
-        TARGETING           // Auto-aim toward boss when nearby
+        TARGETING,          // Auto-aim toward boss when nearby
+        FLARES              // Deploy decoy flares to divert homing missiles
     }
     
     // Constructor for exponential cost upgrades (1.5x multiplier)
@@ -90,6 +91,8 @@ public class PassiveUpgrade {
                 return activeLevel * 0.1; // 10% chance to phase through bullets
             case TARGETING:
                 return activeLevel * 0.045; // Aim-assist strength (tripled per level)
+            case FLARES:
+                return activeLevel; // Raw level, scaling handled in Game.java
             default:
                 return 1.0;
         }

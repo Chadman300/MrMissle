@@ -40,7 +40,8 @@ public class Particle {
         SMOKE,      // Soft, expanding smoke puffs
         MONEY_SIGN, // Falling money sign from Pool of Loot
         EXHAUST,    // Rocket exhaust - like SPARK but no gravity
-        DEBRIS      // Spinning missile fragments with gravity
+        DEBRIS,     // Spinning missile fragments with gravity
+        FLARE_SPARK // Glowing spark for flare effects
     }
     
     public Particle(double x, double y, double vx, double vy, Color color, double lifetime, double size, ParticleType type) {
@@ -191,6 +192,24 @@ public class Particle {
                 g.setColor(Color.WHITE);
                 g.fillRect(-fw / 2, -fh / 2, Math.max(1, fw / 2), fh);
                 g.setTransform(debrisTx);
+                break;
+                
+            case FLARE_SPARK:
+                // Glowing spark for flare effects
+                // Outer glow halo
+                int outerGlowSize = (int)(size * 3);
+                g.setComposite(ALPHA_CACHE[Math.min(100, (int)(alpha * 40))]);
+                g.setColor(new Color(255, 60, 30));
+                g.fillOval((int)(x - outerGlowSize/2), (int)(y - outerGlowSize/2), outerGlowSize, outerGlowSize);
+                // Inner glow
+                int innerGlowSize = (int)(size * 1.8);
+                g.setComposite(ALPHA_CACHE[Math.min(100, (int)(alpha * 80))]);
+                g.setColor(new Color(255, 100, 50));
+                g.fillOval((int)(x - innerGlowSize/2), (int)(y - innerGlowSize/2), innerGlowSize, innerGlowSize);
+                // Core
+                g.setComposite(ALPHA_CACHE[alphaIndex]);
+                g.setColor(color);
+                g.fillOval((int)(x - size/2), (int)(y - size/2), (int)size, (int)size);
                 break;
         }
         

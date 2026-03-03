@@ -64,6 +64,10 @@ public class Bullet {
     // Frost Beam freeze timer (counts down, when > 0 bullet is frozen)
     private int freezeTimer = 0;
     
+    // Flare targeting fields
+    private double flareTargetX, flareTargetY;
+    private boolean targetingFlare = false;
+    
     public enum BulletType {
         NORMAL,      // Standard bullet
         FAST,        // Faster, smaller bullet
@@ -199,6 +203,9 @@ public class Bullet {
         this.markedForFadeOut = false;
         this.freezeTimer = 0;
         this.frameSpeedMultiplier = 1.0;
+        this.targetingFlare = false;
+        this.flareTargetX = 0;
+        this.flareTargetY = 0;
     }
     
     public void update() {
@@ -235,15 +242,26 @@ public class Bullet {
                 break;
             case HOMING:
                 if (player != null) {
-                    // Slightly adjust direction towards player
-                    double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+                    // Determine homing target: flare or player
+                    double targetX, targetY;
+                    double turnRate;
+                    if (targetingFlare) {
+                        targetX = flareTargetX;
+                        targetY = flareTargetY;
+                        turnRate = 0.035; // Faster turn rate when targeting flare
+                    } else {
+                        targetX = player.getX();
+                        targetY = player.getY();
+                        turnRate = 0.02;
+                    }
+                    double angleToPlayer = Math.atan2(targetY - y, targetX - x);
                     double currentAngle = Math.atan2(vy, vx);
                     double angleDiff = angleToPlayer - currentAngle;
                     // Normalize angle (optimized)
                     if (angleDiff > Math.PI) angleDiff -= TWO_PI;
                     else if (angleDiff < -Math.PI) angleDiff += TWO_PI;
-                    // Turn slightly towards player (scaled by delta time)
-                    currentAngle += angleDiff * 0.02 * deltaTime;
+                    // Turn towards target (scaled by delta time)
+                    currentAngle += angleDiff * turnRate * deltaTime;
                     // Cache and reuse speed calculation
                     if (speedCacheAge > 10 || cachedSpeed == 0) {
                         cachedSpeed = Math.sqrt(vx * vx + vy * vy);
@@ -803,5 +821,20 @@ public class Bullet {
         // Invalidate speed cache so spiral/homing bullets pick up the new velocity
         speedCacheAge = 999;
         cachedSpeed = 0;
+    }
+    
+    // Flare targeting methods
+    public void setFlareTarget(double x, double y) {
+        this.flareTargetX = x;
+        this.flareTargetY = y;
+        this.targetingFlare = true;
+    }
+    
+    public void clearFlareTarget() {
+        this.targetingFlare = false;
+    }
+    
+    public boolean isTargetingFlare() {
+        return targetingFlare;
     }
 }

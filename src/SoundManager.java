@@ -192,7 +192,11 @@ public class SoundManager {
         AMBIENT_BACKGROUND(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav"),
         
         // Proximity warning hum (low-frequency pulse for nearby bullets)
-        PROXIMITY_HUM(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav");
+        PROXIMITY_HUM(GAME_PATH + "Ambience/Retro Ambience Stretch Large 01.wav"),
+        
+        // Flare sounds
+        FLARE_DEPLOY(GAME_PATH + "Swoosh/Retro Swooosh 07.wav"),
+        FLARE_EXPLODE(GAME_PATH + "Explosion/Retro Explosion Short 01.wav");
         
         private final String path;
         

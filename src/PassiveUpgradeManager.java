@@ -41,6 +41,10 @@ public class PassiveUpgradeManager {
         
         addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
                    PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
+        
+        addUpgrade("flares", "Flares",
+            "Deploys decoy flares that divert homing missiles. Upgrades increase frequency, count, and diversion chance.",
+            PassiveUpgrade.UpgradeType.FLARES, 800, 5);
     }
     
     // For exponential cost upgrades

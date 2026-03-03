@@ -88,6 +88,16 @@ public class Game extends JPanel implements Runnable {
     private List<Particle> introParticles; // Separate particles for boss intro cinematic (screen-space)
     private List<BeamAttack> beamAttacks;
     
+    // Flare system
+    private List<Flare> flares;
+    private double flareCooldownTimer;
+    private static final double FLARE_BASE_COOLDOWN = 900; // 15 seconds at 60fps
+    
+    // Cached flare colors
+    private static final Color FLARE_RED = new Color(255, 70, 30);
+    private static final Color FLARE_ORANGE = new Color(255, 120, 40);
+    private static final Color FLARE_YELLOW = new Color(255, 200, 60);
+    
     // Particle limits for performance
     private static final int MAX_PARTICLES = 200; // Reduced for better performance
     private static final int MAX_BULLETS = 500; // Cap bullets for performance
@@ -673,6 +683,8 @@ public class Game extends JPanel implements Runnable {
         particlePool = new ArrayList<>();
         introParticles = new ArrayList<>();
         beamAttacks = new ArrayList<>();
+        flares = new ArrayList<>();
+        flareCooldownTimer = 300; // 5s grace period at start
         bulletGrid = new HashMap<>();
         gameData = new GameData();
         shopManager = new ShopManager(gameData);
@@ -1668,6 +1680,8 @@ public class Game extends JPanel implements Runnable {
                         debugShowcaseInGameplay = false;
                         bullets.clear();
                         beamAttacks.clear();
+                        flares.clear();
+                        flareCooldownTimer = 300;
                         transitionToState(GameState.ATTACK_SHOWCASE);
                         System.out.println("DEBUG SHOWCASE: Returning to selection - restored level to " + savedRealLevel);
                     }
@@ -3279,6 +3293,8 @@ public class Game extends JPanel implements Runnable {
             if (wasExtraMissile) {
                 bullets.clear();
                 beamAttacks.clear();
+                flares.clear();
+                flareCooldownTimer = 300;
             }
             
             // Give boss 5 seconds of immunity
@@ -3438,6 +3454,8 @@ public class Game extends JPanel implements Runnable {
         if (savedBeamAttacks != null) beamAttacks.addAll(savedBeamAttacks);
         damageNumbers.clear();
         if (savedDamageNumbers != null) damageNumbers.addAll(savedDamageNumbers);
+        flares.clear();
+        flareCooldownTimer = 300;
         
         // Restore game state variables
         gameData.setCurrentLevel(savedLevel);
@@ -3519,6 +3537,8 @@ public class Game extends JPanel implements Runnable {
         particles.clear();
         beamAttacks.clear();
         damageNumbers.clear();
+        flares.clear();
+        flareCooldownTimer = 300;
         
         // Restore game state
         bossHitCount = rs.bossHitCount;
@@ -3657,6 +3677,8 @@ public class Game extends JPanel implements Runnable {
         damageNumbers.clear();
         beamAttacks.clear();
         introParticles.clear();
+        flares.clear();
+        flareCooldownTimer = 300;
         
         // Set up boss intro state
         bossIntroActive = true;
@@ -3939,6 +3961,8 @@ public class Game extends JPanel implements Runnable {
         beamAttacks.clear();
         particles.clear();
         damageNumbers.clear();
+        flares.clear();
+        flareCooldownTimer = 300;
         
         // Reset boss position and state
         if (currentBoss != null) {
@@ -4119,6 +4143,8 @@ public class Game extends JPanel implements Runnable {
         damageNumbers.clear();
         beamAttacks.clear();
         moneyCircles.clear(); // Clear Pool of Loot circles from previous level
+        flares.clear();
+        flareCooldownTimer = 300;
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager, gameData.getGameMode()); // Normal position, will move during intro
         setupBossFactory(currentBoss);
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
@@ -6553,6 +6579,208 @@ public class Game extends JPanel implements Runnable {
         // Rebuild spatial grid after all bullet updates for optimized collision
         rebuildBulletGrid();
         
+        // ===== FLARE SYSTEM =====
+        if (player != null && !bossDeathAnimation && !deathSequenceActive) {
+            int flaresLevel = getActiveFlaresLevel();
+            
+            // Decrement flare cooldown
+            flareCooldownTimer -= deltaTime;
+            
+            // Deploy flares when cooldown ready and upgrade active
+            if (flareCooldownTimer <= 0 && flaresLevel > 0) {
+                // Detection range scales with level: 150, 175, 200, 225, 250
+                double detectionRange = 125 + flaresLevel * 25;
+                double detRangeSq = detectionRange * detectionRange;
+                
+                // Scan for nearby homing bullets not already targeting a flare
+                java.util.List<Bullet> nearbyHomingBullets = new java.util.ArrayList<>();
+                for (Bullet bullet : bullets) {
+                    if (bullet.getType() == Bullet.BulletType.HOMING && bullet.isActive() && !bullet.isTargetingFlare()) {
+                        double dx = bullet.getX() - player.getX();
+                        double dy = bullet.getY() - player.getY();
+                        if (dx * dx + dy * dy < detRangeSq) {
+                            nearbyHomingBullets.add(bullet);
+                        }
+                    }
+                }
+                
+                if (!nearbyHomingBullets.isEmpty()) {
+                    // Determine flare count from level: 1/2/3/4/5/6/7
+                    int[] flareCounts = {0, 1, 2, 3, 4, 5, 6, 7};
+                    int flareCount = flareCounts[Math.min(flaresLevel, 7)];
+                    
+                    // Calculate backward direction (opposite of player velocity)
+                    double pvx = player.getVX();
+                    double pvy = player.getVY();
+                    double playerSpeed = Math.sqrt(pvx * pvx + pvy * pvy);
+                    double backAngle;
+                    if (playerSpeed > 0.5) {
+                        backAngle = Math.atan2(-pvy, -pvx); // Opposite of movement
+                    } else {
+                        backAngle = Math.PI / 2; // Default: downward if stationary
+                    }
+                    
+                    // Spawn flares fanned out from backward direction
+                    java.util.List<Flare> newFlares = new java.util.ArrayList<>();
+                    double spreadStep = flareCount > 1 ? Math.toRadians(60.0) / (flareCount - 1) : 0;
+                    double startAngle = backAngle - Math.toRadians(30.0);
+                    
+                    for (int fi = 0; fi < flareCount; fi++) {
+                        double angle = flareCount > 1 ? startAngle + fi * spreadStep : backAngle;
+                        double flareSpeed = 3.0 + Math.random() * 1.0;
+                        double fvx = Math.cos(angle) * flareSpeed;
+                        double fvy = Math.sin(angle) * flareSpeed;
+                        Flare flare = new Flare(player.getX(), player.getY(), fvx, fvy);
+                        flares.add(flare);
+                        newFlares.add(flare);
+                        
+                        // Deployment VFX: spawn FLARE_SPARK particles
+                        if (enableParticles) {
+                            for (int pi = 0; pi < 4; pi++) {
+                                double sparkAngle = angle + (Math.random() - 0.5) * 0.8;
+                                double sparkSpeed = 1.0 + Math.random() * 2.0;
+                                addParticle(
+                                    player.getX(), player.getY(),
+                                    Math.cos(sparkAngle) * sparkSpeed, Math.sin(sparkAngle) * sparkSpeed,
+                                    FLARE_RED, 20 + Math.random() * 10, 3 + Math.random() * 2,
+                                    Particle.ParticleType.FLARE_SPARK
+                                );
+                            }
+                        }
+                    }
+                    
+                    // Retarget chance scales with level: 30%, 45%, 60%, 75%, 90%
+                    double[] retargetChances = {0, 0.30, 0.45, 0.60, 0.75, 0.90};
+                    double retargetChance = retargetChances[Math.min(flaresLevel, 5)];
+                    
+                    // For each nearby homing bullet, roll retarget chance
+                    for (Bullet bullet : nearbyHomingBullets) {
+                        if (Math.random() < retargetChance && !newFlares.isEmpty()) {
+                            // Find nearest flare to this bullet
+                            Flare nearest = null;
+                            double nearestDistSq = Double.MAX_VALUE;
+                            for (Flare f : newFlares) {
+                                double dx = f.getX() - bullet.getX();
+                                double dy = f.getY() - bullet.getY();
+                                double distSq = dx * dx + dy * dy;
+                                if (distSq < nearestDistSq) {
+                                    nearestDistSq = distSq;
+                                    nearest = f;
+                                }
+                            }
+                            if (nearest != null) {
+                                bullet.setFlareTarget(nearest.getX(), nearest.getY());
+                            }
+                        }
+                    }
+                    
+                    // Reset cooldown: 900 - (level-1) * 120
+                    flareCooldownTimer = FLARE_BASE_COOLDOWN - (flaresLevel - 1) * 120;
+                    
+                    // Play flare deploy SFX
+                    soundManager.playSoundSpatial(SoundManager.Sound.FLARE_DEPLOY, 0.5f, player.getX(), WORLD_WIDTH);
+                }
+            }
+            
+            // Update flares and spawn trail particles
+            for (int fi = flares.size() - 1; fi >= 0; fi--) {
+                Flare flare = flares.get(fi);
+                flare.update(deltaTime);
+                if (!flare.isActive()) {
+                    flares.remove(fi);
+                    continue;
+                }
+                // Trail particle each frame
+                if (enableParticles && Math.random() < 0.7) {
+                    addParticle(
+                        flare.getX(), flare.getY(),
+                        (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3,
+                        FLARE_RED, 10, 2,
+                        Particle.ParticleType.FLARE_SPARK
+                    );
+                }
+            }
+            
+            // Update flare targets on bullets tracking flares
+            for (Bullet bullet : bullets) {
+                if (bullet.isTargetingFlare() && bullet.getType() == Bullet.BulletType.HOMING) {
+                    // Find nearest alive flare to update tracking
+                    Flare nearest = null;
+                    double nearestDistSq = Double.MAX_VALUE;
+                    for (Flare f : flares) {
+                        if (!f.isActive()) continue;
+                        double dx = f.getX() - bullet.getX();
+                        double dy = f.getY() - bullet.getY();
+                        double distSq = dx * dx + dy * dy;
+                        if (distSq < nearestDistSq) {
+                            nearestDistSq = distSq;
+                            nearest = f;
+                        }
+                    }
+                    if (nearest != null) {
+                        bullet.setFlareTarget(nearest.getX(), nearest.getY());
+                    } else {
+                        // No active flares left, resume tracking player
+                        bullet.clearFlareTarget();
+                    }
+                }
+            }
+            
+            // Flare-bullet collision detection
+            for (int fi = flares.size() - 1; fi >= 0; fi--) {
+                Flare flare = flares.get(fi);
+                if (!flare.isActive()) continue;
+                
+                for (int bi = bullets.size() - 1; bi >= 0; bi--) {
+                    Bullet bullet = bullets.get(bi);
+                    if (bullet.getType() == Bullet.BulletType.HOMING && bullet.isTargetingFlare() && bullet.isActive()) {
+                        if (flare.collidesWith(bullet)) {
+                            double cx = (flare.getX() + bullet.getX()) / 2;
+                            double cy = (flare.getY() + bullet.getY()) / 2;
+                            
+                            // Destroy both
+                            flare.setActive(false);
+                            returnBulletToPool(bullet);
+                            bullets.remove(bi);
+                            
+                            // Play flare collision SFX
+                            soundManager.playSoundSpatial(SoundManager.Sound.FLARE_EXPLODE, 0.4f, cx, WORLD_WIDTH);
+                            
+                            // Explosion VFX
+                            if (enableParticles) {
+                                // Glowing explosion sparks
+                                for (int pi = 0; pi < 10; pi++) {
+                                    double angle = TWO_PI * pi / 10.0;
+                                    double speed = 1.5 + Math.random() * 2.5;
+                                    Color sparkColor;
+                                    double rand = Math.random();
+                                    if (rand < 0.4) sparkColor = FLARE_RED;
+                                    else if (rand < 0.7) sparkColor = FLARE_ORANGE;
+                                    else sparkColor = FLARE_YELLOW;
+                                    addParticle(
+                                        cx, cy,
+                                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                        sparkColor, 15 + Math.random() * 10, 2 + Math.random() * 4,
+                                        Particle.ParticleType.FLARE_SPARK
+                                    );
+                                }
+                                // Explosion ring
+                                addParticle(
+                                    cx, cy, 0, 0,
+                                    FLARE_ORANGE, 25, 20,
+                                    Particle.ParticleType.EXPLOSION
+                                );
+                            }
+                            
+                            break; // Flare destroyed, move to next flare
+                        }
+                    }
+                }
+            }
+            // Remove destroyed flares
+            flares.removeIf(f -> !f.isActive());
+        }
+        
         // Proximity warning hum - find closest bullet to player for subtle audio cue
         if (player != null && !bossDeathAnimation && !deathSequenceActive) {
             List<Bullet> nearbyForHum = getNearbyBullets(player.getX(), player.getY());
@@ -7143,7 +7371,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer, flares);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -9751,6 +9979,16 @@ public class Game extends JPanel implements Runnable {
     private int getActiveTargetingLevel() {
         if (passiveUpgradeManager != null) {
             PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("targeting");
+            if (upgrade != null) {
+                return upgrade.getActiveLevel();
+            }
+        }
+        return 0;
+    }
+    
+    private int getActiveFlaresLevel() {
+        if (passiveUpgradeManager != null) {
+            PassiveUpgrade upgrade = passiveUpgradeManager.getUpgrade("flares");
             if (upgrade != null) {
                 return upgrade.getActiveLevel();
             }
