@@ -533,7 +533,7 @@ public class Boss {
             ay = 0;
         } else if (distance > 10) { // Dead zone to prevent jittering
             // Calculate desired acceleration direction (reduced scaling)
-            double accelStrength = ACCELERATION * (1.0 + level * 0.025);
+            double accelStrength = ACCELERATION * (1.0 + effectiveLevel * 0.025);
             
             // Apply speed boost during twirl attack
             if (twirlAttackActive) {
@@ -563,7 +563,7 @@ public class Boss {
         
         // Limit max speed (reduced scaling)
         double speed = Math.sqrt(vx * vx + vy * vy);
-        double maxSpeed = MAX_SPEED * (1.0 + level * 0.05);
+        double maxSpeed = MAX_SPEED * (1.0 + effectiveLevel * 0.05);
         
         // Boost max speed during twirl attack
         if (twirlAttackActive) {
@@ -1234,11 +1234,11 @@ public class Boss {
     
     private void shootMegaBarrage(List<Bullet> bullets, Player player) {
         // Massive dense bullet storm aimed at player
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Dense cone of bullets
-        int numBullets = 15 + level * 2;
+        int numBullets = scaleBulletCount(15 + effectiveLevel * 2);
         for (int i = 0; i < numBullets; i++) {
             double spread = Math.PI / 3; // 60 degree cone
             double angle = angleToPlayer + (i / (double)numBullets - 0.5) * spread;
@@ -1267,7 +1267,7 @@ public class Boss {
     private void shootMegaSpiral(List<Bullet> bullets) {
         // Layered spiral with multiple speeds and level-appropriate types
         // Unlocks at level 15. Can use: all except NUKE(18)
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleOffset = shootTimer * 0.15;
         
         // Three layers of spirals at different speeds
@@ -1281,7 +1281,7 @@ public class Boss {
         };
         
         for (int layer = 0; layer < 3; layer++) {
-            int numBullets = layers[layer] + level;
+            int numBullets = scaleBulletCount(layers[layer] + effectiveLevel);
             double layerOffset = angleOffset * (1 + layer * 0.3);
             
             for (int i = 0; i < numBullets; i++) {
@@ -1297,13 +1297,13 @@ public class Boss {
     private void shootMegaCross(List<Bullet> bullets, Player player) {
         // Cross pattern with rotating arms + center bullets
         // Unlocks at level 6
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Four arms of the cross
         for (int arm = 0; arm < 4; arm++) {
             double armAngle = (Math.PI / 2 * arm) + shootTimer * 0.1;
-            int bulletsPerArm = 5 + level / 2;
+            int bulletsPerArm = scaleBulletCount(5 + effectiveLevel / 2);
             
             for (int i = 0; i < bulletsPerArm; i++) {
                 double angle = armAngle;
@@ -1319,7 +1319,7 @@ public class Boss {
         }
         
         // Center cluster - spiral only if level >= 6, otherwise fast if >= 4, large if >= 3
-        for (int i = 0; i < 3 + level / 3; i++) {
+        for (int i = 0; i < scaleBulletCount(3 + effectiveLevel / 3); i++) {
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.8;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -1333,8 +1333,8 @@ public class Boss {
     private void shootMegaStar(List<Bullet> bullets) {
         // Star burst with level-appropriate bullets
         // Unlocks at level 9. Can use: NORMAL, LARGE(3), FAST(4), SPIRAL(6), BOUNCING(7), ACCELERATING(9)
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numPoints = 6 + level / 3; // 6-9 points
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numPoints = scaleBulletCount(6 + effectiveLevel / 3); // 6-9 points
         
         for (int point = 0; point < numPoints; point++) {
             double pointAngle = (Math.PI * 2 * point / numPoints);
@@ -1359,8 +1359,8 @@ public class Boss {
         }
         
         // Center ring - accelerating at level 9 (when this mega unlocks)
-        for (int i = 0; i < 3 + level / 4; i++) {
-            double angle = Math.PI * 2 * i / (4 + level / 3);
+        for (int i = 0; i < scaleBulletCount(3 + effectiveLevel / 4); i++) {
+            double angle = Math.PI * 2 * i / (4 + effectiveLevel / 3);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
@@ -1371,13 +1371,13 @@ public class Boss {
     private void shootMegaHex(List<Bullet> bullets, Player player) {
         // Hexagonal formation with level-appropriate bullets
         // Unlocks at level 12. Can use: all except HOMING(13), BOMB(15), NUKE(18)
-        double speedMultiplier = Math.min(1.0, 0.4 + (level * 0.12));
+        double speedMultiplier = getScaledSpeedMultiplierHex();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         
         // Six sides of hexagon
         for (int side = 0; side < 6; side++) {
             double sideAngle = (Math.PI / 3 * side) + shootTimer * 0.08;
-            int bulletsPerSide = 4 + level / 2;
+            int bulletsPerSide = scaleBulletCount(4 + effectiveLevel / 2);
             
             for (int i = 0; i < bulletsPerSide; i++) {
                 double angle = sideAngle + (i - bulletsPerSide / 2.0) * 0.1;
@@ -1391,7 +1391,7 @@ public class Boss {
         }
         
         // Center bullets aimed at player - grenades only if level >= 10
-        for (int i = 0; i < 1 + level / 5; i++) {
+        for (int i = 0; i < scaleBulletCount(1 + effectiveLevel / 5); i++) {
             double angle = angleToPlayer + (i - 1) * 0.4;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -1400,8 +1400,8 @@ public class Boss {
         }
         
         // Ring of bullets - accelerating only if level >= 9
-        for (int i = 0; i < 6 + level / 2; i++) {
-            double angle = Math.PI * 2 * i / (10 + level);
+        for (int i = 0; i < scaleBulletCount(6 + effectiveLevel / 2); i++) {
+            double angle = Math.PI * 2 * i / (10 + effectiveLevel);
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
             Bullet.BulletType type = level >= 9 ? Bullet.BulletType.ACCELERATING : Bullet.BulletType.NORMAL;
@@ -1497,7 +1497,7 @@ public class Boss {
             // Spawn 1-3 vertical beams depending on level
             int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double width = Math.min(40 + level * 5, MAX_BEAM_WIDTH_NORMAL); // Capped width
+                double width = scaleBeamWidth(Math.min(40 + effectiveLevel * 5, MAX_BEAM_WIDTH_NORMAL)); // Capped & scaled width
                 double position = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10, playerSafePos);
                 if (position >= 0) {
                     beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
@@ -1507,7 +1507,7 @@ public class Boss {
             // Spawn 1-3 horizontal beams depending on level
             int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double width = Math.min(40 + level * 5, MAX_BEAM_WIDTH_NORMAL); // Capped width
+                double width = scaleBeamWidth(Math.min(40 + effectiveLevel * 5, MAX_BEAM_WIDTH_NORMAL)); // Capped & scaled width
                 double position = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10, playerSafePos);
                 if (position >= 0) {
                     beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
@@ -1519,7 +1519,7 @@ public class Boss {
     
     private void spawnCrossBeams(int screenWidth, int screenHeight, Player player) {
         // One vertical and one horizontal beam forming a cross
-        double width = Math.min(50 + level * 6, MAX_BEAM_WIDTH_CROSS); // Capped width
+        double width = scaleBeamWidth(Math.min(50 + effectiveLevel * 6, MAX_BEAM_WIDTH_CROSS)); // Capped & scaled width
         double playerX = player != null ? player.getX() : -1;
         double playerY = player != null ? player.getY() : -1;
         double verticalX = findNonOverlappingPosition(screenWidth * 0.3, screenWidth * 0.7, width, BeamAttack.BeamType.VERTICAL, 10, playerX);
@@ -1535,9 +1535,9 @@ public class Boss {
     
     private void spawnGridBeams(int screenWidth, int screenHeight, Player player) {
         // Multiple vertical and horizontal beams forming a grid
-        double width = Math.min(35 + level * 4, MAX_BEAM_WIDTH_GRID); // Capped width
-        int numVertical = Math.min(2 + level / 5, MAX_GRID_BEAMS); // Capped count
-        int numHorizontal = Math.min(2 + level / 5, MAX_GRID_BEAMS); // Capped count
+        double width = scaleBeamWidth(Math.min(35 + effectiveLevel * 4, MAX_BEAM_WIDTH_GRID)); // Capped & scaled width
+        int numVertical = Math.min(2 + effectiveLevel / 5, MAX_GRID_BEAMS); // Capped count
+        int numHorizontal = Math.min(2 + effectiveLevel / 5, MAX_GRID_BEAMS); // Capped count
         double playerX = player != null ? player.getX() : -1;
         double playerY = player != null ? player.getY() : -1;
         
@@ -1568,7 +1568,7 @@ public class Boss {
     
     private void spawnRotatingBeams(int screenWidth, int screenHeight, Player player) {
         // Diagonal beams that create rotating pattern
-        double width = Math.min(55 + level * 7, MAX_BEAM_WIDTH_ROTATING); // Capped width
+        double width = scaleBeamWidth(Math.min(55 + effectiveLevel * 7, MAX_BEAM_WIDTH_ROTATING)); // Capped & scaled width
         
         // Create 2-3 diagonal-style beams by combining offset vertical/horizontal
         int numPairs = 2 + (level >= 10 ? 1 : 0);
