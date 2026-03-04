@@ -9,6 +9,7 @@ public class PassiveUpgrade {
     private int maxLevel;
     private UpgradeType type;
     private boolean useLinearCost; // true = base + level*increment, false = 1.5x multiplier
+    private int unlockLevel; // Level that must be beaten to unlock this upgrade (0 = always available)
     
     public enum UpgradeType {
         MAX_HEALTH,         // Increase max health
@@ -25,6 +26,11 @@ public class PassiveUpgrade {
     
     // Constructor for exponential cost upgrades (1.5x multiplier)
     public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int maxLevel) {
+        this(id, name, description, type, baseCost, maxLevel, 0);
+    }
+    
+    // Constructor for exponential cost upgrades with unlock level
+    public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int maxLevel, int unlockLevel) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -35,10 +41,11 @@ public class PassiveUpgrade {
         this.currentLevel = 0;
         this.activeLevel = 0;
         this.useLinearCost = false;
+        this.unlockLevel = unlockLevel;
     }
     
     // Constructor for linear cost upgrades (base + level * increment)
-    public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int costIncrement, int maxLevel) {
+    public PassiveUpgrade(String id, String name, String description, UpgradeType type, int baseCost, int costIncrement, int maxLevel, int unlockLevel) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -49,6 +56,7 @@ public class PassiveUpgrade {
         this.currentLevel = 0;
         this.activeLevel = 0;
         this.useLinearCost = true;
+        this.unlockLevel = unlockLevel;
     }
     
     public boolean canUpgrade(int money) {
@@ -108,6 +116,7 @@ public class PassiveUpgrade {
     public int getMaxLevel() { return maxLevel; }
     public UpgradeType getType() { return type; }
     public boolean isMaxed() { return currentLevel >= maxLevel; }
+    public int getUnlockLevel() { return unlockLevel; }
     
     // Setter for manual level adjustment in stats & loadout (active level)
     public void setActiveLevel(int level) {

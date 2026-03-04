@@ -137,6 +137,41 @@ public class FontPalette {
         ITALIC_18 = deriveBody(Font.ITALIC, 18);
     }
 
+    /**
+     * Re-initialize all cached fonts at the current UI scale.
+     * Called from UIScale.setScale() when the user changes the UI Scale setting.
+     */
+    public static void reinitialize() {
+        if (!initialized) return;
+        bodyFontCache.clear();
+        displayFontCache.clear();
+        cinematicFontCache.clear();
+        // Re-derive all static font references at the new scale
+        float s = UIScale.getScale();
+        TITLE_LARGE  = derive(Font.BOLD, 84 * s);
+        TITLE        = derive(Font.BOLD, 72 * s);
+        TITLE_MEDIUM = derive(Font.BOLD, 60 * s);
+        SUBTITLE     = derive(Font.BOLD, 36 * s);
+        LARGE_32     = deriveBody(Font.BOLD, 32 * s);
+        LARGE        = deriveBody(Font.BOLD, 28 * s);
+        MEDIUM       = deriveBody(Font.PLAIN, 24 * s);
+        MEDIUM_BOLD  = deriveBody(Font.BOLD, 24 * s);
+        SMALL        = deriveBody(Font.PLAIN, 20 * s);
+        INFO         = deriveBody(Font.PLAIN, 18 * s);
+        TINY         = deriveBody(Font.BOLD, 18 * s);
+        XS_16        = deriveBody(Font.BOLD, 16 * s);
+        XS_13        = deriveBody(Font.PLAIN, 13 * s);
+        XS_12        = deriveBody(Font.BOLD, 12 * s);
+        XS_11        = deriveBody(Font.PLAIN, 11 * s);
+        CINEMATIC_72 = deriveCinematic(Font.BOLD, 72 * s);
+        CINEMATIC_60 = deriveCinematic(Font.BOLD, 60 * s);
+        CINEMATIC_48 = deriveCinematic(Font.BOLD, 48 * s);
+        CINEMATIC_36 = deriveCinematic(Font.BOLD, 36 * s);
+        CINEMATIC_28 = deriveCinematic(Font.BOLD, 28 * s);
+        MONO_11      = new Font("Monospaced", Font.PLAIN, Math.max(8, Math.round(11 * s)));
+        ITALIC_18    = deriveBody(Font.ITALIC, 18 * s);
+    }
+
     // ─── PUBLIC HELPERS ──────────────────────────────────────────────────
 
     // ─── FONT DERIVATION CACHES (avoids per-frame deriveFont() calls) ───
@@ -155,11 +190,12 @@ public class FontPalette {
      */
     public static Font get(int style, float size) {
         ensureInit();
-        long key = fontCacheKey(style, size);
+        float scaledSize = UIScale.fontSizef(size);
+        long key = fontCacheKey(style, scaledSize);
         Font cached = bodyFontCache.get(key);
         if (cached != null) return cached;
         return bodyFontCache.computeIfAbsent(key,
-            k -> bodyFont.deriveFont(style, size));
+            k -> bodyFont.deriveFont(style, scaledSize));
     }
 
     /**
@@ -177,21 +213,23 @@ public class FontPalette {
      */
     public static Font getDisplay(int style, float size) {
         ensureInit();
-        long key = fontCacheKey(style, size);
+        float scaledSize = UIScale.fontSizef(size);
+        long key = fontCacheKey(style, scaledSize);
         Font cached = displayFontCache.get(key);
         if (cached != null) return cached;
         return displayFontCache.computeIfAbsent(key,
-            k -> baseFont.deriveFont(style, size));
+            k -> baseFont.deriveFont(style, scaledSize));
     }
 
     /** Same as {@link #get} but from the cinematic (Impact-like) base. Cached. */
     public static Font getCinematic(int style, float size) {
         ensureInit();
-        long key = fontCacheKey(style, size);
+        float scaledSize = UIScale.fontSizef(size);
+        long key = fontCacheKey(style, scaledSize);
         Font cached = cinematicFontCache.get(key);
         if (cached != null) return cached;
         return cinematicFontCache.computeIfAbsent(key,
-            k -> cinematicBaseFont.deriveFont(style, size));
+            k -> cinematicBaseFont.deriveFont(style, scaledSize));
     }
 
     /** True if the custom font could not be loaded. */

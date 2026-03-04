@@ -1,6 +1,7 @@
 import config.ColorPalette;
 import config.FontPalette;
 import config.HUDLayout;
+import config.UIScale;
 import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -42,7 +43,7 @@ public class Renderer {
 
     private int[] pillClickTargetY;    // [settingIndex] = screen Y of pill row
 
-    private int pillClickH = 26;       // pill option height
+    private int pillClickH = UIScale.px(26);       // pill option height
 
     private int[] sliderMinusBtnX;     // [settingIndex] = screen X of minus button
 
@@ -50,7 +51,7 @@ public class Renderer {
 
     private int[] sliderBtnYPos;       // [settingIndex] = screen Y of buttons
 
-    private int sliderBtnSize = 26;    // +/- button size
+    private int sliderBtnSize = UIScale.px(26);    // +/- button size
 
     private int[] sliderTrackStartX;   // [settingIndex] = screen X of slider track left edge
     private int[] sliderTrackEndX;     // [settingIndex] = screen X of slider track right edge
@@ -372,20 +373,20 @@ public class Renderer {
 
         // Initialize menu buttons Ã¢â‚¬â€ military/rock themed colors
         menuButtons = new UIButton[7];
-        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, 300, 55, ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
-        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, 300, 55, ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
-        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, 300, 55, ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
-        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, 300, 55, ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
-        menuButtons[4] = new UIButton("Intel", "info", 0, 0, 300, 55, ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
-        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, 300, 55, ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
-        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, 300, 55, ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
+        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
+        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
+        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
+        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
+        menuButtons[4] = new UIButton("Intel", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
+        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
 
         
 
         // Initialize shop buttons (15 items)
         shopButtons = new UIButton[15];
         for (int i = 0; i < 15; i++) {
-            shopButtons[i] = new UIButton("", 0, 0, 800, 50, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_PURPLE);
+            shopButtons[i] = new UIButton("", 0, 0, UIScale.px(800), UIScale.px(50), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_PURPLE);
         }
 
         // Initialize stats buttons (4 items)
@@ -395,7 +396,7 @@ public class Renderer {
 
         for (int i = 0; i < 4; i++) {
 
-            statsButtons[i] = new UIButton(statNames[i], 0, 0, 840, 70, ColorPalette.BUTTON_BASE, statColors[i]);
+            statsButtons[i] = new UIButton(statNames[i], 0, 0, UIScale.px(840), UIScale.px(70), ColorPalette.BUTTON_BASE, statColors[i]);
 
         }
 
@@ -404,16 +405,61 @@ public class Renderer {
         // Initialize settings buttons (16 options)
         settingsButtons = new UIButton[16];
         for (int i = 0; i < 16; i++) {
-            settingsButtons[i] = new UIButton("", 0, 0, 900, 50, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
+            settingsButtons[i] = new UIButton("", 0, 0, UIScale.px(900), UIScale.px(50), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
         // Initialize pause buttons (4 buttons)
         pauseButtons = new UIButton[4];
         String[] pauseLabels = {"Resume", "Settings", "Main Menu", ""};
         for (int i = 0; i < 4; i++) {
-            pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, 300, 60, ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
+            pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, UIScale.px(300), UIScale.px(60), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
+    }
+
+    /**
+     * Called when the UI Scale setting changes at runtime.
+     * Re-creates button objects at the new scaled sizes and re-binds fonts.
+     */
+    public void onUIScaleChanged() {
+        // Re-bind static font references from FontPalette (which was already reinitialised by UIScale.setScale)
+        initFonts();
+        
+        // Update settings UI click target sizes
+        pillClickH = UIScale.px(26);
+        sliderBtnSize = UIScale.px(26);
+        
+        // Recreate menu buttons at new scale
+        menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
+        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
+        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
+        menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
+        menuButtons[4] = new UIButton("Intel", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
+        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
+        
+        // Recreate shop buttons
+        for (int i = 0; i < shopButtons.length; i++) {
+            shopButtons[i] = new UIButton("", 0, 0, UIScale.px(800), UIScale.px(50), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_PURPLE);
+        }
+        
+        // Recreate stats buttons
+        String[] statNames = {"Speed Boost", "Bullet Slow", "Lucky Dodge", "Active Item"};
+        Color[] statColors = {ColorPalette.BTN_INFO, ColorPalette.BTN_STATS, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_ORANGE};
+        for (int i = 0; i < statsButtons.length; i++) {
+            statsButtons[i] = new UIButton(statNames[i], 0, 0, UIScale.px(840), UIScale.px(70), ColorPalette.BUTTON_BASE, statColors[i]);
+        }
+        
+        // Recreate settings buttons
+        for (int i = 0; i < settingsButtons.length; i++) {
+            settingsButtons[i] = new UIButton("", 0, 0, UIScale.px(900), UIScale.px(50), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
+        }
+        
+        // Recreate pause buttons
+        String[] pauseLabels = {"Resume", "Settings", "Main Menu", ""};
+        for (int i = 0; i < pauseButtons.length; i++) {
+            pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, UIScale.px(300), UIScale.px(60), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
+        }
     }
 
     
@@ -763,7 +809,7 @@ public class Renderer {
         UITheme.drawScreenBackground(g, width, height, time);
 
         // Title Ã¢â‚¬â€ stencil-style with ember particles
-        UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - 100,
+        UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - UIScale.px(100),
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
 
@@ -772,13 +818,13 @@ public class Renderer {
         g.setFont(FontPalette.MEDIUM);
         String loadingText = "ARMING SYSTEMS...";
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(loadingText, (width - fm.stringWidth(loadingText)) / 2, height / 2 + 20);
+        g.drawString(loadingText, (width - fm.stringWidth(loadingText)) / 2, height / 2 + UIScale.px(20));
 
         // Missile-arming gauge progress bar
-        int barWidth = 400;
-        int barHeight = 24;
+        int barWidth = UIScale.px(400);
+        int barHeight = UIScale.px(24);
         int barX = (width - barWidth) / 2;
-        int barY = height / 2 + 50;
+        int barY = height / 2 + UIScale.px(50);
         UITheme.drawProgressBar(g, barX, barY, barWidth, barHeight,
             progress / 100.0, ColorPalette.ACCENT_ORANGE);
     }
@@ -871,18 +917,18 @@ public class Renderer {
         g.setColor(ColorPalette.TEXT_DIM);
         String versionText = Game.GAME_VERSION;
         FontMetrics fmVer = g.getFontMetrics();
-        g.drawString(versionText, width - fmVer.stringWidth(versionText) - 20, height - 70);
+        g.drawString(versionText, width - fmVer.stringWidth(versionText) - UIScale.px(20), height - UIScale.px(70));
 
         if (currentSaveSlot > 0) {
             String saveText = "Save Slot " + currentSaveSlot;
-            g.drawString(saveText, width - fmVer.stringWidth(saveText) - 20, height - 50);
+            g.drawString(saveText, width - fmVer.stringWidth(saveText) - UIScale.px(20), height - UIScale.px(50));
         }
 
         // Quit hint
         if (escapeTimer > 0) {
             g.setColor(ColorPalette.ACCENT_RED);
             g.setFont(FontPalette.MEDIUM_BOLD);
-            drawPromptWithIcons(g, width / 2, height - 210, "Press ", KeyBindManager.Action.BACK, " again to Quit");
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(210), "Press ", KeyBindManager.Action.BACK, " again to Quit");
         }
     }
 
@@ -902,22 +948,22 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "SAVE FILES", width, 120, ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, time);
+        UITheme.drawTitle(g, "SAVE FILES", width, UIScale.px(120), ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, time);
 
         
 
         // Draw save slots with scroll
         FontMetrics fm;
 
-        int slotWidth = 800;
+        int slotWidth = UIScale.px(800);
 
-        int slotHeight = 160;
+        int slotHeight = UIScale.px(160);
 
         int slotX = (width - slotWidth) / 2;
 
-        int startY = 200;
+        int startY = UIScale.px(200);
 
-        int slotSpacing = 180;
+        int slotSpacing = UIScale.px(180);
 
         int totalEntries = saveMetadata.size() + 1; // existing saves + "New Save" button
 
@@ -927,7 +973,7 @@ public class Renderer {
 
         Shape oldClip = g.getClip();
 
-        g.clipRect(0, 160, width, height - 300);
+        g.clipRect(0, UIScale.px(160), width, height - UIScale.px(300));
 
         
 
@@ -943,7 +989,7 @@ public class Renderer {
 
             // Skip if completely off-screen
 
-            if (slotY + slotHeight < 160 || slotY > height - 60) continue;
+            if (slotY + slotHeight < UIScale.px(160) || slotY > height - UIScale.px(60)) continue;
 
             
 
@@ -957,7 +1003,7 @@ public class Renderer {
 
                 g.setColor(new Color(ColorPalette.ACCENT_ORANGE.getRed(), ColorPalette.ACCENT_ORANGE.getGreen(), ColorPalette.ACCENT_ORANGE.getBlue(), 80));
 
-                Shape glowShape = UITheme.createChamferedRect(slotX - 8, slotY - 8, slotWidth + 16, slotHeight + 16, 12);
+                Shape glowShape = UITheme.createChamferedRect(slotX - UIScale.px(8), slotY - UIScale.px(8), slotWidth + UIScale.px(16), slotHeight + UIScale.px(16), UIScale.px(12));
 
                 g.fill(glowShape);
 
@@ -1001,7 +1047,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.ACCENT_ORANGE);
 
-                g.fillRect(slotX, slotY + 8, 4, slotHeight - 16);
+                g.fillRect(slotX, slotY + UIScale.px(8), UIScale.px(4), slotHeight - UIScale.px(16));
 
                 
 
@@ -1013,7 +1059,7 @@ public class Renderer {
 
                 String slotNum = "SAVE " + meta.slotNumber;
 
-                g.drawString(slotNum, slotX + 20, slotY + 35);
+                g.drawString(slotNum, slotX + UIScale.px(20), slotY + UIScale.px(35));
 
                 
 
@@ -1029,15 +1075,15 @@ public class Renderer {
 
                     FontMetrics modeFm = g.getFontMetrics();
 
-                    int modeX = slotX + 20 + g.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + 15;
+                    int modeX = slotX + UIScale.px(20) + g.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + UIScale.px(15);
 
-                    int modeY = slotY + 35;
+                    int modeY = slotY + UIScale.px(35);
 
                     // Mode badge background pill
 
-                    int badgeW = modeFm.stringWidth(modeLabel) + 16;
+                    int badgeW = modeFm.stringWidth(modeLabel) + UIScale.px(16);
 
-                    int badgeH = 22;
+                    int badgeH = UIScale.px(22);
 
                     g.setColor(new Color(
 
@@ -1051,13 +1097,13 @@ public class Renderer {
 
                     ));
 
-                    g.fillRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+                    g.fillRoundRect(modeX - UIScale.px(8), modeY - UIScale.px(16), badgeW, badgeH, UIScale.px(8), UIScale.px(8));
 
                     g.setStroke(RenderCache.getStroke(1.5f));
 
                     g.setColor(mode.getColor());
 
-                    g.drawRoundRect(modeX - 8, modeY - 16, badgeW, badgeH, 8, 8);
+                    g.drawRoundRect(modeX - UIScale.px(8), modeY - UIScale.px(16), badgeW, badgeH, UIScale.px(8), UIScale.px(8));
 
                     g.drawString(modeLabel, modeX, modeY);
 
@@ -1071,7 +1117,7 @@ public class Renderer {
 
                 g.setColor(Color.WHITE);
 
-                g.drawString(meta.saveName, slotX + 20, slotY + 65);
+                g.drawString(meta.saveName, slotX + UIScale.px(20), slotY + UIScale.px(65));
 
                 
 
@@ -1083,7 +1129,7 @@ public class Renderer {
 
                 String stats1 = String.format("Max Level: %d  |  Money: $%d", meta.maxLevel, meta.totalMoney);
 
-                g.drawString(stats1, slotX + 20, slotY + 90);
+                g.drawString(stats1, slotX + UIScale.px(20), slotY + UIScale.px(90));
 
                 
 
@@ -1093,7 +1139,7 @@ public class Renderer {
 
                     meta.totalRuns, meta.bestRunLevel, meta.totalBosses);
 
-                g.drawString(stats2, slotX + 20, slotY + 110);
+                g.drawString(stats2, slotX + UIScale.px(20), slotY + UIScale.px(110));
 
                 
 
@@ -1105,7 +1151,7 @@ public class Renderer {
 
                 String createdText = "Created: " + meta.getFormattedCreationDate();
 
-                g.drawString(createdText, slotX + 20, slotY + 130);
+                g.drawString(createdText, slotX + UIScale.px(20), slotY + UIScale.px(130));
 
                 
 
@@ -1115,19 +1161,19 @@ public class Renderer {
 
                 FontMetrics dateFm = g.getFontMetrics();
 
-                g.drawString(dateText, slotX + slotWidth - 20 - dateFm.stringWidth(dateText), slotY + 130);
+                g.drawString(dateText, slotX + slotWidth - UIScale.px(20) - dateFm.stringWidth(dateText), slotY + UIScale.px(130));
 
                 
 
                 // Delete button
 
-                int btnX = slotX + slotWidth - 120;
+                int btnX = slotX + slotWidth - UIScale.px(120);
 
-                int btnY = slotY + 10;
+                int btnY = slotY + UIScale.px(10);
 
-                int btnWidth = 100;
+                int btnWidth = UIScale.px(100);
 
-                int btnHeight = 35;
+                int btnHeight = UIScale.px(35);
 
                 
 
@@ -1181,13 +1227,13 @@ public class Renderer {
 
                     // Delete progress bar - positioned below the delete button
 
-                    int barX = slotX + 20;
+                    int barX = slotX + UIScale.px(20);
 
-                    int barY = slotY + slotHeight - 25;
+                    int barY = slotY + slotHeight - UIScale.px(25);
 
-                    int barWidth = slotWidth - 40;
+                    int barWidth = slotWidth - UIScale.px(40);
 
-                    int barHeight = 12;
+                    int barHeight = UIScale.px(12);
 
                     
 
@@ -1253,11 +1299,11 @@ public class Renderer {
 
                 int plusCenterX = slotX + slotWidth / 2;
 
-                int plusCenterY = slotY + slotHeight / 2 - 12;
+                int plusCenterY = slotY + slotHeight / 2 - UIScale.px(12);
 
-                g.drawLine(plusCenterX - 15, plusCenterY, plusCenterX + 15, plusCenterY);
+                g.drawLine(plusCenterX - UIScale.px(15), plusCenterY, plusCenterX + UIScale.px(15), plusCenterY);
 
-                g.drawLine(plusCenterX, plusCenterY - 15, plusCenterX, plusCenterY + 15);
+                g.drawLine(plusCenterX, plusCenterY - UIScale.px(15), plusCenterX, plusCenterY + UIScale.px(15));
 
                 
 
@@ -1271,7 +1317,7 @@ public class Renderer {
 
                 FontMetrics newFm = g.getFontMetrics();
 
-                g.drawString(newText, plusCenterX - newFm.stringWidth(newText) / 2, plusCenterY + 40);
+                g.drawString(newText, plusCenterX - newFm.stringWidth(newText) / 2, plusCenterY + UIScale.px(40));
 
             }
 
@@ -1299,7 +1345,7 @@ public class Renderer {
 
             String upArrow = "\u25B2  Scroll Up";
 
-            g.drawString(upArrow, (width - fm.stringWidth(upArrow)) / 2, 180);
+            g.drawString(upArrow, (width - fm.stringWidth(upArrow)) / 2, UIScale.px(180));
 
         }
 
@@ -1317,7 +1363,7 @@ public class Renderer {
 
             String downArrow = "\u25BC  Scroll Down";
 
-            g.drawString(downArrow, (width - fm.stringWidth(downArrow)) / 2, height - 80);
+            g.drawString(downArrow, (width - fm.stringWidth(downArrow)) / 2, height - UIScale.px(80));
 
         }
 
@@ -1333,11 +1379,11 @@ public class Renderer {
 
         if (isCtrlMode) {
 
-            drawPromptWithIcons(g, width / 2, height - 50, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(50), "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  ", KeyBindManager.ControllerButton.X, ": Hold to Delete Save");
 
         } else {
 
-            drawPromptWithIcons(g, width / 2, height - 50, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(50), "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select/Create  |  DELETE: Hold to Delete Save");
 
         }
 
@@ -1351,7 +1397,7 @@ public class Renderer {
 
             g.setFont(FONT_MEDIUM_BOLD);
 
-            drawPromptWithIcons(g, width / 2, height - 20, "Press ", KeyBindManager.Action.BACK, " again to Quit");
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(20), "Press ", KeyBindManager.Action.BACK, " again to Quit");
 
         }
 
@@ -1377,7 +1423,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "SELECT MODE", width, 100, ColorPalette.ACCENT_YELLOW, ColorPalette.ACCENT_ORANGE, time);
+        UITheme.drawTitle(g, "SELECT MODE", width, UIScale.px(100), ColorPalette.ACCENT_YELLOW, ColorPalette.ACCENT_ORANGE, time);
 
         
 
@@ -1391,7 +1437,7 @@ public class Renderer {
 
         FontMetrics fm = g.getFontMetrics();
 
-        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, 135);
+        g.drawString(subtitle, (width - fm.stringWidth(subtitle)) / 2, UIScale.px(135));
 
         
 
@@ -1399,15 +1445,15 @@ public class Renderer {
 
         GameMode[] modes = GameMode.values();
 
-        int cardWidth = 700;
+        int cardWidth = UIScale.px(700);
 
         int cardX = (width - cardWidth) / 2;
 
-        int startY = 180;
+        int startY = UIScale.px(180);
 
-        int cardGap = 20;
+        int cardGap = UIScale.px(20);
 
-        int textMaxWidth = cardWidth - 50;
+        int textMaxWidth = cardWidth - UIScale.px(50);
 
         
 
@@ -1461,7 +1507,7 @@ public class Renderer {
 
             int detailHeight = detailLines[i].size() * g.getFontMetrics(FONT_SMALL).getHeight();
 
-            cardHeights[i] = 50 + descHeight + 6 + detailHeight + 10;
+            cardHeights[i] = UIScale.px(50) + descHeight + UIScale.px(6) + detailHeight + UIScale.px(10);
 
         }
 
@@ -1509,7 +1555,7 @@ public class Renderer {
 
                 ));
 
-                Shape glowShape = UITheme.createChamferedRect(cardX - 8, cardY - 8, cardWidth + 16, cardHeight + 16, 12);
+                Shape glowShape = UITheme.createChamferedRect(cardX - UIScale.px(8), cardY - UIScale.px(8), cardWidth + UIScale.px(16), cardHeight + UIScale.px(16), UIScale.px(12));
 
                 g2.fill(glowShape);
 
@@ -1523,7 +1569,7 @@ public class Renderer {
 
             g2.setColor(bgColor);
 
-            Shape cardShape = UITheme.createChamferedRect(cardX, cardY, cardWidth, cardHeight, 10);
+            Shape cardShape = UITheme.createChamferedRect(cardX, cardY, cardWidth, cardHeight, UIScale.px(10));
 
             g2.fill(cardShape);
 
@@ -1553,7 +1599,7 @@ public class Renderer {
 
             g2.setColor(mode.getColor());
 
-            g2.fillRect(cardX, cardY + 8, 4, cardHeight - 16);
+            g2.fillRect(cardX, cardY + UIScale.px(8), UIScale.px(4), cardHeight - UIScale.px(16));
 
             
 
@@ -1563,7 +1609,7 @@ public class Renderer {
 
             g2.setColor(isSelected ? mode.getColor() : ColorPalette.TEXT_PRIMARY);
 
-            g2.drawString(mode.getDisplayName(), cardX + 25, cardY + 40);
+            g2.drawString(mode.getDisplayName(), cardX + UIScale.px(25), cardY + UIScale.px(40));
 
             
 
@@ -1573,11 +1619,11 @@ public class Renderer {
 
             g2.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 220));
 
-            int textY = cardY + 70;
+            int textY = cardY + UIScale.px(70);
 
             for (String line : descLines[i]) {
 
-                g2.drawString(line, cardX + 25, textY);
+                g2.drawString(line, cardX + UIScale.px(25), textY);
 
                 textY += g2.getFontMetrics().getHeight();
 
@@ -1591,11 +1637,11 @@ public class Renderer {
 
             g2.setColor(ColorPalette.TEXT_DIM);
 
-            textY += 6;
+            textY += UIScale.px(6);
 
             for (String line : detailLines[i]) {
 
-                g2.drawString(line, cardX + 25, textY);
+                g2.drawString(line, cardX + UIScale.px(25), textY);
 
                 textY += g2.getFontMetrics().getHeight();
 
@@ -1611,13 +1657,13 @@ public class Renderer {
 
                 double bounce = Math.sin(time * 6) * 5;
 
-                int arrowX = (int)(cardX - 28 + bounce);
+                int arrowX = (int)(cardX - UIScale.px(28) + bounce);
 
                 int arrowY = cardY + cardHeight / 2;
 
-                int[] xPoints = {arrowX, arrowX, arrowX + 14};
+                int[] xPoints = {arrowX, arrowX, arrowX + UIScale.px(14)};
 
-                int[] yPoints = {arrowY - 10, arrowY + 10, arrowY};
+                int[] yPoints = {arrowY - UIScale.px(10), arrowY + UIScale.px(10), arrowY};
 
                 g2.fillPolygon(xPoints, yPoints, 3);
 
@@ -1639,7 +1685,7 @@ public class Renderer {
 
         g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 200));
 
-        drawPromptWithIcons(g, width / 2, height - 80, "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select  |  ", KeyBindManager.Action.BACK, ": Back");
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(80), "", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, ": Navigate  |  ", KeyBindManager.Action.CONFIRM, ": Select  |  ", KeyBindManager.Action.BACK, ": Back");
 
     }
 
@@ -2076,25 +2122,25 @@ public class Renderer {
 
         int moneyWidth = fm.stringWidth(moneyText);
 
-        int dividerSpace = 40; // Space for divider and padding
+        int dividerSpace = UIScale.px(40); // Space for divider and padding
 
-        int padding = 50; // Left and right padding
+        int padding = UIScale.px(50); // Left and right padding
 
         
 
         // Dynamically size the card based on content
 
-        int minCardWidth = 350;
+        int minCardWidth = UIScale.px(350);
 
         int requiredWidth = scoreWidth + moneyWidth + dividerSpace + padding;
 
         int cardWidth = Math.max(minCardWidth, requiredWidth);
 
-        int cardHeight = 70;
+        int cardHeight = UIScale.px(70);
 
         int cardX = (width - cardWidth) / 2;
 
-        int cardY = height - 130;
+        int cardY = height - UIScale.px(130);
 
         
 
@@ -2102,7 +2148,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 200));
 
-        g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+        g.fillRoundRect(cardX, cardY, cardWidth, cardHeight, UIScale.px(15), UIScale.px(15));
 
         
 
@@ -2114,7 +2160,7 @@ public class Renderer {
 
         g.setStroke(RenderCache.getStroke(2));
 
-        g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, 15, 15);
+        g.drawRoundRect(cardX, cardY, cardWidth, cardHeight, UIScale.px(15), UIScale.px(15));
 
         
 
@@ -2128,11 +2174,11 @@ public class Renderer {
 
         g.setColor(ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 100));
 
-        g.drawLine(dividerX, cardY + 10, dividerX, cardY + cardHeight - 10);
+        g.drawLine(dividerX, cardY + UIScale.px(10), dividerX, cardY + cardHeight - UIScale.px(10));
 
         
 
-        int textY = cardY + cardHeight / 2 + fm.getAscent() / 2 - 5;
+        int textY = cardY + cardHeight / 2 + fm.getAscent() / 2 - UIScale.px(5);
 
         
 
@@ -2168,21 +2214,21 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "MISSION INTEL", width, 60, ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
+        UITheme.drawTitle(g, "MISSION INTEL", width, UIScale.px(60), ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
 
         
 
-        int leftX = 60;
+        int leftX = UIScale.px(60);
 
-        int rightX = width / 2 + 40;
+        int rightX = width / 2 + UIScale.px(40);
 
-        int columnWidth = width / 2 - 80;
+        int columnWidth = width / 2 - UIScale.px(80);
 
         
 
         // LEFT COLUMN
 
-        int y = 105;
+        int y = UIScale.px(105);
 
         
 
@@ -2194,7 +2240,7 @@ public class Renderer {
 
         g.drawString("CORE MECHANICS", leftX, y);
 
-        y += 25;
+        y += UIScale.px(25);
 
         
 
@@ -2244,9 +2290,9 @@ public class Renderer {
 
         for (String line : mechanics) {
 
-            g.drawString(line, leftX + 10, y);
+            g.drawString(line, leftX + UIScale.px(10), y);
 
-            y += 20;
+            y += UIScale.px(20);
 
         }
 
@@ -2254,7 +2300,7 @@ public class Renderer {
 
         // Passive Upgrades section
 
-        y += 10;
+        y += UIScale.px(10);
 
         g.setColor(ColorPalette.TEXT_GOLD);
 
@@ -2262,7 +2308,7 @@ public class Renderer {
 
         g.drawString("PASSIVE UPGRADES", leftX, y);
 
-        y += 25;
+        y += UIScale.px(25);
 
         
 
@@ -2312,9 +2358,9 @@ public class Renderer {
 
         for (String line : upgrades) {
 
-            g.drawString(line, leftX + 10, y);
+            g.drawString(line, leftX + UIScale.px(10), y);
 
-            y += 20;
+            y += UIScale.px(20);
 
         }
 
@@ -2322,7 +2368,7 @@ public class Renderer {
 
         // RIGHT COLUMN
 
-        y = 105;
+        y = UIScale.px(105);
 
         
 
@@ -2334,7 +2380,7 @@ public class Renderer {
 
         g.drawString("ACTIVE ITEMS", rightX, y);
 
-        y += 25;
+        y += UIScale.px(25);
 
         
 
@@ -2402,9 +2448,9 @@ public class Renderer {
 
         for (String line : items) {
 
-            g.drawString(line, rightX + 10, y);
+            g.drawString(line, rightX + UIScale.px(10), y);
 
-            y += 19;
+            y += UIScale.px(19);
 
         }
 
@@ -2412,7 +2458,7 @@ public class Renderer {
 
         // Risk Contracts section
 
-        y += 10;
+        y += UIScale.px(10);
 
         g.setColor(ColorPalette.ACCENT_RED);
 
@@ -2420,7 +2466,7 @@ public class Renderer {
 
         g.drawString("RISK CONTRACTS", rightX, y);
 
-        y += 25;
+        y += UIScale.px(25);
 
         
 
@@ -2452,9 +2498,9 @@ public class Renderer {
 
         for (String line : contracts) {
 
-            g.drawString(line, rightX + 10, y);
+            g.drawString(line, rightX + UIScale.px(10), y);
 
-            y += 20;
+            y += UIScale.px(20);
 
         }
 
@@ -2466,9 +2512,9 @@ public class Renderer {
 
         g.setFont(FONT_TINY);
 
-        drawPromptWithIcons(g, width / 2, height - 30, "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_DOWN, "/", KeyBindManager.Action.MOVE_RIGHT, " = Move  |  ", KeyBindManager.Action.USE_ITEM, " = Use Item  |  ", KeyBindManager.Action.PAUSE, " = Pause  |  Mouse = Navigate Menus");
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(30), "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_DOWN, "/", KeyBindManager.Action.MOVE_RIGHT, " = Move  |  ", KeyBindManager.Action.USE_ITEM, " = Use Item  |  ", KeyBindManager.Action.PAUSE, " = Pause  |  Mouse = Navigate Menus");
 
-        g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - 420, height - 10);
+        g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - UIScale.px(420), height - UIScale.px(10));
 
     }
 
@@ -2484,7 +2530,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "ACHIEVEMENTS", width, 80, ColorPalette.ACCENT_YELLOW, ColorPalette.TEXT_GOLD, time, FONT_TITLE_MEDIUM);
+        UITheme.drawTitle(g, "ACHIEVEMENTS", width, UIScale.px(80), ColorPalette.ACCENT_YELLOW, ColorPalette.TEXT_GOLD, time, FONT_TITLE_MEDIUM);
 
         
 
@@ -2503,7 +2549,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(countText, (width - fm.stringWidth(countText)) / 2, 120);
+        g.drawString(countText, (width - fm.stringWidth(countText)) / 2, UIScale.px(120));
 
         
 
@@ -2513,23 +2559,23 @@ public class Renderer {
 
         int columns = 3;
 
-        int cardWidth = 380;
+        int cardWidth = UIScale.px(380);
 
-        int cardHeight = 100;
+        int cardHeight = UIScale.px(100);
 
-        int startX = (width - (columns * cardWidth + (columns - 1) * 20)) / 2;
+        int startX = (width - (columns * cardWidth + (columns - 1) * UIScale.px(20))) / 2;
 
-        int startY = 150;
+        int startY = UIScale.px(150);
 
-        int gapX = 20;
+        int gapX = UIScale.px(20);
 
-        int gapY = 15;
+        int gapY = UIScale.px(15);
 
         
 
         // Create clipping region for scrollable area
 
-        g.setClip(0, 140, width, height - 180);
+        g.setClip(0, UIScale.px(140), width, height - UIScale.px(180));
 
         
 
@@ -2549,7 +2595,7 @@ public class Renderer {
 
             // Only draw if visible in clipping region
 
-            if (y + cardHeight < 140 || y > height - 40) {
+            if (y + cardHeight < UIScale.px(140) || y > height - UIScale.px(40)) {
 
                 continue;
 
@@ -2565,7 +2611,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 40));
 
-                g.fillRoundRect(x - 3, y - 3, cardWidth + 6, cardHeight + 6, 15, 15);
+                g.fillRoundRect(x - UIScale.px(3), y - UIScale.px(3), cardWidth + UIScale.px(6), cardHeight + UIScale.px(6), UIScale.px(15), UIScale.px(15));
 
                 g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 240));
 
@@ -2577,7 +2623,7 @@ public class Renderer {
 
             }
 
-            g.fillRoundRect(x, y, cardWidth, cardHeight, 12, 12);
+            g.fillRoundRect(x, y, cardWidth, cardHeight, UIScale.px(12), UIScale.px(12));
 
             
 
@@ -2595,15 +2641,15 @@ public class Renderer {
 
             }
 
-            g.drawRoundRect(x, y, cardWidth, cardHeight, 12, 12);
+            g.drawRoundRect(x, y, cardWidth, cardHeight, UIScale.px(12), UIScale.px(12));
 
             
 
             // Achievement icon/status
 
-            int iconSize = 40;
+            int iconSize = UIScale.px(40);
 
-            int iconX = x + 15;
+            int iconX = x + UIScale.px(15);
 
             int iconY = y + (cardHeight - iconSize) / 2;
 
@@ -2621,9 +2667,9 @@ public class Renderer {
 
                 g.setStroke(RenderCache.getStroke(3));
 
-                g.drawLine(iconX + 10, iconY + 20, iconX + 18, iconY + 28);
+                g.drawLine(iconX + UIScale.px(10), iconY + UIScale.px(20), iconX + UIScale.px(18), iconY + UIScale.px(28));
 
-                g.drawLine(iconX + 18, iconY + 28, iconX + 30, iconY + 12);
+                g.drawLine(iconX + UIScale.px(18), iconY + UIScale.px(28), iconX + UIScale.px(30), iconY + UIScale.px(12));
 
             } else {
 
@@ -2635,13 +2681,13 @@ public class Renderer {
 
                 g.setColor(new Color(60, 60, 70));
 
-                g.fillRect(iconX + 12, iconY + 22, 16, 14);
+                g.fillRect(iconX + UIScale.px(12), iconY + UIScale.px(22), UIScale.px(16), UIScale.px(14));
 
                 g.setColor(new Color(80, 80, 90));
 
                 g.setStroke(RenderCache.getStroke(2));
 
-                g.drawArc(iconX + 13, iconY + 10, 14, 16, 0, 180);
+                g.drawArc(iconX + UIScale.px(13), iconY + UIScale.px(10), UIScale.px(14), UIScale.px(16), 0, 180);
 
             }
 
@@ -2661,7 +2707,7 @@ public class Renderer {
 
             }
 
-            g.drawString(ach.getName(), x + 65, y + 28);
+            g.drawString(ach.getName(), x + UIScale.px(65), y + UIScale.px(28));
 
             
 
@@ -2673,19 +2719,19 @@ public class Renderer {
 
             {
                 String desc = ach.getDescription();
-                int descMaxW = cardWidth - 80;
+                int descMaxW = cardWidth - UIScale.px(80);
                 FontMetrics descFm = g.getFontMetrics();
                 if (descFm.stringWidth(desc) <= descMaxW) {
-                    g.drawString(desc, x + 65, y + 48);
+                    g.drawString(desc, x + UIScale.px(65), y + UIScale.px(48));
                 } else {
                     // Word wrap into lines
                     String[] words = desc.split(" ");
                     StringBuilder line = new StringBuilder();
-                    int descY = y + 48;
+                    int descY = y + UIScale.px(48);
                     for (String word : words) {
                         String test = line.length() == 0 ? word : line + " " + word;
                         if (descFm.stringWidth(test) > descMaxW && line.length() > 0) {
-                            g.drawString(line.toString(), x + 65, descY);
+                            g.drawString(line.toString(), x + UIScale.px(65), descY);
                             descY += descFm.getHeight();
                             line = new StringBuilder(word);
                         } else {
@@ -2694,7 +2740,7 @@ public class Renderer {
                         }
                     }
                     if (line.length() > 0) {
-                        g.drawString(line.toString(), x + 65, descY);
+                        g.drawString(line.toString(), x + UIScale.px(65), descY);
                     }
                 }
             }
@@ -2705,13 +2751,13 @@ public class Renderer {
 
             if (!ach.isUnlocked()) {
 
-                int barWidth = cardWidth - 80;
+                int barWidth = cardWidth - UIScale.px(80);
 
-                int barHeight = 8;
+                int barHeight = UIScale.px(8);
 
-                int barX = x + 65;
+                int barX = x + UIScale.px(65);
 
-                int barY = y + 60;
+                int barY = y + UIScale.px(60);
 
                 
 
@@ -2741,7 +2787,7 @@ public class Renderer {
 
                 String progressText = ach.getProgress() + " / " + ach.getTarget();
 
-                g.drawString(progressText, barX + barWidth - fm.stringWidth(progressText) + 20, y + 85);
+                g.drawString(progressText, barX + barWidth - fm.stringWidth(progressText) + UIScale.px(20), y + UIScale.px(85));
 
             } else {
 
@@ -2751,7 +2797,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.SUCCESS_GREEN);
 
-                g.drawString("COMPLETE", x + 65, y + 75);
+                g.drawString("COMPLETE", x + UIScale.px(65), y + UIScale.px(75));
 
             }
 
@@ -2771,7 +2817,7 @@ public class Renderer {
 
         g.setFont(FONT_SMALL);
 
-        drawPromptWithIcons(g, width / 2, height - 40,
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(40),
 
             "Press ", KeyBindManager.Action.BACK, " to return to menu | ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to scroll");
 
@@ -2923,7 +2969,7 @@ public class Renderer {
         
 
 
-        int singleCardH = 120;
+        int singleCardH = UIScale.px(120);
 
 
         
@@ -2935,7 +2981,7 @@ public class Renderer {
         g.setColor(RenderCache.BLACK_100);
 
 
-        g.fillRoundRect(itemX + 3, y + 3, cardWidth, singleCardH, 12, 12);
+        g.fillRoundRect(itemX + UIScale.px(3), y + UIScale.px(3), cardWidth, singleCardH, UIScale.px(12), UIScale.px(12));
 
 
         
@@ -2983,7 +3029,7 @@ public class Renderer {
         g.setColor(cardBg);
 
 
-        g.fillRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+        g.fillRoundRect(itemX, y, cardWidth, singleCardH, UIScale.px(12), UIScale.px(12));
 
 
         
@@ -3001,7 +3047,7 @@ public class Renderer {
             g.setStroke(RenderCache.getStroke(2.5f));
 
 
-            g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+            g.drawRoundRect(itemX, y, cardWidth, singleCardH, UIScale.px(12), UIScale.px(12));
 
 
             g.setStroke(RenderCache.getStroke(1f));
@@ -3016,7 +3062,7 @@ public class Renderer {
             g.setStroke(RenderCache.getStroke(2f));
 
 
-            g.drawRoundRect(itemX, y, cardWidth, singleCardH, 12, 12);
+            g.drawRoundRect(itemX, y, cardWidth, singleCardH, UIScale.px(12), UIScale.px(12));
 
 
             g.setStroke(RenderCache.getStroke(1f));
@@ -3040,7 +3086,7 @@ public class Renderer {
             g.setColor(isSelected ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_150);
 
 
-            g.drawString("<", itemX + 14, y + singleCardH / 2 + 10);
+            g.drawString("<", itemX + UIScale.px(14), y + singleCardH / 2 + UIScale.px(10));
 
 
         }
@@ -3067,7 +3113,7 @@ public class Renderer {
             FontMetrics arrowFm = g.getFontMetrics();
 
 
-            g.drawString(rightArrow, itemX + cardWidth - arrowFm.stringWidth(rightArrow) - 12, y + singleCardH / 2 + 10);
+            g.drawString(rightArrow, itemX + cardWidth - arrowFm.stringWidth(rightArrow) - UIScale.px(12), y + singleCardH / 2 + UIScale.px(10));
 
 
         }
@@ -3079,10 +3125,10 @@ public class Renderer {
         // Content area (between arrows)
 
 
-        int contentX = itemX + 50;
+        int contentX = itemX + UIScale.px(50);
 
 
-        int contentW = cardWidth - 100;
+        int contentW = cardWidth - UIScale.px(100);
 
 
         
@@ -3094,9 +3140,9 @@ public class Renderer {
 
             // --- Item icon (color-coded circular icon with symbol) ---
 
-            int iconSize = 56;
+            int iconSize = UIScale.px(56);
 
-            int iconX = contentX + 15;
+            int iconX = contentX + UIScale.px(15);
 
             int iconY = y + (singleCardH - iconSize) / 2;
 
@@ -3136,7 +3182,7 @@ public class Renderer {
 
             g.setColor(new Color(itemIconColor.getRed() / 6, itemIconColor.getGreen() / 6, itemIconColor.getBlue() / 6, 160));
 
-            g.fillOval(iconX - 3, iconY - 3, iconSize + 6, iconSize + 6);
+            g.fillOval(iconX - UIScale.px(3), iconY - UIScale.px(3), iconSize + UIScale.px(6), iconSize + UIScale.px(6));
 
             g.setColor(RenderCache.DARK_40_45_55);
 
@@ -3166,9 +3212,9 @@ public class Renderer {
 
             // --- Text info (right of icon) ---
 
-            int textX = iconX + iconSize + 24;
+            int textX = iconX + iconSize + UIScale.px(24);
 
-            int textRightEdge = itemX + cardWidth - 60;
+            int textRightEdge = itemX + cardWidth - UIScale.px(60);
 
 
 
@@ -3180,7 +3226,7 @@ public class Renderer {
 
             String displayName = itemName;
 
-            g.drawString(displayName, textX, y + 35);
+            g.drawString(displayName, textX, y + UIScale.px(35));
 
 
 
@@ -3190,7 +3236,7 @@ public class Renderer {
 
                 FontMetrics nameFm = g.getFontMetrics();
 
-                int badgeX = textX + nameFm.stringWidth(displayName) + 12;
+                int badgeX = textX + nameFm.stringWidth(displayName) + UIScale.px(12);
 
                 g.setFont(FONT_EXTRA_SMALL_11);
 
@@ -3198,23 +3244,23 @@ public class Renderer {
 
                 String badge = "EQUIPPED";
 
-                int badgeW = badgeFm.stringWidth(badge) + 12;
+                int badgeW = badgeFm.stringWidth(badge) + UIScale.px(12);
 
-                int badgeH = 18;
+                int badgeH = UIScale.px(18);
 
-                int badgeY = y + 22;
+                int badgeY = y + UIScale.px(22);
 
                 g.setColor(new Color(163, 210, 140, 40));
 
-                g.fillRoundRect(badgeX, badgeY, badgeW, badgeH, 8, 8);
+                g.fillRoundRect(badgeX, badgeY, badgeW, badgeH, UIScale.px(8), UIScale.px(8));
 
                 g.setColor(new Color(163, 210, 140, 160));
 
-                g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, 8, 8);
+                g.drawRoundRect(badgeX, badgeY, badgeW, badgeH, UIScale.px(8), UIScale.px(8));
 
                 g.setColor(RenderCache.GREEN_163_210_140);
 
-                g.drawString(badge, badgeX + 6, badgeY + 13);
+                g.drawString(badge, badgeX + UIScale.px(6), badgeY + UIScale.px(13));
 
             }
 
@@ -3226,7 +3272,7 @@ public class Renderer {
 
             g.setColor(new Color(175, 185, 200));
 
-            g.drawString(itemDesc, textX, y + 56);
+            g.drawString(itemDesc, textX, y + UIScale.px(56));
 
 
 
@@ -3238,7 +3284,7 @@ public class Renderer {
 
             String lvlStr = "Unlocked at Level " + unlockLevel;
 
-            g.drawString(lvlStr, textX, y + 74);
+            g.drawString(lvlStr, textX, y + UIScale.px(74));
 
 
 
@@ -3256,9 +3302,9 @@ public class Renderer {
 
             // --- Locked item ---
 
-            int iconSize = 56;
+            int iconSize = UIScale.px(56);
 
-            int iconX = contentX + 15;
+            int iconX = contentX + UIScale.px(15);
 
             int iconY = y + (singleCardH - iconSize) / 2;
 
@@ -3268,7 +3314,7 @@ public class Renderer {
 
             g.setColor(new Color(20, 20, 28, 160));
 
-            g.fillOval(iconX - 3, iconY - 3, iconSize + 6, iconSize + 6);
+            g.fillOval(iconX - UIScale.px(3), iconY - UIScale.px(3), iconSize + UIScale.px(6), iconSize + UIScale.px(6));
 
             g.setColor(new Color(30, 30, 38));
 
@@ -3300,7 +3346,7 @@ public class Renderer {
 
             // --- Locked text info ---
 
-            int textX = iconX + iconSize + 24;
+            int textX = iconX + iconSize + UIScale.px(24);
 
 
 
@@ -3312,7 +3358,7 @@ public class Renderer {
 
             String lockedName = encryptItemName(itemName);
 
-            g.drawString(lockedName, textX, y + 40);
+            g.drawString(lockedName, textX, y + UIScale.px(40));
 
 
 
@@ -3324,7 +3370,7 @@ public class Renderer {
 
             String reqStr = "Defeat Level " + unlockLevel + " Boss to Unlock";
 
-            g.drawString(reqStr, textX, y + 62);
+            g.drawString(reqStr, textX, y + UIScale.px(62));
 
 
 
@@ -3359,13 +3405,13 @@ public class Renderer {
         FontMetrics ctrFm = g.getFontMetrics();
 
 
-        g.drawString(counter, itemX + (cardWidth - ctrFm.stringWidth(counter)) / 2, y + singleCardH + 20);
+        g.drawString(counter, itemX + (cardWidth - ctrFm.stringWidth(counter)) / 2, y + singleCardH + UIScale.px(20));
 
 
         
 
 
-        y += singleCardH + 30 + cardSpacing;
+        y += singleCardH + UIScale.px(30) + cardSpacing;
 
         currentIndex++;
 
@@ -3373,15 +3419,15 @@ public class Renderer {
 
         // Section 2: All Upgrades (indices 1+) - from PassiveUpgradeManager
 
-        y += 20;
+        y += UIScale.px(20);
 
         g.setColor(ColorPalette.ACCENT_PURPLE);
 
         g.setFont(FONT_SMALL);
 
-        g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - 400, y);
+        g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - UIScale.px(400), y);
 
-        y += 30;
+        y += UIScale.px(30);
 
         
 
@@ -3429,15 +3475,15 @@ public class Renderer {
 
             if (upgrades.size() > 0) {
 
-                y += 20;
+                y += UIScale.px(20);
 
                 g.setColor(ColorPalette.SUCCESS_GREEN);
 
                 g.setFont(FONT_SMALL);
 
-                g.drawString("CONSUMABLE MISSILES - Buy from shop, used on death", width / 2 - 400, y);
+                g.drawString("CONSUMABLE MISSILES - Buy from shop, used on death", width / 2 - UIScale.px(400), y);
 
-                y += 30;
+                y += UIScale.px(30);
 
                 
 
@@ -3491,7 +3537,7 @@ public class Renderer {
 
         g.setColor(RenderCache.BLACK_120);
 
-        g.fillRoundRect(x + 3, y + 3, width, height, 15, 15);
+        g.fillRoundRect(x + UIScale.px(3), y + UIScale.px(3), width, height, UIScale.px(15), UIScale.px(15));
 
         
 
@@ -3517,7 +3563,7 @@ public class Renderer {
 
         g.setColor(cardColor);
 
-        g.fillRoundRect(x, y, width, height, 15, 15);
+        g.fillRoundRect(x, y, width, height, UIScale.px(15), UIScale.px(15));
 
         
 
@@ -3529,7 +3575,7 @@ public class Renderer {
 
             g.setStroke(RenderCache.getStroke(2f));
 
-            g.drawRoundRect(x, y, width, height, 15, 15);
+            g.drawRoundRect(x, y, width, height, UIScale.px(15), UIScale.px(15));
 
             g.setStroke(RenderCache.getStroke(1f));
 
@@ -3543,7 +3589,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.TEXT_GOLD);
 
-        g.drawString(icon, x + 20, y + 40);
+        g.drawString(icon, x + UIScale.px(20), y + UIScale.px(40));
 
         
 
@@ -3553,7 +3599,7 @@ public class Renderer {
 
         g.setColor(Color.WHITE);
 
-        g.drawString(name, x + 75, y + 30);
+        g.drawString(name, x + UIScale.px(75), y + UIScale.px(30));
 
         
 
@@ -3575,7 +3621,7 @@ public class Renderer {
 
         }
 
-        g.drawString(levelInfo, x + 75, y + 50);
+        g.drawString(levelInfo, x + UIScale.px(75), y + UIScale.px(50));
 
         
 
@@ -3585,13 +3631,13 @@ public class Renderer {
 
             // Progress bar
 
-            int barX = x + 400;
+            int barX = x + UIScale.px(400);
 
-            int barY = y + 20;
+            int barY = y + UIScale.px(20);
 
-            int barWidth = 350;
+            int barWidth = UIScale.px(350);
 
-            int barHeight = 10;
+            int barHeight = UIScale.px(10);
 
             
 
@@ -3599,7 +3645,7 @@ public class Renderer {
 
             g.setColor(RenderCache.DARK_40_40_50_180);
 
-            g.fillRoundRect(barX, barY, barWidth, barHeight, 5, 5);
+            g.fillRoundRect(barX, barY, barWidth, barHeight, UIScale.px(5), UIScale.px(5));
 
             
 
@@ -3623,7 +3669,7 @@ public class Renderer {
 
                 g.setPaint(grad);
 
-                g.fillRoundRect(barX, barY, fillWidth, barHeight, 5, 5);
+                g.fillRoundRect(barX, barY, fillWidth, barHeight, UIScale.px(5), UIScale.px(5));
 
             }
 
@@ -3639,7 +3685,7 @@ public class Renderer {
 
             FontMetrics fm = g.getFontMetrics();
 
-            g.drawString(levelText, barX + barWidth + 10, barY + 10);
+            g.drawString(levelText, barX + barWidth + UIScale.px(10), barY + UIScale.px(10));
 
         }
 
@@ -3651,9 +3697,9 @@ public class Renderer {
 
             // Minus button
 
-            int btnSize = 35;
+            int btnSize = UIScale.px(35);
 
-            int minusX = x + 800;
+            int minusX = x + UIScale.px(800);
 
             int btnY = y + (height - btnSize) / 2;
 
@@ -3661,37 +3707,37 @@ public class Renderer {
 
             g.setColor(current > 0 ? ColorPalette.ACCENT_RED : RenderCache.GRAY_80);
 
-            g.fillRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
+            g.fillRoundRect(minusX, btnY, btnSize, btnSize, UIScale.px(8), UIScale.px(8));
 
             g.setColor(Color.WHITE);
 
             g.setStroke(RenderCache.getStroke(2));
 
-            g.drawRoundRect(minusX, btnY, btnSize, btnSize, 8, 8);
+            g.drawRoundRect(minusX, btnY, btnSize, btnSize, UIScale.px(8), UIScale.px(8));
 
             g.setFont(FONT_LARGE);
 
-            g.drawString("-", minusX + 12, btnY + 26);
+            g.drawString("-", minusX + UIScale.px(12), btnY + UIScale.px(26));
 
             
 
             // Plus button
 
-            int plusX = x + 845;
+            int plusX = x + UIScale.px(845);
 
             g.setColor(current < max ? ColorPalette.SUCCESS_GREEN : RenderCache.GRAY_80);
 
-            g.fillRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
+            g.fillRoundRect(plusX, btnY, btnSize, btnSize, UIScale.px(8), UIScale.px(8));
 
             g.setColor(Color.WHITE);
 
             g.setStroke(RenderCache.getStroke(2));
 
-            g.drawRoundRect(plusX, btnY, btnSize, btnSize, 8, 8);
+            g.drawRoundRect(plusX, btnY, btnSize, btnSize, UIScale.px(8), UIScale.px(8));
 
             g.setFont(FONT_LARGE);
 
-            g.drawString("+", plusX + 11, btnY + 26);
+            g.drawString("+", plusX + UIScale.px(11), btnY + UIScale.px(26));
 
         }
 
@@ -3719,6 +3765,10 @@ public class Renderer {
 
             case LUCKY_DODGE: return "L";
 
+            case TARGETING: return "@";
+
+            case FLARES: return "F";
+
             default: return "?";
 
         }
@@ -3741,7 +3791,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "JOURNEY MAP", width, 50, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_YELLOW, time, FontPalette.getDisplay(Font.BOLD, 42));
+        UITheme.drawTitle(g, "JOURNEY MAP", width, UIScale.px(50), ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_YELLOW, time, FontPalette.getDisplay(Font.BOLD, 42));
 
         
 
@@ -3760,7 +3810,7 @@ public class Renderer {
 
             FontMetrics resumeFm = g.getFontMetrics();
 
-            g.drawString(resumeText, (width - resumeFm.stringWidth(resumeText)) / 2, 110);
+            g.drawString(resumeText, (width - resumeFm.stringWidth(resumeText)) / 2, UIScale.px(110));
 
         }
 
@@ -3768,9 +3818,9 @@ public class Renderer {
 
         // Progress indicator (dots at top)
 
-        int dotY = 80;
+        int dotY = UIScale.px(80);
 
-        int dotSpacing = 20;
+        int dotSpacing = UIScale.px(20);
 
         int totalDots = 28;
 
@@ -3782,7 +3832,7 @@ public class Renderer {
 
             int dotX = dotsStartX + (i - 1) * dotSpacing;
 
-            int dotSize = (i == selectedLevel) ? 10 : 6;
+            int dotSize = (i == selectedLevel) ? UIScale.px(10) : UIScale.px(6);
 
             
 
@@ -3848,7 +3898,7 @@ public class Renderer {
 
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
 
-            g.drawString("<", 15, centerY + 18);
+            g.drawString("<", UIScale.px(15), centerY + UIScale.px(18));
 
         }
 
@@ -3862,7 +3912,7 @@ public class Renderer {
 
             g.setColor(new Color(150, 150, 160, (int)(100 + 100 * arrowPulse)));
 
-            g.drawString(">", width - 55, centerY + 18);
+            g.drawString(">", width - UIScale.px(55), centerY + UIScale.px(18));
 
         }
 
@@ -3874,9 +3924,9 @@ public class Renderer {
 
         int levelSpacing = width / 2; // Half screen width between levels
 
-        int centerNodeRadius = 80; // Larger center node
+        int centerNodeRadius = UIScale.px(80); // Larger center node
 
-        int sideNodeRadius = 50;   // Smaller side nodes
+        int sideNodeRadius = UIScale.px(50);   // Smaller side nodes
 
         
 
@@ -3950,7 +4000,7 @@ public class Renderer {
 
                 g.setColor(glowColor);
 
-                g.fillOval(x - nodeRadius - 25, centerY - nodeRadius - 25, (nodeRadius + 25) * 2, (nodeRadius + 25) * 2);
+                g.fillOval(x - nodeRadius - UIScale.px(25), centerY - nodeRadius - UIScale.px(25), (nodeRadius + UIScale.px(25)) * 2, (nodeRadius + UIScale.px(25)) * 2);
 
                 g.setComposite(RenderCache.getAlpha(alpha));
 
@@ -3963,7 +4013,7 @@ public class Renderer {
             g.setComposite(RenderCache.getAlpha(alpha));
             g.setColor(NODE_SHADOW);
 
-            g.fillOval(x - nodeRadius + 5, centerY - nodeRadius + 5, nodeRadius * 2, nodeRadius * 2);
+            g.fillOval(x - nodeRadius + UIScale.px(5), centerY - nodeRadius + UIScale.px(5), nodeRadius * 2, nodeRadius * 2);
 
             
 
@@ -3979,7 +4029,7 @@ public class Renderer {
 
                 g.setStroke(RenderCache.getStroke(4));
 
-                g.drawOval(x - nodeRadius - 8, centerY - nodeRadius - 8, (nodeRadius + 8) * 2, (nodeRadius + 8) * 2);
+                g.drawOval(x - nodeRadius - UIScale.px(8), centerY - nodeRadius - UIScale.px(8), (nodeRadius + UIScale.px(8)) * 2, (nodeRadius + UIScale.px(8)) * 2);
 
                 g.setComposite(RenderCache.getAlpha(alpha));
 
@@ -4075,7 +4125,7 @@ public class Renderer {
 
                     
 
-                    int spriteY = centerY - nodeRadius - spriteHeight - 110 - (int)bounceOffset - takeoffOffset;
+                    int spriteY = centerY - nodeRadius - spriteHeight - UIScale.px(110) - (int)bounceOffset - takeoffOffset;
 
                     
 
@@ -4096,7 +4146,7 @@ public class Renderer {
                         
                         // Use cached glow image instead of per-frame RadialGradientPaint
                         BufferedImage glowImg = UITheme.getCachedGlow(glowColor);
-                        int fixedGlowY = centerY - nodeRadius - spriteHeight - 110;
+                        int fixedGlowY = centerY - nodeRadius - spriteHeight - UIScale.px(110);
                         float glowRadius = Math.max(spriteWidth, spriteHeight) * 0.7f;
                         int glowDiameter = (int)(glowRadius * 2);
                         int glowDrawX = spriteX - (int)glowRadius;
@@ -4318,7 +4368,7 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString(crown, x - fm.stringWidth(crown) / 2, centerY - nodeRadius - 10);
+                g.drawString(crown, x - fm.stringWidth(crown) / 2, centerY - nodeRadius - UIScale.px(10));
 
             }
 
@@ -4378,7 +4428,7 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString(lock, x - fm.stringWidth(lock) / 2, centerY + nodeRadius + lockSize + 5);
+                g.drawString(lock, x - fm.stringWidth(lock) / 2, centerY + nodeRadius + lockSize + UIScale.px(5));
 
             }
 
@@ -4398,7 +4448,7 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString(cleared, x - fm.stringWidth(cleared) / 2, centerY + nodeRadius + labelSize + 5);
+                g.drawString(cleared, x - fm.stringWidth(cleared) / 2, centerY + nodeRadius + labelSize + UIScale.px(5));
 
             }
 
@@ -4420,11 +4470,11 @@ public class Renderer {
 
     private void drawLevelInfoPanel(Graphics2D g, int width, int height, int selectedLevel, int currentLevel, double time) {
 
-        int panelHeight = 200;
+        int panelHeight = UIScale.px(200);
 
-        int panelY = height - panelHeight - 30;
+        int panelY = height - panelHeight - UIScale.px(30);
 
-        int panelWidth = 700;
+        int panelWidth = UIScale.px(700);
 
         int panelX = (width - panelWidth) / 2;
 
@@ -4434,7 +4484,7 @@ public class Renderer {
 
         g.setColor(PANEL_BG);
 
-        g.fillRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
+        g.fillRoundRect(panelX, panelY, panelWidth, panelHeight, UIScale.px(25), UIScale.px(25));
 
         
 
@@ -4458,7 +4508,7 @@ public class Renderer {
 
         g.setStroke(RenderCache.getStroke(3));
 
-        g.drawRoundRect(panelX, panelY, panelWidth, panelHeight, 25, 25);
+        g.drawRoundRect(panelX, panelY, panelWidth, panelHeight, UIScale.px(25), UIScale.px(25));
 
         
 
@@ -4476,9 +4526,9 @@ public class Renderer {
 
         if (isMegaBoss) {
 
-            GradientPaint nameGrad = new GradientPaint(nameX, panelY + 40, GLOW_MEGA_BOSS, 
+            GradientPaint nameGrad = new GradientPaint(nameX, panelY + UIScale.px(40), GLOW_MEGA_BOSS, 
 
-                                                        nameX + fm.stringWidth(bossName), panelY + 40, PANEL_MEGA_LABEL);
+                                                        nameX + fm.stringWidth(bossName), panelY + UIScale.px(40), PANEL_MEGA_LABEL);
 
             g.setPaint(nameGrad);
 
@@ -4488,7 +4538,7 @@ public class Renderer {
 
         }
 
-        g.drawString(bossName, nameX, panelY + 45);
+        g.drawString(bossName, nameX, panelY + UIScale.px(45));
 
         
 
@@ -4502,7 +4552,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(typeLabel, panelX + (panelWidth - fm.stringWidth(typeLabel)) / 2, panelY + 70);
+        g.drawString(typeLabel, panelX + (panelWidth - fm.stringWidth(typeLabel)) / 2, panelY + UIScale.px(70));
 
         
 
@@ -4510,7 +4560,7 @@ public class Renderer {
 
         g.setFont(FONT_EXTRA_SMALL_16);
 
-        int infoY = panelY + 100;
+        int infoY = panelY + UIScale.px(100);
 
         
 
@@ -4552,7 +4602,7 @@ public class Renderer {
 
             g.setColor(PANEL_STATS_TEXT);
 
-            infoY += 20;
+            infoY += UIScale.px(20);
 
             
 
@@ -4580,7 +4630,7 @@ public class Renderer {
 
                 g.drawString(line1.toString(), panelX + (panelWidth - fm.stringWidth(line1.toString())) / 2, infoY);
 
-                infoY += 18;
+                infoY += UIScale.px(18);
 
             }
 
@@ -4610,7 +4660,7 @@ public class Renderer {
 
                 g.drawString(line2.toString(), panelX + (panelWidth - fm.stringWidth(line2.toString())) / 2, infoY);
 
-                infoY += 18;
+                infoY += UIScale.px(18);
 
             }
 
@@ -4642,7 +4692,7 @@ public class Renderer {
 
                 g.drawString(line3.toString(), panelX + (panelWidth - fm.stringWidth(line3.toString())) / 2, infoY);
 
-                infoY += 18;
+                infoY += UIScale.px(18);
 
             }
 
@@ -4706,7 +4756,7 @@ public class Renderer {
 
         g.setColor(PANEL_NAV_HINT);
 
-        drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - 15,
+        drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - UIScale.px(15),
 
             "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Navigate    ", KeyBindManager.Action.CONFIRM, " or CLICK  Start    ", KeyBindManager.Action.BACK, "  Back");
 
@@ -4728,7 +4778,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "RISK CONTRACT", width, 80, ColorPalette.ACCENT_RED_BRIGHT, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 48));
+        UITheme.drawTitle(g, "RISK CONTRACT", width, UIScale.px(80), ColorPalette.ACCENT_RED_BRIGHT, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 48));
 
         
 
@@ -4742,23 +4792,23 @@ public class Renderer {
 
         g.setColor(ColorPalette.TEXT_DIM);
 
-        g.drawString(subtitle, (width - subFm.stringWidth(subtitle)) / 2, 120);
+        g.drawString(subtitle, (width - subFm.stringWidth(subtitle)) / 2, UIScale.px(120));
 
         
 
         // Draw contract cards (larger and centered)
 
-        int cardWidth = 280;
+        int cardWidth = UIScale.px(280);
 
-        int cardHeight = 380;
+        int cardHeight = UIScale.px(380);
 
-        int cardSpacing = 40;
+        int cardSpacing = UIScale.px(40);
 
         int totalWidth = contractNames.length * cardWidth + (contractNames.length - 1) * cardSpacing;
 
         int startX = (width - totalWidth) / 2;
 
-        int cardY = (height - cardHeight) / 2 - 40;
+        int cardY = (height - cardHeight) / 2 - UIScale.px(40);
 
         
 
@@ -4788,7 +4838,7 @@ public class Renderer {
 
             g.setColor(RenderCache.BLACK_100);
 
-            g.fillRoundRect(cardX + offsetX + 5, cardY + offsetY + 5, scaledWidth, scaledHeight, 15, 15);
+            g.fillRoundRect(cardX + offsetX + UIScale.px(5), cardY + offsetY + UIScale.px(5), scaledWidth, scaledHeight, UIScale.px(15), UIScale.px(15));
 
             
 
@@ -4840,7 +4890,7 @@ public class Renderer {
 
             // Contract icon/symbol - draw custom graphics (larger)
 
-            int iconY = cardY + offsetY + 65;
+            int iconY = cardY + offsetY + UIScale.px(65);
 
             int iconCenterX = cardX + offsetX + scaledWidth / 2;
 
@@ -4930,7 +4980,7 @@ public class Renderer {
 
             g.drawString(contractNames[i], cardX + offsetX + (scaledWidth - nameFm.stringWidth(contractNames[i])) / 2, 
 
-                        cardY + offsetY + 120);
+                        cardY + offsetY + UIScale.px(120));
 
             
 
@@ -4958,9 +5008,9 @@ public class Renderer {
 
             String desc = contractDescriptions[i];
 
-            int descY = cardY + offsetY + 210;
+            int descY = cardY + offsetY + UIScale.px(210);
 
-            int maxLineWidth = scaledWidth - 30;
+            int maxLineWidth = scaledWidth - UIScale.px(30);
 
             
 
@@ -4980,11 +5030,11 @@ public class Renderer {
 
                 if (descFm.stringWidth(testLine) > maxLineWidth) {
 
-                    g.drawString(line.toString(), cardX + offsetX + 15, lineY);
+                    g.drawString(line.toString(), cardX + offsetX + UIScale.px(15), lineY);
 
                     line = new StringBuilder(word);
 
-                    lineY += 22;
+                    lineY += UIScale.px(22);
 
                 } else {
 
@@ -4996,7 +5046,7 @@ public class Renderer {
 
             if (!line.isEmpty()) {
 
-                g.drawString(line.toString(), cardX + offsetX + 15, lineY);
+                g.drawString(line.toString(), cardX + offsetX + UIScale.px(15), lineY);
 
             }
 
@@ -5010,7 +5060,7 @@ public class Renderer {
 
         g.setColor(RenderCache.GRAY_150);
 
-        drawPromptWithIcons(g, width / 2, height - 40,
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(40),
 
             "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
@@ -5028,7 +5078,7 @@ public class Renderer {
 
             FontMetrics warnFm = g.getFontMetrics();
 
-            g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - 70);
+            g.drawString(warning, (width - warnFm.stringWidth(warning)) / 2, height - UIScale.px(70));
 
         }
 
@@ -5072,23 +5122,23 @@ public class Renderer {
 
         String title = isResume ? "RESUME LEVEL " + level + "?" : "START LEVEL " + level + "?";
 
-        UITheme.drawTitle(g, title, width, height / 2 - 50, ColorPalette.TEXT_GOLD, ColorPalette.ACCENT_ORANGE, time, FontPalette.get(Font.BOLD, 56));
+        UITheme.drawTitle(g, title, width, height / 2 - UIScale.px(50), ColorPalette.TEXT_GOLD, ColorPalette.ACCENT_ORANGE, time, FontPalette.get(Font.BOLD, 56));
 
         
 
         // Yes and No buttons
 
-        int buttonWidth = 150;
+        int buttonWidth = UIScale.px(150);
 
-        int buttonHeight = 60;
+        int buttonHeight = UIScale.px(60);
 
-        int buttonSpacing = 50;
+        int buttonSpacing = UIScale.px(50);
 
         int totalWidth = 2 * buttonWidth + buttonSpacing;
 
         int startX = (width - totalWidth) / 2;
 
-        int buttonY = height / 2 + 50;
+        int buttonY = height / 2 + UIScale.px(50);
 
         
 
@@ -5106,7 +5156,7 @@ public class Renderer {
 
         g.setColor(RenderCache.BLACK_100);
 
-        g.fillRoundRect(startX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
+        g.fillRoundRect(startX + 3, buttonY + 3, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         
 
@@ -5126,13 +5176,13 @@ public class Renderer {
 
             g.setColor(yesHover);
 
-            g.fillRoundRect(startX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, 10, 10);
+            g.fillRoundRect(startX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, UIScale.px(10), UIScale.px(10));
 
         } else {
 
             g.setColor(yesColor);
 
-            g.fillRoundRect(startX, buttonY, buttonWidth, buttonHeight, 10, 10);
+            g.fillRoundRect(startX, buttonY, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         }
 
@@ -5144,7 +5194,7 @@ public class Renderer {
 
         g.setStroke(RenderCache.getStroke(2));
 
-        g.drawRoundRect(startX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        g.drawRoundRect(startX, buttonY, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         
 
@@ -5180,7 +5230,7 @@ public class Renderer {
 
         g.setColor(RenderCache.BLACK_100);
 
-        g.fillRoundRect(noButtonX + 3, buttonY + 3, buttonWidth, buttonHeight, 10, 10);
+        g.fillRoundRect(noButtonX + 3, buttonY + 3, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         
 
@@ -5200,13 +5250,13 @@ public class Renderer {
 
             g.setColor(noHover);
 
-            g.fillRoundRect(noButtonX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, 10, 10);
+            g.fillRoundRect(noButtonX + offsetX, buttonY + offsetY, pulsedWidth, pulsedHeight, UIScale.px(10), UIScale.px(10));
 
         } else {
 
             g.setColor(noColor);
 
-            g.fillRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, 10, 10);
+            g.fillRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         }
 
@@ -5218,7 +5268,7 @@ public class Renderer {
 
         g.setStroke(RenderCache.getStroke(2));
 
-        g.drawRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, 10, 10);
+        g.drawRoundRect(noButtonX, buttonY, buttonWidth, buttonHeight, UIScale.px(10), UIScale.px(10));
 
         
 
@@ -5244,7 +5294,7 @@ public class Renderer {
 
         g.setColor(RenderCache.GRAY_150);
 
-        drawPromptWithIcons(g, width / 2, height - 40,
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(40),
 
             "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Select   |   ", KeyBindManager.Action.CONFIRM, " or CLICK  Confirm   |   ", KeyBindManager.Action.BACK, "  Back");
 
@@ -6804,9 +6854,9 @@ public class Renderer {
             float combinedAlpha = Math.max(0.01f, animAlpha * (bossCfg.opacity < 1.0f ? bossCfg.opacity : 1.0f));
             g.setComposite(RenderCache.getAlpha(combinedAlpha));
 
-            int barWidth = 600;
+            int barWidth = UIScale.px(600);
 
-            int barHeight = 40;
+            int barHeight = UIScale.px(40);
 
             
 
@@ -6836,11 +6886,11 @@ public class Renderer {
 
             g.setColor(RenderCache.BLACK_100);
 
-            g.fillRoundRect(barX + 3, barY + 3, barWidth, barHeight + 45, 15, 15);
+            g.fillRoundRect(barX + 3, barY + 3, barWidth, barHeight + UIScale.px(45), UIScale.px(15), UIScale.px(15));
 
             g.setColor(RenderCache.DARK_20_20_30_200);
 
-            g.fillRoundRect(barX, barY, barWidth, barHeight + 45, 15, 15);
+            g.fillRoundRect(barX, barY, barWidth, barHeight + UIScale.px(45), UIScale.px(15), UIScale.px(15));
 
             
 
@@ -6854,7 +6904,7 @@ public class Renderer {
 
             g.setColor(typeColor);
 
-            g.drawString(bossType, barX + 10, barY + 18);
+            g.drawString(bossType, barX + UIScale.px(10), barY + UIScale.px(18));
 
             
 
@@ -6866,7 +6916,7 @@ public class Renderer {
 
             g.setColor(boss.isMegaBoss() ? ColorPalette.ACCENT_YELLOW : Color.WHITE);
 
-            g.drawString(bossName, barX + 10, barY + 38);
+            g.drawString(bossName, barX + UIScale.px(10), barY + UIScale.px(38));
 
             
 
@@ -6874,7 +6924,7 @@ public class Renderer {
 
             g.setColor(RenderCache.GRAY_60);
 
-            g.fillRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
+            g.fillRoundRect(barX + UIScale.px(10), barY + UIScale.px(45), barWidth - UIScale.px(20), UIScale.px(15), UIScale.px(8), UIScale.px(8));
 
             
 
@@ -6889,7 +6939,7 @@ public class Renderer {
             }
             g.setPaint(boss.isMegaBoss() ? cachedHPGradMega : cachedHPGradNormal);
 
-            g.fillRoundRect(barX + 10, barY + 45, barWidth - 20, 15, 8, 8);
+            g.fillRoundRect(barX + UIScale.px(10), barY + UIScale.px(45), barWidth - UIScale.px(20), UIScale.px(15), UIScale.px(8), UIScale.px(8));
 
             
 
@@ -6899,13 +6949,13 @@ public class Renderer {
 
             g.setColor(RenderCache.BLACK_150);
 
-            int segmentWidth = (barWidth - 20) / maxHits;
+            int segmentWidth = (barWidth - UIScale.px(20)) / maxHits;
 
             for (int i = 1; i < maxHits; i++) {
 
-                int dividerX = barX + 10 + (segmentWidth * i);
+                int dividerX = barX + UIScale.px(10) + (segmentWidth * i);
 
-                g.fillRect(dividerX - 1, barY + 45, 2, 15);
+                g.fillRect(dividerX - 1, barY + UIScale.px(45), 2, UIScale.px(15));
 
             }
 
@@ -7514,11 +7564,11 @@ public class Renderer {
 
             // Menu options using UIButtons
 
-            int buttonY = height / 2 - 30;
+            int buttonY = height / 2 - UIScale.px(30);
 
             for (int i = 0; i < activePauseButtonCount; i++) {
 
-                pauseButtons[i].setPosition((width - 300) / 2, buttonY + i * 80);
+                pauseButtons[i].setPosition((width - UIScale.px(300)) / 2, buttonY + i * UIScale.px(80));
 
                 pauseButtons[i].update(i == selectedPauseItem, time);
 
@@ -7672,13 +7722,13 @@ public class Renderer {
             int infoX = (int)(infoCfg.xPercent * width);
             int infoY = (int)(infoCfg.yPercent * height);
             g.setColor(RenderCache.BLACK_150);
-            g.fillRoundRect(infoX, infoY, 280, 140, 10, 10);
+            g.fillRoundRect(infoX, infoY, UIScale.px(280), UIScale.px(140), UIScale.px(10), UIScale.px(10));
 
             g.setColor(Color.WHITE);
             g.setFont(FONT_MEDIUM_BOLD);
-            g.drawString("Level: " + level, infoX + 10, infoY + 25);
-            g.drawString("Score: " + (int)displayedScore, infoX + 10, infoY + 55);
-            g.drawString("Money: $" + (int)displayedMoney, infoX + 10, infoY + 85);
+            g.drawString("Level: " + level, infoX + UIScale.px(10), infoY + UIScale.px(25));
+            g.drawString("Score: " + (int)displayedScore, infoX + UIScale.px(10), infoY + UIScale.px(55));
+            g.drawString("Money: $" + (int)displayedMoney, infoX + UIScale.px(10), infoY + UIScale.px(85));
 
             // Display timer and FPS
             g.setFont(FONT_INFO);
@@ -7686,8 +7736,8 @@ public class Renderer {
             int seconds = (int)(gameTime % 60);
             int milliseconds = (int)((gameTime % 1) * 100);
             String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
-            g.drawString(timeStr, infoX + 10, infoY + 110);
-            g.drawString("FPS: " + fps, infoX + 10, infoY + 135);
+            g.drawString(timeStr, infoX + UIScale.px(10), infoY + UIScale.px(110));
+            g.drawString("FPS: " + fps, infoX + UIScale.px(10), infoY + UIScale.px(135));
             g.setComposite(originalComposite);
         }
 
@@ -8112,7 +8162,7 @@ public class Renderer {
 
             int notifX, notifY;
             if (hudStackMode) {
-                notifX = stackOriginX - 210;
+                notifX = stackOriginX - UIScale.px(210);
                 notifY = topRightY;
             } else {
                 notifX = (int)(achCfg.xPercent * width);
@@ -8123,18 +8173,18 @@ public class Renderer {
 
             g.setComposite(RenderCache.getAlpha(combinedAlpha));
             g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 230));
-            g.fillRoundRect(notifX, notifY, 400, 100, 15, 15);
+            g.fillRoundRect(notifX, notifY, UIScale.px(400), UIScale.px(100), UIScale.px(15), UIScale.px(15));
 
             g.setFont(FONT_SMALL);
             g.setColor(ColorPalette.TEXT_GOLD);
-            g.drawString("Achievement Unlocked!", notifX + 20, notifY + 30);
+            g.drawString("Achievement Unlocked!", notifX + UIScale.px(20), notifY + UIScale.px(30));
 
             g.setFont(FONT_MEDIUM_BOLD);
             g.setColor(ColorPalette.TEXT_PRIMARY);
-            g.drawString(ach.getName(), notifX + 20, notifY + 60);
+            g.drawString(ach.getName(), notifX + UIScale.px(20), notifY + UIScale.px(60));
 
             g.setFont(FontPalette.get(Font.PLAIN, 14));
-            g.drawString(ach.getDescription(), notifX + 20, notifY + 85);
+            g.drawString(ach.getDescription(), notifX + UIScale.px(20), notifY + UIScale.px(85));
 
             g.setComposite(_ac);
         }
@@ -8359,7 +8409,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "ARMORY", width, 100, ColorPalette.ACCENT_PURPLE, ColorPalette.TEXT_GOLD, time);
+        UITheme.drawTitle(g, "ARMORY", width, UIScale.px(100), ColorPalette.ACCENT_PURPLE, ColorPalette.TEXT_GOLD, time);
 
         
 
@@ -8379,11 +8429,11 @@ public class Renderer {
 
         g.setComposite(RenderCache.getAlpha(0.3f));
 
-        g.fillRect(moneyX - 20, 140, fm.stringWidth(money) + 40, 50);
+        g.fillRect(moneyX - UIScale.px(20), UIScale.px(140), fm.stringWidth(money) + UIScale.px(40), UIScale.px(50));
 
         g.setComposite(RenderCache.getAlpha(1.0f));
 
-        g.drawString(money, moneyX, 170);
+        g.drawString(money, moneyX, UIScale.px(170));
 
         
 
@@ -8397,7 +8447,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(earnings, (width - fm.stringWidth(earnings)) / 2, 210);
+        g.drawString(earnings, (width - fm.stringWidth(earnings)) / 2, UIScale.px(210));
 
         
 
@@ -8405,7 +8455,7 @@ public class Renderer {
 
         String[] items = shopManager.getShopItems();
 
-        int y = 250;
+        int y = UIScale.px(250);
 
         int selectedItem = shopManager.getSelectedShopItem();
 
@@ -8413,7 +8463,7 @@ public class Renderer {
 
         // Create a clipping region for scrollable area (stop above instructions bar)
 
-        g.setClip(0, 220, width, height - 310);
+        g.setClip(0, UIScale.px(220), width, height - UIScale.px(310));
 
         
 
@@ -8431,15 +8481,15 @@ public class Renderer {
 
             int scrolledY = (int)(y - scrollOffset);
 
-            int itemX = (width - 900) / 2;
+            int itemX = (width - UIScale.px(900)) / 2;
 
             
 
             // Update button bounds for mouse interaction
 
-            shopButtons[i].setPosition(itemX, scrolledY - 30);
+            shopButtons[i].setPosition(itemX, scrolledY - UIScale.px(30));
 
-            shopButtons[i].setSize(900, 70);
+            shopButtons[i].setSize(UIScale.px(900), UIScale.px(70));
 
             
 
@@ -8451,7 +8501,7 @@ public class Renderer {
 
                 g.setColor(RenderCache.BLACK_120);
 
-                g.fillRoundRect(itemX + 3, scrolledY - 27, 900, 70, 15, 15);
+                g.fillRoundRect(itemX + UIScale.px(3), scrolledY - UIScale.px(27), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
 
                 
 
@@ -8485,7 +8535,7 @@ public class Renderer {
 
                 g.setColor(cardColor);
 
-                g.fillRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
+                g.fillRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
 
                 
 
@@ -8497,7 +8547,7 @@ public class Renderer {
 
                     g.setStroke(RenderCache.getStroke(2f));
 
-                    g.drawRoundRect(itemX, scrolledY - 30, 900, 70, 15, 15);
+                    g.drawRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
 
                     g.setStroke(RenderCache.getStroke(1f));
 
@@ -8513,7 +8563,7 @@ public class Renderer {
 
                 g.setColor(canAfford ? ColorPalette.TEXT_GOLD : RenderCache.GRAY_100);
 
-                g.drawString(icon, itemX + 20, scrolledY + 10);
+                g.drawString(icon, itemX + UIScale.px(20), scrolledY + UIScale.px(10));
 
                 
 
@@ -8531,27 +8581,35 @@ public class Renderer {
 
                 g.setColor(canAfford ? Color.WHITE : RenderCache.GRAY_120);
 
-                g.drawString(itemName, itemX + 75, scrolledY - 5);
+                g.drawString(itemName, itemX + UIScale.px(75), scrolledY - UIScale.px(5));
 
                 
 
-                g.setFont(FontPalette.get(Font.PLAIN, 14));
-
                 g.setColor(canAfford ? RenderCache.GRAY_200 : RenderCache.GRAY_100);
 
-                g.drawString(itemDesc, itemX + 75, scrolledY + 15);
+                // Shrink font until description fits on one line
+                int maxDescWidth = UIScale.px(650); // Leave room for cost on right side
+                int descFontSize = 14;
+                g.setFont(FontPalette.get(Font.PLAIN, descFontSize));
+                if (!itemDesc.isEmpty()) {
+                    while (descFontSize > 9 && g.getFontMetrics().stringWidth(itemDesc) > maxDescWidth) {
+                        descFontSize--;
+                        g.setFont(FontPalette.get(Font.PLAIN, descFontSize));
+                    }
+                }
+                g.drawString(itemDesc, itemX + UIScale.px(75), scrolledY + UIScale.px(15));
 
                 
 
                 // Draw progress bar for all upgrades (not for Continue)
 
-                // All upgrades now come from PassiveUpgradeManager (shop index 1 = upgrade index 0)
+                // Use sorted order from ShopManager for correct upgrade lookup
 
                 if (i > 0 && passiveUpgradeManager != null) {
 
-                    int upgradeIndex = i - 1;
+                    int upgradeIndex = shopManager.getOriginalUpgradeIndex(i);
 
-                    if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+                    if (upgradeIndex >= 0 && upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
 
                         PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
 
@@ -8577,13 +8635,13 @@ public class Renderer {
 
                         
 
-                        int barX = itemX + 75;
+                        int barX = itemX + UIScale.px(75);
 
-                        int barY = scrolledY + 30;
+                        int barY = scrolledY + UIScale.px(30);
 
-                        int barWidth = 550;
+                        int barWidth = UIScale.px(550);
 
-                        int barHeight = 8;
+                        int barHeight = UIScale.px(8);
 
                         
 
@@ -8595,7 +8653,7 @@ public class Renderer {
 
                         String levelText = isExtraMissiles ? currentLevel + "/" + maxLevel + " extra missiles" : currentLevel + "/" + maxLevel;
 
-                        g.drawString(levelText, barX, barY - 3);
+                        g.drawString(levelText, barX, barY - UIScale.px(3));
 
                         
 
@@ -8653,7 +8711,7 @@ public class Renderer {
 
                         int maxedW = costFm.stringWidth(maxedStr);
 
-                        g.drawString(maxedStr, itemX + 900 - maxedW - 20, scrolledY + 10);
+                        g.drawString(maxedStr, itemX + UIScale.px(900) - maxedW - UIScale.px(20), scrolledY + UIScale.px(10));
 
                     } else {
 
@@ -8665,7 +8723,7 @@ public class Renderer {
 
                         int costW = costFm.stringWidth(costStr);
 
-                        g.drawString(costStr, itemX + 900 - costW - 20, scrolledY + 10);
+                        g.drawString(costStr, itemX + UIScale.px(900) - costW - UIScale.px(20), scrolledY + UIScale.px(10));
 
                     }
 
@@ -8675,7 +8733,7 @@ public class Renderer {
 
             
 
-            y += 80;
+            y += UIScale.px(80);
 
         }
 
@@ -8691,7 +8749,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.withAlpha(ColorPalette.BG_DARK, 240));
 
-        g.fillRect(0, height - 80, width, 80);
+        g.fillRect(0, height - UIScale.px(80), width, UIScale.px(80));
 
         
 
@@ -8701,7 +8759,7 @@ public class Renderer {
 
         g.setFont(FONT_SMALL);
 
-        drawPromptWithIcons(g, width / 2, height - 35,
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(35),
 
             "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
 
@@ -8731,7 +8789,7 @@ public class Renderer {
 
         // Title Ã¢â‚¬â€ MISSION FAILED stamp
 
-        UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - 140, ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
+        UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - UIScale.px(140), ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
@@ -8743,7 +8801,7 @@ public class Renderer {
 
         int stampCX = width / 2 + stampOffsetX;
 
-        int stampCY = height / 2 - 140 + stampOffsetY;
+        int stampCY = height / 2 - UIScale.px(140) + stampOffsetY;
 
         if (elapsed < slamDuration) {
 
@@ -8813,7 +8871,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(level, (width - fm.stringWidth(level)) / 2, height / 2 - 40);
+        g.drawString(level, (width - fm.stringWidth(level)) / 2, height / 2 - UIScale.px(40));
 
         
 
@@ -8831,7 +8889,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + 40);
+        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 + UIScale.px(40));
 
         
 
@@ -8843,7 +8901,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.TEXT_DIM);
 
-        int statsY = height / 2 + 85;
+        int statsY = height / 2 + UIScale.px(85);
 
         
 
@@ -8855,7 +8913,7 @@ public class Renderer {
 
             g.drawString(dodges, (width - fm.stringWidth(dodges)) / 2, statsY);
 
-            statsY += 24;
+            statsY += UIScale.px(24);
 
         }
 
@@ -8869,7 +8927,7 @@ public class Renderer {
 
             g.drawString(combat, (width - fm.stringWidth(combat)) / 2, statsY);
 
-            statsY += 24;
+            statsY += UIScale.px(24);
 
         }
 
@@ -8903,7 +8961,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_200_200_210);
 
-            statsY += 24;
+            statsY += UIScale.px(24);
 
         }
 
@@ -8917,7 +8975,7 @@ public class Renderer {
 
             g.drawString(survival, (width - fm.stringWidth(survival)) / 2, statsY);
 
-            statsY += 30;
+            statsY += UIScale.px(30);
 
         }
 
@@ -8925,7 +8983,7 @@ public class Renderer {
 
         // Add spacing before persistent stats
 
-        statsY += 15;
+        statsY += UIScale.px(15);
 
         
 
@@ -8941,7 +8999,7 @@ public class Renderer {
 
         g.drawString(totalMoney, (width - fm.stringWidth(totalMoney)) / 2, statsY);
 
-        statsY += 25;
+        statsY += UIScale.px(25);
 
         
 
@@ -8951,7 +9009,7 @@ public class Renderer {
 
         g.drawString(bestRun, (width - fm.stringWidth(bestRun)) / 2, statsY);
 
-        statsY += 30;
+        statsY += UIScale.px(30);
 
         
 
@@ -8969,11 +9027,11 @@ public class Renderer {
 
             g.drawString(missileText, (width - fm.stringWidth(missileText)) / 2, statsY);
 
-            statsY += 35;
+            statsY += UIScale.px(35);
 
         } else {
 
-            statsY += 10;
+            statsY += UIScale.px(10);
 
         }
 
@@ -8989,7 +9047,7 @@ public class Renderer {
 
             KeyBindManager.Action.CONFIRM, " - New Run  |  ", KeyBindManager.Action.BACK, " - Main Menu");
 
-        statsY += 30;
+        statsY += UIScale.px(30);
 
         
 
@@ -9025,7 +9083,7 @@ public class Renderer {
 
         // Title Ã¢â‚¬â€ MISSION COMPLETE
 
-        UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - 180, ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
+        UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - UIScale.px(180), ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
         
 
@@ -9043,7 +9101,7 @@ public class Renderer {
 
         double rankElapsed = elapsed - rankDelay;
 
-        int badgeRadius = 60;
+        int badgeRadius = UIScale.px(60);
 
         int badgeCX, badgeCY;
 
@@ -9051,17 +9109,17 @@ public class Renderer {
 
         int textCenterX = width / 2;
 
-        int textTopY = height / 2 - 180;
+        int textTopY = height / 2 - UIScale.px(180);
 
         switch (badgeCorner) {
 
-            case 0:  badgeCX = textCenterX + 220; badgeCY = textTopY - 10;  break; // right of title
+            case 0:  badgeCX = textCenterX + UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break; // right of title
 
-            case 1:  badgeCX = textCenterX - 220; badgeCY = textTopY - 10;  break; // left of title
+            case 1:  badgeCX = textCenterX - UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break; // left of title
 
-            case 2:  badgeCX = textCenterX + 200; badgeCY = textTopY + 60;  break; // right-below
+            case 2:  badgeCX = textCenterX + UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break; // right-below
 
-            default: badgeCX = textCenterX - 200; badgeCY = textTopY + 60;  break; // left-below
+            default: badgeCX = textCenterX - UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break; // left-below
 
         }
 
@@ -9145,7 +9203,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - 90);
+        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 - UIScale.px(90));
 
         
 
@@ -9155,7 +9213,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 - 50);
+        g.drawString(money, (width - fm.stringWidth(money)) / 2, height / 2 - UIScale.px(50));
 
         
 
@@ -9173,7 +9231,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.VICTORY_GOLD);
 
-        g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 - 10);
+        g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 - UIScale.px(10));
 
         
 
@@ -9185,7 +9243,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.TEXT_DIM);
 
-        int statsY = height / 2 + 20;
+        int statsY = height / 2 + UIScale.px(20);
 
         
 
@@ -9197,7 +9255,7 @@ public class Renderer {
 
             g.drawString(dodges, (width - fm.stringWidth(dodges)) / 2, statsY);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9215,7 +9273,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_180_190_200);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9233,7 +9291,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_180_190_200);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9251,7 +9309,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_180_190_200);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9265,7 +9323,7 @@ public class Renderer {
 
             g.drawString(bullets, (width - fm.stringWidth(bullets)) / 2, statsY);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9299,7 +9357,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_180_190_200);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9317,7 +9375,7 @@ public class Renderer {
 
             g.setColor(RenderCache.SLATE_180_190_200);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9331,7 +9389,7 @@ public class Renderer {
 
             g.drawString(missiles, (width - fm.stringWidth(missiles)) / 2, statsY);
 
-            statsY += 26;
+            statsY += UIScale.px(26);
 
         }
 
@@ -9343,7 +9401,7 @@ public class Renderer {
 
         // Position instruction text below stats, with minimum at height/2 + 160
 
-        int instructionY = Math.max(height / 2 + 160, statsY + 30);
+        int instructionY = Math.max(height / 2 + UIScale.px(160), statsY + UIScale.px(30));
 
         drawPromptWithIcons(g, width / 2, instructionY,
 
@@ -9363,7 +9421,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "SETTINGS", width, 80, ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_CYAN, time, FONT_TITLE_MEDIUM);
+        UITheme.drawTitle(g, "SETTINGS", width, UIScale.px(80), ColorPalette.ACCENT_PURPLE, ColorPalette.ACCENT_CYAN, time, FONT_TITLE_MEDIUM);
 
         
 
@@ -9372,11 +9430,11 @@ public class Renderer {
 
         String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
 
-        int tabWidth = 130;
+        int tabWidth = UIScale.px(130);
 
         int tabStartX = (width - categories.length * tabWidth) / 2;
 
-        int tabY = 130;
+        int tabY = UIScale.px(130);
 
         
 
@@ -9404,7 +9462,7 @@ public class Renderer {
 
             }
 
-            g.fillRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
+            g.fillRoundRect(tabX, tabY, tabWidth - UIScale.px(10), UIScale.px(40), UIScale.px(10), UIScale.px(10));
 
             
 
@@ -9420,7 +9478,7 @@ public class Renderer {
 
                     g.setStroke(RenderCache.getStroke(4));
 
-                    g.drawRoundRect(tabX - 1, tabY - 1, tabWidth - 8, 42, 10, 10);
+                    g.drawRoundRect(tabX - UIScale.px(1), tabY - UIScale.px(1), tabWidth - UIScale.px(8), UIScale.px(42), UIScale.px(10), UIScale.px(10));
 
                 }
 
@@ -9428,7 +9486,7 @@ public class Renderer {
 
                 g.setStroke(RenderCache.getStroke(2));
 
-                g.drawRoundRect(tabX, tabY, tabWidth - 10, 40, 10, 10);
+                g.drawRoundRect(tabX, tabY, tabWidth - UIScale.px(10), UIScale.px(40), UIScale.px(10), UIScale.px(10));
 
             }
 
@@ -9440,7 +9498,7 @@ public class Renderer {
 
             fm = g.getFontMetrics();
 
-            g.drawString(categories[i], tabX + (tabWidth - 10 - fm.stringWidth(categories[i])) / 2, tabY + 26);
+            g.drawString(categories[i], tabX + (tabWidth - UIScale.px(10) - fm.stringWidth(categories[i])) / 2, tabY + UIScale.px(26));
 
         }
 
@@ -9451,9 +9509,9 @@ public class Renderer {
         g.setColor(ColorPalette.TEXT_PRIMARY);
 
         if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
-            drawPromptWithIcons(g, width / 2, 195, "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
+            drawPromptWithIcons(g, width / 2, UIScale.px(195), "D-Pad to navigate | ", KeyBindManager.ControllerButton.RB, " to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         } else {
-            drawPromptWithIcons(g, width / 2, 195, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to navigate | TAB to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
+            drawPromptWithIcons(g, width / 2, UIScale.px(195), KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to navigate | TAB to switch tabs | ", KeyBindManager.Action.BACK, " to exit");
         }
 
         
@@ -9462,7 +9520,7 @@ public class Renderer {
 
         Shape oldClip = g.getClip();
 
-        g.setClip(0, 200, width, height - 260);
+        g.setClip(0, UIScale.px(200), width, height - UIScale.px(260));
 
         
 
@@ -9513,13 +9571,13 @@ public class Renderer {
 
         if (settingsCtrlMode) {
 
-            drawPromptWithIcons(g, width / 2, height - 30,
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(30),
 
                 KeyBindManager.ControllerButton.Y, ": Reset Defaults  |  ", KeyBindManager.Action.BACK, " : Return to Menu");
 
         } else {
 
-            drawPromptWithIcons(g, width / 2, height - 30,
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(30),
 
                 java.awt.event.KeyEvent.VK_R, " Reset Defaults  |  ", java.awt.event.KeyEvent.VK_ESCAPE, " Return to Menu");
 
@@ -9533,7 +9591,7 @@ public class Renderer {
 
         // Reorganized into logical groups: Display, Quality, Effects, Camera
 
-        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax"};
+        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax", "UI Scale"};
 
         String[] settingValues = {
 
@@ -9563,7 +9621,9 @@ public class Renderer {
 
             String.format("%.0f%%", Game.cameraZoom * 100),
 
-            Game.enableUIParallax ? "ON" : "OFF"
+            Game.enableUIParallax ? "ON" : "OFF",
+
+            config.UIScale.LABELS[Game.uiScale]
 
         };
 
@@ -9597,7 +9657,9 @@ public class Renderer {
 
             "How zoomed in the camera is during gameplay (75% - 150%)",
 
-            "UI elements shift slightly with camera movement for depth effect"
+            "UI elements shift slightly with camera movement for depth effect",
+
+            "Scale all UI elements — menus, buttons, HUD, shop, popups (Small / Medium / Large)"
 
         };
 
@@ -9621,7 +9683,7 @@ public class Renderer {
 
             Game.enableVignette, Game.enableGrainEffect, false,
 
-            Game.enableUIParallax
+            Game.enableUIParallax, false
 
         };
 
@@ -9670,6 +9732,12 @@ public class Renderer {
         pillOptions[5] = new String[]{"Off", "Low", "Medium", "High"};
 
         pillSelected[5] = Game.shadowQuality;
+
+        
+
+        pillOptions[14] = new String[]{"Small", "Medium", "Large"};
+
+        pillSelected[14] = Game.uiScale;
 
         
 
@@ -9845,7 +9913,7 @@ public class Renderer {
 
         // Custom rendering for controls (key display boxes instead of toggles/sliders)
 
-        int y = 230 - (int)scrollOffset;
+        int y = UIScale.px(230) - (int)scrollOffset;
 
         FontMetrics fm;
 
@@ -9857,13 +9925,13 @@ public class Renderer {
 
             
 
-            int boxWidth = width - 200;
+            int boxWidth = width - UIScale.px(200);
 
             int boxX = (width - boxWidth) / 2;
 
-            int boxY = y - 10;
+            int boxY = y - UIScale.px(10);
 
-            int boxHeight = 50;
+            int boxHeight = UIScale.px(50);
 
             
 
@@ -9881,9 +9949,9 @@ public class Renderer {
 
             // Skip rendering if outside visible area
 
-            if (y < 170 || y > height - 80) {
+            if (y < UIScale.px(170) || y > height - UIScale.px(80)) {
 
-                y += 78;
+                y += UIScale.px(78);
 
                 continue;
 
@@ -9931,7 +9999,7 @@ public class Renderer {
 
             g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
-            g.drawString(settingNames[i], boxX + 16, boxY + boxHeight / 2 + 6);
+            g.drawString(settingNames[i], boxX + UIScale.px(16), boxY + boxHeight / 2 + UIScale.px(6));
 
             
 
@@ -9989,15 +10057,15 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                int keyBoxWidth = Math.max(70, fm.stringWidth(keyText) + 24);
+                int keyBoxWidth = Math.max(UIScale.px(70), fm.stringWidth(keyText) + UIScale.px(24));
 
-                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, 76);
+                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, UIScale.px(76));
 
-                int keyBoxX = boxX + boxWidth - keyBoxWidth - 16;
+                int keyBoxX = boxX + boxWidth - keyBoxWidth - UIScale.px(16);
 
-                int keyBoxY = boxY + 4;
+                int keyBoxY = boxY + UIScale.px(4);
 
-                int keyBoxHeight = boxHeight - 8;
+                int keyBoxHeight = boxHeight - UIScale.px(8);
 
                 
 
@@ -10009,13 +10077,13 @@ public class Renderer {
 
                     g.setColor(new Color(191, 97, 106, (int)(150 * alpha)));
 
-                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
 
                     g.setColor(ColorPalette.ACCENT_RED);
 
                     g.setStroke(RenderCache.getStroke(2));
 
-                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
 
                     g.setColor(ColorPalette.TEXT_GOLD);
 
@@ -10025,13 +10093,13 @@ public class Renderer {
 
                     g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
 
-                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
 
                     g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
 
                     g.setStroke(RenderCache.getStroke(1));
 
-                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, 8, 8);
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
 
                     g.setColor(ColorPalette.TEXT_PRIMARY);
 
@@ -10043,13 +10111,13 @@ public class Renderer {
 
                 if (btnSprite != null) {
 
-                    int spriteH = 30; int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
+                    int spriteH = UIScale.px(30); int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
 
                     g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteW) / 2, keyBoxY + (keyBoxHeight - spriteH) / 2, spriteW, spriteH, null);
 
                 } else {
 
-                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + 6);
+                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + UIScale.px(6));
 
                 }
 
@@ -10067,15 +10135,15 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
 
-                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
+                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
 
             }
 
             
 
-            y += 78;
+            y += UIScale.px(78);
 
         }
 
@@ -10093,15 +10161,15 @@ public class Renderer {
 
     private void drawSettingsList(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, boolean showSliders, float[] sliderValues) {
 
-        int boxWidth = width - 200;
+        int boxWidth = width - UIScale.px(200);
 
-        int boxHeight = 50;
+        int boxHeight = UIScale.px(50);
 
-        int itemSpacing = 78;
+        int itemSpacing = UIScale.px(78);
 
         int boxX = (width - boxWidth) / 2;
 
-        int y = 230 - (int)scrollOffset;
+        int y = UIScale.px(230) - (int)scrollOffset;
 
         FontMetrics fm;
 
@@ -10155,7 +10223,7 @@ public class Renderer {
 
             // Skip if outside visible area
 
-            if (y < 170 || y > height - 80) {
+            if (y < UIScale.px(170) || y > height - UIScale.px(80)) {
 
                 y += itemSpacing;
 
@@ -10193,9 +10261,9 @@ public class Renderer {
 
             g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
-            int textYBase = boxY + boxHeight / 2 + 6;
+            int textYBase = boxY + boxHeight / 2 + UIScale.px(6);
 
-            g.drawString(names[i], boxX + 16, textYBase);
+            g.drawString(names[i], boxX + UIScale.px(16), textYBase);
 
             
 
@@ -10211,7 +10279,7 @@ public class Renderer {
 
                 int centerY = boxY + boxHeight / 2;
 
-                int rightMargin = 16;
+                int rightMargin = UIScale.px(16);
 
                 
 
@@ -10219,17 +10287,17 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                int valueW = fm.stringWidth(values[i]) + 12;
+                int valueW = fm.stringWidth(values[i]) + UIScale.px(12);
 
                 
 
                 int plusBtnX = boxX + boxWidth - rightMargin - valueW - btnSize;
 
-                int sliderEndX = plusBtnX - 8;
+                int sliderEndX = plusBtnX - UIScale.px(8);
 
-                int sliderStartX = boxX + boxWidth / 2 - 20;
+                int sliderStartX = boxX + boxWidth / 2 - UIScale.px(20);
 
-                int minusBtnX = sliderStartX - btnSize - 8;
+                int minusBtnX = sliderStartX - btnSize - UIScale.px(8);
 
                 int sliderW = sliderEndX - sliderStartX;
 
@@ -10259,13 +10327,13 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString("\u2212", minusBtnX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + 6);
+                g.drawString("\u2212", minusBtnX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + UIScale.px(6));
 
                 
 
                 // Slider bar
 
-                int sliderH = 6;
+                int sliderH = UIScale.px(6);
 
                 int sliderY = centerY - sliderH / 2;
 
@@ -10283,11 +10351,11 @@ public class Renderer {
 
                 // Handle
 
-                int handleX = sliderStartX + fillW - 5;
+                int handleX = sliderStartX + fillW - UIScale.px(5);
 
                 g.setColor(ColorPalette.TEXT_GOLD);
 
-                g.fillOval(handleX, centerY - 7, 10, 14);
+                g.fillOval(handleX, centerY - UIScale.px(7), UIScale.px(10), UIScale.px(14));
 
                 
 
@@ -10303,7 +10371,7 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString("+", plusBtnX + (btnSize - fm.stringWidth("+")) / 2, centerY + 6);
+                g.drawString("+", plusBtnX + (btnSize - fm.stringWidth("+")) / 2, centerY + UIScale.px(6));
 
                 
 
@@ -10315,7 +10383,7 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                g.drawString(values[i], boxX + boxWidth - rightMargin - fm.stringWidth(values[i]), centerY + 6);
+                g.drawString(values[i], boxX + boxWidth - rightMargin - fm.stringWidth(values[i]), centerY + UIScale.px(6));
 
             } else if (values[i].equals("ON") || values[i].equals("OFF")) {
 
@@ -10333,7 +10401,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.SUCCESS_GREEN);
 
-                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - 16, textYBase);
+                g.drawString(values[i], boxX + boxWidth - fm.stringWidth(values[i]) - UIScale.px(16), textYBase);
 
             }
 
@@ -10349,9 +10417,9 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
 
-                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
+                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
 
             }
 
@@ -10383,15 +10451,15 @@ public class Renderer {
 
     private void drawSettingsListWithSliders(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, String[] names, String[] values, String[] descriptions, float[][] sliders, boolean[] toggles, String[] sectionHeaders, String[][] pillOptions, int[] pillSelected) {
 
-        int boxWidth = width - 200;
+        int boxWidth = width - UIScale.px(200);
 
-        int boxHeight = 50;
+        int boxHeight = UIScale.px(50);
 
-        int itemSpacing = 78;
+        int itemSpacing = UIScale.px(78);
 
         int boxX = (width - boxWidth) / 2;
 
-        int y = 230 - (int)scrollOffset;
+        int y = UIScale.px(230) - (int)scrollOffset;
 
         FontMetrics fm;
 
@@ -10435,7 +10503,7 @@ public class Renderer {
 
             if (sectionHeaders != null && i < sectionHeaders.length && sectionHeaders[i] != null) {
 
-                if (y >= 170 && y <= height - 80) {
+                if (y >= UIScale.px(170) && y <= height - UIScale.px(80)) {
 
                     g.setFont(FONT_EXTRA_SMALL_13);
 
@@ -10445,17 +10513,17 @@ public class Renderer {
 
                         g.setStroke(RenderCache.getStroke(1));
 
-                        g.drawLine(boxX, y - 14, boxX + boxWidth, y - 14);
+                        g.drawLine(boxX, y - UIScale.px(14), boxX + boxWidth, y - UIScale.px(14));
 
                     }
 
                     g.setColor(ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 220));
 
-                    g.drawString(sectionHeaders[i], boxX + 4, y + 2);
+                    g.drawString(sectionHeaders[i], boxX + UIScale.px(4), y + UIScale.px(2));
 
                 }
 
-                y += 24;
+                y += UIScale.px(24);
 
             }
 
@@ -10521,9 +10589,9 @@ public class Renderer {
 
             g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
 
-            int textY = boxY + boxHeight / 2 + 6;
+            int textY = boxY + boxHeight / 2 + UIScale.px(6);
 
-            g.drawString(names[i], boxX + 16, textY);
+            g.drawString(names[i], boxX + UIScale.px(16), textY);
 
             
 
@@ -10561,9 +10629,9 @@ public class Renderer {
 
                 fm = g.getFontMetrics();
 
-                int descX = Math.max(10, (width - fm.stringWidth(descriptions[i])) / 2);
+                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
 
-                g.drawString(descriptions[i], descX, boxY + boxHeight + 16);
+                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
 
             }
 
@@ -10587,9 +10655,9 @@ public class Renderer {
 
         int pillH = pillClickH;
 
-        int pillGap = 3;
+        int pillGap = UIScale.px(3);
 
-        int pillPadding = 12;
+        int pillPadding = UIScale.px(12);
 
         
 
@@ -10611,7 +10679,7 @@ public class Renderer {
 
         
 
-        int startX = boxX + boxWidth - totalW - 16;
+        int startX = boxX + boxWidth - totalW - UIScale.px(16);
 
         int pillY = boxY + (boxHeight - pillH) / 2;
 
@@ -10723,7 +10791,7 @@ public class Renderer {
 
         int centerY = boxY + boxHeight / 2;
 
-        int rightMargin = 16;
+        int rightMargin = UIScale.px(16);
 
         
 
@@ -10733,17 +10801,17 @@ public class Renderer {
 
         FontMetrics fm = g.getFontMetrics();
 
-        int valueW = fm.stringWidth(value) + 12;
+        int valueW = fm.stringWidth(value) + UIScale.px(12);
 
         
 
         int plusX = boxX + boxWidth - rightMargin - valueW - btnSize;
 
-        int sliderEndX = plusX - 8;
+        int sliderEndX = plusX - UIScale.px(8);
 
-        int sliderStartX = boxX + boxWidth / 2 - 20;
+        int sliderStartX = boxX + boxWidth / 2 - UIScale.px(20);
 
-        int minusX = sliderStartX - btnSize - 8;
+        int minusX = sliderStartX - btnSize - UIScale.px(8);
 
         int sliderWidth = sliderEndX - sliderStartX;
 
@@ -10775,13 +10843,13 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString("\u2212", minusX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + 6);
+        g.drawString("\u2212", minusX + (btnSize - fm.stringWidth("\u2212")) / 2, centerY + UIScale.px(6));
 
         
 
         // Slider bar
 
-        int sliderH = 6;
+        int sliderH = UIScale.px(6);
 
         int sliderY = centerY - sliderH / 2;
 
@@ -10799,11 +10867,11 @@ public class Renderer {
 
         // Handle
 
-        int handleX = sliderStartX + fillW - 5;
+        int handleX = sliderStartX + fillW - UIScale.px(5);
 
         g.setColor(ColorPalette.TEXT_GOLD);
 
-        g.fillOval(handleX, centerY - 7, 10, 14);
+        g.fillOval(handleX, centerY - UIScale.px(7), UIScale.px(10), UIScale.px(14));
 
         
 
@@ -10819,7 +10887,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString("+", plusX + (btnSize - fm.stringWidth("+")) / 2, centerY + 6);
+        g.drawString("+", plusX + (btnSize - fm.stringWidth("+")) / 2, centerY + UIScale.px(6));
 
         
 
@@ -10831,7 +10899,7 @@ public class Renderer {
 
         fm = g.getFontMetrics();
 
-        g.drawString(value, boxX + boxWidth - rightMargin - fm.stringWidth(value), centerY + 6);
+        g.drawString(value, boxX + boxWidth - rightMargin - fm.stringWidth(value), centerY + UIScale.px(6));
 
     }
 
@@ -10839,11 +10907,11 @@ public class Renderer {
 
     private void drawToggleSwitch(Graphics2D g, int boxX, int boxY, int boxWidth, int boxHeight, boolean isOn, boolean isSelected) {
 
-        int toggleW = 44;
+        int toggleW = UIScale.px(44);
 
-        int toggleH = 22;
+        int toggleH = UIScale.px(22);
 
-        int toggleX = boxX + boxWidth - toggleW - 16;
+        int toggleX = boxX + boxWidth - toggleW - UIScale.px(16);
 
         int toggleY = boxY + (boxHeight - toggleH) / 2;
 
@@ -10853,17 +10921,17 @@ public class Renderer {
 
         g.setColor(isOn ? ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 200) : ColorPalette.withAlpha(ColorPalette.BORDER_STEEL, 200));
 
-        g.fillRoundRect(toggleX, toggleY, toggleW, toggleH, 11, 11);
+        g.fillRoundRect(toggleX, toggleY, toggleW, toggleH, UIScale.px(11), UIScale.px(11));
 
         
 
         // Circle
 
-        int circleSize = 18;
+        int circleSize = UIScale.px(18);
 
-        int circleX = isOn ? toggleX + toggleW - circleSize - 2 : toggleX + 2;
+        int circleX = isOn ? toggleX + toggleW - circleSize - UIScale.px(2) : toggleX + UIScale.px(2);
 
-        int circleY = toggleY + 2;
+        int circleY = toggleY + UIScale.px(2);
 
         g.setColor(ColorPalette.TEXT_WHITE);
 
@@ -10881,13 +10949,13 @@ public class Renderer {
 
         g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
 
-        g.drawString(label, toggleX - fm.stringWidth(label) - 8, toggleY + 15);
+        g.drawString(label, toggleX - fm.stringWidth(label) - UIScale.px(8), toggleY + UIScale.px(15));
 
     }
 
     
 
-    public void drawDebug(Graphics2D g, int width, int height, double time) {
+    public void drawDebug(Graphics2D g, int width, int height, double time, int selectedOption) {
 
         // Military themed background
 
@@ -10905,7 +10973,7 @@ public class Renderer {
 
         g.setFont(FONT_INFO);
 
-        String subtitle = "Developer/Cheat Menu - Press Number Keys";
+        String subtitle = "Developer/Cheat Menu - Navigate with UP/DOWN, Activate with SPACE";
 
         FontMetrics fm = g.getFontMetrics();
 
@@ -10913,33 +10981,31 @@ public class Renderer {
 
         
 
-        // Cheat options
-
-        int startY = 200;
-
-        int spacing = 80;
-
-        g.setFont(FONT_LARGE_32);
-
-        
+        // Debug options
 
         String[] options = {
 
-            "[1] Unlock All Levels (1-20)",
+            "Unlock All Levels (1-28)",
 
-            "[2] Give $10,000",
+            "Give $10,000",
 
-            "[3] Max All Upgrades",
+            "Max All Upgrades",
 
-            "[4] Give $1,000",
+            "Give $1,000",
 
-            "[5] Give $100",
+            "Give $100",
 
-            "[6] Unlock All Active Items",
+            "Unlock All Active Items",
 
-            "[7] Unlock Risk Contracts",
+            "Unlock Risk Contracts",
 
-            "[8] Toggle Showcase Unlock All"
+            "Toggle Showcase Unlock All",
+
+            "Unlock All Passive Upgrades",
+
+            "Preview Item & Contract Popups",
+
+            "Preview Passive Upgrade Popups"
 
         };
 
@@ -10949,19 +11015,25 @@ public class Renderer {
 
             ColorPalette.ACCENT_YELLOW,  // Gold
 
-            new Color(0, 255, 127),  // Spring green
+            new Color(0, 255, 127),      // Spring green
 
-            new Color(138, 43, 226), // Blue violet
+            new Color(138, 43, 226),     // Blue violet
 
-            RenderCache.ORANGE_255_165_0,  // Orange
+            RenderCache.ORANGE_255_165_0, // Orange
 
-            new Color(135, 206, 250), // Light sky blue
+            new Color(135, 206, 250),    // Light sky blue
 
-            ColorPalette.SUCCESS_GREEN, // Green for active items
+            ColorPalette.SUCCESS_GREEN,  // Green for active items
 
-            new Color(255, 99, 71),  // Tomato red for risk contracts
+            new Color(255, 99, 71),      // Tomato red for risk contracts
 
-            new Color(255, 215, 100) // Yellow for showcase unlock
+            new Color(255, 215, 100),    // Yellow for showcase unlock
+
+            new Color(180, 120, 255),    // Purple for passive upgrades
+
+            new Color(100, 200, 255),    // Cyan for item/contract preview
+
+            new Color(200, 150, 255)     // Lavender for passive preview
 
         };
 
@@ -10987,21 +11059,21 @@ public class Renderer {
 
             String sfxLabel = "SFX: " + lastSfx;
 
-            int sfxW = sfxFm.stringWidth(sfxLabel) + 24;
+            int sfxW = sfxFm.stringWidth(sfxLabel) + UIScale.px(24);
 
-            int sfxH = 36;
+            int sfxH = UIScale.px(36);
 
             int sfxX = (width - sfxW) / 2;
 
-            int sfxY = 140;
+            int sfxY = UIScale.px(140);
 
             g.setColor(new Color(0, 0, 0, 160));
 
-            g.fillRoundRect(sfxX, sfxY, sfxW, sfxH, 12, 12);
+            g.fillRoundRect(sfxX, sfxY, sfxW, sfxH, UIScale.px(12), UIScale.px(12));
 
             g.setColor(RenderCache.RED_255_120_120);
 
-            g.drawString(sfxLabel, sfxX + 12, sfxY + 25);
+            g.drawString(sfxLabel, sfxX + UIScale.px(12), sfxY + UIScale.px(25));
 
             g.setComposite(RenderCache.getAlpha(1.0f));
 
@@ -11009,15 +11081,87 @@ public class Renderer {
 
 
 
-        for (int i = 0; i < options.length; i++) {
+        // Draw selectable button list
 
-            g.setColor(colors[i]);
+        int startY = UIScale.px(170);
+
+        int spacing = UIScale.px(52);
+
+        int buttonWidth = UIScale.px(500);
+
+        int buttonHeight = UIScale.px(44);
+
+        g.setFont(FontPalette.get(Font.BOLD, 22));
+
+
+
+        for (int i = 0; i < options.length; i++) {
 
             fm = g.getFontMetrics();
 
-            int x = (width - fm.stringWidth(options[i])) / 2;
+            int x = (width - buttonWidth) / 2;
 
             int y = startY + i * spacing;
+
+            boolean isSelected = (i == selectedOption);
+
+            
+
+            // Draw button background
+
+            if (isSelected) {
+
+                // Selected button: bright glow background
+
+                g.setColor(new Color(colors[i].getRed(), colors[i].getGreen(), colors[i].getBlue(), 40));
+
+                g.fillRoundRect(x - UIScale.px(10), y - UIScale.px(6), buttonWidth + UIScale.px(20), buttonHeight, UIScale.px(16), UIScale.px(16));
+
+                // Border
+
+                g.setColor(colors[i]);
+
+                g.setStroke(RenderCache.getStroke(3));
+
+                g.drawRoundRect(x - UIScale.px(10), y - UIScale.px(6), buttonWidth + UIScale.px(20), buttonHeight, UIScale.px(16), UIScale.px(16));
+
+                g.setStroke(RenderCache.getStroke(1));
+
+                
+
+                // Selection indicator arrow
+
+                g.setFont(FontPalette.get(Font.BOLD, 26));
+
+                g.setColor(colors[i]);
+
+                g.drawString("\u25B6", x - UIScale.px(30), y + UIScale.px(28));
+
+                g.setFont(FontPalette.get(Font.BOLD, 22));
+
+            } else {
+
+                // Unselected button: subtle dark background
+
+                g.setColor(new Color(0, 0, 0, 80));
+
+                g.fillRoundRect(x - UIScale.px(10), y - UIScale.px(6), buttonWidth + UIScale.px(20), buttonHeight, UIScale.px(16), UIScale.px(16));
+
+                g.setColor(new Color(100, 100, 100, 100));
+
+                g.setStroke(RenderCache.getStroke(1));
+
+                g.drawRoundRect(x - UIScale.px(10), y - UIScale.px(6), buttonWidth + UIScale.px(20), buttonHeight, UIScale.px(16), UIScale.px(16));
+
+            }
+
+            
+
+            // Draw text centered in button
+
+            int textX = (width - fm.stringWidth(options[i])) / 2;
+
+            int textY = y + UIScale.px(28);
 
             
 
@@ -11025,71 +11169,23 @@ public class Renderer {
 
             g.setColor(RenderCache.BLACK_100);
 
-            g.drawString(options[i], x + 3, y + 3);
+            g.drawString(options[i], textX + 2, textY + 2);
 
             
 
             // Draw text
 
-            g.setColor(colors[i]);
+            if (isSelected) {
 
-            g.drawString(options[i], x, y);
+                g.setColor(Color.WHITE);
 
-            /*
+            } else {
 
-            // Disabled water effects code (had variable conflicts)
-
-            if (y > -60 && y < height + 60) {
-
-                // Motion blur for waves
-
-                g.setColor(new Color(30, 144, 255, 60));
-
-                g.setStroke(RenderCache.getStroke(3));
-
-                for (int wx = 0; wx < width; wx += 40) {
-
-                    g.drawArc(wx, y - 5, 40, 25, 0, 180);
-
-                }
-
-                
-
-                // Waves
-
-                g.setColor(new Color(30, 144, 255, 120));
-
-                g.setStroke(RenderCache.getStroke(3));
-
-                for (int wx2 = 0; wx2 < width; wx2 += 40) {
-
-                    g.drawArc(wx2, y, 40, 20, 0, 180);
-
-                }
-
-                
-
-                // Occasional islands
-
-                if (i % 3 == 0) {
-
-                    int islandX = (i * 137) % (width - 100);
-
-                    g.setColor(new Color(139, 69, 19, 150));
-
-                    g.fillOval(islandX, y + 30, 80, 50);
-
-                    g.setColor(new Color(34, 139, 34, 150));
-
-                    g.fillOval(islandX + 10, y + 25, 30, 30);
-
-                    g.fillOval(islandX + 40, y + 20, 35, 35);
-
-                }
+                g.setColor(new Color(colors[i].getRed(), colors[i].getGreen(), colors[i].getBlue(), 180));
 
             }
 
-            */
+            g.drawString(options[i], textX, textY);
 
         }
 
@@ -11476,15 +11572,13 @@ public class Renderer {
 
         
 
-        // All upgrades now use PassiveUpgradeManager
-
-        // Index 1 = Speed, 2 = Bullet Slow, 3 = Lucky Dodge, 4 = Quick Charge, etc.
+        // Use sorted order from ShopManager for correct upgrade lookup
 
         if (passiveUpgradeManager != null && itemIndex >= 1) {
 
-            int upgradeIndex = itemIndex - 1;
+            int upgradeIndex = shopManager.getOriginalUpgradeIndex(itemIndex);
 
-            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+            if (upgradeIndex >= 0 && upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
 
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
 

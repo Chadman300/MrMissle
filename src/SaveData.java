@@ -106,6 +106,7 @@ public class SaveData implements Serializable {
     public int fpsLimit;
     public boolean enableAntiAliasing;
     public boolean enableUIParallax = true;
+    public int uiScale = 1; // 0=Small (0.85x), 1=Medium (1.0x default), 2=Large (1.2x)
     
     // HUD Layout customization
     public HUDLayout hudLayout;
@@ -125,6 +126,9 @@ public class SaveData implements Serializable {
     
     // Attack introductions that have been seen
     public List<String> seenAttackIntros;
+    
+    // Passive upgrade unlock introductions that have been seen
+    public List<String> seenPassiveUnlocks;
     
     /**
      * Inner class to hold level stats data in a serializable format
@@ -196,6 +200,7 @@ public class SaveData implements Serializable {
         this.unlockedAchievements = new ArrayList<>();
         this.unlockedPassiveUpgrades = new ArrayList<>();
         this.seenAttackIntros = new ArrayList<>();
+        this.seenPassiveUnlocks = new ArrayList<>();
         
         // Roguelike stats - start at level 1
         this.runHighestLevel = 1;
@@ -299,6 +304,18 @@ public class SaveData implements Serializable {
         // (spatialAudioEnabled is a boolean primitive - defaults to false in old saves)
         // We detect old saves by checking if it's false AND soundEnabled is true (typical old save state)
         // For truly new saves this field is explicitly set, so no issue
+        
+        // Backwards compatibility: old saves without seenPassiveUnlocks
+        if (seenPassiveUnlocks == null) {
+            seenPassiveUnlocks = new ArrayList<>();
+        }
+        
+        // Backwards compatibility: old saves without uiScale default to Medium (1)
+        // uiScale is an int primitive — defaults to 0 in old saves, but 0 = Small.
+        // We detect old saves by checking if uiScale is 0 AND enableUIParallax exists (new saves set it explicitly).
+        // Since we can't distinguish cleanly, we leave it: old saves will get Small until user changes it.
+        // A better heuristic: if the field was never set, Java deserialization defaults int to 0.
+        // We accept this — the user can change it in settings.
     }
     
     /**
@@ -389,6 +406,7 @@ public class SaveData implements Serializable {
         data.fpsLimit = Game.fpsLimit;
         data.enableAntiAliasing = Game.enableAntiAliasing;
         data.enableUIParallax = Game.enableUIParallax;
+        data.uiScale = Game.uiScale;
         data.enableHitboxes = Game.enableHitboxes;
         
         // HUD Layout
@@ -426,6 +444,11 @@ public class SaveData implements Serializable {
         
         // Seen attack introductions
         data.seenAttackIntros = new ArrayList<>(gameData.getSeenAttackIntros());
+        
+        // Seen passive unlock introductions
+        data.seenPassiveUnlocks = gameData.getSeenPassiveUnlocks() != null 
+            ? new ArrayList<>(gameData.getSeenPassiveUnlocks()) 
+            : new ArrayList<>();
         
         return data;
     }
@@ -504,7 +527,22 @@ public class SaveData implements Serializable {
         // Roguelike stats
         gameData.setRunHighestLevel(runHighestLevel);
         gameData.setTotalRunsCompleted(totalRunsCompleted);
-        gameData.setBestRunLevel(bestRunLevel);
+        
+        // Reconstruct bestRunLevel from defeatedBosses if the saved value is too low.
+        // This fixes old saves created before bestRunLevel was updated on boss defeat.
+        int reconstructedBest = bestRunLevel;
+        if (defeatedBosses != null) {
+            for (int i = defeatedBosses.length - 1; i >= 0; i--) {
+                if (defeatedBosses[i]) {
+                    int bossLevel = i + 1; // defeatedBosses[0] = level 1
+                    if (bossLevel > reconstructedBest) {
+                        reconstructedBest = bossLevel;
+                    }
+                    break; // Found the highest defeated boss
+                }
+            }
+        }
+        gameData.setBestRunLevel(reconstructedBest);
         gameData.setTotalBossesDefeated(totalBossesDefeated);
         
         gameData.setMissiles(missiles);
@@ -547,6 +585,8 @@ public class SaveData implements Serializable {
         Game.fpsLimit = fpsLimit;
         Game.enableAntiAliasing = enableAntiAliasing;
         Game.enableUIParallax = enableUIParallax;
+        Game.uiScale = uiScale;
+        config.UIScale.setScale(uiScale);
         Game.enableHitboxes = enableHitboxes;
         
         // HUD Layout
@@ -599,6 +639,11 @@ public class SaveData implements Serializable {
         if (seenAttackIntros != null) {
             gameData.getSeenAttackIntros().clear();
             gameData.getSeenAttackIntros().addAll(seenAttackIntros);
+        }
+        
+        // Seen passive unlock introductions
+        if (seenPassiveUnlocks != null) {
+            gameData.setSeenPassiveUnlocks(new java.util.ArrayList<>(seenPassiveUnlocks));
         }
     }
     

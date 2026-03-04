@@ -20,7 +20,7 @@ public class Flare {
         this.y = y;
         this.vx = vx;
         this.vy = vy;
-        this.lifetime = 180; // ~3 seconds at 60fps
+        this.lifetime = 240; // ~4 seconds at 60fps
         this.age = 0;
         this.active = true;
         this.glowRadius = 12f;
@@ -105,6 +105,6 @@ public class Flare {
         double dx = x - bullet.getX();
         double dy = y - bullet.getY();
         double distSq = dx * dx + dy * dy;
-        return distSq < 15 * 15; // 15px collision radius
+        return distSq < 20 * 20; // 20px collision radius
     }
 }

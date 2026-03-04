@@ -3,6 +3,10 @@ public class ShopManager {
     private PassiveUpgradeManager passiveUpgradeManager;
     private int selectedShopItem;
     
+    // Maps display index (after "Continue") to original upgrade index in PassiveUpgradeManager
+    // Maxed items are pushed to the bottom of this list
+    private int[] sortedUpgradeOrder;
+    
     public ShopManager(GameData gameData) {
         this.gameData = gameData;
         this.selectedShopItem = 0;
@@ -10,6 +14,63 @@ public class ShopManager {
     
     public void setPassiveUpgradeManager(PassiveUpgradeManager manager) {
         this.passiveUpgradeManager = manager;
+        rebuildSortedOrder();
+    }
+    
+    /**
+     * Rebuild the sorted upgrade order so maxed items appear at the bottom.
+     * Locked items (unlockLevel > bestRunLevel) are completely excluded.
+     * Call this after any purchase or state change.
+     */
+    public void rebuildSortedOrder() {
+        if (passiveUpgradeManager == null) {
+            sortedUpgradeOrder = new int[0];
+            return;
+        }
+        java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
+        int count = upgrades.size();
+        int bestLevel = gameData.getBestRunLevel();
+        
+        // Separate unlocked non-maxed and maxed upgrade indices; skip locked items entirely
+        java.util.List<Integer> nonMaxed = new java.util.ArrayList<>();
+        java.util.List<Integer> maxed = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            PassiveUpgrade upgrade = upgrades.get(i);
+            
+            // Skip locked items entirely - they won't appear in the shop
+            if (upgrade.getUnlockLevel() > bestLevel) {
+                continue;
+            }
+            
+            boolean isMax;
+            if (upgrade.getId().equals("health")) {
+                int extraMissiles = Math.max(0, gameData.getMissiles() - gameData.getBaseMissiles());
+                isMax = extraMissiles >= upgrade.getMaxLevel();
+            } else {
+                isMax = upgrade.isMaxed();
+            }
+            if (isMax) {
+                maxed.add(i);
+            } else {
+                nonMaxed.add(i);
+            }
+        }
+        sortedUpgradeOrder = new int[nonMaxed.size() + maxed.size()];
+        int idx = 0;
+        for (int i : nonMaxed) sortedUpgradeOrder[idx++] = i;
+        for (int i : maxed) sortedUpgradeOrder[idx++] = i;
+    }
+    
+    /**
+     * Get the original upgrade index for a given display item index.
+     * Display index 0 = Continue, display index 1+ maps through sortedUpgradeOrder.
+     */
+    private int getUpgradeIndex(int displayIndex) {
+        int sortedIdx = displayIndex - 1;
+        if (sortedIdx >= 0 && sortedIdx < sortedUpgradeOrder.length) {
+            return sortedUpgradeOrder[sortedIdx];
+        }
+        return -1;
     }
     
     public int getSelectedShopItem() {
@@ -35,10 +96,9 @@ public class ShopManager {
             return 0; // Free (just continue)
         }
         
-        // All upgrades are now in PassiveUpgradeManager (index 1 = upgrade 0, etc.)
-        if (itemIndex >= 1 && passiveUpgradeManager != null) {
-            int upgradeIndex = itemIndex - 1;
-            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+        if (passiveUpgradeManager != null) {
+            int upgradeIndex = getUpgradeIndex(itemIndex);
+            if (upgradeIndex >= 0 && upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                 // Extra Missiles has fixed cost (baseCost) - doesn't scale with level
                 if (upgrade.getId().equals("health")) {
@@ -60,32 +120,35 @@ public class ShopManager {
             return false; // Can't purchase if already maxed
         }
         
-        // All upgrades are now handled by PassiveUpgradeManager
-        if (itemIndex >= 1 && passiveUpgradeManager != null) {
-            int upgradeIndex = itemIndex - 1;
-            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+        if (passiveUpgradeManager != null) {
+            int upgradeIndex = getUpgradeIndex(itemIndex);
+            if (upgradeIndex >= 0 && upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                return passiveUpgradeManager.purchaseUpgrade(upgrade.getId(), gameData);
+                boolean result = passiveUpgradeManager.purchaseUpgrade(upgrade.getId(), gameData);
+                if (result) {
+                    rebuildSortedOrder(); // Re-sort after purchase (item may now be maxed)
+                }
+                return result;
             }
         }
         return false;
     }
     
     public int getTotalShopItems() {
-        // 1 Continue + all upgrades from PassiveUpgradeManager
-        int upgradeCount = (passiveUpgradeManager != null) ? passiveUpgradeManager.getAllUpgrades().size() : 0;
-        return 1 + upgradeCount;
+        // 1 Continue + unlocked upgrades only (locked items are excluded from sortedUpgradeOrder)
+        return 1 + (sortedUpgradeOrder != null ? sortedUpgradeOrder.length : 0);
     }
     
     public String[] getShopItems() {
         java.util.List<String> items = new java.util.ArrayList<>();
         items.add("Continue - Return to level select");
         
-        // Add all upgrades from PassiveUpgradeManager
+        // Add upgrades in sorted order (maxed items at bottom)
         if (passiveUpgradeManager != null) {
             java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
-            for (int i = 0; i < upgrades.size(); i++) {
-                PassiveUpgrade upgrade = upgrades.get(i);
+            for (int si = 0; si < sortedUpgradeOrder.length; si++) {
+                int upgradeIdx = sortedUpgradeOrder[si];
+                PassiveUpgrade upgrade = upgrades.get(upgradeIdx);
                 String maxInfo;
                 
                 // Special handling for Extra Missiles (last upgrade)
@@ -109,10 +172,9 @@ public class ShopManager {
             return false; // Continue button is never "maxed"
         }
         
-        // All upgrades are now in PassiveUpgradeManager
-        if (itemIndex >= 1 && passiveUpgradeManager != null) {
-            int upgradeIndex = itemIndex - 1;
-            if (upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
+        if (passiveUpgradeManager != null) {
+            int upgradeIndex = getUpgradeIndex(itemIndex);
+            if (upgradeIndex >= 0 && upgradeIndex < passiveUpgradeManager.getAllUpgrades().size()) {
                 PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
                 // Special handling for Extra Missiles - maxed at 3 extra missiles
                 if (upgrade.getId().equals("health")) {
@@ -123,5 +185,13 @@ public class ShopManager {
             }
         }
         return false;
+    }
+    
+    /**
+     * Get the original upgrade index for a display item index.
+     * Used by Renderer to look up the correct PassiveUpgrade for icons/progress bars.
+     */
+    public int getOriginalUpgradeIndex(int displayItemIndex) {
+        return getUpgradeIndex(displayItemIndex);
     }
 }

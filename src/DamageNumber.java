@@ -19,7 +19,7 @@ public class DamageNumber {
         this.fontSize = fontSize;
         this.maxLifetime = 60;
         this.lifetime = 0;
-        this.cachedFont = new Font("Arial", Font.BOLD, fontSize);
+        this.cachedFont = new Font("Arial", Font.BOLD, config.UIScale.fontSize(fontSize));
     }
     
     public void update(double deltaTime) {

@@ -77,6 +77,9 @@ public class GameData {
     
     // Attack introductions that have been seen
     private java.util.List<String> seenAttackIntros;
+    
+    // Passive upgrade unlock introductions that have been seen
+    private java.util.List<String> seenPassiveUnlocks;
 
     public GameData() {
         score = 0;
@@ -125,6 +128,9 @@ public class GameData {
         
         // Initialize seen attack intros
         seenAttackIntros = new java.util.ArrayList<>();
+        
+        // Initialize seen passive unlocks
+        seenPassiveUnlocks = new java.util.ArrayList<>();
     }
     
     // Getters and setters
@@ -334,6 +340,10 @@ public class GameData {
         if (currentLevel > runHighestLevel) {
             runHighestLevel = currentLevel;
         }
+        // Update bestRunLevel immediately so unlocks are available right away
+        if (currentLevel > bestRunLevel) {
+            bestRunLevel = currentLevel;
+        }
     }
     
     public int getRunHighestLevel() { return runHighestLevel; }
@@ -499,5 +509,19 @@ public class GameData {
         if (!seenAttackIntros.contains(attackId)) {
             seenAttackIntros.add(attackId);
         }
+    }
+    
+    // Seen passive unlock methods
+    public java.util.List<String> getSeenPassiveUnlocks() { return seenPassiveUnlocks; }
+    public void setSeenPassiveUnlocks(java.util.List<String> seen) { this.seenPassiveUnlocks = seen; }
+    public boolean hasSeenPassiveUnlock(String upgradeId) { return seenPassiveUnlocks != null && seenPassiveUnlocks.contains(upgradeId); }
+    public void markPassiveUnlockSeen(String upgradeId) {
+        if (seenPassiveUnlocks == null) seenPassiveUnlocks = new java.util.ArrayList<>();
+        if (!seenPassiveUnlocks.contains(upgradeId)) {
+            seenPassiveUnlocks.add(upgradeId);
+        }
+    }
+    public void clearSeenPassiveUnlocks() {
+        if (seenPassiveUnlocks != null) seenPassiveUnlocks.clear();
     }
 }

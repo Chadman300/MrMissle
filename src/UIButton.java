@@ -1,5 +1,6 @@
 import config.ColorPalette;
 import config.FontPalette;
+import config.UIScale;
 import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -198,7 +199,7 @@ public class UIButton {
         g.translate(swayOffset, 0); // Only apply sway to text, not scale
         
         // Calculate text position (adjusted for icon if present)
-        g.setFont(FontPalette.getDisplay(Font.BOLD, 20));
+        g.setFont(FontPalette.getDisplay(Font.BOLD, UIScale.fontSize(20)));
         FontMetrics fm = g.getFontMetrics();
         
         int iconSpace = (icon != null) ? 35 : 0;

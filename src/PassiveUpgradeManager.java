@@ -15,42 +15,43 @@ public class PassiveUpgradeManager {
     
     private void initializeUpgrades() {
         // Passive upgrades - multi-level with exponential cost scaling
+        // unlockLevel 0 = available by default, otherwise must beat that level to unlock
         addUpgrade("speed", "Speed Boost", "+15% movement speed per level", 
-                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 500, 10);
+                   PassiveUpgrade.UpgradeType.SPEED_BOOST, 500, 10, 0);
         
         addUpgrade("bullet_slow", "Bullet Slow", "-7.5% enemy bullet speed per level (faster bullets slowed more)", 
-                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 750, 8);
+                   PassiveUpgrade.UpgradeType.BULLET_SLOW, 750, 8, 0);
         
         addUpgrade("lucky_dodge", "Lucky Dodge", "+10% phase-through chance per level", 
-                   PassiveUpgrade.UpgradeType.LUCKY_DODGE, 1000, 3);
+                   PassiveUpgrade.UpgradeType.LUCKY_DODGE, 1000, 3, 0);
         
         addUpgrade("cooldown", "Quick Charge", "-12.5% item cooldown per level", 
-                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5);
+                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5, 3);  // Unlocks after beating level 3
         
         addUpgrade("bullet_size", "Small Bullets", "-6% enemy bullet size per level", 
-                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 8);
+                   PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 8, 4);  // Unlocks after beating level 4
         
         addUpgrade("money_score", "Fortune & Glory", "+30% money and score per level", 
-                   PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 700, 5);
+                   PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 700, 5, 0);
         
         addUpgrade("critical", "Critical Strike", "+2% instant-kill chance per level", 
-                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3);
+                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3, 7);  // Unlocks after beating level 7
         
         addUpgrade("targeting", "Targeting", "Much stronger auto-aim + range per level", 
-                   PassiveUpgrade.UpgradeType.TARGETING, 900, 5);
+                   PassiveUpgrade.UpgradeType.TARGETING, 900, 5, 19);  // Unlocks after beating level 19
         
         addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
-                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3);
+                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3, 0);
         
         addUpgrade("flares", "Flares",
             "Deploys decoy flares that divert homing missiles. Upgrades increase frequency, count, and diversion chance.",
-            PassiveUpgrade.UpgradeType.FLARES, 800, 5);
+            PassiveUpgrade.UpgradeType.FLARES, 800, 5, 13);  // Unlocks after beating level 13
     }
     
     // For exponential cost upgrades
     private void addUpgrade(String id, String name, String description, 
-                           PassiveUpgrade.UpgradeType type, int baseCost, int maxLevel) {
-        PassiveUpgrade upgrade = new PassiveUpgrade(id, name, description, type, baseCost, maxLevel);
+                           PassiveUpgrade.UpgradeType type, int baseCost, int maxLevel, int unlockLevel) {
+        PassiveUpgrade upgrade = new PassiveUpgrade(id, name, description, type, baseCost, maxLevel, unlockLevel);
         upgrades.add(upgrade);
         upgradeMap.put(id, upgrade);
     }

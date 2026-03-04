@@ -13,6 +13,7 @@ import javax.swing.*;
 import config.ColorPalette;
 import config.FontPalette;
 import config.HUDLayout;
+import config.UIScale;
 import config.UITheme;
 
 public class Game extends JPanel implements Runnable {
@@ -91,7 +92,7 @@ public class Game extends JPanel implements Runnable {
     // Flare system
     private List<Flare> flares;
     private double flareCooldownTimer;
-    private static final double FLARE_BASE_COOLDOWN = 900; // 15 seconds at 60fps
+    private static final double FLARE_BASE_COOLDOWN = 720; // 12 seconds at 60fps
     
     // Cached flare colors
     private static final Color FLARE_RED = new Color(255, 70, 30);
@@ -196,6 +197,17 @@ public class Game extends JPanel implements Runnable {
     private double contractUnlockDismissTimer;
     private static final int CONTRACT_UNLOCK_DURATION = 360; // 6 seconds (smooth reveal with more info)
     private static final int CONTRACT_DISMISS_DURATION = 30;
+    
+    // Passive upgrade unlock animation
+    private boolean passiveUnlockAnimation;
+    private boolean passiveUnlockDismissing;
+    private double passiveUnlockTimer;
+    private double passiveUnlockDismissTimer;
+    private String unlockedPassiveName;
+    private String unlockedPassiveDescription;
+    private java.util.Queue<PassiveUpgrade> pendingPassiveUnlocks; // Queue of upgrades to show
+    private static final int PASSIVE_UNLOCK_DURATION = 120; // 2 seconds
+    private static final int PASSIVE_DISMISS_DURATION = 20; // ~0.33 seconds
     
     // UI Transitions
     private GameState previousState;
@@ -460,6 +472,12 @@ public class Game extends JPanel implements Runnable {
     private BufferedImage attackIntroImage = null; // Attack intro image
     private static java.util.Map<String, BufferedImage> attackIntroImageCache = new java.util.HashMap<>(); // Cache loaded images
     
+    // Debug menu navigation
+    private int selectedDebugOption = 0;
+    private static final int DEBUG_OPTION_COUNT = 11; // Total number of debug menu options
+    private java.util.Queue<ActiveItem.ItemType> debugItemPopupQueue; // Queue for debug item popup preview
+    private boolean debugShowContractAfterItems = false; // Show contract popup after all item popups
+    
     // Debug Attack Showcase Mode (for taking screenshots)
     private boolean debugShowcaseMode = false;
     private int debugShowcaseIndex = 0; // Current attack/item being showcased
@@ -610,6 +628,7 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableVSync = true; // VSync enabled/disabled
     public static int fpsLimit = 1; // 0=30 FPS, 1=60 FPS, 2=120 FPS, 3=144 FPS, 4=Unlimited
     public static boolean enableAntiAliasing = false; // Anti-aliasing disabled by default for performance
+    public static int uiScale = 1; // 0=Small (0.85x), 1=Medium (1.0x), 2=Large (1.2x)
     
     // Sound Manager
     private SoundManager soundManager;
@@ -734,6 +753,14 @@ public class Game extends JPanel implements Runnable {
         contractUnlockDismissing = false;
         contractUnlockTimer = 0;
         contractUnlockDismissTimer = 0;
+        passiveUnlockAnimation = false;
+        passiveUnlockDismissing = false;
+        passiveUnlockTimer = 0;
+        passiveUnlockDismissTimer = 0;
+        unlockedPassiveName = "";
+        unlockedPassiveDescription = "";
+        pendingPassiveUnlocks = new java.util.LinkedList<>();
+        debugItemPopupQueue = new java.util.LinkedList<>();
         previousState = GameState.MENU;
         stateTransitionProgress = 1.0f;
         unlockedItemName = "";
@@ -1689,6 +1716,32 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHOP:
+                // Handle passive unlock animation input first (blocks normal shop input)
+                if (passiveUnlockAnimation) {
+                    if (key == KeyEvent.VK_ESCAPE) {
+                        // ESC cancels all remaining passive popups immediately
+                        passiveUnlockAnimation = false;
+                        passiveUnlockDismissing = false;
+                        pendingPassiveUnlocks.clear();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        break;
+                    }
+                    if (key == KeyEvent.VK_SPACE) {
+                        if (!passiveUnlockDismissing) {
+                            if (passiveUnlockTimer > 0) {
+                                // First press: skip to fully revealed
+                                passiveUnlockTimer = 0;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            } else {
+                                // Second press: start dismiss animation
+                                passiveUnlockDismissing = true;
+                                passiveUnlockDismissTimer = PASSIVE_DISMISS_DURATION;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            }
+                        }
+                    }
+                    break; // Block all other shop input during animation
+                }
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
                     shopManager.selectPrevious();
                     updateShopScroll();
@@ -1864,46 +1917,66 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case DEBUG:
-                if (key == KeyEvent.VK_1) {
-                    // Unlock all levels
-                    gameData.unlockAllLevels();
-                    screenShakeIntensity = 5;
+                // Handle item/contract unlock animation input first (debug preview)
+                if (itemUnlockAnimation) {
+                    if (key == KeyEvent.VK_ESCAPE) {
+                        // ESC cancels all remaining debug popups immediately
+                        itemUnlockAnimation = false;
+                        itemUnlockDismissing = false;
+                        if (debugItemPopupQueue != null) debugItemPopupQueue.clear();
+                        debugShowContractAfterItems = false;
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        break;
+                    }
+                    if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                        if (!itemUnlockDismissing) {
+                            if (itemUnlockTimer > 0) {
+                                itemUnlockTimer = 0; // Skip to fully revealed
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            } else {
+                                itemUnlockDismissing = true;
+                                itemUnlockDismissTimer = ITEM_DISMISS_DURATION;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            }
+                        }
+                    }
+                    break; // Block all other input during animation
                 }
-                else if (key == KeyEvent.VK_2) {
-                    // Give 10000 money
-                    gameData.giveCheatMoney(10000);
-                    screenShakeIntensity = 5;
+                if (contractUnlockAnimation) {
+                    if (key == KeyEvent.VK_ESCAPE) {
+                        // ESC cancels contract popup immediately
+                        contractUnlockAnimation = false;
+                        contractUnlockDismissing = false;
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        break;
+                    }
+                    if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                        if (!contractUnlockDismissing) {
+                            if (contractUnlockTimer > 0) {
+                                contractUnlockTimer = 0;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            } else {
+                                contractUnlockDismissing = true;
+                                contractUnlockDismissTimer = CONTRACT_DISMISS_DURATION;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            }
+                        }
+                    }
+                    break; // Block all other input during animation
                 }
-                else if (key == KeyEvent.VK_3) {
-                    // Max all upgrades
-                    gameData.maxAllUpgrades();
-                    screenShakeIntensity = 5;
+                
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    selectedDebugOption = (selectedDebugOption - 1 + DEBUG_OPTION_COUNT) % DEBUG_OPTION_COUNT;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
                 }
-                else if (key == KeyEvent.VK_4) {
-                    // Give 1000 money
-                    gameData.giveCheatMoney(1000);
-                    screenShakeIntensity = 3;
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    selectedDebugOption = (selectedDebugOption + 1) % DEBUG_OPTION_COUNT;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
                 }
-                else if (key == KeyEvent.VK_5) {
-                    // Give 100 money
-                    gameData.giveCheatMoney(100);
-                    screenShakeIntensity = 2;
-                }
-                else if (key == KeyEvent.VK_6) {
-                    // Unlock all active items
-                    gameData.unlockAllItems();
-                    screenShakeIntensity = 5;
-                }
-                else if (key == KeyEvent.VK_7) {
-                    // Unlock risk contracts
-                    gameData.unlockContracts();
-                    screenShakeIntensity = 5;
-                }
-                else if (key == KeyEvent.VK_8) {
-                    // Toggle unlock all showcase content
-                    debugShowcaseUnlockAll = !debugShowcaseUnlockAll;
-                    screenShakeIntensity = 5;
-                    System.out.println("DEBUG: Showcase unlock all = " + debugShowcaseUnlockAll);
+                else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    activateDebugOption(selectedDebugOption);
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
                     transitionToState(GameState.MENU);
@@ -4518,12 +4591,20 @@ public class Game extends JPanel implements Runnable {
                 itemUnlockAnimation = false;
                 itemUnlockDismissing = false;
                 
+                // Check if we have a debug item popup queue with more items to show
+                if (debugItemPopupQueue != null && !debugItemPopupQueue.isEmpty()) {
+                    startNextDebugItemPopup();
+                }
                 // After item animation ends, check if we should show contract unlock
                 // This happens on level 6 (second mega boss)
-                if (gameData.getCurrentLevel() == 6 && gameData.areContractsUnlocked() && !contractUnlockAnimation) {
+                else if (gameData.getCurrentLevel() == 6 && gameData.areContractsUnlocked() && !contractUnlockAnimation) {
                     soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
                     contractUnlockAnimation = true;
                     contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
+                }
+                // Or if debug contract should show after all debug items
+                else if (debugShowContractAfterItems) {
+                    startNextDebugItemPopup(); // Will trigger contract since queue is empty
                 }
             }
         }
@@ -4539,6 +4620,24 @@ public class Game extends JPanel implements Runnable {
             if (contractUnlockDismissTimer <= 0) {
                 contractUnlockAnimation = false;
                 contractUnlockDismissing = false;
+            }
+        }
+        
+        // Update passive unlock animation timer
+        if (passiveUnlockAnimation && passiveUnlockTimer > 0) {
+            passiveUnlockTimer -= deltaTime;
+        }
+        
+        // Update passive unlock dismiss animation
+        if (passiveUnlockDismissing) {
+            passiveUnlockDismissTimer -= deltaTime;
+            if (passiveUnlockDismissTimer <= 0) {
+                passiveUnlockDismissing = false;
+                passiveUnlockAnimation = false;
+                // Show next queued unlock, if any
+                if (!pendingPassiveUnlocks.isEmpty()) {
+                    startNextPassiveUnlockAnimation();
+                }
             }
         }
         
@@ -6588,8 +6687,8 @@ public class Game extends JPanel implements Runnable {
             
             // Deploy flares when cooldown ready and upgrade active
             if (flareCooldownTimer <= 0 && flaresLevel > 0) {
-                // Detection range scales with level: 150, 175, 200, 225, 250
-                double detectionRange = 125 + flaresLevel * 25;
+                // Detection range scales with level: 180, 210, 240, 270, 300
+                double detectionRange = 150 + flaresLevel * 30;
                 double detRangeSq = detectionRange * detectionRange;
                 
                 // Scan for nearby homing bullets not already targeting a flare
@@ -6649,8 +6748,8 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     
-                    // Retarget chance scales with level: 30%, 45%, 60%, 75%, 90%
-                    double[] retargetChances = {0, 0.30, 0.45, 0.60, 0.75, 0.90};
+                    // Retarget chance scales with level: 40%, 55%, 70%, 85%, 95%
+                    double[] retargetChances = {0, 0.40, 0.55, 0.70, 0.85, 0.95};
                     double retargetChance = retargetChances[Math.min(flaresLevel, 5)];
                     
                     // For each nearby homing bullet, roll retarget chance
@@ -6674,8 +6773,8 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     
-                    // Reset cooldown: 900 - (level-1) * 120
-                    flareCooldownTimer = FLARE_BASE_COOLDOWN - (flaresLevel - 1) * 120;
+                    // Reset cooldown: 720 - (level-1) * 150
+                    flareCooldownTimer = FLARE_BASE_COOLDOWN - (flaresLevel - 1) * 150;
                     
                     // Play flare deploy SFX
                     soundManager.playSoundSpatial(SoundManager.Sound.FLARE_DEPLOY, 0.5f, player.getX(), WORLD_WIDTH);
@@ -7401,9 +7500,20 @@ public class Game extends JPanel implements Runnable {
                 break;
             case SHOP:
                 renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
+                // Draw passive upgrade unlock animation if active (overlay on top of shop)
+                if (passiveUnlockAnimation) {
+                    drawPassiveUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
                 break;
             case DEBUG:
-                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime);
+                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption);
+                // Draw item/contract unlock animations if active (debug preview)
+                if (itemUnlockAnimation) {
+                    drawItemUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
+                if (contractUnlockAnimation) {
+                    drawContractUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
                 break;
         }
     }
@@ -7523,6 +7633,23 @@ public class Game extends JPanel implements Runnable {
             if (newState == GameState.SHOP) {
                 shopScroll = 0;
                 shopScrollAnimated = 0;
+                shopManager.rebuildSortedOrder(); // Re-sort so maxed items appear at bottom
+                
+                // Check for newly unlocked passive upgrades to show introduction animations
+                pendingPassiveUnlocks.clear();
+                passiveUnlockAnimation = false;
+                passiveUnlockDismissing = false;
+                int bestLevel = gameData.getBestRunLevel();
+                for (PassiveUpgrade upgrade : passiveUpgradeManager.getAllUpgrades()) {
+                    int unlockLvl = upgrade.getUnlockLevel();
+                    if (unlockLvl > 0 && unlockLvl <= bestLevel && !gameData.hasSeenPassiveUnlock(upgrade.getId())) {
+                        pendingPassiveUnlocks.add(upgrade);
+                    }
+                }
+                // Start first animation if any unlocks are pending
+                if (!pendingPassiveUnlocks.isEmpty()) {
+                    startNextPassiveUnlockAnimation();
+                }
             }
             
             // Reset save select scroll when entering save select
@@ -7624,7 +7751,7 @@ public class Game extends JPanel implements Runnable {
                 case 11: enableMotionBlur = !enableMotionBlur; break;
                 case 12: enableChromaticAberration = !enableChromaticAberration; break;
                 case 13: enableVignette = !enableVignette; break;
-                case 14: enableGrainEffect = !enableGrainEffect; break;
+                case 14: uiScale = (uiScale + 1) % 3; config.UIScale.setScale(uiScale); if (renderer != null) renderer.onUIScaleChanged(); break;
                 case 15: /* Camera Zoom - handled by adjustSetting */ break;
                 case 16: enableUIParallax = !enableUIParallax; break;
             }
@@ -7713,8 +7840,10 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 13) { // Vignette (toggle)
                 enableVignette = !enableVignette;
                 return true;
-            } else if (settingIndex == 14) { // Grain Effect (toggle)
-                enableGrainEffect = !enableGrainEffect;
+            } else if (settingIndex == 14) { // UI Scale (pill)
+                uiScale = Math.max(0, Math.min(2, uiScale + direction));
+                config.UIScale.setScale(uiScale);
+                if (renderer != null) renderer.onUIScaleChanged();
                 return true;
             } else if (settingIndex == 15) { // Camera Zoom
                 double step = 0.05 * direction;
@@ -7810,11 +7939,10 @@ public class Game extends JPanel implements Runnable {
                 shadowQuality = Math.max(0, Math.min(3, pillIndex));
                 enableShadows = shadowQuality > 0;
                 break;
-            case 8: // Background Mode
-                backgroundMode = Math.max(0, Math.min(2, pillIndex));
-                break;
-            case 10: // Gradient Quality
-                gradientQuality = Math.max(0, Math.min(2, pillIndex));
+            case 14: // UI Scale
+                uiScale = Math.max(0, Math.min(2, pillIndex));
+                config.UIScale.setScale(uiScale);
+                if (renderer != null) renderer.onUIScaleChanged();
                 break;
         }
     }
@@ -7866,6 +7994,9 @@ public class Game extends JPanel implements Runnable {
         enableVignette = true;
         cameraZoom = 1.0;
         enableUIParallax = true;
+        uiScale = 1; // Medium (default)
+        config.UIScale.setScale(uiScale);
+        if (renderer != null) renderer.onUIScaleChanged();
         // Don't reset fullscreen - that's a user preference
         
         // Reset all audio settings to defaults
@@ -8215,6 +8346,18 @@ public class Game extends JPanel implements Runnable {
                 } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.RB)) {
                     // Quick tab switch with RB
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
+                }
+                break;
+                
+            case DEBUG:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
                 }
                 break;
                 
@@ -9594,19 +9737,19 @@ public class Game extends JPanel implements Runnable {
         }
         scale *= dismissMultiplier; // Shrink during dismiss
         
-        // Multiple glow layers for more impact
-        for (int i = 0; i < 3; i++) {
-            int glowSize = Math.max(1, (int)((500 + i * 100) * scale)); // Ensure radius is at least 1
-            float pulseSpeed = 2.0f + i * 0.5f;
-            float pulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 200.0 * pulseSpeed)) * 0.3f + 0.7f;
+        // Single glow layer for performance (scaled by shadow quality)
+        long now = System.currentTimeMillis();
+        if (shadowQuality > 0) {
+            int glowSize = Math.max(1, (int)(400 * scale));
+            float pulse = (float)Math.abs(Math.sin(now / 400.0)) * 0.3f + 0.7f;
             
             RadialGradientPaint glowPaint = new RadialGradientPaint(
                 centerX, currentY,
                 glowSize,
                 new float[]{0.0f, 0.6f, 1.0f},
                 new Color[]{
-                    new Color(235, 203, 139, (int)(80 * scale * pulse * dismissMultiplier)),
-                    new Color(163, 190, 140, (int)(40 * scale * pulse * dismissMultiplier)),
+                    new Color(235, 203, 139, (int)(70 * scale * pulse * dismissMultiplier)),
+                    new Color(163, 190, 140, (int)(35 * scale * pulse * dismissMultiplier)),
                     ColorPalette.withAlpha(ColorPalette.SUCCESS_GREEN, 0)
                 }
             );
@@ -9616,77 +9759,75 @@ public class Game extends JPanel implements Runnable {
         
         // Animated particles around the box
         if (progress > 0.3f && enableParticles) {
-            int particleCount = 30;
+            int particleCount = 16;
+            double baseAngle = now / 125.0;
+            double timeSin = now / 250.0;
             for (int i = 0; i < particleCount; i++) {
-                double angle = (System.currentTimeMillis() / 125.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                double angle = (baseAngle + i * (360.0 / particleCount)) * Math.PI / 180.0;
                 int radius = (int)(200 * scale);
                 int px = (int)(centerX + Math.cos(angle) * radius);
                 int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
-                int size = (int)(6 * scale);
+                int size = (int)(5 * scale);
                 
-                float particleAlpha = (float)Math.abs(Math.sin(angle * 3 + System.currentTimeMillis() / 250.0));
-                g.setColor(new Color(235, 203, 139, (int)(200 * particleAlpha * scale * dismissMultiplier)));
+                int pAlpha = (int)(200 * (float)Math.abs(Math.sin(angle * 3 + timeSin)) * scale * dismissMultiplier);
+                g.setColor(new Color(235, 203, 139, Math.min(255, Math.max(0, pAlpha))));
                 g.fillOval(px - size/2, py - size/2, size, size);
             }
         }
         
         // Draw box with better styling
-        int boxWidth = (int)(700 * scale);
-        int boxHeight = (int)(280 * scale);
+        int boxWidth = (int)(UIScale.px(875) * scale);
+        int boxHeight = (int)(UIScale.px(350) * scale);
         int boxX = centerX - boxWidth / 2;
         int boxY = currentY - boxHeight / 2;
         
         // Box shadow
-        g.setColor(new Color(0, 0, 0, (int)(100 * Math.min(progress * 2, 1.0f))));
-        g.fillRoundRect(boxX + 5, boxY + 5, boxWidth, boxHeight, 25, 25);
+        float progAlpha = Math.min(progress * 2, 1.0f);
+        g.setColor(new Color(0, 0, 0, (int)(100 * progAlpha)));
+        g.fillRoundRect(boxX + 5, boxY + 5, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
         // Box background with gradient
         GradientPaint boxGradient = new GradientPaint(
-            boxX, boxY, new Color(40, 40, 50, (int)(240 * Math.min(progress * 2, 1.0f))),
-            boxX, boxY + boxHeight, new Color(25, 25, 35, (int)(240 * Math.min(progress * 2, 1.0f)))
+            boxX, boxY, new Color(40, 40, 50, (int)(240 * progAlpha)),
+            boxX, boxY + boxHeight, new Color(25, 25, 35, (int)(240 * progAlpha))
         );
         g.setPaint(boxGradient);
-        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
-        // Animated border with rainbow glow
-        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 400.0));
+        // Animated border
+        float borderPulse = (float)Math.abs(Math.sin(now / 400.0));
         int borderR = (int)(163 + (235 - 163) * borderPulse);
         int borderG = (int)(190 + (203 - 190) * borderPulse);
         int borderB = (int)(140 + (139 - 140) * borderPulse);
-        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * Math.min(progress * 2, 1.0f))));
-        g.setStroke(new BasicStroke(5));
-        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
-        
-        // Inner glow border
-        g.setColor(new Color(255, 255, 255, (int)(100 * borderPulse * Math.min(progress * 2, 1.0f))));
-        g.setStroke(new BasicStroke(2));
-        g.drawRoundRect(boxX + 8, boxY + 8, boxWidth - 16, boxHeight - 16, 20, 20);
+        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * progAlpha)));
+        g.setStroke(RenderCache.getStroke(3f));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
         // Text content
         if (progress > 0.25f) {
             float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
             
             // "NEW ITEM UNLOCKED!" with shadow
-            g.setFont(FontPalette.getDisplay(Font.BOLD, (int)(56 * scale)));
+            g.setFont(FontPalette.getDisplay(Font.BOLD, (int)(70 * scale)));
             String titleText = "NEW ITEM UNLOCKED!";
             FontMetrics titleFm = g.getFontMetrics();
             int titleX = centerX - titleFm.stringWidth(titleText) / 2;
-            int titleY = currentY - (int)(80 * scale);
+            int titleY = currentY - (int)(100 * scale);
             
             // Title shadow
             g.setColor(new Color(0, 0, 0, (int)(150 * textAlpha)));
             g.drawString(titleText, titleX + 2, titleY + 2);
             
             // Title text with pulse
-            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0)) * 0.3f + 0.7f;
+            float titlePulse = (float)Math.abs(Math.sin(now / 500.0)) * 0.3f + 0.7f;
             g.setColor(new Color(235, 203, 139, (int)(255 * textAlpha * titlePulse)));
             g.drawString(titleText, titleX, titleY);
             
             // Item name with shadow
-            g.setFont(FontPalette.get(Font.BOLD, (int)(44 * scale)));
+            g.setFont(FontPalette.get(Font.BOLD, (int)(55 * scale)));
             FontMetrics itemFm = g.getFontMetrics();
             int itemX = centerX - itemFm.stringWidth(unlockedItemName) / 2;
-            int itemY = currentY - (int)(10 * scale);
+            int itemY = currentY - (int)(12 * scale);
             
             g.setColor(new Color(0, 0, 0, (int)(150 * textAlpha)));
             g.drawString(unlockedItemName, itemX + 2, itemY + 2);
@@ -9694,37 +9835,52 @@ public class Game extends JPanel implements Runnable {
             g.setColor(new Color(163, 190, 140, (int)(255 * textAlpha)));
             g.drawString(unlockedItemName, itemX, itemY);
             
-            // Item description
+            // Item description (with word wrap to prevent overflow)
             if (unlockedItemDescription != null && !unlockedItemDescription.isEmpty() && progress > 0.4f) {
-                g.setFont(FontPalette.get(Font.PLAIN, (int)(24 * scale)));
-                String description = unlockedItemDescription;
+                g.setFont(FontPalette.get(Font.PLAIN, (int)(30 * scale)));
                 FontMetrics descFm = g.getFontMetrics();
-                int descX = centerX - descFm.stringWidth(description) / 2;
-                int descY = currentY + (int)(50 * scale);
-                
+                int maxDescWidth = boxWidth - (int)(UIScale.px(50) * scale);
                 g.setColor(new Color(200, 200, 200, (int)(220 * textAlpha)));
-                g.drawString(description, descX, descY);
+                
+                // Word wrap description
+                String[] words = unlockedItemDescription.split(" ");
+                StringBuilder line = new StringBuilder();
+                int descY = currentY + (int)(42 * scale);
+                for (String word : words) {
+                    String test = line.length() == 0 ? word : line + " " + word;
+                    if (descFm.stringWidth(test) > maxDescWidth && line.length() > 0) {
+                        String l = line.toString();
+                        g.drawString(l, centerX - descFm.stringWidth(l) / 2, descY);
+                        descY += descFm.getHeight();
+                        line = new StringBuilder(word);
+                    } else {
+                        line = new StringBuilder(test);
+                    }
+                }
+                if (line.length() > 0) {
+                    String l = line.toString();
+                    g.drawString(l, centerX - descFm.stringWidth(l) / 2, descY);
+                }
             }
             
             // "Press SPACE to continue" hint (or buttons for equip prompt)
             if (progress > 0.8f) {
                 if (showEquipPrompt && itemUnlockTimer == 0) {
-                    System.out.println("DEBUG: Drawing equip prompt buttons");
                     // Draw equip buttons
-                    g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
+                    g.setFont(FontPalette.get(Font.PLAIN, (int)(25 * scale)));
                     String promptText = "Equip this item?";
                     FontMetrics promptFm = g.getFontMetrics();
                     int promptX = centerX - promptFm.stringWidth(promptText) / 2;
-                    int promptY = currentY + (int)(70 * scale);
+                    int promptY = currentY + (int)(88 * scale);
                     
                     g.setColor(new Color(200, 200, 200, (int)(220 * textAlpha)));
                     g.drawString(promptText, promptX, promptY);
                     
                     // Position and draw buttons relative to animation box
-                    int buttonWidth = 200;
-                    int buttonHeight = 60;
-                    int buttonY = currentY + (int)(110 * scale);
-                    int spacing = 30;
+                    int buttonWidth = UIScale.px(200);
+                    int buttonHeight = UIScale.px(60);
+                    int buttonY = currentY + (int)(115 * scale);
+                    int spacing = UIScale.px(30);
                     int totalWidth = (buttonWidth * 2) + spacing;
                     int startX = centerX - totalWidth / 2;
                     
@@ -9739,14 +9895,13 @@ public class Game extends JPanel implements Runnable {
                         equipButtons[i].draw(g, currentTime);
                     }
                 } else {
-                    System.out.println("DEBUG: Drawing continue hint - showEquipPrompt=" + showEquipPrompt + ", timer=" + itemUnlockTimer);
-                    g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
+                    g.setFont(FontPalette.get(Font.PLAIN, (int)(25 * scale)));
                     String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
                     FontMetrics hintFm = g.getFontMetrics();
                     int hintX = centerX - hintFm.stringWidth(hintText) / 2;
-                    int hintY = currentY + (int)(100 * scale);
+                    int hintY = currentY + (int)(125 * scale);
                     
-                    float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0));
+                    float hintPulse = (float)Math.abs(Math.sin(now / 500.0));
                     g.setColor(new Color(150, 150, 150, (int)(200 * hintPulse)));
                     g.drawString(hintText, hintX, hintY);
                 }
@@ -9789,19 +9944,19 @@ public class Game extends JPanel implements Runnable {
         }
         scale *= dismissMultiplier;
         
-        // Red/orange glow layers for contracts (danger theme)
-        for (int i = 0; i < 3; i++) {
-            int glowSize = Math.max(1, (int)((550 + i * 120) * scale));
-            float pulseSpeed = 2.0f + i * 0.5f;
-            float pulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0 * pulseSpeed)) * 0.3f + 0.7f;
+        // Single glow layer for contracts (danger theme, scaled by shadow quality)
+        long now = System.currentTimeMillis();
+        if (shadowQuality > 0) {
+            int glowSize = Math.max(1, (int)(420 * scale));
+            float pulse = (float)Math.abs(Math.sin(now / 500.0)) * 0.3f + 0.7f;
             
             RadialGradientPaint glowPaint = new RadialGradientPaint(
                 centerX, currentY,
                 glowSize,
                 new float[]{0.0f, 0.5f, 1.0f},
                 new Color[]{
-                    new Color(255, 100, 50, (int)(60 * scale * pulse * dismissMultiplier)),
-                    new Color(200, 50, 50, (int)(30 * scale * pulse * dismissMultiplier)),
+                    new Color(255, 100, 50, (int)(50 * scale * pulse * dismissMultiplier)),
+                    new Color(200, 50, 50, (int)(25 * scale * pulse * dismissMultiplier)),
                     new Color(150, 50, 50, 0)
                 }
             );
@@ -9811,56 +9966,59 @@ public class Game extends JPanel implements Runnable {
         
         // Animated danger particles
         if (progress > 0.3f && enableParticles) {
-            int particleCount = 40;
+            int particleCount = 16;
+            double baseAngle = now / 100.0;
+            double timeSin = now / 200.0;
             for (int i = 0; i < particleCount; i++) {
-                double angle = (System.currentTimeMillis() / 100.0 + i * (360.0 / particleCount)) * Math.PI / 180.0;
-                int radius = (int)(220 * scale);
+                double angle = (baseAngle + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                int radius = (int)(210 * scale);
                 int px = (int)(centerX + Math.cos(angle) * radius);
                 int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
                 int size = (int)(5 * scale);
                 
-                float particleAlpha = (float)Math.abs(Math.sin(angle * 4 + System.currentTimeMillis() / 200.0));
-                g.setColor(new Color(255, 150, 100, (int)(180 * particleAlpha * scale * dismissMultiplier)));
+                int pAlpha = (int)(180 * (float)Math.abs(Math.sin(angle * 4 + timeSin)) * scale * dismissMultiplier);
+                g.setColor(new Color(255, 150, 100, Math.min(255, Math.max(0, pAlpha))));
                 g.fillOval(px - size/2, py - size/2, size, size);
             }
         }
         
         // Draw box with danger styling
-        int boxWidth = (int)(750 * scale);
-        int boxHeight = (int)(380 * scale);
+        int boxWidth = (int)(UIScale.px(940) * scale);
+        int boxHeight = (int)(UIScale.px(475) * scale);
         int boxX = centerX - boxWidth / 2;
         int boxY = currentY - boxHeight / 2;
         
         // Box shadow
-        g.setColor(new Color(0, 0, 0, (int)(120 * Math.min(progress * 2, 1.0f))));
-        g.fillRoundRect(boxX + 6, boxY + 6, boxWidth, boxHeight, 25, 25);
+        float progAlpha = Math.min(progress * 2, 1.0f);
+        g.setColor(new Color(0, 0, 0, (int)(120 * progAlpha)));
+        g.fillRoundRect(boxX + 6, boxY + 6, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
         // Box background with dark red gradient
         GradientPaint boxGradient = new GradientPaint(
-            boxX, boxY, new Color(50, 25, 30, (int)(245 * Math.min(progress * 2, 1.0f))),
-            boxX, boxY + boxHeight, new Color(30, 15, 20, (int)(245 * Math.min(progress * 2, 1.0f)))
+            boxX, boxY, new Color(50, 25, 30, (int)(245 * progAlpha)),
+            boxX, boxY + boxHeight, new Color(30, 15, 20, (int)(245 * progAlpha))
         );
         g.setPaint(boxGradient);
-        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
-        // Animated border with pulsing red/orange
-        float borderPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 300.0));
+        // Border with pulsing red/orange
+        float borderPulse = (float)Math.abs(Math.sin(now / 300.0));
         int borderR = (int)(200 + 55 * borderPulse);
         int borderG = (int)(80 + 70 * borderPulse);
         int borderB = (int)(50 + 50 * borderPulse);
-        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * Math.min(progress * 2, 1.0f))));
-        g.setStroke(new BasicStroke(5));
-        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 25, 25);
+        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * progAlpha)));
+        g.setStroke(RenderCache.getStroke(3f));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
         
-        // Inner warning stripes (diagonal lines at top)
+        // Warning stripes (diagonal lines at top)
         if (progress > 0.2f) {
             float stripeAlpha = Math.min((progress - 0.2f) / 0.2f, 1.0f) * dismissMultiplier;
-            g.setClip(boxX + 10, boxY + 10, boxWidth - 20, 30);
+            g.setClip(boxX + 10, boxY + 10, boxWidth - 20, 25);
             g.setColor(new Color(255, 200, 0, (int)(100 * stripeAlpha)));
             for (int i = -10; i < boxWidth + 30; i += 20) {
                 g.fillPolygon(
                     new int[]{boxX + i, boxX + i + 15, boxX + i + 25, boxX + i + 10},
-                    new int[]{boxY + 10, boxY + 10, boxY + 40, boxY + 40},
+                    new int[]{boxY + 10, boxY + 10, boxY + 35, boxY + 35},
                     4
                 );
             }
@@ -9872,18 +10030,18 @@ public class Game extends JPanel implements Runnable {
             float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
             
             // "RISK CONTRACTS UNLOCKED!" with shadow
-            g.setFont(FontPalette.get(Font.BOLD, (int)(48 * scale)));
+            g.setFont(FontPalette.get(Font.BOLD, (int)(60 * scale)));
             String titleText = "RISK CONTRACTS UNLOCKED!";
             FontMetrics titleFm = g.getFontMetrics();
             int titleX = centerX - titleFm.stringWidth(titleText) / 2;
-            int titleY = currentY - (int)(120 * scale);
+            int titleY = currentY - (int)(150 * scale);
             
             // Title shadow
             g.setColor(new Color(0, 0, 0, (int)(180 * textAlpha)));
             g.drawString(titleText, titleX + 3, titleY + 3);
             
             // Title text with danger pulse
-            float titlePulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 400.0)) * 0.3f + 0.7f;
+            float titlePulse = (float)Math.abs(Math.sin(now / 400.0)) * 0.3f + 0.7f;
             g.setColor(new Color(255, 150, 100, (int)(255 * textAlpha * titlePulse)));
             g.drawString(titleText, titleX, titleY);
         }
@@ -9892,57 +10050,429 @@ public class Game extends JPanel implements Runnable {
         if (progress > 0.4f) {
             float descAlpha = Math.min((progress - 0.4f) / 0.3f, 1.0f) * dismissMultiplier;
             
-            // Contract symbol
-            g.setFont(FontPalette.get(Font.BOLD, (int)(60 * scale)));
-            String symbol = "âš ";
+            // Contract symbol - use ASCII exclamation
+            g.setFont(FontPalette.get(Font.BOLD, (int)(75 * scale)));
+            String symbol = "!";
             FontMetrics symbolFm = g.getFontMetrics();
             g.setColor(new Color(255, 200, 50, (int)(255 * descAlpha)));
-            g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(50 * scale));
+            g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(62 * scale));
             
             // Description lines
             String[] descLines = {
                 "Choose a RISK CONTRACT before each level",
                 "to multiply your rewards!",
                 "",
-                "â€¢ Bullet Storm - 2x bullets, 2x money",
-                "â€¢ Speed Demon - Faster bullets, 1.75x money", 
-                "• Shieldless - No active items, 1.5x money"
+                "- Bullet Storm - 2x bullets, 2x money",
+                "- Speed Demon - Faster bullets, 1.75x money", 
+                "- Shieldless - No active items, 1.5x money"
             };
             
-            g.setFont(FontPalette.get(Font.PLAIN, (int)(20 * scale)));
-            int lineY = currentY + (int)(10 * scale);
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(25 * scale)));
+            int lineY = currentY + (int)(12 * scale);
             for (String line : descLines) {
                 if (line.isEmpty()) {
-                    lineY += (int)(10 * scale);
+                    lineY += (int)(12 * scale);
                     continue;
                 }
                 FontMetrics lineFm = g.getFontMetrics();
                 int lineX = centerX - lineFm.stringWidth(line) / 2;
                 
                 // Different colors for bullet points
-                if (line.startsWith("â€¢")) {
+                if (line.startsWith("- ")) {
                     g.setColor(new Color(255, 200, 150, (int)(220 * descAlpha)));
                 } else {
                     g.setColor(new Color(200, 200, 200, (int)(220 * descAlpha)));
                 }
                 g.drawString(line, lineX, lineY);
-                lineY += (int)(26 * scale);
+                lineY += (int)(32 * scale);
             }
         }
         
         // "Press SPACE to continue" hint
         if (progress > 0.7f) {
             float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
-            g.setFont(FontPalette.get(Font.PLAIN, (int)(18 * scale)));
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(22 * scale)));
             String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
             FontMetrics hintFm = g.getFontMetrics();
             int hintX = centerX - hintFm.stringWidth(hintText) / 2;
-            int hintY = currentY + (int)(160 * scale);
+            int hintY = currentY + (int)(200 * scale);
             
-            float hintPulse = (float)Math.abs(Math.sin(System.currentTimeMillis() / 500.0));
+            float hintPulse = (float)Math.abs(Math.sin(now / 500.0));
             g.setColor(new Color(180, 180, 180, (int)(200 * hintPulse * hintAlpha)));
             g.drawString(hintText, hintX, hintY);
         }
+    }
+    
+    /**
+     * Start the next passive unlock animation from the pending queue.
+     */
+    private void startNextPassiveUnlockAnimation() {
+        if (pendingPassiveUnlocks.isEmpty()) {
+            passiveUnlockAnimation = false;
+            return;
+        }
+        PassiveUpgrade upgrade = pendingPassiveUnlocks.poll();
+        passiveUnlockAnimation = true;
+        passiveUnlockDismissing = false;
+        passiveUnlockTimer = PASSIVE_UNLOCK_DURATION;
+        passiveUnlockDismissTimer = 0;
+        unlockedPassiveName = upgrade.getName();
+        unlockedPassiveDescription = upgrade.getDescription();
+        gameData.markPassiveUnlockSeen(upgrade.getId());
+    }
+    
+    private void drawPassiveUnlockAnimation(Graphics2D g, int width, int height) {
+        // Calculate animation progress (0.0 to 1.0)
+        float progress = 1.0f - ((float) passiveUnlockTimer / PASSIVE_UNLOCK_DURATION);
+        
+        // Calculate dismiss progress (1.0 = visible, 0.0 = gone)
+        float dismissMultiplier = 1.0f;
+        if (passiveUnlockDismissing) {
+            dismissMultiplier = (float) passiveUnlockDismissTimer / PASSIVE_DISMISS_DURATION;
+        }
+        
+        // Full dark overlay with fade
+        int overlayAlpha = (int)(200 * Math.min(progress * 2, 1.0f) * dismissMultiplier);
+        g.setColor(new Color(0, 0, 0, Math.min(overlayAlpha, 200)));
+        
+        // Reset translation to avoid screen shake affecting overlay
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setTransform(new java.awt.geom.AffineTransform());
+        g.fillRect(0, 0, width, height);
+        
+        // Calculate position (slide up from bottom, slide down when dismissing)
+        int centerX = width / 2;
+        int startY = height + 350;
+        int endY = height / 2;
+        int dismissOffset = (int)((1.0f - dismissMultiplier) * 400);
+        int currentY = (int)(startY + (endY - startY) * (1.0 - Math.pow(1.0 - progress, 2.5))) + dismissOffset;
+        
+        // Scale effect
+        float scale;
+        if (progress < 0.4f) {
+            scale = (float)Math.pow(progress / 0.4f, 0.8);
+        } else {
+            scale = 1.0f;
+        }
+        scale *= dismissMultiplier;
+        
+        // Single glow layer (mystic theme, scaled by shadow quality)
+        long now = System.currentTimeMillis();
+        if (shadowQuality > 0) {
+            int glowSize = Math.max(1, (int)(400 * scale));
+            float pulse = (float)Math.abs(Math.sin(now / 600.0)) * 0.3f + 0.7f;
+            
+            RadialGradientPaint glowPaint = new RadialGradientPaint(
+                centerX, currentY,
+                glowSize,
+                new float[]{0.0f, 0.5f, 1.0f},
+                new Color[]{
+                    new Color(120, 80, 220, (int)(50 * scale * pulse * dismissMultiplier)),
+                    new Color(80, 60, 180, (int)(25 * scale * pulse * dismissMultiplier)),
+                    new Color(60, 40, 140, 0)
+                }
+            );
+            g.setPaint(glowPaint);
+            g.fillOval(centerX - glowSize, currentY - glowSize, glowSize * 2, glowSize * 2);
+        }
+        
+        // Animated orbiting particles — optimized for performance
+        if (progress > 0.3f && enableParticles) {
+            int particleCount = 12;
+            double baseAngle = now / 120.0;
+            double timeSin = now / 250.0;
+            for (int i = 0; i < particleCount; i++) {
+                double angle = (baseAngle + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                int radius = (int)(200 * scale);
+                int px = (int)(centerX + Math.cos(angle) * radius);
+                int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
+                int size = (int)(4 * scale);
+                
+                int pAlpha = (int)(200 * (float)Math.abs(Math.sin(angle * 3 + timeSin)) * scale * dismissMultiplier);
+                g.setColor(new Color(160, 120, 255, Math.min(255, Math.max(0, pAlpha))));
+                g.fillOval(px - size/2, py - size/2, size, size);
+            }
+        }
+        
+        // Draw box with purple/blue styling
+        int boxWidth = (int)(UIScale.px(1060) * scale);
+        int boxHeight = (int)(UIScale.px(475) * scale);
+        int boxX = centerX - boxWidth / 2;
+        int boxY = currentY - boxHeight / 2;
+        
+        // Box shadow
+        float progAlpha = Math.min(progress * 2, 1.0f);
+        g.setColor(new Color(0, 0, 0, (int)(120 * progAlpha)));
+        g.fillRoundRect(boxX + 6, boxY + 6, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Box background with dark purple gradient
+        GradientPaint boxGradient = new GradientPaint(
+            boxX, boxY, new Color(35, 25, 60, (int)(245 * progAlpha)),
+            boxX, boxY + boxHeight, new Color(20, 15, 45, (int)(245 * progAlpha))
+        );
+        g.setPaint(boxGradient);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Border with pulsing purple/blue
+        float borderPulse = (float)Math.abs(Math.sin(now / 400.0));
+        int borderR = (int)(120 + 60 * borderPulse);
+        int borderG = (int)(80 + 40 * borderPulse);
+        int borderB = (int)(200 + 55 * borderPulse);
+        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * progAlpha)));
+        g.setStroke(RenderCache.getStroke(3f));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Title: "NEW UPGRADE UNLOCKED!"
+        if (progress > 0.25f) {
+            float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
+            
+            g.setFont(FontPalette.get(Font.BOLD, (int)(60 * scale)));
+            String titleText = "NEW UPGRADE UNLOCKED!";
+            FontMetrics titleFm = g.getFontMetrics();
+            int titleX = centerX - titleFm.stringWidth(titleText) / 2;
+            int titleY = currentY - (int)(150 * scale);
+            
+            // Title shadow
+            g.setColor(new Color(0, 0, 0, (int)(180 * textAlpha)));
+            g.drawString(titleText, titleX + 3, titleY + 3);
+            
+            // Title text with purple pulse
+            float titlePulse = (float)Math.abs(Math.sin(now / 500.0)) * 0.3f + 0.7f;
+            g.setColor(new Color(180, 140, 255, (int)(255 * textAlpha * titlePulse)));
+            g.drawString(titleText, titleX, titleY);
+        }
+        
+        // Upgrade name
+        if (progress > 0.4f) {
+            float nameAlpha = Math.min((progress - 0.4f) / 0.25f, 1.0f) * dismissMultiplier;
+            
+            // Use ASCII symbol matching the shop icon for this upgrade type
+            g.setFont(FontPalette.get(Font.BOLD, (int)(73 * scale)));
+            String symbol = "*"; // Default fallback
+            // Look up the correct icon from PassiveUpgradeManager
+            if (passiveUpgradeManager != null) {
+                for (PassiveUpgrade pu : passiveUpgradeManager.getAllUpgrades()) {
+                    if (pu.getName().equals(unlockedPassiveName)) {
+                        switch (pu.getType()) {
+                            case MAX_HEALTH: symbol = "H"; break;
+                            case ITEM_COOLDOWN: symbol = "C"; break;
+                            case BULLET_SIZE: symbol = "B"; break;
+                            case MONEY_AND_SCORE: symbol = "$"; break;
+                            case CRITICAL_HIT: symbol = "*"; break;
+                            case SPEED_BOOST: symbol = "S"; break;
+                            case BULLET_SLOW: symbol = "T"; break;
+                            case LUCKY_DODGE: symbol = "L"; break;
+                            case TARGETING: symbol = "@"; break;
+                            case FLARES: symbol = "F"; break;
+                            default: symbol = "?"; break;
+                        }
+                        break;
+                    }
+                }
+            }
+            FontMetrics symbolFm = g.getFontMetrics();
+            g.setColor(new Color(200, 170, 255, (int)(255 * nameAlpha)));
+            g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(56 * scale));
+            
+            // Upgrade name
+            g.setFont(FontPalette.get(Font.BOLD, (int)(45 * scale)));
+            FontMetrics nameFm = g.getFontMetrics();
+            int nameX = centerX - nameFm.stringWidth(unlockedPassiveName) / 2;
+            int nameY = currentY + (int)(25 * scale);
+            
+            // Name shadow
+            g.setColor(new Color(0, 0, 0, (int)(150 * nameAlpha)));
+            g.drawString(unlockedPassiveName, nameX + 2, nameY + 2);
+            
+            // Name text - bright white/lavender
+            g.setColor(new Color(230, 220, 255, (int)(255 * nameAlpha)));
+            g.drawString(unlockedPassiveName, nameX, nameY);
+        }
+        
+        // Description (with word wrap to prevent overflow)
+        if (progress > 0.5f) {
+            float descAlpha = Math.min((progress - 0.5f) / 0.25f, 1.0f) * dismissMultiplier;
+            
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(27 * scale)));
+            FontMetrics descFm = g.getFontMetrics();
+            int maxDescWidth = boxWidth - (int)(75 * scale);
+            g.setColor(new Color(200, 190, 220, (int)(220 * descAlpha)));
+            
+            // Word wrap description
+            String[] words = unlockedPassiveDescription.split(" ");
+            StringBuilder line = new StringBuilder();
+            int descY = currentY + (int)(58 * scale);
+            for (String word : words) {
+                String test = line.length() == 0 ? word : line + " " + word;
+                if (descFm.stringWidth(test) > maxDescWidth && line.length() > 0) {
+                    String l = line.toString();
+                    g.drawString(l, centerX - descFm.stringWidth(l) / 2, descY);
+                    descY += descFm.getHeight();
+                    line = new StringBuilder(word);
+                } else {
+                    line = new StringBuilder(test);
+                }
+            }
+            if (line.length() > 0) {
+                String l = line.toString();
+                g.drawString(l, centerX - descFm.stringWidth(l) / 2, descY);
+            }
+        }
+        
+        // "Press SPACE to continue" hint
+        if (progress > 0.7f) {
+            float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
+            
+            // Show remaining count if more upgrades are queued
+            String remainingText = "";
+            if (!pendingPassiveUnlocks.isEmpty()) {
+                remainingText = " (" + pendingPassiveUnlocks.size() + " more)";
+            }
+            
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(22 * scale)));
+            String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue" + remainingText;
+            FontMetrics hintFm = g.getFontMetrics();
+            int hintX = centerX - hintFm.stringWidth(hintText) / 2;
+            int hintY = currentY + (int)(182 * scale);
+            
+            float hintPulse = (float)Math.abs(Math.sin(now / 500.0));
+            g.setColor(new Color(180, 170, 200, (int)(200 * hintPulse * hintAlpha)));
+            g.drawString(hintText, hintX, hintY);
+        }
+    }
+    
+    /**
+     * Activate the selected debug menu option.
+     */
+    private void activateDebugOption(int option) {
+        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+        switch (option) {
+            case 0: // Unlock all levels
+                gameData.unlockAllLevels();
+                screenShakeIntensity = 5;
+                break;
+            case 1: // Give $10,000
+                gameData.giveCheatMoney(10000);
+                screenShakeIntensity = 5;
+                break;
+            case 2: // Max all upgrades
+                gameData.maxAllUpgrades();
+                screenShakeIntensity = 5;
+                break;
+            case 3: // Give $1,000
+                gameData.giveCheatMoney(1000);
+                screenShakeIntensity = 3;
+                break;
+            case 4: // Give $100
+                gameData.giveCheatMoney(100);
+                screenShakeIntensity = 2;
+                break;
+            case 5: // Unlock all active items
+                gameData.unlockAllItems();
+                screenShakeIntensity = 5;
+                break;
+            case 6: // Unlock risk contracts
+                gameData.unlockContracts();
+                screenShakeIntensity = 5;
+                break;
+            case 7: // Toggle showcase unlock all
+                debugShowcaseUnlockAll = !debugShowcaseUnlockAll;
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: Showcase unlock all = " + debugShowcaseUnlockAll);
+                break;
+            case 8: // Unlock all passive upgrades (set bestRunLevel to max)
+                gameData.setBestRunLevel(28);
+                gameData.clearSeenPassiveUnlocks();
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: All passive upgrades unlocked (bestRunLevel=28, seenPassiveUnlocks cleared)");
+                break;
+            case 9: // Preview all item & contract popups
+                debugPreviewItemAndContractPopups();
+                break;
+            case 10: // Preview all passive upgrade popups
+                debugPreviewPassivePopups();
+                break;
+        }
+    }
+    
+    /**
+     * Debug: preview all active item unlock animations and then the contract unlock animation.
+     * Shows animations overlaid on the DEBUG state.
+     */
+    private void debugPreviewItemAndContractPopups() {
+        // Store the items as a queue for cycling through
+        debugItemPopupQueue = new java.util.LinkedList<>();
+        for (ActiveItem.ItemType type : ActiveItem.ItemType.values()) {
+            debugItemPopupQueue.add(type);
+        }
+        debugShowContractAfterItems = true;
+        
+        // Start the first item popup
+        startNextDebugItemPopup();
+        screenShakeIntensity = 5;
+        System.out.println("DEBUG: Starting item popup preview (" + ActiveItem.ItemType.values().length + " items + contract)");
+    }
+    
+    /**
+     * Start the next debug item popup from the queue.
+     */
+    private void startNextDebugItemPopup() {
+        if (debugItemPopupQueue == null || debugItemPopupQueue.isEmpty()) {
+            itemUnlockAnimation = false;
+            // Show contract popup after all items
+            if (debugShowContractAfterItems) {
+                debugShowContractAfterItems = false;
+                soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                contractUnlockAnimation = true;
+                contractUnlockDismissing = false;
+                contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
+                contractUnlockDismissTimer = 0;
+            }
+            return;
+        }
+        ActiveItem.ItemType type = debugItemPopupQueue.poll();
+        ActiveItem item = new ActiveItem(type);
+        unlockedItemName = item.getName();
+        unlockedItemDescription = item.getDescription();
+        showEquipPrompt = false;
+        itemUnlockAnimation = true;
+        itemUnlockDismissing = false;
+        itemUnlockTimer = ITEM_UNLOCK_DURATION;
+        itemUnlockDismissTimer = 0;
+        soundManager.playSound(SoundManager.Sound.ITEM_PICKUP);
+    }
+    
+    /**
+     * Debug: preview all passive upgrade unlock animations.
+     * Shows animations overlaid on the DEBUG state (transitions to SHOP temporarily).
+     */
+    private void debugPreviewPassivePopups() {
+        // Clear seen unlocks so they all show
+        gameData.clearSeenPassiveUnlocks();
+        // Set bestRunLevel high enough for all to qualify
+        gameData.setBestRunLevel(28);
+        
+        // Queue all passive upgrades that have unlock levels > 0
+        pendingPassiveUnlocks.clear();
+        passiveUnlockAnimation = false;
+        passiveUnlockDismissing = false;
+        for (PassiveUpgrade upgrade : passiveUpgradeManager.getAllUpgrades()) {
+            if (upgrade.getUnlockLevel() > 0) {
+                pendingPassiveUnlocks.add(upgrade);
+            }
+        }
+        
+        if (!pendingPassiveUnlocks.isEmpty()) {
+            startNextPassiveUnlockAnimation();
+        }
+        
+        // Transition to SHOP to display the passive animations (they render on SHOP state)
+        shopScroll = 0;
+        shopScrollAnimated = 0;
+        shopManager.rebuildSortedOrder();
+        transitionToState(GameState.SHOP);
+        screenShakeIntensity = 5;
+        System.out.println("DEBUG: Starting passive popup preview (" + pendingPassiveUnlocks.size() + " upgrades queued + 1 showing)");
     }
     
     // Helper methods to get active upgrade levels from PassiveUpgradeManager
