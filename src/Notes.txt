@@ -16,3 +16,6 @@ Remove boss intro replace with simpler one like previous
 
 In jouney map fix helecopter blade placement
 In level fix size of helecopter blades
+
+Settings menu is broken input not working on correct section
+Have it so mouse input only acts when the mouse moves a bit to prevent movement when using keys

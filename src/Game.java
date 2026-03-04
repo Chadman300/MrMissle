@@ -4385,6 +4385,7 @@ public class Game extends JPanel implements Runnable {
                 double deltaTime = 1.0;
                 update(deltaTime);
                 gradientTime += 0.02; // Animate gradient (1 tick = 1 unit)
+                if (renderer != null) renderer.advanceParallaxScroll(); // Advance BG scroll at fixed 60Hz
                 
                 // Update escape timer
                 if (escapeTimer > 0) {
@@ -4427,6 +4428,11 @@ public class Game extends JPanel implements Runnable {
             
             // Sync display for smoother frame delivery
             Toolkit.getDefaultToolkit().sync();
+            
+            // Submit async background render (runs in parallel with EDT blit + sleep)
+            if (backgroundMode == 1 && renderer != null) {
+                renderer.submitBackgroundRender(updateThreadPool, gameData.getCurrentLevel(), WIDTH, HEIGHT);
+            }
             
             // Sleep to hit the *display* frame-rate chosen in settings.
             // The update tick-rate is fixed at 60 Hz above; this only

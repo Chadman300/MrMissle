@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.awt.image.BufferedImage;
 
 public class BeamAttack {
     public enum BeamType {
@@ -26,6 +27,25 @@ public class BeamAttack {
     private static final Color BEAM_SCANLINE = new Color(255, 200, 200, 100);
     private static final Font WARNING_FONT = new Font("Arial", Font.BOLD, 24);
     private static final BasicStroke WARNING_STROKE = new BasicStroke(3);
+    
+    // Pre-rendered scanline tile (8x8: 2px opaque + 6px transparent, tiled via TexturePaint)
+    // Replaces ~160-265 fillRect calls per beam with a single TexturePaint fill
+    private static final BufferedImage SCANLINE_TILE_V;
+    private static final BufferedImage SCANLINE_TILE_H;
+    static {
+        // Vertical beam scanline tile (horizontal stripe pattern)
+        SCANLINE_TILE_V = new BufferedImage(1, 8, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gv = SCANLINE_TILE_V.createGraphics();
+        gv.setColor(BEAM_SCANLINE);
+        gv.fillRect(0, 0, 1, 2);
+        gv.dispose();
+        // Horizontal beam scanline tile (vertical stripe pattern)
+        SCANLINE_TILE_H = new BufferedImage(8, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D gh = SCANLINE_TILE_H.createGraphics();
+        gh.setColor(BEAM_SCANLINE);
+        gh.fillRect(0, 0, 2, 1);
+        gh.dispose();
+    }
     
     // Pre-computed warning colors at 20 discrete steps (green → yellow → red)
     // Eliminates per-frame Color allocation during the 210-frame warning phase
@@ -219,12 +239,12 @@ public class BeamAttack {
                 g.setColor(BEAM_CORE);
                 g.fillRect(x + (int)width / 4, minY, (int)width / 2, maxY - minY);
                 
-                // Animated scanlines for effect
-                g.setColor(BEAM_SCANLINE);
-                for (int y = minY; y < maxY; y += 8) {
-                    int offset = (int)((beamTimer * 10) % 8);
-                    g.fillRect(x, y + offset, (int)width, 2);
-                }
+                // Animated scanlines via TexturePaint (replaces ~160 fillRect calls)
+                int offset = (int)((beamTimer * 10) % 8);
+                TexturePaint scanPaint = new TexturePaint(SCANLINE_TILE_V,
+                    new java.awt.geom.Rectangle2D.Float(0, offset, 1, 8));
+                g.setPaint(scanPaint);
+                g.fillRect(x, minY, (int)width, maxY - minY);
             } else {
                 int y = (int)(position - width / 2);
                 
@@ -240,12 +260,12 @@ public class BeamAttack {
                 g.setColor(BEAM_CORE);
                 g.fillRect(minX, y + (int)width / 4, maxX - minX, (int)width / 2);
                 
-                // Animated scanlines for effect
-                g.setColor(BEAM_SCANLINE);
-                for (int x = minX; x < maxX; x += 8) {
-                    int offset = (int)((beamTimer * 10) % 8);
-                    g.fillRect(x + offset, y, 2, (int)width);
-                }
+                // Animated scanlines via TexturePaint (replaces ~265 fillRect calls)
+                int offset = (int)((beamTimer * 10) % 8);
+                TexturePaint scanPaint = new TexturePaint(SCANLINE_TILE_H,
+                    new java.awt.geom.Rectangle2D.Float(offset, 0, 8, 1));
+                g.setPaint(scanPaint);
+                g.fillRect(minX, y, maxX - minX, (int)width);
             }
         }
     }
