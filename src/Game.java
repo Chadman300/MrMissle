@@ -41,6 +41,9 @@ public class Game extends JPanel implements Runnable {
     private int selectedStatItem;
     private int selectedMenuItem; // For main menu navigation
     private int mouseX, mouseY; // Mouse position for UI navigation
+    private int lastMouseX = -1, lastMouseY = -1; // Previous mouse position for dead-zone threshold
+    private static final int MOUSE_MOVE_THRESHOLD = 8; // Minimum pixels mouse must move to update UI selection
+    private boolean mouseActive = false; // Whether mouse is currently controlling selection
     private boolean mouseEnabled = true; // Track if mouse navigation is active
     private boolean controllerHudMouseDown = false; // Track controller A button for HUD editor drag
     private static final float CONTROLLER_CURSOR_SPEED = 8.0f; // Pixels per frame at full stick deflection
@@ -869,9 +872,19 @@ public class Game extends JPanel implements Runnable {
                 double scaleX = (double) getWidth() / WIDTH;
                 double scaleY = (double) getHeight() / HEIGHT;
                 
-                mouseX = (int) (e.getX() / scaleX);
-                mouseY = (int) (e.getY() / scaleY);
-                handleMouseMove();
+                int newMouseX = (int) (e.getX() / scaleX);
+                int newMouseY = (int) (e.getY() / scaleY);
+                
+                // Only update UI selection if mouse moved beyond threshold
+                // This prevents mouse from overriding keyboard navigation on tiny/accidental moves
+                if (lastMouseX < 0 || Math.abs(newMouseX - lastMouseX) + Math.abs(newMouseY - lastMouseY) >= MOUSE_MOVE_THRESHOLD) {
+                    lastMouseX = newMouseX;
+                    lastMouseY = newMouseY;
+                    mouseX = newMouseX;
+                    mouseY = newMouseY;
+                    mouseActive = true;
+                    handleMouseMove();
+                }
             }
             
             @Override
@@ -1211,6 +1224,7 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SETTINGS:
+                mouseActive = false; // Keyboard takes priority over mouse selection
                 clampSettingsItem();
                 // HUD tab: suppress item navigation (editor handles its own interaction)
                 boolean hudTabActive = (selectedSettingsCategory == 5);
@@ -1793,18 +1807,14 @@ public class Game extends JPanel implements Runnable {
                 
             case GAME_OVER:
                 if (key == KeyEvent.VK_SPACE) {
-                    // Roguelike: Give survival reward and start new run from level 1
-                    int survivalReward = gameData.getSurvivalTime() / 60;
-                    gameData.addTotalMoney(survivalReward);
+                    // Roguelike: Player died - no money earned (only earn on level completion)
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
                     passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
                     performAutoSave(); // Save progress after death
                     // Force players to go through level select again
                     transitionToState(GameState.LEVEL_SELECT);
                 } else if (key == KeyEvent.VK_ESCAPE) {
-                    // Go to menu but don't start new run yet (let them check stats, shop, etc)
-                    int survivalReward = gameData.getSurvivalTime() / 60;
-                    gameData.addTotalMoney(survivalReward);
+                    // Go to menu - no money earned (only earn on level completion)
                     gameData.startNewRun();
                     passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
                     performAutoSave(); // Save progress after death
@@ -1906,8 +1916,10 @@ public class Game extends JPanel implements Runnable {
                     }
                     
                     System.out.println("DEBUG WIN: Level " + currentLevel + " completed, money before: " + gameData.getTotalMoney() + ", reward: " + bossReward);
+                    // Add boss completion bonus to run money, then transfer all to wallet
                     gameData.addRunMoney(bossReward);
-                    gameData.addTotalMoney(bossReward);
+                    gameData.addTotalMoney(gameData.getRunMoney());
+                    gameData.setRunMoney(0); // Reset run money after transfer to wallet
                     System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
                     
                     gameData.setCurrentLevel(currentLevel + 1);
@@ -2290,17 +2302,18 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
-            // Check if hovering over category tabs
+            // Check if hovering over category tabs (use UIScale to match Renderer positions)
             String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
-            int tabWidth = 130;
+            int tabWidth = UIScale.px(130);
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
-            int tabY = 130;
+            int tabY = UIScale.px(130);
+            int tabHeight = UIScale.px(40);
             
             boolean hoveringTab = false;
             for (int i = 0; i < categories.length; i++) {
                 int tabX = tabStartX + i * tabWidth;
                 if (mouseX >= tabX && mouseX <= tabX + tabWidth - 10 &&
-                    mouseY >= tabY && mouseY <= tabY + 40) {
+                    mouseY >= tabY && mouseY <= tabY + tabHeight) {
                     // Hovering over tabs - select tabs (-1)
                     if (selectedSettingsItem != -1) {
                         selectedSettingsItem = -1;
@@ -2580,17 +2593,18 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
-            // Check if clicking on category tabs first
+            // Check if clicking on category tabs first (use UIScale to match Renderer positions)
             String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
-            int tabWidth = 130;
+            int tabWidth = UIScale.px(130);
             int tabStartX = (WIDTH - categories.length * tabWidth) / 2;
-            int tabY = 130;
+            int tabY = UIScale.px(130);
+            int tabHeight = UIScale.px(40);
             
             boolean clickedTab = false;
             for (int i = 0; i < categories.length; i++) {
                 int tabX = tabStartX + i * tabWidth;
                 if (mouseX >= tabX && mouseX <= tabX + tabWidth - 10 &&
-                    mouseY >= tabY && mouseY <= tabY + 40) {
+                    mouseY >= tabY && mouseY <= tabY + tabHeight) {
                     if (selectedSettingsCategory != i) {
                         selectedSettingsCategory = i;
                         clampSettingsItem();
@@ -3088,9 +3102,20 @@ public class Game extends JPanel implements Runnable {
                 
             case SETTINGS:
                 int maxSettingsItems = getMaxSettingsItems();
+                // Calculate max scroll based on content height
+                int settingsTotalItems = maxSettingsItems + 1;
+                int settingsHeaderOffset = 0;
+                if (selectedSettingsCategory == 0) {
+                    int[] hdrIdx = {0, 4, 8, 11, 15};
+                    for (int h : hdrIdx) {
+                        if (maxSettingsItems >= h) settingsHeaderOffset += 24;
+                    }
+                }
+                int settingsContentHeight = 200 + settingsTotalItems * 78 + settingsHeaderOffset;
+                int maxSettingsScroll = Math.max(0, settingsContentHeight - HEIGHT + 250);
                 if (rotation > 0) {
-                    // Scroll down - scroll by 3 items for faster scrolling
-                    settingsScroll += 360; // 120px per item * 3
+                    // Scroll down - scroll by 3 items for faster scrolling, clamped to max
+                    settingsScroll = Math.min(maxSettingsScroll, settingsScroll + 360);
                     scrollCooldown = 20; // 1/3 second cooldown
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
@@ -4549,7 +4574,19 @@ public class Game extends JPanel implements Runnable {
             hitFreezeFrames -= deltaTime;
             // Still tick announcement timer during freeze so text animates
             if (comboSystem != null) comboSystem.tickAnnouncement(deltaTime);
-            return; // Skip update during freeze
+            // Tick visual effect timers during freeze so animations play smoothly
+            if (bossFlashTimer > 0) bossFlashTimer -= deltaTime;
+            if (bossHitFlashTimer > 0) bossHitFlashTimer -= deltaTime;
+            if (screenFlashTimer > 0) screenFlashTimer -= deltaTime;
+            if (deathFlashTimer > 0) deathFlashTimer -= deltaTime;
+            // Decay screen shake during freeze so it doesn't stay stuck at max
+            if (screenShakeIntensity > 0) {
+                screenShakeX = (Math.random() - 0.5) * screenShakeIntensity;
+                screenShakeY = (Math.random() - 0.5) * screenShakeIntensity;
+                screenShakeIntensity *= Math.pow(0.9, deltaTime);
+                if (screenShakeIntensity < 0.1) screenShakeIntensity = 0;
+            }
+            return; // Skip gameplay update during freeze
         }
         
         // Apply slow-motion effect to delta time
@@ -5001,10 +5038,7 @@ public class Game extends JPanel implements Runnable {
         boolean playerGotMoneyThisFrame = false;
         int moneyCircleAnimTimer = 0; // Use first circle's timer for money timing
         
-        // Remove expired circles
-        if (MONEY_CIRCLE_DURATION > 0) {
-            moneyCircles.removeIf(circle -> circle[2] > MONEY_CIRCLE_DURATION);
-        }
+        // Money circles are permanent - they never expire
         
         for (double[] circle : moneyCircles) {
             circle[2]++; // Increment timer for animation timing
@@ -5021,7 +5055,7 @@ public class Game extends JPanel implements Runnable {
                     // Use global timer so all circles are synchronized
                     if (moneyCircleAnimTimer % 20 == 0) {
                         gameData.addRunMoney(MONEY_CIRCLE_BONUS);
-                        gameData.addTotalMoney(MONEY_CIRCLE_BONUS);
+                        // Money only added to wallet on level completion
                         playerGotMoneyThisFrame = true; // Prevent stacking from other circles
                         
                         // Spawn falling money sign particle near player (bigger size)
@@ -6130,7 +6164,7 @@ public class Game extends JPanel implements Runnable {
                     moneyReward = (int)(moneyReward * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
                     
                     gameData.addRunMoney(moneyReward);
-                    gameData.addTotalMoney(moneyReward);
+                    // Money only added to wallet on level completion
                     
                     // Update money achievement
                     achievementManager.updateProgress(Achievement.AchievementType.MONEY_EARNED, gameData.getTotalMoney());
@@ -7737,14 +7771,15 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void toggleSetting(int settingIndex) {
-        // Category 0: Graphics (17 settings)
+        // Category 0: Graphics (15 settings, indices 0-14 matching renderer)
         // Category 1: Audio (5 settings)
         // Category 2: Gameplay (1 setting)
         // Category 3: Debug (2 settings)
         // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
-            // Graphics settings (reorganized: Display, Quality, Background, Effects, Camera)
+            // Graphics settings matching renderer order:
+            // Display(0-3), Quality(4-7), Effects(8-11), Camera(12-14)
             switch (settingIndex) {
                 case 0: toggleFullscreen(); break;
                 case 1: resolutionPreset = (resolutionPreset + 1) % 6; break;
@@ -7754,15 +7789,13 @@ public class Game extends JPanel implements Runnable {
                 case 5: shadowQuality = (shadowQuality + 1) % 4; enableShadows = shadowQuality > 0; break;
                 case 6: enableParticles = !enableParticles; break;
                 case 7: enableBloom = !enableBloom; break;
-                case 8: backgroundMode = (backgroundMode + 1) % 3; break;
-                case 9: enableGradientAnimation = !enableGradientAnimation; break;
-                case 10: gradientQuality = (gradientQuality + 1) % 3; break;
-                case 11: enableMotionBlur = !enableMotionBlur; break;
-                case 12: enableChromaticAberration = !enableChromaticAberration; break;
-                case 13: enableVignette = !enableVignette; break;
+                case 8: enableMotionBlur = !enableMotionBlur; break;
+                case 9: enableChromaticAberration = !enableChromaticAberration; break;
+                case 10: enableVignette = !enableVignette; break;
+                case 11: enableGrainEffect = !enableGrainEffect; break;
+                case 12: /* Camera Zoom - handled by adjustSetting */ break;
+                case 13: enableUIParallax = !enableUIParallax; break;
                 case 14: uiScale = (uiScale + 1) % 3; config.UIScale.setScale(uiScale); if (renderer != null) renderer.onUIScaleChanged(); break;
-                case 15: /* Camera Zoom - handled by adjustSetting */ break;
-                case 16: enableUIParallax = !enableUIParallax; break;
             }
         } else if (selectedSettingsCategory == 1) {
             // Audio settings
@@ -7803,7 +7836,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private boolean adjustSetting(int settingIndex, int direction) {
-        // Graphics sliders (reorganized: Display, Quality, Background, Effects, Camera)
+        // Graphics sliders (matching renderer 15-item order: Display, Quality, Effects, Camera)
         if (selectedSettingsCategory == 0) {
             if (settingIndex == 0) { // Fullscreen (toggle)
                 toggleFullscreen();
@@ -7831,35 +7864,29 @@ public class Game extends JPanel implements Runnable {
             } else if (settingIndex == 7) { // Bloom (toggle)
                 enableBloom = !enableBloom;
                 return true;
-            } else if (settingIndex == 8) { // Background Mode
-                backgroundMode = (backgroundMode + direction + 3) % 3;
-                return true;
-            } else if (settingIndex == 9) { // Gradient Animation (toggle)
-                enableGradientAnimation = !enableGradientAnimation;
-                return true;
-            } else if (settingIndex == 10) { // Gradient Quality
-                gradientQuality = Math.max(0, Math.min(2, gradientQuality + direction));
-                return true;
-            } else if (settingIndex == 11) { // Motion Blur (toggle)
+            } else if (settingIndex == 8) { // Motion Blur (toggle)
                 enableMotionBlur = !enableMotionBlur;
                 return true;
-            } else if (settingIndex == 12) { // Chromatic Aberration (toggle)
+            } else if (settingIndex == 9) { // Chromatic Aberration (toggle)
                 enableChromaticAberration = !enableChromaticAberration;
                 return true;
-            } else if (settingIndex == 13) { // Vignette (toggle)
+            } else if (settingIndex == 10) { // Vignette (toggle)
                 enableVignette = !enableVignette;
+                return true;
+            } else if (settingIndex == 11) { // Grain Effect (toggle)
+                enableGrainEffect = !enableGrainEffect;
+                return true;
+            } else if (settingIndex == 12) { // Camera Zoom
+                double step = 0.05 * direction;
+                cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
+                return true;
+            } else if (settingIndex == 13) { // UI Parallax (toggle)
+                enableUIParallax = !enableUIParallax;
                 return true;
             } else if (settingIndex == 14) { // UI Scale (pill)
                 uiScale = Math.max(0, Math.min(2, uiScale + direction));
                 config.UIScale.setScale(uiScale);
                 if (renderer != null) renderer.onUIScaleChanged();
-                return true;
-            } else if (settingIndex == 15) { // Camera Zoom
-                double step = 0.05 * direction;
-                cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
-                return true;
-            } else if (settingIndex == 16) { // UI Parallax (toggle)
-                enableUIParallax = !enableUIParallax;
                 return true;
             }
         }
@@ -7957,7 +7984,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 16; // Graphics: 17 items (0-16)
+        if (selectedSettingsCategory == 0) return 14; // Graphics: 15 items (0-14), matching renderer
         if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)

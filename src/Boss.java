@@ -56,9 +56,18 @@ public class Boss {
     private double twirlAttackAngle = 0; // Current angle for circular movement around screen
     
     private int level;
+    private int effectiveLevel; // Level adjusted by gameMode for scaling (not gating)
+    private GameMode gameMode; // Stored for use in shoot/beam methods
     private boolean isMegaBoss; // Every 3rd boss is a mega boss
     private int size; // Dynamic size based on boss type
     private static final int BASE_SIZE = 100;
+    // Beam width caps to prevent impossible positions at high levels
+    private static final double MAX_BEAM_WIDTH_NORMAL = 100;
+    private static final double MAX_BEAM_WIDTH_CROSS = 120;
+    private static final double MAX_BEAM_WIDTH_GRID = 80;
+    private static final double MAX_BEAM_WIDTH_ROTATING = 130;
+    private static final int MAX_GRID_BEAMS = 4; // Max beams per axis in grid pattern
+    private static final double BEAM_PLAYER_SAFE_ZONE = 80; // Min distance from player for beam placement
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
@@ -223,7 +232,7 @@ public class Boss {
     private boolean shockwaveHasHitPlayer = false; // Track if shockwave already hit player
     private double shockwaveMaxRadius = 250; // Maximum shockwave reach (smaller)
     private double shockwaveSpeed = 2.5; // Pixels per frame (slower for better visibility)
-    private static final double SHOCKWAVE_KNOCKBACK = 12; // Knockback strength
+    private double shockwaveKnockback = 12; // Knockback strength (scaled by gameMode)
     
     public Boss(double x, double y, int level) {
         this(x, y, level, null, GameMode.MASTER);
@@ -237,6 +246,7 @@ public class Boss {
         this.x = x;
         this.y = y;
         this.soundManager = soundManager;
+        this.gameMode = (gameMode != null) ? gameMode : GameMode.MASTER;
         this.vx = 0;
         this.vy = 0;
         this.ax = 0;
@@ -253,6 +263,9 @@ public class Boss {
         this.twirlAttackTimer = 0;
         this.twirlAttackAngle = Math.random() * Math.PI * 2; // Random starting angle
         this.level = level;
+        // effectiveLevel is used for scaling formulas (bullet count, speed, beam width, etc.)
+        // Real 'level' is still used for feature gating (twirl >= 7, beams >= 10, etc.)
+        this.effectiveLevel = Math.max(1, (int)(level * this.gameMode.getLevelScaleMultiplier()));
         
         // Pattern: mini, mini, mega, mini, mini, mega...
         // Every 3rd level is a mega boss (3, 6, 9, 12...)
@@ -298,15 +311,41 @@ public class Boss {
         }
         
         // Apply game mode scaling (Easy mode makes bosses more forgiving)
-        if (gameMode != null && gameMode != GameMode.MASTER) {
-            this.shootInterval = (int)(this.shootInterval * gameMode.getShootIntervalScale());
-            this.assaultPhaseDuration = (int)(this.assaultPhaseDuration * gameMode.getAssaultDurationScale());
-            this.recoveryPhaseDuration = (int)(this.recoveryPhaseDuration * gameMode.getRecoveryDurationScale());
-            this.beamAttackTimer = (int)(this.beamAttackTimer * gameMode.getBeamTimerScale());
-            this.beamAttackInterval = (int)(this.beamAttackInterval * gameMode.getBeamTimerScale());
+        if (this.gameMode != GameMode.MASTER) {
+            this.shootInterval = (int)(this.shootInterval * this.gameMode.getShootIntervalScale());
+            this.assaultPhaseDuration = (int)(this.assaultPhaseDuration * this.gameMode.getAssaultDurationScale());
+            this.recoveryPhaseDuration = (int)(this.recoveryPhaseDuration * this.gameMode.getRecoveryDurationScale());
+            this.beamAttackTimer = (int)(this.beamAttackTimer * this.gameMode.getBeamTimerScale());
+            this.beamAttackInterval = (int)(this.beamAttackInterval * this.gameMode.getBeamTimerScale());
+            // Scale shockwave: smaller radius, slower speed, less knockback
+            this.shockwaveMaxRadius = (int)(this.shockwaveMaxRadius * this.gameMode.getShockwaveScale());
+            this.shockwaveSpeed *= this.gameMode.getShockwaveScale();
+            this.shockwaveKnockback *= this.gameMode.getShockwaveScale();
+            // Scale twirl attack: less speed boost makes it less frantic
+            this.twirlAttackSpeedBoost *= this.gameMode.getShockwaveScale();
         }
         
         loadSprites();
+    }
+    
+    /** Scale a bullet count by the game mode's bullet count scale (minimum 1). */
+    private int scaleBulletCount(int baseCount) {
+        return Math.max(1, (int)(baseCount * gameMode.getBulletCountScale()));
+    }
+    
+    /** Get the speed multiplier for bullets, adjusted by effective level and game mode. */
+    private double getScaledSpeedMultiplier() {
+        return Math.min(1.3, 0.4 + (effectiveLevel * 0.15)) * gameMode.getBulletSpeedScale();
+    }
+    
+    /** Variant with custom cap for mega hex pattern. */
+    private double getScaledSpeedMultiplierHex() {
+        return Math.min(1.0, 0.4 + (effectiveLevel * 0.12)) * gameMode.getBulletSpeedScale();
+    }
+    
+    /** Scale beam width by game mode. */
+    private double scaleBeamWidth(double baseWidth) {
+        return Math.max(20, baseWidth * gameMode.getBeamWidthScale());
     }
     
     private static BufferedImage rotateImage180(BufferedImage img) {
@@ -741,17 +780,18 @@ public class Boss {
             // Continuously move along circular arc while attack is active
             twirlAttackAngle += 0.03 * deltaTime; // Constant angular velocity
             
-            // Calculate position on circular arc around screen edge
-            double centerX = screenWidth / 2.0;
-            double centerY = screenHeight / 3.0;
-            double arcRadius = Math.min(screenWidth, screenHeight) * 0.4; // Large arc
+            // Orbit around the PLAYER position, not screen center
+            double centerX = player.getX();
+            double centerY = player.getY();
+            // Orbit radius: large enough to circle around player, small enough to stay on screen
+            double arcRadius = Math.max(150, Math.min(screenWidth, screenHeight) * 0.25);
             
             targetX = centerX + Math.cos(twirlAttackAngle) * arcRadius;
             targetY = centerY + Math.sin(twirlAttackAngle) * arcRadius;
             
-            // Clamp to screen bounds
+            // Clamp to screen bounds (allow full vertical range for player-centered orbit)
             targetX = Math.max(size, Math.min(screenWidth - size, targetX));
-            targetY = Math.max(size, Math.min(screenHeight / 1.8 - size, targetY));
+            targetY = Math.max(size, Math.min(screenHeight - size, targetY));
             
             // Check if current twirl finished and we need another
             if (!twirlActive && twirlAttackTimer > 30) { // Delay between twirls
@@ -789,7 +829,7 @@ public class Boss {
             int effectiveInterval = forceBeamAttack ? Math.min(120, beamAttackInterval) : beamAttackInterval;
             if (beamAttackTimer >= effectiveInterval) {
                 beamAttackTimer = 0;
-                spawnBeamAttack(screenWidth, screenHeight);
+                spawnBeamAttack(screenWidth, screenHeight, player);
             }
         }
         
@@ -873,16 +913,16 @@ public class Boss {
                 shootSpiral(bullets);
                 break;
             case 1: // Circle pattern
-                shootCircle(bullets, 15 + level); // Slower increase (was level * 2)
+                shootCircle(bullets, scaleBulletCount(15 + effectiveLevel)); // Slower increase (was level * 2)
                 break;
             case 2: // Aimed at player
-                shootAtPlayer(bullets, player, 6); // Increased from 4
+                shootAtPlayer(bullets, player, scaleBulletCount(6)); // Increased from 4
                 break;
             case 3: // Wave pattern
                 shootWave(bullets);
                 break;
             case 4: // Random spray
-                shootRandom(bullets, 10 + level); // Slower increase (was level * 2)
+                shootRandom(bullets, scaleBulletCount(10 + effectiveLevel)); // Slower increase (was level * 2)
                 break;
             case 5: // Fast bullets
                 shootFast(bullets, player);
@@ -968,10 +1008,10 @@ public class Boss {
         // This creates a true spiral pattern as each bullet is released at a different angle
         if (!spiralAttackActive) {
             spiralAttackActive = true;
-            spiralBulletsToSpawn = 20 + level * 3; // More bullets for better spiral
+            spiralBulletsToSpawn = scaleBulletCount(20 + effectiveLevel * 3); // More bullets for better spiral
             spiralBulletsSpawned = 0;
             spiralSpawnTimer = 0;
-            spiralSpeed = Math.min(3.0, 1.5 + (level * 0.1)); // All bullets same speed
+            spiralSpeed = Math.min(3.0, 1.5 + (effectiveLevel * 0.1)); // All bullets same speed
         }
         // Actual spawning happens in updateSpiralAttack()
     }
@@ -1008,7 +1048,7 @@ public class Boss {
     }
     
     private void shootCircle(List<Bullet> bullets, int numBullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1018,7 +1058,7 @@ public class Boss {
     }
     
     private void shootAtPlayer(List<Bullet> bullets, Player player, int spread) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         for (int i = -spread; i <= spread; i++) {
             double angle = angleToPlayer + (i * 0.2);
@@ -1029,8 +1069,8 @@ public class Boss {
     }
     
     private void shootWave(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 16 + level; // Slower increase (was level * 2)
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(16 + effectiveLevel); // Slower increase (was level * 2)
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double speed = (2 + Math.sin(i * 0.5) * 1.5) * speedMultiplier;
@@ -1041,7 +1081,7 @@ public class Boss {
     }
     
     private void shootRandom(List<Bullet> bullets, int numBullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = (2 + Math.random() * 2) * speedMultiplier;
@@ -1052,9 +1092,9 @@ public class Boss {
     }
     
     private void shootFast(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        for (int i = 0; i < 5 + level / 2; i++) { // Slower increase (was level)
+        for (int i = 0; i < scaleBulletCount(5 + effectiveLevel / 2); i++) { // Slower increase (was level)
             double angle = angleToPlayer + (Math.random() - 0.5) * 0.5;
             double spawnX = x + Math.cos(angle) * size * 1.5;
             double spawnY = y + Math.sin(angle) * size * 1.5;
@@ -1063,8 +1103,8 @@ public class Boss {
     }
     
     private void shootLarge(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 5 + level / 2; // Slower increase
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(5 + effectiveLevel / 2); // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1075,9 +1115,9 @@ public class Boss {
     
     private void shootHoming(List<Bullet> bullets, Player player) {
         // Dedicated homing bullet attack
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15));
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
-        int numBullets = 5 + level / 2;
+        int numBullets = scaleBulletCount(5 + effectiveLevel / 2);
         for (int i = 0; i < numBullets; i++) {
             double angle = angleToPlayer + (i - numBullets/2) * 0.25;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1088,8 +1128,8 @@ public class Boss {
     
     private void shootBouncing(List<Bullet> bullets) {
         // Dedicated bouncing bullet attack
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15));
-        int numBullets = 8 + level / 2;
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(8 + effectiveLevel / 2);
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1100,10 +1140,10 @@ public class Boss {
     
     private void shootMixed(List<Bullet> bullets, Player player) {
         // Combination attack with different bullet types (spiral + bouncing)
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         
         // Spiral bullets
-        int numSpiral = 4 + level / 3;
+        int numSpiral = scaleBulletCount(4 + effectiveLevel / 3);
         for (int i = 0; i < numSpiral; i++) {
             double angle = Math.PI * 2 * i / numSpiral;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1123,8 +1163,8 @@ public class Boss {
     }
     
     private void shootSpiralBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 5 + level / 2; // Slower increase
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(5 + effectiveLevel / 2); // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1134,7 +1174,7 @@ public class Boss {
     }
     
     private void shootAcceleratingBullets(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         for (int i = -2; i <= 2; i++) { // Increased from -1 to 1 (now 5 bullets instead of 3)
             double angle = angleToPlayer + i * 0.3;
@@ -1145,8 +1185,8 @@ public class Boss {
     }
     
     private void shootWaveBullets(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 8 + level / 2; // Slower increase
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(8 + effectiveLevel / 2); // Slower increase
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI / 4 + (Math.PI / 2 * i / numBullets);
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1156,8 +1196,8 @@ public class Boss {
     }
     
     private void shootBombs(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
-        int numBullets = 3 + level / 2; // Increased from 2 + level / 3
+        double speedMultiplier = getScaledSpeedMultiplier();
+        int numBullets = scaleBulletCount(3 + effectiveLevel / 2); // Increased from 2 + level / 3
         for (int i = 0; i < numBullets; i++) {
             double angle = Math.PI * 2 * i / numBullets;
             double spawnX = x + Math.cos(angle) * size * 1.5;
@@ -1167,7 +1207,7 @@ public class Boss {
     }
     
     private void shootGrenades(List<Bullet> bullets, Player player) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
         int numBullets = 1 + (level >= 8 ? 1 : 0); // Fires fewer grenades
         for (int i = 0; i < numBullets; i++) {
@@ -1179,7 +1219,7 @@ public class Boss {
     }
     
     private void shootNukes(List<Bullet> bullets) {
-        double speedMultiplier = Math.min(1.3, 0.4 + (level * 0.15)); // Increased speed scaling
+        double speedMultiplier = getScaledSpeedMultiplier();
         // 1-3 nukes since they're very powerful
         int numBullets = 1 + (level >= 4 ? 1 : 0) + (level >= 7 ? 1 : 0); // Increased from 1 + (level >= 5 ? 1 : 0)
         for (int i = 0; i < numBullets; i++) {
@@ -1404,42 +1444,61 @@ public class Boss {
      * @return A valid position, or -1 if no valid position found
      */
     private double findNonOverlappingPosition(double minPos, double maxPos, double width, BeamAttack.BeamType type, int maxAttempts) {
+        return findNonOverlappingPosition(minPos, maxPos, width, type, maxAttempts, -1);
+    }
+    
+    /**
+     * Try to find a non-overlapping position for a beam that also respects a player safe zone.
+     * @param playerPos Player X (for vertical beams) or Y (for horizontal beams), or -1 to skip check
+     */
+    private double findNonOverlappingPosition(double minPos, double maxPos, double width, BeamAttack.BeamType type, int maxAttempts, double playerPos) {
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
             double position = minPos + Math.random() * (maxPos - minPos);
             if (!wouldBeamOverlap(position, width, type)) {
+                // Also check player safe zone: beam must not cover the player's current position
+                if (playerPos >= 0) {
+                    double minSafeDist = width / 2.0 + BEAM_PLAYER_SAFE_ZONE;
+                    if (Math.abs(position - playerPos) < minSafeDist) {
+                        continue; // Too close to player, try again
+                    }
+                }
                 return position;
             }
         }
         return -1; // No valid position found
     }
     
-    private void spawnBeamAttack(int screenWidth, int screenHeight) {
+    private void spawnBeamAttack(int screenWidth, int screenHeight, Player player) {
         // Mega bosses have more intense beam patterns
         if (isMegaBoss && Math.random() < 0.35) {
             // 35% chance for mega boss special beam patterns (reduced from 50%)
             int specialBeam = (int)(Math.random() * 3);
             switch (specialBeam) {
                 case 0: // Cross pattern beams
-                    spawnCrossBeams(screenWidth, screenHeight);
+                    spawnCrossBeams(screenWidth, screenHeight, player);
+                    mergeOverlappingBeams();
                     return;
                 case 1: // Grid pattern beams
-                    spawnGridBeams(screenWidth, screenHeight);
+                    spawnGridBeams(screenWidth, screenHeight, player);
+                    mergeOverlappingBeams();
                     return;
                 case 2: // Rotating beam
-                    spawnRotatingBeams(screenWidth, screenHeight);
+                    spawnRotatingBeams(screenWidth, screenHeight, player);
+                    mergeOverlappingBeams();
                     return;
             }
         }
         
         // Randomly choose between vertical and horizontal beams
         boolean isVertical = Math.random() < 0.5;
+        double playerSafePos = player != null ? (isVertical ? player.getX() : player.getY()) : -1;
         
         if (isVertical) {
             // Spawn 1-3 vertical beams depending on level
             int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double width = 40 + level * 5; // Wider beams at higher levels
-                double position = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10);
+                double width = Math.min(40 + level * 5, MAX_BEAM_WIDTH_NORMAL); // Capped width
+                double position = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10, playerSafePos);
                 if (position >= 0) {
                     beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
                 }
@@ -1448,20 +1507,23 @@ public class Boss {
             // Spawn 1-3 horizontal beams depending on level
             int numBeams = 1 + (level >= 14 ? 1 : 0) + (level >= 18 ? 1 : 0);
             for (int i = 0; i < numBeams; i++) {
-                double width = 40 + level * 5; // Wider beams at higher levels
-                double position = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10);
+                double width = Math.min(40 + level * 5, MAX_BEAM_WIDTH_NORMAL); // Capped width
+                double position = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10, playerSafePos);
                 if (position >= 0) {
                     beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
                 }
             }
         }
+        mergeOverlappingBeams();
     }
     
-    private void spawnCrossBeams(int screenWidth, int screenHeight) {
+    private void spawnCrossBeams(int screenWidth, int screenHeight, Player player) {
         // One vertical and one horizontal beam forming a cross
-        double width = 50 + level * 6;
-        double verticalX = findNonOverlappingPosition(screenWidth * 0.3, screenWidth * 0.7, width, BeamAttack.BeamType.VERTICAL, 10);
-        double horizontalY = findNonOverlappingPosition(screenHeight * 0.35, screenHeight * 0.65, width, BeamAttack.BeamType.HORIZONTAL, 10);
+        double width = Math.min(50 + level * 6, MAX_BEAM_WIDTH_CROSS); // Capped width
+        double playerX = player != null ? player.getX() : -1;
+        double playerY = player != null ? player.getY() : -1;
+        double verticalX = findNonOverlappingPosition(screenWidth * 0.3, screenWidth * 0.7, width, BeamAttack.BeamType.VERTICAL, 10, playerX);
+        double horizontalY = findNonOverlappingPosition(screenHeight * 0.35, screenHeight * 0.65, width, BeamAttack.BeamType.HORIZONTAL, 10, playerY);
         
         if (verticalX >= 0) {
             beamAttacks.add(new BeamAttack(verticalX, width, BeamAttack.BeamType.VERTICAL));
@@ -1471,32 +1533,42 @@ public class Boss {
         }
     }
     
-    private void spawnGridBeams(int screenWidth, int screenHeight) {
+    private void spawnGridBeams(int screenWidth, int screenHeight, Player player) {
         // Multiple vertical and horizontal beams forming a grid
-        double width = 35 + level * 4;
-        int numVertical = 2 + level / 5;
-        int numHorizontal = 2 + level / 5;
+        double width = Math.min(35 + level * 4, MAX_BEAM_WIDTH_GRID); // Capped width
+        int numVertical = Math.min(2 + level / 5, MAX_GRID_BEAMS); // Capped count
+        int numHorizontal = Math.min(2 + level / 5, MAX_GRID_BEAMS); // Capped count
+        double playerX = player != null ? player.getX() : -1;
+        double playerY = player != null ? player.getY() : -1;
         
-        // Vertical beams - use evenly spaced positions but check for overlaps
+        // Vertical beams - use evenly spaced positions but check for overlaps and player safe zone
         for (int i = 0; i < numVertical; i++) {
             double position = screenWidth * ((i + 1.0) / (numVertical + 1.0));
             if (!wouldBeamOverlap(position, width, BeamAttack.BeamType.VERTICAL)) {
+                // Skip if too close to player
+                if (playerX >= 0 && Math.abs(position - playerX) < width / 2.0 + BEAM_PLAYER_SAFE_ZONE) {
+                    continue;
+                }
                 beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
             }
         }
         
-        // Horizontal beams - use evenly spaced positions but check for overlaps
+        // Horizontal beams - use evenly spaced positions but check for overlaps and player safe zone
         for (int i = 0; i < numHorizontal; i++) {
             double position = screenHeight * ((i + 2.0) / (numHorizontal + 3.0)); // Start lower on screen
             if (!wouldBeamOverlap(position, width, BeamAttack.BeamType.HORIZONTAL)) {
+                // Skip if too close to player
+                if (playerY >= 0 && Math.abs(position - playerY) < width / 2.0 + BEAM_PLAYER_SAFE_ZONE) {
+                    continue;
+                }
                 beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
             }
         }
     }
     
-    private void spawnRotatingBeams(int screenWidth, int screenHeight) {
+    private void spawnRotatingBeams(int screenWidth, int screenHeight, Player player) {
         // Diagonal beams that create rotating pattern
-        double width = 55 + level * 7;
+        double width = Math.min(55 + level * 7, MAX_BEAM_WIDTH_ROTATING); // Capped width
         
         // Create 2-3 diagonal-style beams by combining offset vertical/horizontal
         int numPairs = 2 + (level >= 10 ? 1 : 0);
@@ -1516,6 +1588,44 @@ public class Boss {
     
     public List<BeamAttack> getBeamAttacks() {
         return beamAttacks;
+    }
+    
+    /**
+     * Merge overlapping or adjacent same-type beams that are still in warning phase
+     * into a single wider beam. This prevents visual clutter and creates the 
+     * "one large beam" effect instead of multiple thin overlapping beams.
+     */
+    private void mergeOverlappingBeams() {
+        // Only merge beams that are still in warning phase (same spawn batch)
+        for (int i = 0; i < beamAttacks.size(); i++) {
+            BeamAttack a = beamAttacks.get(i);
+            if (!a.isInWarningPhase()) continue;
+            
+            for (int j = beamAttacks.size() - 1; j > i; j--) {
+                BeamAttack b = beamAttacks.get(j);
+                if (!b.isInWarningPhase()) continue;
+                if (a.getType() != b.getType()) continue;
+                
+                // Check if beams overlap or are within merge threshold (20px gap)
+                double aLeft = a.getPosition() - a.getWidth() / 2.0;
+                double aRight = a.getPosition() + a.getWidth() / 2.0;
+                double bLeft = b.getPosition() - b.getWidth() / 2.0;
+                double bRight = b.getPosition() + b.getWidth() / 2.0;
+                
+                double mergeThreshold = 20; // Merge beams within 20px of each other
+                if (aRight + mergeThreshold >= bLeft && bRight + mergeThreshold >= aLeft) {
+                    // Merge: compute combined range
+                    double newLeft = Math.min(aLeft, bLeft);
+                    double newRight = Math.max(aRight, bRight);
+                    double newWidth = newRight - newLeft;
+                    double newPosition = (newLeft + newRight) / 2.0;
+                    
+                    a.setPosition(newPosition);
+                    a.setWidth(newWidth);
+                    beamAttacks.remove(j);
+                }
+            }
+        }
     }
     
     public void clearBeamAttacks() {
@@ -1892,7 +2002,7 @@ public class Boss {
     public double getShockwaveAngle() { return shockwaveAngle; }
     public boolean hasShockwaveHitPlayer() { return shockwaveHasHitPlayer; }
     public void setShockwaveHitPlayer() { shockwaveHasHitPlayer = true; }
-    public double getShockwaveKnockback() { return SHOCKWAVE_KNOCKBACK; }
+    public double getShockwaveKnockback() { return shockwaveKnockback; }
     
     // Debug showcase mode methods
     /**

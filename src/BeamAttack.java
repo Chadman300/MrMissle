@@ -278,4 +278,14 @@ public class BeamAttack {
     public BeamType getType() { return type; }
     public double getPosition() { return position; }
     public double getWidth() { return width; }
+    public double getWarningTimer() { return warningTimer; }
+    
+    /** Set position (used when merging overlapping beams). */
+    public void setPosition(double position) { this.position = position; }
+    
+    /** Set width (used when merging overlapping beams). */
+    public void setWidth(double width) { this.width = width; }
+    
+    /** Whether this beam is still in the warning phase (hasn't fired yet). */
+    public boolean isInWarningPhase() { return warningTimer > 0 && !isActive; }
 }

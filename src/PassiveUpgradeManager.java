@@ -26,7 +26,7 @@ public class PassiveUpgradeManager {
                    PassiveUpgrade.UpgradeType.LUCKY_DODGE, 1000, 3, 0);
         
         addUpgrade("cooldown", "Quick Charge", "-12.5% item cooldown per level", 
-                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5, 3);  // Unlocks after beating level 3
+                   PassiveUpgrade.UpgradeType.ITEM_COOLDOWN, 600, 5, 7);  // Unlocks after beating level 7
         
         addUpgrade("bullet_size", "Small Bullets", "-6% enemy bullet size per level", 
                    PassiveUpgrade.UpgradeType.BULLET_SIZE, 800, 8, 4);  // Unlocks after beating level 4
@@ -35,7 +35,7 @@ public class PassiveUpgradeManager {
                    PassiveUpgrade.UpgradeType.MONEY_AND_SCORE, 700, 5, 0);
         
         addUpgrade("critical", "Critical Strike", "+2% instant-kill chance per level", 
-                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3, 7);  // Unlocks after beating level 7
+                   PassiveUpgrade.UpgradeType.CRITICAL_HIT, 1500, 3, 25);  // Unlocks after beating level 25
         
         addUpgrade("targeting", "Targeting", "Much stronger auto-aim + range per level", 
                    PassiveUpgrade.UpgradeType.TARGETING, 900, 5, 19);  // Unlocks after beating level 19

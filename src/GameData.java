@@ -83,7 +83,7 @@ public class GameData {
 
     public GameData() {
         score = 0;
-        totalMoney = 0;
+        totalMoney = 1000;
         runMoney = 0;
         survivalTime = 0;
         defeatedBosses = new boolean[100];
