@@ -117,6 +117,28 @@ public class Renderer {
     private BufferedImage introBuf = null;
     private int introBufW, introBufH;
 
+    // Pre-cached rotated+scaled plane sprites for level select (avoids per-frame AffineTransform rotation)
+    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180°-rotated & scaled BufferedImage
+    private static final java.util.HashMap<Long, BufferedImage> planeSpriteCache = new java.util.HashMap<>();
+
+    /** Get a pre-rotated (180°) and scaled plane sprite for the level select screen. */
+    private static BufferedImage getCachedPlaneSprite(BufferedImage source, int level, int targetW, int targetH) {
+        long key = ((long)level << 32) | ((long)targetW << 16) | (targetH & 0xFFFFL);
+        BufferedImage cached = planeSpriteCache.get(key);
+        if (cached == null) {
+            cached = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D cg = cached.createGraphics();
+            cg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            // Rotate 180° around center, then draw scaled
+            cg.translate(targetW / 2.0, targetH / 2.0);
+            cg.rotate(Math.PI);
+            cg.drawImage(source, -targetW / 2, -targetH / 2, targetW, targetH, null);
+            cg.dispose();
+            planeSpriteCache.put(key, cached);
+        }
+        return cached;
+    }
+
 
 
 
@@ -512,6 +534,7 @@ public class Renderer {
                             pg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                             pg.drawImage(image, 0, 0, targetW, targetH, null);
                             pg.dispose();
+                            image.flush(); // Release original full-size image native memory
                             image = prescaled; // replace with pre-scaled version
                         }
                     }
@@ -674,6 +697,7 @@ public class Renderer {
         }
         // Ensure buffer exists and matches screen size
         if (bgBuffer == null || bgBuffer.getWidth() != width || bgBuffer.getHeight() != height) {
+            if (bgBuffer != null) bgBuffer.flush();
             bgBuffer = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         }
         // Snapshot scroll offsets so the worker reads stable values
@@ -1718,11 +1742,13 @@ public class Renderer {
 
     private void drawGeometricBackground(Graphics2D g, int width, int height, double time) {
 
-        Graphics2D g2 = (Graphics2D) g.create();
+        // Save/restore instead of g.create() 
+
+        Object savedAA = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
 
         if (Game.enableAntiAliasing) {
 
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         }
 
@@ -1730,29 +1756,29 @@ public class Renderer {
 
         // Floating hexagons
 
-        drawFloatingShapes(g2, width, height, time);
+        drawFloatingShapes(g, width, height, time);
 
         
 
         // Grid lines with perspective
 
-        drawPerspectiveGrid(g2, width, height, time);
+        drawPerspectiveGrid(g, width, height, time);
 
         
 
         // Orbiting circles
 
-        drawOrbitingCircles(g2, width, height, time);
+        drawOrbitingCircles(g, width, height, time);
 
         
 
         // Corner decorations
 
-        drawCornerDecorations(g2, width, height, time);
+        drawCornerDecorations(g, width, height, time);
 
         
 
-        g2.dispose();
+        if (savedAA != null) g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, savedAA);
 
     }
 
@@ -1760,9 +1786,11 @@ public class Renderer {
 
     private void drawFloatingShapes(Graphics2D g, int width, int height, double time) {
 
-        // Draw floating hexagons and triangles
+        // Draw floating hexagons and triangles — save/restore transform instead of 12 g.create()/dispose() per frame
 
         int numShapes = 12;
+
+        AffineTransform savedTransform = g.getTransform();
 
         for (int i = 0; i < numShapes; i++) {
 
@@ -1780,11 +1808,9 @@ public class Renderer {
 
             
 
-            Graphics2D g2 = (Graphics2D) g.create();
+            g.translate(x, y);
 
-            g2.translate(x, y);
-
-            g2.rotate(rotation);
+            g.rotate(rotation);
 
             
 
@@ -1792,31 +1818,31 @@ public class Renderer {
 
                 // Hexagon
 
-                g2.setColor(new Color(143, 188, 187, alpha)); // Teal
+                g.setColor(new Color(143, 188, 187, alpha)); // Teal
 
-                drawHexagon(g2, 0, 0, (int)size);
+                drawHexagon(g, 0, 0, (int)size);
 
             } else if (i % 3 == 1) {
 
                 // Triangle
 
-                g2.setColor(new Color(180, 142, 173, alpha)); // Purple
+                g.setColor(new Color(180, 142, 173, alpha)); // Purple
 
-                drawTriangle(g2, 0, 0, (int)size);
+                drawTriangle(g, 0, 0, (int)size);
 
             } else {
 
                 // Diamond
 
-                g2.setColor(new Color(235, 203, 139, alpha)); // Gold
+                g.setColor(new Color(235, 203, 139, alpha)); // Gold
 
-                drawDiamond(g2, 0, 0, (int)size);
+                drawDiamond(g, 0, 0, (int)size);
 
             }
 
             
 
-            g2.dispose();
+            g.setTransform(savedTransform);
 
         }
 
@@ -4182,13 +4208,13 @@ public class Renderer {
 
                     
 
-                    // Create transform for rotation (rotate 180 degrees to point tip up, plus Z-axis spin)
+                    // Use pre-cached 180°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
 
                     AffineTransform oldTransform = g.getTransform();
 
-                    g.translate(spriteX, spriteY + spriteHeight / 2);
+                    BufferedImage rotatedSprite = getCachedPlaneSprite(planeSprite, level, spriteWidth, spriteHeight);
 
-                    g.rotate(Math.PI); // 180 degrees to point tip up
+                    g.translate(spriteX, spriteY + spriteHeight / 2);
 
                     
 
@@ -4202,7 +4228,7 @@ public class Renderer {
 
                     
 
-                    g.drawImage(planeSprite, -spriteWidth / 2, -spriteHeight / 2, spriteWidth, spriteHeight, null);
+                    g.drawImage(rotatedSprite, -spriteWidth / 2, -spriteHeight / 2, null);
 
                     
 
@@ -4278,7 +4304,9 @@ public class Renderer {
 
                         float sparkle = (float)(Math.sin(time * 7 + level) * 0.5 + 0.5);
 
-                        g.setColor(new Color(255, 255, 255, (int)(200 * sparkle)));
+                        g.setColor(Color.WHITE);
+
+                        g.setComposite(RenderCache.getAlpha(sparkle * 0.784f * alpha));
 
                         int sparkleSize = 4;
 
@@ -4498,11 +4526,11 @@ public class Renderer {
 
         
 
-        Color borderColor = isCompleted ? new Color(80, 160, 80) :
+        Color borderColor = isCompleted ? PANEL_BORDER_COMPLETED :
 
-                           isCurrent ? RenderCache.BLUE_100_200_255 :
+                           isCurrent ? PANEL_BORDER_CURRENT :
 
-                           new Color(70, 70, 80);
+                           PANEL_BORDER_LOCKED;
 
         g.setColor(borderColor);
 
@@ -5970,11 +5998,21 @@ public class Renderer {
 
         // Draw particles (behind sprites) - indexed loop avoids ArrayList copy
         // Safe: update() and render run sequentially on game thread
+        // === Viewport culling: skip objects outside camera view ===
+        double viewLeft = cameraX - breathX - 80;   // 80px margin for large particles/glow
+        double viewTop = cameraY - breathY - 80;
+        double viewRight = cameraX - breathX + width + 80;
+        double viewBottom = cameraY - breathY + height + 80;
+        
         int particleCount = particles.size();
         for (int pi = 0; pi < particleCount; pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() != Particle.ParticleType.MONEY_SIGN) {
-                particle.draw(g);
+                double px = particle.getX();
+                double py = particle.getY();
+                if (px >= viewLeft && px <= viewRight && py >= viewTop && py <= viewBottom) {
+                    particle.draw(g);
+                }
             }
         }
         
@@ -5983,7 +6021,11 @@ public class Renderer {
             for (int fi = 0; fi < flares.size(); fi++) {
                 Flare flare = flares.get(fi);
                 if (flare != null && flare.isActive()) {
-                    flare.draw(g);
+                    double fx = flare.getX();
+                    double fy = flare.getY();
+                    if (fx >= viewLeft && fx <= viewRight && fy >= viewTop && fy <= viewBottom) {
+                        flare.draw(g);
+                    }
                 }
             }
         }
@@ -6566,27 +6608,34 @@ public class Renderer {
 
         
 
-        // Draw bullets (including warnings for inactive bullets)
+        // Draw bullets (including warnings for inactive bullets) — with viewport culling
         Bullet.activeBulletCount = bullets.size(); // Set for dynamic shadow reduction
         for (int i = 0; i < bullets.size(); i++) {
 
             Bullet bullet = bullets.get(i);
 
             if (bullet != null) {
-
-                bullet.draw(g);
-
+                double bx = bullet.getX();
+                double by = bullet.getY();
+                // Use wider margin (120px) for bullets since they have warning indicators and glow effects
+                if (bx >= viewLeft - 40 && bx <= viewRight + 40 && by >= viewTop - 40 && by <= viewBottom + 40) {
+                    bullet.draw(g);
+                }
             }
 
         }
 
         
 
-        // Draw MONEY_SIGN particles ON TOP of player and bullets
+        // Draw MONEY_SIGN particles ON TOP of player and bullets — with viewport culling
         for (int pi = 0; pi < particleCount; pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
-                particle.draw(g);
+                double px = particle.getX();
+                double py = particle.getY();
+                if (px >= viewLeft && px <= viewRight && py >= viewTop && py <= viewBottom) {
+                    particle.draw(g);
+                }
             }
         }
 
@@ -7428,7 +7477,7 @@ public class Renderer {
 
         } else {
 
-            introBuf = null; // Release blur buffer when intro is done
+            if (introBuf != null) { introBuf.flush(); introBuf = null; } // Release blur buffer when intro is done
 
         }
 
@@ -8368,6 +8417,7 @@ public class Renderer {
         // Death red vignette effect (baked image for performance)
         if (deathFlashTimer > 0) {
             if (bakedDeathVignette == null || bakedDeathVigW != width || bakedDeathVigH != height) {
+                if (bakedDeathVignette != null) bakedDeathVignette.flush();
                 bakedDeathVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D dv = bakedDeathVignette.createGraphics();
                 dv.setPaint(new java.awt.RadialGradientPaint(
@@ -11826,6 +11876,7 @@ public class Renderer {
             lastBgTime = time;
             cachedBgPaletteIdx = paletteIndex;
             if (sizeChanged) {
+                if (cachedBgGradient != null) cachedBgGradient.flush();
                 cachedBgGradient = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             }
             Graphics2D bg = cachedBgGradient.createGraphics();

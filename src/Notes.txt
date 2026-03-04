@@ -1,0 +1,18 @@
+TODO:
+Fix boss health popup animation
+Hard mode is too hard
+Easy mode is too easy
+Not enough money in start
+Unlock quick charge upgrade at level 6 or 7
+Money pool disapears
+Rename upgrades
+Add showcase to the stats or wtvr tab
+
+Later levels beam attack causes imposible positions
+Beam attack should merge into one large beam like pool of loot
+Boss twirl attack should not go into player but instead orbit the player
+
+Remove boss intro replace with simpler one like previous
+
+In jouney map fix helecopter blade placement
+In level fix size of helecopter blades

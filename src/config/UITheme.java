@@ -21,6 +21,30 @@ import java.awt.image.BufferedImage;
  */
 public class UITheme {
 
+    // ── Local alpha / stroke / color cache (UITheme is in config package,
+    //    so it cannot import the default-package RenderCache). ──
+    private static final AlphaComposite[] ALPHA_CACHE = new AlphaComposite[101];
+    private static final BasicStroke[] STROKE_CACHE = new BasicStroke[21];
+    static {
+        for (int i = 0; i <= 100; i++)
+            ALPHA_CACHE[i] = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, i / 100f);
+        for (int i = 0; i <= 20; i++)
+            STROKE_CACHE[i] = new BasicStroke(i / 2f);
+    }
+    static AlphaComposite getAlpha(float a) {
+        int idx = Math.max(0, Math.min(100, Math.round(a * 100)));
+        return ALPHA_CACHE[idx];
+    }
+    static BasicStroke getStroke(float w) {
+        int idx = Math.max(0, Math.min(20, Math.round(w * 2)));
+        return STROKE_CACHE[idx];
+    }
+    private static final BasicStroke STROKE_1 = STROKE_CACHE[2];   // 1.0f
+    private static final BasicStroke STROKE_2 = STROKE_CACHE[4];   // 2.0f
+    private static final Color BLACK_80  = new Color(0, 0, 0, 80);
+    private static final Color BLACK_180 = new Color(0, 0, 0, 180);
+    private static final Color WARNING_RED = new Color(200, 0, 0);
+
     // Cache for the metallic background — regenerated if size changes
     private static BufferedImage cachedMetalBg = null;
     private static int cachedBgW = 0, cachedBgH = 0;
@@ -30,6 +54,10 @@ public class UITheme {
     private static int cachedFullBgW = 0, cachedFullBgH = 0;
     private static long lastBgUpdateNanos = 0;
     private static final long BG_UPDATE_INTERVAL_NANOS = 500_000_000L; // 500ms (~2fps for subtle bg animations)
+
+    // Static base layer: gradient + metal texture + vignette (rebuild on resize only)
+    private static BufferedImage cachedStaticBase = null;
+    private static int cachedStaticBaseW = 0, cachedStaticBaseH = 0;
 
     // ── Vignette cache (fully static — only depends on size) ─────────
     private static BufferedImage cachedVignette = null;
@@ -57,8 +85,24 @@ public class UITheme {
         boolean sizeChanged = cachedFullBgW != width || cachedFullBgH != height;
         boolean stale = (now - lastBgUpdateNanos) > BG_UPDATE_INTERVAL_NANOS;
 
+        // 1. Rebuild static base layer (gradient + metal + vignette) on resize only
+        if (cachedStaticBase == null || cachedStaticBaseW != width || cachedStaticBaseH != height) {
+            if (cachedStaticBase != null) cachedStaticBase.flush();
+            cachedStaticBase = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D sb = cachedStaticBase.createGraphics();
+            sb.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            drawMilitaryGradient(sb, width, height, time);
+            drawMetalTexture(sb, width, height);
+            drawDarkVignette(sb, width, height);
+            sb.dispose();
+            cachedStaticBaseW = width;
+            cachedStaticBaseH = height;
+        }
+
+        // 2. Composite BG: blit static base + animated layers (radar, corners)
         if (cachedFullBg == null || sizeChanged || stale) {
             if (cachedFullBg == null || sizeChanged) {
+                if (cachedFullBg != null) cachedFullBg.flush();
                 cachedFullBg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
                 cachedFullBgW = width;
                 cachedFullBgH = height;
@@ -66,22 +110,12 @@ public class UITheme {
             Graphics2D bg = cachedFullBg.createGraphics();
             bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // 1. Base gradient — deep dark military
-            drawMilitaryGradient(bg, width, height, time);
+            // Blit the static base
+            bg.drawImage(cachedStaticBase, 0, 0, null);
 
-            // 2. Subtle metallic noise texture (procedural)
-            drawMetalTexture(bg, width, height);
-
-            // 3. (Warning stripes drawn per-frame below, outside the cache)
-
-            // 4. Radar sweep glow in bottom-right corner
+            // Animated layers only
             drawRadarSweep(bg, width, height, time);
-
-            // 5. Corner rivets / brackets
             drawMilitaryCorners(bg, width, height, time);
-
-            // 6. Subtle vignette overlay
-            drawDarkVignette(bg, width, height);
 
             bg.dispose();
             lastBgUpdateNanos = now;
@@ -101,6 +135,7 @@ public class UITheme {
         // The gradient shift is nearly invisible (sin(time*0.3)*0.05 ≈ ±2.5% wobble)
         // so we cache it and only regenerate on size change for a huge perf win.
         if (cachedGradient == null || cachedGradW != width || cachedGradH != height) {
+            if (cachedGradient != null) cachedGradient.flush();
             cachedGradient = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
             Graphics2D gg = cachedGradient.createGraphics();
             float shift = 0.5f; // Fixed center position (was animated ±2.5%)
@@ -130,6 +165,7 @@ public class UITheme {
     private static void drawMetalTexture(Graphics2D g, int width, int height) {
         // Generate/cache a subtle noise pattern
         if (cachedMetalBg == null || cachedBgW != width || cachedBgH != height) {
+            if (cachedMetalBg != null) cachedMetalBg.flush();
             cachedMetalBg = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             Graphics2D mg = cachedMetalBg.createGraphics();
             // Horizontal brushed lines
@@ -161,6 +197,7 @@ public class UITheme {
         // Build a single-row tile that is (width + STRIPE_W*2) wide so we can scroll seamlessly
         int tileW = width + STRIPE_W * 2;
         if (cachedStripeTile == null || cachedStripeTileW != tileW) {
+            if (cachedStripeTile != null) cachedStripeTile.flush();
             cachedStripeTile = new BufferedImage(tileW, STRIPE_H, BufferedImage.TYPE_INT_ARGB);
             Graphics2D tg = cachedStripeTile.createGraphics();
             // Pre-bake the alpha into the tile colors
@@ -204,8 +241,6 @@ public class UITheme {
     private static final AlphaComposite ALPHA_008 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.08f);
     private static final AlphaComposite ALPHA_015 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.15f);
     private static final AlphaComposite ALPHA_030 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.30f);
-    private static final BasicStroke STROKE_1 = new BasicStroke(1f);
-    private static final BasicStroke STROKE_2 = new BasicStroke(2f);
 
     private static void drawRadarSweep(Graphics2D g, int width, int height, double time) {
         int cx = width - 80;
@@ -278,6 +313,7 @@ public class UITheme {
     private static void drawDarkVignette(Graphics2D g, int width, int height) {
         // Cache vignette as BufferedImage — it's fully static (no time dependency)
         if (cachedVignette == null || cachedVigW != width || cachedVigH != height) {
+            if (cachedVignette != null) cachedVignette.flush();
             cachedVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
             Graphics2D vg = cachedVignette.createGraphics();
 
@@ -322,7 +358,9 @@ public class UITheme {
      * @param time    animation time
      */
     public static void drawTitle(Graphics2D g, String text, int width, int y, Color c1, Color c2, double time) {
-        Graphics2D g2 = (Graphics2D) g.create();
+        AffineTransform savedTx = g.getTransform();
+        Composite savedComp = g.getComposite();
+        Graphics2D g2 = g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         g2.setFont(FontPalette.TITLE_MEDIUM);
@@ -356,14 +394,17 @@ public class UITheme {
         // Spark/ember particles along the title
         drawTitleEmbers(g2, titleX, y, fm.stringWidth(text), time);
 
-        g2.dispose();
+        g.setTransform(savedTx);
+        g.setComposite(savedComp);
     }
 
     /**
      * Overload for larger or smaller title font.
      */
     public static void drawTitle(Graphics2D g, String text, int width, int y, Color c1, Color c2, double time, Font font) {
-        Graphics2D g2 = (Graphics2D) g.create();
+        AffineTransform savedTx = g.getTransform();
+        Composite savedComp = g.getComposite();
+        Graphics2D g2 = g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         g2.setFont(font);
@@ -391,7 +432,8 @@ public class UITheme {
         g2.setComposite(ColorPalette.ALPHA_FULL);
 
         drawTitleEmbers(g2, titleX, y, fm.stringWidth(text), time);
-        g2.dispose();
+        g.setTransform(savedTx);
+        g.setComposite(savedComp);
     }
 
     private static void drawTitleEmbers(Graphics2D g, int x, int y, int textWidth, double time) {
@@ -576,7 +618,10 @@ public class UITheme {
      * Draw a large angled rubber-stamp effect (MISSION FAILED / MISSION COMPLETE).
      */
     public static void drawStencilStamp(Graphics2D g, String text, int cx, int cy, Color color, double angle, double time) {
-        Graphics2D g2 = (Graphics2D) g.create();
+        AffineTransform savedTx = g.getTransform();
+        Shape savedClip = g.getClip();
+        Composite savedComp = g.getComposite();
+        Graphics2D g2 = g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         g2.translate(cx, cy);
@@ -609,14 +654,19 @@ public class UITheme {
         g2.drawString(text, tx + 2, ty + 1);
         g2.drawString(text, tx - 1, ty - 1);
 
-        g2.dispose();
+        g.setTransform(savedTx);
+        g.setClip(savedClip);
+        g.setComposite(savedComp);
     }
 
     /**
      * Overload that accepts a custom font and uses default angle/time.
      */
     public static void drawStencilStamp(Graphics2D g, String text, int cx, int cy, Color color, Font font) {
-        Graphics2D g2 = (Graphics2D) g.create();
+        AffineTransform savedTx = g.getTransform();
+        Shape savedClip = g.getClip();
+        Composite savedComp = g.getComposite();
+        Graphics2D g2 = g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         g2.translate(cx, cy);
@@ -645,7 +695,9 @@ public class UITheme {
         g2.drawString(text, tx + 2, ty + 1);
         g2.drawString(text, tx - 1, ty - 1);
 
-        g2.dispose();
+        g.setTransform(savedTx);
+        g.setClip(savedClip);
+        g.setComposite(savedComp);
     }
 
     // ─── WARNING LIGHTS ──────────────────────────────────────────────────
@@ -657,6 +709,7 @@ public class UITheme {
         double flicker = Math.sin(time * 8);
         if (flicker < 0) return; // off half the time
 
+        Composite savedComp = g.getComposite();
         int alpha = (int)(flicker * 60);
         g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1.0f, alpha / 255f)));
 
@@ -701,19 +754,25 @@ public class UITheme {
             ColorPalette.ACCENT_YELLOW
         };
 
+        Composite savedComp = g.getComposite();
+        Color savedColor = g.getColor();
+        AffineTransform savedTx = g.getTransform();
+
         for (int i = 0; i < count; i++) {
             double cx = confetti[i][0] + Math.sin(time * 0.5 + i) * 30;
             double cy = (confetti[i][1] + time * confetti[i][3]) % (height + 20) - 10;
             double rot = confetti[i][2] + time * 2;
             int colorIdx = (int) confetti[i][4];
 
-            Graphics2D g2 = (Graphics2D) g.create();
-            g2.translate(cx, cy);
-            g2.rotate(rot);
-            g2.setColor(colors[colorIdx]);
-            g2.fillRect(-4, -2, 8, 4);
-            g2.dispose();
+            g.translate(cx, cy);
+            g.rotate(rot);
+            g.setColor(colors[colorIdx]);
+            g.fillRect(-4, -2, 8, 4);
+            g.setTransform(savedTx);
         }
+
+        g.setComposite(savedComp);
+        g.setColor(savedColor);
     }
 
     // ─── MEDAL / RANK BADGE ──────────────────────────────────────────────
@@ -725,7 +784,9 @@ public class UITheme {
      * rotating rays, shine sweep, and ribbon banner.
      */
     public static void drawRankBadge(Graphics2D g, int cx, int cy, int radius, String rank, double time) {
-        Graphics2D g2 = (Graphics2D) g.create();
+        Font savedFont = g.getFont();
+        Color savedColor = g.getColor();
+        Graphics2D g2 = g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
@@ -970,7 +1031,8 @@ public class UITheme {
         g2.setColor(new Color(255, 255, 255, 230));
         g2.drawString(rankName, cx - rfm.stringWidth(rankName) / 2, ribbonY + ribbonH / 2 + rfm.getAscent() / 2 - 3);
 
-        g2.dispose();
+        g.setFont(savedFont);
+        g.setColor(savedColor);
     }
 
     // ─── JET SILHOUETTE ──────────────────────────────────────────────────

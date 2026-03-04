@@ -54,21 +54,22 @@ public class Flare {
         float currentGlow = glowRadius + pulse;
 
         Composite savedComposite = g.getComposite();
+        Stroke savedStroke = g.getStroke();
 
         // Outer glow halo
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.25f));
+        g.setComposite(RenderCache.getAlpha(0.25f));
         g.setColor(GLOW_OUTER);
         int outerSize = (int)(currentGlow * 1.8);
         g.fillOval((int)(x - outerSize), (int)(y - outerSize), outerSize * 2, outerSize * 2);
 
         // Inner glow halo
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.4f));
+        g.setComposite(RenderCache.getAlpha(0.4f));
         g.setColor(GLOW_INNER);
         int innerSize = (int)(currentGlow);
         g.fillOval((int)(x - innerSize), (int)(y - innerSize), innerSize * 2, innerSize * 2);
 
         // Core bright red circle (~4px radius)
-        g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
+        g.setComposite(RenderCache.ALPHA_FULL);
         g.setColor(CORE_COLOR);
         g.fillOval((int)(x - 4), (int)(y - 4), 8, 8);
 
@@ -80,16 +81,17 @@ public class Flare {
         double speed = Math.sqrt(vx * vx + vy * vy);
         if (speed > 0.1) {
             float trailAlpha = Math.max(0.1f, Math.min(1.0f, (float)(lifetime) / 180.0f));
-            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, trailAlpha * 0.7f));
+            g.setComposite(RenderCache.getAlpha(trailAlpha * 0.7f));
             g.setColor(SPARK_TRAIL);
             int trailLen = (int)(speed * 5);
             double invSpeed = 1.0 / speed;
             int tx = (int)(x - vx * invSpeed * trailLen);
             int ty = (int)(y - vy * invSpeed * trailLen);
-            g.setStroke(new BasicStroke(2f));
+            g.setStroke(RenderCache.STROKE_2);
             g.drawLine((int)x, (int)y, tx, ty);
         }
 
+        g.setStroke(savedStroke);
         g.setComposite(savedComposite);
     }
 

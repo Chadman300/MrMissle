@@ -3,6 +3,8 @@ CameComp.jar
 
 # Build outputs
 bin/
+build/output/
+%DEST%/
 
 # IDE files
 .vscode/

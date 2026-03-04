@@ -46,10 +46,13 @@ public class ShadowCache {
     }
     
     /**
-     * Clear the entire shadow cache.
-     * Call when sprites are reloaded or on major state transitions.
+     * Clear the entire shadow cache, flushing all cached images to release
+     * native memory. Call on major state transitions (level start, return to menu).
      */
     public static void clear() {
+        for (BufferedImage shadow : cache.values()) {
+            if (shadow != null) shadow.flush();
+        }
         cache.clear();
     }
     

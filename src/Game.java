@@ -4209,6 +4209,9 @@ public class Game extends JPanel implements Runnable {
         // Clear all key states to prevent stuck movement from menu navigation
         java.util.Arrays.fill(keys, false);
         
+        // Release cached shadow images from previous level to free memory
+        ShadowCache.clear();
+        
         int speedLevel = getActiveSpeedLevel();
         player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         bullets.clear();

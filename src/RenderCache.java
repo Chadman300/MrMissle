@@ -78,12 +78,14 @@ public final class RenderCache {
 
     // ── Cached common colors that are used per-frame in many places ────────
     public static final Color BLACK_0   = new Color(0, 0, 0, 0);     // fully transparent
+    public static final Color BLACK_80  = new Color(0, 0, 0, 80);
     public static final Color BLACK_100 = new Color(0, 0, 0, 100);
     public static final Color BLACK_120 = new Color(0, 0, 0, 120);
     public static final Color BLACK_140 = new Color(0, 0, 0, 140);
     public static final Color BLACK_150 = new Color(0, 0, 0, 150);
     public static final Color BLACK_180 = new Color(0, 0, 0, 180);
     public static final Color BLACK_200 = new Color(0, 0, 0, 200);
+    public static final Color WARNING_RED = new Color(255, 30, 30);
     public static final Color ICE_BLUE = new Color(136, 192, 208);
     public static final Color ICY_WHITE = new Color(200, 235, 255);
     public static final Color GREEN_TRACK = new Color(180, 255, 180);
