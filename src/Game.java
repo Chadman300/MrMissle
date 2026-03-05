@@ -3524,9 +3524,9 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            // Floating "-1" damage number so player clearly sees missile loss
+            // Floating "-1" damage number so player clearly sees missile loss (fancy announcement style)
             damageNumbers.add(new DamageNumber("-1", deathExplosionX, deathExplosionY - 30,
-                new Color(255, 60, 60), 48));
+                new Color(255, 60, 60), 56, true));
             
             // Don't end the game - continue playing
             return;
