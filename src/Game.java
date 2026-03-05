@@ -680,6 +680,20 @@ public class Game extends JPanel implements Runnable {
     private int pendingSaveSlot = -1; // Slot waiting for mode selection (-1 = none)
     private int selectedGameModeIndex = 1; // 0=EASY, 1=HARD, 2=MASTER (default to HARD)
     
+    // Save name input
+    private StringBuilder saveNameInput = new StringBuilder("New Game");
+    private int saveNameCursorPos = 0; // Cursor position in the name string
+    private int saveNameCursorBlink = 0; // Blink timer for cursor
+    private int onScreenKbRow = 0; // On-screen keyboard row (0-3)
+    private int onScreenKbCol = 0; // On-screen keyboard column (0-9)
+    private static final String[] ON_SCREEN_KB_ROWS = {
+        "ABCDEFGHIJ",
+        "KLMNOPQRST",
+        "UVWXYZ0123",
+        "456789 \u2190\u23CE"  // space, backspace (←), confirm (⏎)
+    };
+    private static final int MAX_SAVE_NAME_LENGTH = 20;
+    
     public Game() {
         instance = this;
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -862,6 +876,21 @@ public class Game extends JPanel implements Runnable {
                     deleteConfirmTimer = 0;
                 }
             }
+            
+            @Override
+            public void keyTyped(KeyEvent e) {
+                if (gameState == GameState.NAME_INPUT) {
+                    char c = e.getKeyChar();
+                    // Allow printable characters (letters, digits, spaces, basic punctuation)
+                    if (c >= 32 && c < 127 && c != '\n' && c != '\r') {
+                        if (saveNameInput.length() < MAX_SAVE_NAME_LENGTH) {
+                            saveNameInput.insert(saveNameCursorPos, c);
+                            saveNameCursorPos++;
+                            saveNameCursorBlink = 0;
+                        }
+                    }
+                }
+            }
         });
         
         // Add mouse listeners for UI navigation
@@ -1008,6 +1037,7 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            gameData.setCustomSaveName(meta.saveName);
                             if (renderer != null) renderer.hudLayout = hudLayout;
                             hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
@@ -1078,26 +1108,15 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                    // Create the save with the selected game mode
-                    GameMode[] modes = GameMode.values();
-                    GameMode chosenMode = modes[selectedGameModeIndex];
-                    SaveData newSave = new SaveData();
-                    newSave.saveName = "Save " + pendingSaveSlot;
-                    newSave.gameMode = chosenMode;
-                    if (saveManager.save(pendingSaveSlot, newSave)) {
-                        newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                        soundManager.setMasterVolume(gameData.getMasterVolume());
-                        soundManager.setSfxVolume(gameData.getSfxVolume());
-                        soundManager.setUiVolume(gameData.getUiVolume());
-                        soundManager.setMusicVolume(gameData.getMusicVolume());
-                        soundManager.setSoundEnabled(gameData.isSoundEnabled());
-                        soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
-                        hasSavedGame = false;
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
-                        screenShakeIntensity = 5;
-                        transitionToState(GameState.MENU);
-                    }
-                    pendingSaveSlot = -1;
+                    // Go to name input screen
+                    saveNameInput = new StringBuilder("Save " + pendingSaveSlot);
+                    saveNameCursorPos = saveNameInput.length();
+                    saveNameCursorBlink = 0;
+                    onScreenKbRow = 0;
+                    onScreenKbCol = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                    transitionToState(GameState.NAME_INPUT);
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
                     // Go back to save select
@@ -1105,6 +1124,48 @@ public class Game extends JPanel implements Runnable {
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
                     screenShakeIntensity = 3;
                     transitionToState(GameState.SAVE_SELECT);
+                }
+                break;
+                
+            case NAME_INPUT:
+                if (key == KeyEvent.VK_ENTER) {
+                    // Confirm the name and create the save
+                    confirmSaveName();
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    // Go back to mode select
+                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    screenShakeIntensity = 3;
+                    transitionToState(GameState.MODE_SELECT);
+                } else if (key == KeyEvent.VK_BACK_SPACE) {
+                    // Delete character before cursor
+                    if (saveNameCursorPos > 0) {
+                        saveNameInput.deleteCharAt(saveNameCursorPos - 1);
+                        saveNameCursorPos--;
+                        saveNameCursorBlink = 0;
+                    }
+                } else if (key == KeyEvent.VK_DELETE) {
+                    // Delete character at cursor
+                    if (saveNameCursorPos < saveNameInput.length()) {
+                        saveNameInput.deleteCharAt(saveNameCursorPos);
+                        saveNameCursorBlink = 0;
+                    }
+                } else if (key == KeyEvent.VK_LEFT) {
+                    if (saveNameCursorPos > 0) {
+                        saveNameCursorPos--;
+                        saveNameCursorBlink = 0;
+                    }
+                } else if (key == KeyEvent.VK_RIGHT) {
+                    if (saveNameCursorPos < saveNameInput.length()) {
+                        saveNameCursorPos++;
+                        saveNameCursorBlink = 0;
+                    }
+                } else if (key == KeyEvent.VK_UP) {
+                    // Navigate on-screen keyboard
+                    onScreenKbRow = Math.max(0, onScreenKbRow - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                } else if (key == KeyEvent.VK_DOWN) {
+                    onScreenKbRow = Math.min(ON_SCREEN_KB_ROWS.length - 1, onScreenKbRow + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                 }
                 break;
                 
@@ -2136,6 +2197,59 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    private void pressOnScreenKey() {
+        String row = ON_SCREEN_KB_ROWS[onScreenKbRow];
+        if (onScreenKbCol < row.length()) {
+            char selectedChar = row.charAt(onScreenKbCol);
+            if (selectedChar == '\u23CE') {
+                confirmSaveName();
+            } else if (selectedChar == '\u2190') {
+                // Backspace
+                if (saveNameCursorPos > 0) {
+                    saveNameInput.deleteCharAt(saveNameCursorPos - 1);
+                    saveNameCursorPos--;
+                    saveNameCursorBlink = 0;
+                }
+            } else {
+                // Type the character
+                if (saveNameInput.length() < MAX_SAVE_NAME_LENGTH) {
+                    saveNameInput.insert(saveNameCursorPos, selectedChar);
+                    saveNameCursorPos++;
+                    saveNameCursorBlink = 0;
+                }
+            }
+            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+        }
+    }
+    
+    private void confirmSaveName() {
+        String name = saveNameInput.toString().trim();
+        if (name.isEmpty()) {
+            name = "Save " + pendingSaveSlot;
+        }
+        
+        GameMode[] modes = GameMode.values();
+        GameMode chosenMode = modes[selectedGameModeIndex];
+        SaveData newSave = new SaveData();
+        newSave.saveName = name;
+        newSave.gameMode = chosenMode;
+        if (saveManager.save(pendingSaveSlot, newSave)) {
+            newSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+            gameData.setCustomSaveName(name);
+            soundManager.setMasterVolume(gameData.getMasterVolume());
+            soundManager.setSfxVolume(gameData.getSfxVolume());
+            soundManager.setUiVolume(gameData.getUiVolume());
+            soundManager.setMusicVolume(gameData.getMusicVolume());
+            soundManager.setSoundEnabled(gameData.isSoundEnabled());
+            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
+            hasSavedGame = false;
+            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+            screenShakeIntensity = 5;
+            transitionToState(GameState.MENU);
+        }
+        pendingSaveSlot = -1;
+    }
+    
     private void confirmRiskContract() {
         riskContractType = selectedRiskContract;
         riskContractActive = selectedRiskContract > 0;
@@ -2538,6 +2652,7 @@ public class Game extends JPanel implements Runnable {
                         SaveData saveData = saveManager.load(slot);
                         if (saveData != null) {
                             saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+                            gameData.setCustomSaveName(meta.saveName);
                             if (renderer != null) renderer.hudLayout = hudLayout;
                             hasSavedGame = saveData.hasSavedGame();
                             savedLevel = saveData.getSavedLevel();
@@ -3698,8 +3813,11 @@ public class Game extends JPanel implements Runnable {
         }
         
         try {
+            // Preserve custom save name if one exists, otherwise use default
+            String saveName = gameData.getCustomSaveName() != null ? 
+                gameData.getCustomSaveName() : "Save " + saveManager.getCurrentSaveSlot();
             SaveData saveData = SaveData.fromGameData(gameData, achievementManager, 
-                passiveUpgradeManager, "Save " + saveManager.getCurrentSaveSlot());
+                passiveUpgradeManager, saveName);
             
             // Include full resume state in save for cross-session resume
             saveData.setResumeState(hasSavedGame, savedLevel, savedResumeState);
@@ -4411,6 +4529,11 @@ public class Game extends JPanel implements Runnable {
                 update(deltaTime);
                 gradientTime += 0.02; // Animate gradient (1 tick = 1 unit)
                 if (renderer != null) renderer.advanceParallaxScroll(); // Advance BG scroll at fixed 60Hz
+                
+                // Blink cursor for save name input
+                if (gameState == GameState.NAME_INPUT) {
+                    saveNameCursorBlink++;
+                }
                 
                 // Update escape timer
                 if (escapeTimer > 0) {
@@ -7436,6 +7559,10 @@ public class Game extends JPanel implements Runnable {
             case MODE_SELECT:
                 renderer.drawModeSelect(g2d, WIDTH, HEIGHT, gradientTime, selectedGameModeIndex);
                 break;
+            case NAME_INPUT:
+                renderer.drawNameInput(g2d, WIDTH, HEIGHT, gradientTime, saveNameInput.toString(), 
+                    saveNameCursorPos, saveNameCursorBlink, onScreenKbRow, onScreenKbCol, ON_SCREEN_KB_ROWS);
+                break;
             case MENU:
                 renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem, saveManager.getCurrentSaveSlot(), gameData.getGameMode());
                 break;
@@ -8164,6 +8291,28 @@ public class Game extends JPanel implements Runnable {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
                 } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
+                }
+                break;
+                
+            case NAME_INPUT:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT)) {
+                    // Move on-screen keyboard cursor left
+                    onScreenKbCol = Math.max(0, onScreenKbCol - 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                    // Move on-screen keyboard cursor right
+                    String row = ON_SCREEN_KB_ROWS[onScreenKbRow];
+                    onScreenKbCol = Math.min(row.length() - 1, onScreenKbCol + 1);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    // Press selected on-screen key directly
+                    pressOnScreenKey();
                 } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
                 }

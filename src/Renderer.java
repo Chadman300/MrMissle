@@ -1772,6 +1772,114 @@ public class Renderer {
     }
 
     
+    public void drawNameInput(Graphics2D g, int width, int height, double time,
+                              String currentName, int cursorPos, int cursorBlink,
+                              int kbRow, int kbCol, String[] kbRows) {
+        // Background
+        UITheme.drawScreenBackground(g, width, height, time);
+        
+        // Title
+        UITheme.drawTitle(g, "NAME YOUR SAVE", width, UIScale.px(80), 
+            ColorPalette.ACCENT_YELLOW, ColorPalette.ACCENT_ORANGE, time);
+        
+        // Subtitle
+        g.setFont(FONT_MEDIUM);
+        g.setColor(new Color(ColorPalette.TEXT_PRIMARY.getRed(), 
+            ColorPalette.TEXT_PRIMARY.getGreen(), ColorPalette.TEXT_PRIMARY.getBlue(), 180));
+        String subtitle = "Type a name or use the on-screen keyboard";
+        FontMetrics fmSub = g.getFontMetrics();
+        g.drawString(subtitle, (width - fmSub.stringWidth(subtitle)) / 2, UIScale.px(120));
+        
+        // --- Name input field ---
+        int fieldW = UIScale.px(500);
+        int fieldH = UIScale.px(50);
+        int fieldX = (width - fieldW) / 2;
+        int fieldY = UIScale.px(155);
+        
+        // Field background
+        g.setColor(new Color(0, 0, 0, 160));
+        g.fillRoundRect(fieldX, fieldY, fieldW, fieldH, UIScale.px(8), UIScale.px(8));
+        g.setColor(ColorPalette.ACCENT_YELLOW);
+        g.setStroke(new BasicStroke(2));
+        g.drawRoundRect(fieldX, fieldY, fieldW, fieldH, UIScale.px(8), UIScale.px(8));
+        g.setStroke(new BasicStroke(1));
+        
+        // Name text
+        g.setFont(FONT_LARGE);
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+        FontMetrics fmName = g.getFontMetrics();
+        int textX = fieldX + UIScale.px(15);
+        int textY = fieldY + (fieldH + fmName.getAscent() - fmName.getDescent()) / 2;
+        g.drawString(currentName, textX, textY);
+        
+        // Blinking cursor
+        if ((cursorBlink / 30) % 2 == 0) {
+            String beforeCursor = currentName.substring(0, cursorPos);
+            int cursorX = textX + fmName.stringWidth(beforeCursor);
+            g.setColor(ColorPalette.ACCENT_YELLOW);
+            g.fillRect(cursorX, fieldY + UIScale.px(8), 2, fieldH - UIScale.px(16));
+        }
+        
+        // Character count
+        g.setFont(FONT_SMALL);
+        g.setColor(new Color(180, 180, 180));
+        String charCount = currentName.length() + "/20";
+        FontMetrics fmSmall = g.getFontMetrics();
+        g.drawString(charCount, fieldX + fieldW - fmSmall.stringWidth(charCount) - UIScale.px(10), 
+            fieldY + fieldH + UIScale.px(18));
+        
+        // --- On-screen keyboard ---
+        int kbStartY = UIScale.px(260);
+        int keySize = UIScale.px(42);
+        int keyGap = UIScale.px(6);
+        
+        for (int r = 0; r < kbRows.length; r++) {
+            String row = kbRows[r];
+            int rowWidth = row.length() * (keySize + keyGap) - keyGap;
+            int rowX = (width - rowWidth) / 2;
+            
+            for (int c = 0; c < row.length(); c++) {
+                char ch = row.charAt(c);
+                int kx = rowX + c * (keySize + keyGap);
+                int ky = kbStartY + r * (keySize + keyGap);
+                
+                boolean isHighlighted = (r == kbRow && c == kbCol);
+                
+                // Key background
+                if (isHighlighted) {
+                    g.setColor(ColorPalette.ACCENT_YELLOW);
+                } else {
+                    g.setColor(new Color(60, 60, 80, 200));
+                }
+                g.fillRoundRect(kx, ky, keySize, keySize, UIScale.px(6), UIScale.px(6));
+                
+                // Key border
+                g.setColor(isHighlighted ? ColorPalette.ACCENT_ORANGE : new Color(100, 100, 120));
+                g.drawRoundRect(kx, ky, keySize, keySize, UIScale.px(6), UIScale.px(6));
+                
+                // Key label
+                g.setColor(isHighlighted ? Color.BLACK : ColorPalette.TEXT_PRIMARY);
+                String label = String.valueOf(ch);
+                if (ch == '\u2190') label = "DEL";
+                if (ch == '\u23CE') label = "OK";
+                if (ch == ' ') label = "SPC";
+                // Use smaller font for multi-character labels to prevent overflow
+                g.setFont(label.length() > 1 ? FONT_SMALL : FONT_MEDIUM_BOLD);
+                FontMetrics fmKey = g.getFontMetrics();
+                int lx = kx + (keySize - fmKey.stringWidth(label)) / 2;
+                int ly = ky + (keySize + fmKey.getAscent() - fmKey.getDescent()) / 2;
+                g.drawString(label, lx, ly);
+            }
+        }
+        
+        // Controls hint
+        g.setFont(FONT_SMALL);
+        g.setColor(new Color(ColorPalette.TEXT_DIM.getRed(), 
+            ColorPalette.TEXT_DIM.getGreen(), ColorPalette.TEXT_DIM.getBlue(), 160));
+        String hint = "[ENTER] Confirm  |  [ESC] Back  |  [BACKSPACE] Delete";
+        FontMetrics fmHint = g.getFontMetrics();
+        g.drawString(hint, (width - fmHint.stringWidth(hint)) / 2, height - UIScale.px(30));
+    }
 
     /**
      * Wraps text into multiple lines that fit within the given pixel width.

@@ -80,6 +80,9 @@ public class GameData {
     
     // Passive upgrade unlock introductions that have been seen
     private java.util.List<String> seenPassiveUnlocks;
+    
+    // Custom save name (set when player names their save)
+    private String customSaveName = null;
 
     public GameData() {
         score = 0;
@@ -524,4 +527,8 @@ public class GameData {
     public void clearSeenPassiveUnlocks() {
         if (seenPassiveUnlocks != null) seenPassiveUnlocks.clear();
     }
+    
+    // Custom save name accessors
+    public String getCustomSaveName() { return customSaveName; }
+    public void setCustomSaveName(String name) { this.customSaveName = name; }
 }

@@ -33,6 +33,9 @@ public enum GameState {
     /** Game mode selection - choose Easy/Hard/Master when creating a new save */
     MODE_SELECT,
     
+    /** Save name input - on-screen keyboard for naming a new save file */
+    NAME_INPUT,
+    
     /** Main menu - first screen shown on launch */
     MENU,
     
