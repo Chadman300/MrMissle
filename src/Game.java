@@ -2459,7 +2459,7 @@ public class Game extends JPanel implements Runnable {
             int cardWidth = 700;
             int cardHeight = 130;
             int cardX = (WIDTH - cardWidth) / 2;
-            int modeStartY = 180;
+            int modeStartY = 205;
             int cardSpacing = 150;
             
             for (int i = 0; i < GameMode.values().length; i++) {
@@ -2599,11 +2599,11 @@ public class Game extends JPanel implements Runnable {
         
         if (gameState == GameState.SAVE_SELECT) {
             // Check if clicking on save slots
-            int slotWidth = 800;
-            int slotHeight = 160;
+            int slotWidth = WIDTH * 2 / 3;
+            int slotHeight = 200;
             int slotX = (WIDTH - slotWidth) / 2;
             int startY = 200;
-            int slotSpacing = 180;
+            int slotSpacing = 230;
             int totalEntries = saveMetadataCache.size() + 1; // existing saves + "New Save"
             
             for (int i = 0; i < totalEntries; i++) {
@@ -2673,12 +2673,36 @@ public class Game extends JPanel implements Runnable {
                     break;
                 }
             }
+        } else if (gameState == GameState.NAME_INPUT) {
+            // Check if clicking on on-screen keyboard keys
+            int kbStartY = UIScale.px(260);
+            int keySize = UIScale.px(42);
+            int keyGap = UIScale.px(6);
+            
+            for (int r = 0; r < ON_SCREEN_KB_ROWS.length; r++) {
+                String row = ON_SCREEN_KB_ROWS[r];
+                int rowWidth = row.length() * (keySize + keyGap) - keyGap;
+                int rowX = (WIDTH - rowWidth) / 2;
+                
+                for (int c = 0; c < row.length(); c++) {
+                    int kx = rowX + c * (keySize + keyGap);
+                    int ky = kbStartY + r * (keySize + keyGap);
+                    
+                    if (mouseX >= kx && mouseX <= kx + keySize &&
+                        mouseY >= ky && mouseY <= ky + keySize) {
+                        onScreenKbRow = r;
+                        onScreenKbCol = c;
+                        pressOnScreenKey();
+                        return;
+                    }
+                }
+            }
         } else if (gameState == GameState.MODE_SELECT) {
             // Check if clicking on mode cards
             int cardWidth = 700;
             int cardHeight = 130;
             int cardX = (WIDTH - cardWidth) / 2;
-            int startY = 180;
+            int startY = 500;
             int cardSpacing = 150;
             
             for (int i = 0; i < GameMode.values().length; i++) {
@@ -3845,8 +3869,8 @@ public class Game extends JPanel implements Runnable {
      */
     private void ensureSaveSlotVisible() {
         int startY = 200;
-        int slotSpacing = 180;
-        int slotHeight = 160;
+        int slotSpacing = 230;
+        int slotHeight = 200;
         int slotTop = startY + selectedSaveSlot * slotSpacing;
         int slotBottom = slotTop + slotHeight;
         

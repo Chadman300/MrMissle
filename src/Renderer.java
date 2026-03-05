@@ -1017,15 +1017,15 @@ public class Renderer {
         // Draw save slots with scroll
         FontMetrics fm;
 
-        int slotWidth = UIScale.px(800);
+        int slotWidth = width * 2 / 3;
 
-        int slotHeight = UIScale.px(160);
+        int slotHeight = UIScale.px(200);
 
         int slotX = (width - slotWidth) / 2;
 
         int startY = UIScale.px(200);
 
-        int slotSpacing = UIScale.px(180);
+        int slotSpacing = UIScale.px(230);
 
         int totalEntries = saveMetadata.size() + 1; // existing saves + "New Save" button
 
@@ -1113,13 +1113,13 @@ public class Renderer {
 
                 
 
-                // Slot number
+                // Save name as title
 
                 g.setFont(FONT_LARGE);
 
                 g.setColor(ColorPalette.TEXT_GOLD);
 
-                String slotNum = "SAVE " + meta.slotNumber;
+                String slotNum = meta.saveName;
 
                 g.drawString(slotNum, slotX + UIScale.px(20), slotY + UIScale.px(35));
 
@@ -1139,7 +1139,7 @@ public class Renderer {
 
                     int modeX = slotX + UIScale.px(20) + g.getFontMetrics(FONT_LARGE).stringWidth(slotNum) + UIScale.px(15);
 
-                    int modeY = slotY + UIScale.px(35);
+                    int modeY = slotY + UIScale.px(30);
 
                     // Mode badge background pill
 
@@ -1173,37 +1173,101 @@ public class Renderer {
 
                 
 
-                // Save name
-
-                g.setFont(FONT_MEDIUM_BOLD);
-
-                g.setColor(Color.WHITE);
-
-                g.drawString(meta.saveName, slotX + UIScale.px(20), slotY + UIScale.px(65));
-
-                
-
-                // Stats line 1
-
+                // Stats line - money (gold) and level (green)
                 g.setFont(FONT_SMALL);
+                FontMetrics statsFm = g.getFontMetrics();
+                int statsX = slotX + UIScale.px(20);
+                int statsY = slotY + UIScale.px(58);
 
+                // Money in gold
+                String moneyStr = "$" + meta.totalMoney;
+                g.setColor(ColorPalette.TEXT_GOLD);
+                g.drawString(moneyStr, statsX, statsY);
+                statsX += statsFm.stringWidth(moneyStr);
+
+                // Separator
                 g.setColor(ColorPalette.TEXT_PRIMARY);
+                String sep1 = "  |  ";
+                g.drawString(sep1, statsX, statsY);
+                statsX += statsFm.stringWidth(sep1);
 
-                String stats1 = String.format("Max Level: %d  |  Money: $%d", meta.maxLevel, meta.totalMoney);
+                // Level in green
+                String levelStr = "Level " + meta.maxLevel;
+                g.setColor(ColorPalette.SUCCESS_GREEN);
+                g.drawString(levelStr, statsX, statsY);
+                statsX += statsFm.stringWidth(levelStr);
 
-                g.drawString(stats1, slotX + UIScale.px(20), slotY + UIScale.px(90));
+                // Separator
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                String sep2 = "  |  ";
+                g.drawString(sep2, statsX, statsY);
+                statsX += statsFm.stringWidth(sep2);
+
+                // Runs in default
+                String runsStr = meta.totalRuns + " Runs";
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                g.drawString(runsStr, statsX, statsY);
 
                 
 
-                // Stats line 2
-
-                String stats2 = String.format("Runs: %d  |  Best Run: Level %d  |  Bosses: %d", 
-
-                    meta.totalRuns, meta.bestRunLevel, meta.totalBosses);
-
-                g.drawString(stats2, slotX + UIScale.px(20), slotY + UIScale.px(110));
-
+                // Completion progress bar - gradient from red to green
+                int totalGameLevels = 28;
+                float completionPct = Math.min(1.0f, (float) meta.maxLevel / totalGameLevels);
+                int pBarX = slotX + UIScale.px(20);
+                int pBarY = slotY + UIScale.px(72);
+                int pBarW = slotWidth - UIScale.px(150);
+                int pBarH = UIScale.px(16);
                 
+                // Bar background
+                g.setColor(new Color(30, 30, 40, 180));
+                g.fillRoundRect(pBarX, pBarY, pBarW, pBarH, UIScale.px(5), UIScale.px(5));
+                
+                // Bar fill with smooth color gradient based on completion
+                if (completionPct > 0) {
+                    int fillW = Math.max(UIScale.px(5), (int)(pBarW * completionPct));
+                    // Smooth gradient: red(0%) -> orange(25%) -> yellow(50%) -> green(100%)
+                    Color startColor, endColor;
+                    float localT;
+                    if (completionPct < 0.25f) {
+                        startColor = new Color(220, 50, 50);
+                        endColor = new Color(255, 140, 0);
+                        localT = completionPct / 0.25f;
+                    } else if (completionPct < 0.5f) {
+                        startColor = new Color(255, 140, 0);
+                        endColor = new Color(255, 220, 0);
+                        localT = (completionPct - 0.25f) / 0.25f;
+                    } else if (completionPct < 0.75f) {
+                        startColor = new Color(255, 220, 0);
+                        endColor = new Color(100, 220, 50);
+                        localT = (completionPct - 0.5f) / 0.25f;
+                    } else {
+                        startColor = new Color(100, 220, 50);
+                        endColor = new Color(50, 200, 80);
+                        localT = (completionPct - 0.75f) / 0.25f;
+                    }
+                    int r = (int)(startColor.getRed() + (endColor.getRed() - startColor.getRed()) * localT);
+                    int gr = (int)(startColor.getGreen() + (endColor.getGreen() - startColor.getGreen()) * localT);
+                    int b = (int)(startColor.getBlue() + (endColor.getBlue() - startColor.getBlue()) * localT);
+                    g.setColor(new Color(Math.min(255, Math.max(0, r)), Math.min(255, Math.max(0, gr)), Math.min(255, Math.max(0, b))));
+                    g.fillRoundRect(pBarX, pBarY, fillW, pBarH, UIScale.px(5), UIScale.px(5));
+                }
+                
+                // Bar border
+                g.setColor(isSelected ? ColorPalette.ACCENT_ORANGE : ColorPalette.BORDER_STEEL);
+                g.setStroke(RenderCache.getStroke(1f));
+                g.drawRoundRect(pBarX, pBarY, pBarW, pBarH, UIScale.px(5), UIScale.px(5));
+                
+                // Percentage label
+                g.setFont(FONT_TINY);
+                String pctText = String.format("%d%%", (int)(completionPct * 100));
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                g.drawString(pctText, pBarX + pBarW + UIScale.px(8), pBarY + pBarH - UIScale.px(2));
+
+                // Stats line 2 - Best run / Bosses
+                g.setFont(FONT_SMALL);
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                String stats2 = String.format("Best Run: Level %d  |  Bosses Defeated: %d", meta.bestRunLevel, meta.totalBosses);
+                g.drawString(stats2, slotX + UIScale.px(20), slotY + UIScale.px(140));
 
                 // Created date (left) and Last saved date (right)
 
@@ -1213,7 +1277,7 @@ public class Renderer {
 
                 String createdText = "Created: " + meta.getFormattedCreationDate();
 
-                g.drawString(createdText, slotX + UIScale.px(20), slotY + UIScale.px(130));
+                g.drawString(createdText, slotX + UIScale.px(20), slotY + UIScale.px(170));
 
                 
 
@@ -1223,7 +1287,7 @@ public class Renderer {
 
                 FontMetrics dateFm = g.getFontMetrics();
 
-                g.drawString(dateText, slotX + slotWidth - UIScale.px(20) - dateFm.stringWidth(dateText), slotY + UIScale.px(130));
+                g.drawString(dateText, slotX + slotWidth - UIScale.px(20) - dateFm.stringWidth(dateText), slotY + UIScale.px(170));
 
                 
 
@@ -1279,7 +1343,7 @@ public class Renderer {
 
                 
 
-                // Delete confirmation if deleting this slot
+                // Delete confirmation - transparent red overlay sweeping across the card
 
                 if (isSelected && deletingSlot) {
 
@@ -1287,41 +1351,25 @@ public class Renderer {
 
                     
 
-                    // Delete progress bar - positioned below the delete button
+                    // Red overlay that spans across the card as you hold delete
+                    int overlayW = (int)(slotWidth * progress);
+                    if (overlayW > 0) {
+                        Shape overlayClip = UITheme.createChamferedRect(slotX, slotY, slotWidth, slotHeight, 10);
+                        Shape prevClip = g.getClip();
+                        g.setClip(overlayClip);
+                        g.setColor(new Color(255, 30, 30, 80));
+                        g.fillRect(slotX, slotY, overlayW, slotHeight);
+                        g.setClip(prevClip);
+                    }
 
-                    int barX = slotX + UIScale.px(20);
-
-                    int barY = slotY + slotHeight - UIScale.px(25);
-
-                    int barWidth = slotWidth - UIScale.px(40);
-
-                    int barHeight = UIScale.px(12);
-
-                    
-
-                    g.setColor(new Color(ColorPalette.ACCENT_RED.getRed(), ColorPalette.ACCENT_RED.getGreen(), ColorPalette.ACCENT_RED.getBlue(), 100));
-
-                    g.fillRoundRect(barX, barY, barWidth, barHeight, 6, 6);
-
-                    
-
-                    g.setColor(ColorPalette.ACCENT_RED);
-
-                    g.fillRoundRect(barX, barY, (int)(barWidth * progress), barHeight, 6, 6);
-
-                    
-
-                    // Delete text
-
-                    g.setFont(FONT_TINY);
-
-                    boolean ctrlMode = Game.keyBindManager != null && Game.keyBindManager.isControllerMode();
-
-                    String deleteText = ctrlMode ? "HOLD X..." : "HOLD DELETE...";
-
+                    // "DELETE" text centered on card, semi-transparent
+                    g.setFont(FONT_LARGE);
+                    String deleteLabel = "DELETE";
                     fm = g.getFontMetrics();
-
-                    g.drawString(deleteText, barX + (barWidth - fm.stringWidth(deleteText)) / 2, barY - 5);
+                    int dlX = slotX + (slotWidth - fm.stringWidth(deleteLabel)) / 2;
+                    int dlY = slotY + (slotHeight + fm.getAscent() - fm.getDescent()) / 2;
+                    g.setColor(new Color(255, 50, 50, 140));
+                    g.drawString(deleteLabel, dlX, dlY);
 
                 }
 
@@ -1511,7 +1559,7 @@ public class Renderer {
 
         int cardX = (width - cardWidth) / 2;
 
-        int startY = UIScale.px(180);
+        int startY = UIScale.px(205);
 
         int cardGap = UIScale.px(20);
 
