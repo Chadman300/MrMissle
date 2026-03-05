@@ -95,9 +95,6 @@ public class App {
                 }
             });
             
-            // Loading expand will detect current monitor dynamically
-            game.setLoadingExpandBounds(screenBounds);
-            
             frame.setVisible(true);
             game.start();
         });

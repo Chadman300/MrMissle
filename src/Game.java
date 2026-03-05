@@ -8683,17 +8683,20 @@ public class Game extends JPanel implements Runnable {
         int smoothProgress = (int)displayedLoadingProgress;
         double time = gradientTime;
         
-        // Expand window to fullscreen at 55% loaded
-        if (!loadingExpanded && smoothProgress >= 55 && loadingExpandBounds != null) {
+        // Expand window to fullscreen at 55% loaded — detect current monitor dynamically
+        if (!loadingExpanded && smoothProgress >= 55) {
             loadingExpanded = true;
             isFullscreen = true;
             java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
             if (window instanceof javax.swing.JFrame) {
                 javax.swing.JFrame frame = (javax.swing.JFrame) window;
+                // Detect which monitor the window is currently on
+                java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
+                java.awt.Rectangle currentScreenBounds = gc.getBounds();
                 // Switch from decorated (windowed) to undecorated (fullscreen)
                 frame.dispose();
                 frame.setUndecorated(true);
-                frame.setBounds(loadingExpandBounds);
+                frame.setBounds(currentScreenBounds);
                 frame.setVisible(true);
                 this.requestFocusInWindow();
             }
