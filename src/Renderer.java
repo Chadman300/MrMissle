@@ -7612,7 +7612,7 @@ public class Renderer {
             int panelW = Math.min(width - 60, 500);
             int panelH = 90;
             int panelX = (width - panelW) / 2 + shakeX;
-            int panelY = height / 2 - panelH / 2 - 10 + shakeY;
+            int panelY = height / 2 - panelH / 2 - 3 + shakeY;
 
             // Outer glow
             for (int gl = 3; gl >= 1; gl--) {
