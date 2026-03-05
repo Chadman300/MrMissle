@@ -5,8 +5,6 @@ import config.UIScale;
 import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
@@ -82,12 +80,12 @@ public class Renderer {
 
     private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
 
-    // Parallax speeds for each layer (furthest to closest) — static to avoid per-frame allocation
+    // Parallax speeds for each layer (furthest to closest) â€” static to avoid per-frame allocation
     private static final double[] PARALLAX_SPEEDS = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
 
     
 
-    // Async background rendering — renders parallax on worker thread while game thread sleeps
+    // Async background rendering â€” renders parallax on worker thread while game thread sleeps
     private BufferedImage bgBuffer;               // Off-screen buffer for background
     private volatile boolean bgBufferReady;        // True when bgBuffer has valid content
     private volatile int bgBufferLevel = -1;       // Level the buffer was rendered for
@@ -102,29 +100,11 @@ public class Renderer {
 
 
 
-    // VFX sprite sheets for cinematic intro
-
-    private BufferedImage[][] vfxFrames = null;
-
-    private boolean vfxLoaded = false;
-
-    private static final int VFX_FRAME_H = 64;
-
-    private static final String[] VFX_FILES = {
-
-        "652", "653", "654", "655", "662", "663", "664", "665", "672", "673", "674", "675"
-
-    };
-
-    private double[][] introStars = null;
-    private BufferedImage introBuf = null;
-    private int introBufW, introBufH;
-
     // Pre-cached rotated+scaled plane sprites for level select (avoids per-frame AffineTransform rotation)
-    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180°-rotated & scaled BufferedImage
+    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180Â°-rotated & scaled BufferedImage
     private static final java.util.HashMap<Long, BufferedImage> planeSpriteCache = new java.util.HashMap<>();
 
-    /** Get a pre-rotated (180°) and scaled plane sprite for the level select screen. */
+    /** Get a pre-rotated (180Â°) and scaled plane sprite for the level select screen. */
     private static BufferedImage getCachedPlaneSprite(BufferedImage source, int level, int targetW, int targetH) {
         long key = ((long)level << 32) | ((long)targetW << 16) | (targetH & 0xFFFFL);
         BufferedImage cached = planeSpriteCache.get(key);
@@ -132,7 +112,7 @@ public class Renderer {
             cached = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
             Graphics2D cg = cached.createGraphics();
             cg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            // Rotate 180° around center, then draw scaled
+            // Rotate 180Â° around center, then draw scaled
             cg.translate(targetW / 2.0, targetH / 2.0);
             cg.rotate(Math.PI);
             cg.drawImage(source, -targetW / 2, -targetH / 2, targetW, targetH, null);
@@ -172,17 +152,17 @@ public class Renderer {
     private static final BasicStroke ROUND_STROKE_6 = new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_3_5 = new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_2_5 = new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-    // Shockwave arc strokes (cached — was 5 new BasicStroke per frame in loop)
+    // Shockwave arc strokes (cached â€” was 5 new BasicStroke per frame in loop)
     private static final BasicStroke SHOCKWAVE_STROKE_0 = new BasicStroke(12f);
     private static final BasicStroke SHOCKWAVE_STROKE_1 = new BasicStroke(10.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_2 = new BasicStroke(9f);
     private static final BasicStroke SHOCKWAVE_STROKE_3 = new BasicStroke(7.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_4 = new BasicStroke(6f);
     private static final BasicStroke[] SHOCKWAVE_STROKES = { SHOCKWAVE_STROKE_0, SHOCKWAVE_STROKE_1, SHOCKWAVE_STROKE_2, SHOCKWAVE_STROKE_3, SHOCKWAVE_STROKE_4 };
-    // Cached identity transform — avoids new AffineTransform() every frame
+    // Cached identity transform â€” avoids new AffineTransform() every frame
     private static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
 
-    // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
+    // Ã¢â€â‚¬Ã¢â€â‚¬ Cached Colors for journey map & UI menus (avoid per-frame new Color()) Ã¢â€â‚¬Ã¢â€â‚¬
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
     private static final Color NODE_CURRENT_BLUE = RenderCache.BLUE_100_200_255;
     private static final Color NODE_LOCKED_GRAY = new Color(60, 60, 70);
@@ -225,7 +205,7 @@ public class Renderer {
     private static final Color PANEL_LOCK_TEXT = new Color(120, 120, 130);
     private static final Color PANEL_NAV_HINT = new Color(100, 110, 130);
 
-    // â"€â"€ Cached Colors for in-level drawGame (avoid per-frame new Color()) â"€â"€
+    // Ã¢"â‚¬Ã¢"â‚¬ Cached Colors for in-level drawGame (avoid per-frame new Color()) Ã¢"â‚¬Ã¢"â‚¬
     // Player shield arcs (6 per shield segment, per-frame)
     private static final Color SHIELD_ARC_OUTER = new Color(60, 180, 255, 50);
     private static final Color SHIELD_ARC_MID = new Color(80, 200, 255, 90);
@@ -241,7 +221,7 @@ public class Renderer {
     private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
     private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
     private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
-    // Baked level bounds images (rendered once — eliminates 8 gradient fills per frame)
+    // Baked level bounds images (rendered once â€” eliminates 8 gradient fills per frame)
     private static BufferedImage bakedEdgeTop, bakedEdgeBottom, bakedEdgeLeft, bakedEdgeRight;
     private static BufferedImage bakedCornerTL, bakedCornerTR, bakedCornerBL, bakedCornerBR;
     private static boolean levelBoundsBaked = false;
@@ -311,7 +291,7 @@ public class Renderer {
 
     
 
-    // Cached Font objects Ã¢â‚¬â€ all derived from FontPalette (custom font with fallback)
+    // Cached Font objects ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all derived from FontPalette (custom font with fallback)
     // FontPalette.init() must be called before first use (done in AssetLoader.initAll())
     private static Font FONT_TITLE_LARGE;
     private static Font FONT_TITLE;
@@ -414,7 +394,7 @@ public class Renderer {
 
         
 
-        // Initialize menu buttons Ã¢â‚¬â€ military/rock themed colors
+        // Initialize menu buttons ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â military/rock themed colors
         menuButtons = new UIButton[7];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
         menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
@@ -714,7 +694,7 @@ public class Renderer {
 
             
 
-            // Draw tiled layers with wrapping (no scaling — simple blit)
+            // Draw tiled layers with wrapping (no scaling â€” simple blit)
 
             int x = (int)(-offset);
 
@@ -802,7 +782,7 @@ public class Renderer {
         try {
             bgRenderFuture.get(8, java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            // Timed out or failed — fall back to synchronous render
+            // Timed out or failed â€” fall back to synchronous render
         }
         bgRenderFuture = null;
         return bgBufferReady;
@@ -890,7 +870,7 @@ public class Renderer {
         // Military themed background
         UITheme.drawScreenBackground(g, width, height, time);
 
-        // Title Ã¢â‚¬â€ stencil-style with ember particles
+        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stencil-style with ember particles
         UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - UIScale.px(100),
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
@@ -932,7 +912,7 @@ public class Renderer {
             g.fillRect(0, 0, width, height);
         }
 
-        // Title Ã¢â‚¬â€ stencil-style with embers
+        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stencil-style with embers
         UITheme.drawTitle(g, "MISSILE MAN", width, 150,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE);
@@ -982,7 +962,7 @@ public class Renderer {
             g2.dispose();
         }
 
-        // Draw buttons Ã¢â‚¬â€ mission briefing clipboard stack
+        // Draw buttons ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â mission briefing clipboard stack
         int buttonY = 240;
         int buttonSpacing = 75;
         for (int i = 0; i < menuButtons.length; i++) {
@@ -1101,7 +1081,7 @@ public class Renderer {
 
                 
 
-                // Main slot background Ã¢â‚¬â€ chamfered military card
+                // Main slot background ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â chamfered military card
 
                 Color slotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1347,7 +1327,7 @@ public class Renderer {
 
             } else {
 
-                // "New Save" button Ã¢â‚¬â€ dashed military card
+                // "New Save" button ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â dashed military card
 
                 Color newSlotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1645,7 +1625,7 @@ public class Renderer {
 
             
 
-            // Card background Ã¢â‚¬â€ chamfered military card
+            // Card background ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â chamfered military card
 
             Color bgColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1952,7 +1932,7 @@ public class Renderer {
 
     private void drawFloatingShapes(Graphics2D g, int width, int height, double time) {
 
-        // Draw floating hexagons and triangles — save/restore transform instead of 12 g.create()/dispose() per frame
+        // Draw floating hexagons and triangles â€” save/restore transform instead of 12 g.create()/dispose() per frame
 
         int numShapes = 12;
 
@@ -2444,37 +2424,37 @@ public class Renderer {
 
             "VULNERABILITY SYSTEM:",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Boss invulnerable for 20 seconds",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Boss invulnerable for 20 seconds",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Watch for GOLDEN GLOW = Attack Window!",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Watch for GOLDEN GLOW = Attack Window!",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Window lasts 20 seconds (longer with upgrades)",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Window lasts 20 seconds (longer with upgrades)",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Hit boss 3 times to win",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Hit boss 3 times to win",
 
             "",
 
             "GRAZE SYSTEM:",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 25px from bullet = Graze (+score, +combo)",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 25px from bullet = Graze (+score, +combo)",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 15px = Close Call (bonus points)",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 15px = Close Call (bonus points)",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 8px = Perfect Dodge (grants i-frames!)",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 8px = Perfect Dodge (grants i-frames!)",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Build combos: Chain dodges within 3s",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Build combos: Chain dodges within 3s",
 
             "",
 
             "DEATH & RESPAWN:",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ One hit = death (unless Lucky Dodge procs)",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ One hit = death (unless Lucky Dodge procs)",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Use extra missiles for second chances",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Use extra missiles for second chances",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Lucky Dodge upgrade = revival chance"
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Lucky Dodge upgrade = revival chance"
 
         };
 
@@ -2512,37 +2492,37 @@ public class Renderer {
 
             "SPEED BOOST (Max Lv 10):",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ +10% movement speed per level",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ +10% movement speed per level",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Essential for dodging dense patterns",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Essential for dodging dense patterns",
 
             "",
 
             "BULLET SLOW (Max Lv 50):",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Slows enemy bullets by 2% per level",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Slows enemy bullets by 2% per level",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ More time to react and plan dodges",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ More time to react and plan dodges",
 
             "",
 
             "LUCKY DODGE (Max Lv 12):",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ 8% chance per level to survive hits",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 8% chance per level to survive hits",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Flicker effect on successful dodge",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Flicker effect on successful dodge",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Stacks with extra missiles",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Stacks with extra missiles",
 
             "",
 
             "ATTACK WINDOW (Max Lv 10):",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ +1 second vulnerability per level",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ +1 second vulnerability per level",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Max: 30 seconds to hit boss",
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Max: 30 seconds to hit boss",
 
-            "  ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ More forgiving timing"
+            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ More forgiving timing"
 
         };
 
@@ -4374,7 +4354,7 @@ public class Renderer {
 
                     
 
-                    // Use pre-cached 180°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
+                    // Use pre-cached 180Â°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
 
                     AffineTransform oldTransform = g.getTransform();
 
@@ -5510,7 +5490,7 @@ public class Renderer {
 
         } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
 
-            // Parallax mode — use async pre-rendered buffer if available
+            // Parallax mode â€” use async pre-rendered buffer if available
 
             waitForBackground();
 
@@ -5942,7 +5922,7 @@ public class Renderer {
 
             
 
-            // Outer glow circle — use base color + AlphaComposite instead of new Color(r,g,b,a)
+            // Outer glow circle â€” use base color + AlphaComposite instead of new Color(r,g,b,a)
 
             g.setComposite(RenderCache.getAlpha((float)(80 * circleProgress) / 255f));
 
@@ -6240,9 +6220,9 @@ public class Renderer {
 
         
 
-        // Draw player (only if not in death animation, not during boss intro cinematic, and not hidden during death sequence)
+        // Draw player (only if not hidden during death sequence)
 
-        if (player != null && !bossIntroActive && !playerHidden) {
+        if (player != null && !playerHidden) {
 
             // Apply blink effect during respawn
             if (respawnBlinkTimer > 0) {
@@ -6408,7 +6388,7 @@ public class Renderer {
 
         // Draw boss with special handling during death animation
 
-        if (boss != null && !bossIntroActive) {
+        if (boss != null) {
 
         if (bossDeathAnimation) {
 
@@ -6501,7 +6481,7 @@ public class Renderer {
 
                 } else {
 
-                    // Subtle cool bloom when invulnerable — 1 layer instead of 3
+                    // Subtle cool bloom when invulnerable â€” 1 layer instead of 3
 
                     bloomColor = BOSS_COOL_BLOOM;
 
@@ -6603,7 +6583,7 @@ public class Renderer {
 
                 double bossArcSpan = 45; // Wider arcs with fewer segments
 
-                int numArcs = 5; // Reduced from 8 — saves ~30 draw calls/frame
+                int numArcs = 5; // Reduced from 8 â€” saves ~30 draw calls/frame
 
                 double bossShieldAngle = time * 0.12;
 
@@ -6667,11 +6647,39 @@ public class Renderer {
             boss.draw(g);
 
             
+            // Boss accumulated damage overlay â€” smoke wisps & fire glow
+            float bossHpPct = boss.getHealthPercent(); // 1.0 = full, 0.0 = dead
+            if (bossHpPct < 0.7f) {
+                Composite _damSave = g.getComposite();
+                int bSize = boss.getSize();
+                int bCx = (int) boss.getX();
+                int bCy = (int) boss.getY();
+                float dmgRatio = 1.0f - bossHpPct; // 0â†’1 as more damaged
+                float overlayAlpha = Math.min(dmgRatio * 0.7f, 0.55f);
+
+                // Dark smoke haze across body
+                g.setComposite(RenderCache.getAlpha(overlayAlpha * 0.6f));
+                g.setColor(new Color(40, 40, 40));
+                int smokeW = (int)(bSize * 1.4 * dmgRatio);
+                int smokeH = (int)(bSize * 0.8 * dmgRatio);
+                g.fillOval(bCx - smokeW / 2, bCy - smokeH / 2, smokeW, smokeH);
+
+                // Fire glow when heavily damaged (>50% lost)
+                if (bossHpPct < 0.5f) {
+                    float fireAlpha = Math.min((0.5f - bossHpPct) * 1.2f, 0.45f);
+                    g.setComposite(RenderCache.getAlpha(fireAlpha));
+                    g.setColor(new Color(255, 120, 20));
+                    int fireW = (int)(bSize * 0.9 * dmgRatio);
+                    int fireH = (int)(bSize * 0.5 * dmgRatio);
+                    g.fillOval(bCx - fireW / 2, bCy - fireH / 3, fireW, fireH);
+                }
+                g.setComposite(_damSave);
+            }
 
             // Draw shockwave during recovery phase (circular arc directed at player)
 
             if (boss.isShockwaveActive()) {
-                // Save/restore instead of g.create() — avoids Graphics2D clone
+                // Save/restore instead of g.create() â€” avoids Graphics2D clone
                 Composite shockSavedComp = g.getComposite();
                 Stroke shockSavedStroke = g.getStroke();
 
@@ -6774,7 +6782,7 @@ public class Renderer {
 
         
 
-        // Draw bullets (including warnings for inactive bullets) — with viewport culling
+        // Draw bullets (including warnings for inactive bullets) â€” with viewport culling
         Bullet.activeBulletCount = bullets.size(); // Set for dynamic shadow reduction
         for (int i = 0; i < bullets.size(); i++) {
 
@@ -6793,7 +6801,7 @@ public class Renderer {
 
         
 
-        // Draw MONEY_SIGN particles ON TOP of player and bullets — with viewport culling
+        // Draw MONEY_SIGN particles ON TOP of player and bullets â€” with viewport culling
         for (int pi = 0; pi < particleCount; pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
@@ -7406,7 +7414,7 @@ public class Renderer {
 
             
 
-            // Gentle sway rotation (like hanging text) â€” reduced for boss HP
+            // Gentle sway rotation (like hanging text) Ã¢â‚¬â€ reduced for boss HP
 
             float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / (isBossHP ? 48 : 24));
 
@@ -7416,7 +7424,7 @@ public class Renderer {
 
             
 
-            // Smooth float upward with easing â€” less float for boss HP
+            // Smooth float upward with easing Ã¢â‚¬â€ less float for boss HP
 
             float floatUp = easeOutQuad(lifeProgress) * (isBossHP ? 40 : 80);
 
@@ -7563,91 +7571,126 @@ public class Renderer {
 
         }
 
-        
 
-        // Boss intro cinematic (anime sequential reveal)
-
-        if (bossIntroActive) {
-
-            if (bossIntroPhase == 5) {
-
-                // Phase 5: cheap blur via downscale/upscale (renders at reduced res, bilinear scaling = natural blur)
-
-                double blurProgress = Math.min(1.0, (bossIntroTimer - 320) / 60.0);
-
-                // Scale factor: starts at 0.15 (heavy blur) Ã¢â€ â€™ 1.0 (sharp) as phase progresses
-
-                double scaleFactor = 0.25 + 0.75 * blurProgress;
-
-                if (scaleFactor < 0.85) {
-
-                    int sw = Math.max(1, (int)(width * scaleFactor));
-
-                    int sh = Math.max(1, (int)(height * scaleFactor));
-
-                    // Reuse cached buffer if same size, otherwise allocate
-
-                    if (introBuf == null || introBufW != sw || introBufH != sh) {
-
-                        introBuf = new BufferedImage(sw, sh, BufferedImage.TYPE_INT_ARGB);
-
-                        introBufW = sw;
-
-                        introBufH = sh;
-
-                    }
-
-                    Graphics2D sg = introBuf.createGraphics();
-
-                    sg.setComposite(AlphaComposite.Clear);
-
-                    sg.fillRect(0, 0, sw, sh);
-
-                    sg.setComposite(AlphaComposite.SrcOver);
-
-                    sg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-                    sg.scale(scaleFactor, scaleFactor);
-
-                    drawBossIntroCinematic(sg, width, height, player, boss, bossIntroText,
-
-                        bossIntroTimer, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale,
-
-                        bossIntroFlash, bossIntroPhase, introParticles, time, level, bossIntroFlashTimer);
-
-                    sg.dispose();
-
-                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-                    g.drawImage(introBuf, 0, 0, width, height, null);
-
-                } else {
-
-                    drawBossIntroCinematic(g, width, height, player, boss, bossIntroText,
-
-                        bossIntroTimer, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale,
-
-                        bossIntroFlash, bossIntroPhase, introParticles, time, level, bossIntroFlashTimer);
-
-                }
-
-            } else {
-
-                drawBossIntroCinematic(g, width, height, player, boss, bossIntroText,
-
-                    bossIntroTimer, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale,
-
-                    bossIntroFlash, bossIntroPhase, introParticles, time, level, bossIntroFlashTimer);
-
+        // Draw boss name banner during intro pan
+        if (introPanActive && bossIntroText != null && boss != null) {
+            // === Full-screen darkened overlay with vignette ===
+            g.setComposite(RenderCache.getAlpha(0.45f));
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, width, height);
+            // Vignette — darker edges
+            for (int v = 0; v < 40; v++) {
+                float vAlpha = 0.015f * (40 - v);
+                g.setComposite(RenderCache.getAlpha(vAlpha));
+                g.setColor(Color.BLACK);
+                g.fillRect(0, 0, width, v); // top
+                g.fillRect(0, height - v, width, v); // bottom
+                g.fillRect(0, 0, v, height); // left
+                g.fillRect(width - v, 0, v, height); // right
             }
 
-        } else {
+            // === Shake offset for the banner ===
+            double shakeT = time * 60.0; // frame-ish counter from time
+            int shakeX = (int)((Math.random() - 0.5) * 6);
+            int shakeY = (int)((Math.random() - 0.5) * 5);
 
-            if (introBuf != null) { introBuf.flush(); introBuf = null; } // Release blur buffer when intro is done
+            // === Horizontal red scan lines across background ===
+            g.setComposite(RenderCache.getAlpha(0.08f));
+            g.setColor(new Color(255, 30, 30));
+            for (int sy = 0; sy < height; sy += 4) {
+                g.fillRect(0, sy, width, 1);
+            }
 
+            // === Red warning stripe bars (top and bottom) ===
+            int stripeH = 3;
+            g.setComposite(RenderCache.getAlpha(0.7f));
+            g.setColor(new Color(200, 30, 30));
+            g.fillRect(0, height / 2 - 55 + shakeY, width, stripeH);
+            g.fillRect(0, height / 2 + 50 + shakeY, width, stripeH);
+
+            // === Banner panel with shake ===
+            int panelW = Math.min(width - 60, 500);
+            int panelH = 90;
+            int panelX = (width - panelW) / 2 + shakeX;
+            int panelY = height / 2 - panelH / 2 - 10 + shakeY;
+
+            // Outer glow
+            for (int gl = 3; gl >= 1; gl--) {
+                g.setComposite(RenderCache.getAlpha(0.12f * gl));
+                g.setColor(new Color(180, 20, 20));
+                g.fillRoundRect(panelX - gl * 3, panelY - gl * 3,
+                    panelW + gl * 6, panelH + gl * 6, 14, 14);
+            }
+
+            // Dark panel fill
+            g.setComposite(RenderCache.getAlpha(0.85f));
+            g.setColor(new Color(8, 8, 12));
+            g.fillRoundRect(panelX, panelY, panelW, panelH, 10, 10);
+
+            // Red border with double stroke
+            g.setComposite(RenderCache.getAlpha(0.95f));
+            g.setColor(new Color(200, 35, 35));
+            g.drawRoundRect(panelX, panelY, panelW, panelH, 10, 10);
+            g.setColor(new Color(140, 20, 20));
+            g.drawRoundRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4, 8, 8);
+
+            // Inner highlight line at top of panel
+            g.setComposite(RenderCache.getAlpha(0.15f));
+            g.setColor(new Color(255, 100, 100));
+            g.fillRect(panelX + 10, panelY + 1, panelW - 20, 1);
+
+            // === "WARNING" subtitle ===
+            g.setComposite(AlphaComposite.SrcOver);
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, 14));
+            FontMetrics wfm = g.getFontMetrics();
+            String warningText = "\u26A0  W A R N I N G  \u26A0";
+            int warnW = wfm.stringWidth(warningText);
+            int warnX = panelX + panelW / 2 - warnW / 2;
+            int warnY = panelY + 24;
+            // Shadow
+            g.setColor(new Color(0, 0, 0, 200));
+            g.drawString(warningText, warnX + 1, warnY + 1);
+            // Pulsing red glow text
+            float pulse = (float)(0.7 + 0.3 * Math.sin(time * 8.0));
+            g.setColor(new Color((int)(255 * pulse), 40, 40));
+            g.drawString(warningText, warnX, warnY);
+
+            // === Boss name in large bold font ===
+            int fontSize = bossIntroText.length() > 14 ? 28 : bossIntroText.length() > 10 ? 34 : 40;
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, fontSize));
+            FontMetrics nfm = g.getFontMetrics();
+            int nameW = nfm.stringWidth(bossIntroText);
+            int nameX = panelX + panelW / 2 - nameW / 2;
+            int nameY = panelY + 65;
+
+            // Text glow behind name
+            g.setComposite(RenderCache.getAlpha(0.25f));
+            Color glowColor = boss.isMegaBoss() ? new Color(255, 180, 30) : new Color(200, 200, 255);
+            g.setColor(glowColor);
+            g.drawString(bossIntroText, nameX - 1, nameY);
+            g.drawString(bossIntroText, nameX + 1, nameY);
+            g.drawString(bossIntroText, nameX, nameY - 1);
+            g.drawString(bossIntroText, nameX, nameY + 1);
+
+            // Shadow
+            g.setComposite(AlphaComposite.SrcOver);
+            g.setColor(new Color(0, 0, 0, 220));
+            g.drawString(bossIntroText, nameX + 2, nameY + 2);
+
+            // Main name text
+            g.setColor(boss.isMegaBoss() ? new Color(255, 220, 80) : Color.WHITE);
+            g.drawString(bossIntroText, nameX, nameY);
+
+            // === Small decorative dashes by the name ===
+            g.setComposite(RenderCache.getAlpha(0.5f));
+            g.setColor(new Color(200, 40, 40));
+            int dashY = nameY - nfm.getAscent() / 2 + 4;
+            g.fillRect(panelX + 12, dashY, 20, 2);
+            g.fillRect(panelX + panelW - 32, dashY, 20, 2);
+
+            g.setComposite(AlphaComposite.SrcOver);
         }
 
-        
 
         // Draw Can't Stop contract warning
 
@@ -8552,7 +8595,7 @@ public class Renderer {
 
         
 
-        // Boss hit flash effect (intense red flash)
+        // Boss hit flash effect (orange/amber flash â€” distinct from red death flash)
 
         if (bossHitFlashTimer > 0) {
 
@@ -8562,7 +8605,7 @@ public class Renderer {
 
             g.setComposite(RenderCache.getAlpha(flashAlpha));
 
-            g.setColor(RenderCache.RED_255_50_50); // Intense red flash
+            g.setColor(RenderCache.ORANGE_255_165_0); // Orange flash for boss hit (red = death)
 
             g.fillRect(0, 0, width, height);
 
@@ -8993,13 +9036,13 @@ public class Renderer {
 
         
 
-        // Title Ã¢â‚¬â€ MISSION FAILED stamp
+        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MISSION FAILED stamp
 
         UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - UIScale.px(140), ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
-        // Stencil stamp overlay â€” slam animation (randomized position/rotation)
+        // Stencil stamp overlay Ã¢â‚¬â€ slam animation (randomized position/rotation)
 
         double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
 
@@ -9287,13 +9330,13 @@ public class Renderer {
 
         
 
-        // Title Ã¢â‚¬â€ MISSION COMPLETE
+        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MISSION COMPLETE
 
         UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - UIScale.px(180), ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
         
 
-        // Rank badge â€” slam animation (randomized corner)
+        // Rank badge Ã¢â‚¬â€ slam animation (randomized corner)
 
         int scoreForRank = gameData.getScore();
 
@@ -9753,7 +9796,7 @@ public class Renderer {
             drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
 
         } else if (selectedCategory == 5) {
-            // HUD Layout Editor â€” renders its own mock screen + side panel
+            // HUD Layout Editor Ã¢â‚¬â€ renders its own mock screen + side panel
             if (Game.hudLayout != null) {
                 hudLayoutEditor.render(g, 50, 200, width - 100, height - 270, Game.hudLayout, time);
             }
@@ -9865,7 +9908,7 @@ public class Renderer {
 
             "UI elements shift slightly with camera movement for depth effect",
 
-            "Scale all UI elements — menus, buttons, HUD, shop, popups (Small / Medium / Large)"
+            "Scale all UI elements â€” menus, buttons, HUD, shop, popups (Small / Medium / Large)"
 
         };
 
@@ -11669,7 +11712,7 @@ public class Renderer {
 
         
 
-        // Glow around bright particles — CAPPED for performance
+        // Glow around bright particles â€” CAPPED for performance
         // Skip particle bloom entirely when too many (saves 200-400 fillOval/frame)
         int particleCount = particles.size();
         if (particleCount <= 80) {
@@ -11880,7 +11923,7 @@ public class Renderer {
 
         if (cachedVignette == null || cachedVignetteWidth != width || cachedVignetteHeight != height) {
 
-            // Render at half resolution — vignette is a smooth gradient, so
+            // Render at half resolution â€” vignette is a smooth gradient, so
             // half-res is visually indistinguishable but blits 4x fewer pixels
             int halfW = width / 2;
             int halfH = height / 2;
@@ -11961,28 +12004,28 @@ public class Renderer {
         int stripW = worldW + go * 2 - gs * 2; // width of top/bottom strips
         int stripH = worldH + go * 2 - gs * 2; // height of left/right strips
 
-        // Top strip: vertical gradient sb(top) → tr(bottom)
+        // Top strip: vertical gradient sb(top) â†’ tr(bottom)
         bakedEdgeTop = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gt = bakedEdgeTop.createGraphics();
         gt.setPaint(new GradientPaint(0, 0, sb, 0, gs, tr));
         gt.fillRect(0, 0, stripW, gs);
         gt.dispose();
 
-        // Bottom strip: vertical gradient tr(top) → sb(bottom)
+        // Bottom strip: vertical gradient tr(top) â†’ sb(bottom)
         bakedEdgeBottom = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gb = bakedEdgeBottom.createGraphics();
         gb.setPaint(new GradientPaint(0, 0, tr, 0, gs, sb));
         gb.fillRect(0, 0, stripW, gs);
         gb.dispose();
 
-        // Left strip: horizontal gradient sb(left) → tr(right)
+        // Left strip: horizontal gradient sb(left) â†’ tr(right)
         bakedEdgeLeft = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gl = bakedEdgeLeft.createGraphics();
         gl.setPaint(new GradientPaint(0, 0, sb, gs, 0, tr));
         gl.fillRect(0, 0, gs, stripH);
         gl.dispose();
 
-        // Right strip: horizontal gradient tr(left) → sb(right)
+        // Right strip: horizontal gradient tr(left) â†’ sb(right)
         bakedEdgeRight = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gr2 = bakedEdgeRight.createGraphics();
         gr2.setPaint(new GradientPaint(0, 0, tr, gs, 0, sb));
@@ -12061,7 +12104,7 @@ public class Renderer {
         // Draw the cached gradient image (one drawImage instead of up to 3 GradientPaint fills)
         g.drawImage(cachedBgGradient, 0, 0, null);
 
-        // Optional grain effect (drawn live — only 40 tiny rects)
+        // Optional grain effect (drawn live â€” only 40 tiny rects)
         if (Game.enableGrainEffect) {
             g.setComposite(RenderCache.getAlpha(0.03f));
             for (int i = 0; i < 40; i++) {
@@ -12296,7 +12339,7 @@ public class Renderer {
                     }
                 }
             } else if (seg instanceof Integer) {
-                // Raw VK key code â€” render as keyboard sprite or keycap
+                // Raw VK key code Ã¢â‚¬â€ render as keyboard sprite or keycap
                 int vkCode = (Integer) seg;
                 java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
                 if (icon != null) {
@@ -12468,7 +12511,7 @@ public class Renderer {
 
             } else if (seg instanceof Integer) {
 
-                // Raw VK key code â€” render as keyboard sprite or keycap
+                // Raw VK key code Ã¢â‚¬â€ render as keyboard sprite or keycap
 
                 int vkCode = (Integer) seg;
 
@@ -12637,7 +12680,7 @@ public class Renderer {
         if (sliderTrackStartX[settingIndex] < 0) return -1;
         int by = sliderBtnYPos[settingIndex];
         int bs = sliderBtnSize;
-        // Use button Y range for vertical hit (generous — covers the slider area)
+        // Use button Y range for vertical hit (generous â€” covers the slider area)
         if (mouseY >= by && mouseY <= by + bs) {
             int sx = sliderTrackStartX[settingIndex];
             int ex = sliderTrackEndX[settingIndex];
@@ -12741,1943 +12784,6 @@ public class Renderer {
         return Math.max(0, Math.min(255, alpha));
 
     }
-
-
-
-    /** Lazy-load VFX sprite sheets and slice into frames */
-
-    private void ensureVFXLoaded() {
-
-        if (vfxLoaded) return;
-
-        vfxLoaded = true;
-
-        vfxFrames = new BufferedImage[VFX_FILES.length][];
-
-        for (int i = 0; i < VFX_FILES.length; i++) {
-
-            try {
-
-                BufferedImage sheet = AssetLoader.loadImage(
-
-                    "sprites/Missle Man Assets/VFX/Free/" + VFX_FILES[i] + ".png");
-
-                int rows = sheet.getHeight() / VFX_FRAME_H;
-
-                if (rows < 1) rows = 1;
-
-                vfxFrames[i] = new BufferedImage[rows];
-
-                for (int r = 0; r < rows; r++) {
-
-                    int fy = r * VFX_FRAME_H;
-
-                    int fh = Math.min(VFX_FRAME_H, sheet.getHeight() - fy);
-
-                    vfxFrames[i][r] = sheet.getSubimage(0, fy, sheet.getWidth(), fh);
-
-                }
-
-            } catch (Exception e) {
-
-                vfxFrames[i] = null;
-
-            }
-
-        }
-
-    }
-
-
-
-    /** Ensure cinematic starfield is generated */
-
-    private void ensureIntroStars(int width, int height) {
-
-        if (introStars != null) return;
-
-        java.util.Random rng = new java.util.Random(42);
-
-        introStars = new double[300][5];
-
-        for (int i = 0; i < 300; i++) {
-
-            introStars[i][0] = rng.nextDouble() * (width + 200) - 100;
-
-            introStars[i][1] = rng.nextDouble() * (height + 200) - 100;
-
-            introStars[i][2] = 0.5 + rng.nextDouble() * 2.5;
-
-            introStars[i][3] = 0.3 + rng.nextDouble() * 1.7;
-
-            introStars[i][4] = 0.3 + rng.nextDouble() * 0.7;
-
-        }
-
-    }
-
-
-
-    /** Draw a VFX frame at the specified position with scaling and rotation */
-
-    private void drawVFXFrame(Graphics2D g, int effectIndex, int frameIndex,
-
-            int x, int y, double scale, double rotation, float alpha) {
-
-        if (vfxFrames == null || effectIndex >= vfxFrames.length || vfxFrames[effectIndex] == null) return;
-
-        BufferedImage[] frames = vfxFrames[effectIndex];
-
-        if (frames.length == 0) return;
-
-        int fi = Math.max(0, Math.min(frameIndex, frames.length - 1));
-
-        BufferedImage frame = frames[fi];
-
-        if (frame == null) return;
-
-        Graphics2D fg = (Graphics2D) g.create();
-
-        fg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-        fg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, alpha))));
-
-        fg.translate(x, y);
-
-        fg.rotate(rotation);
-
-        fg.scale(scale, scale);
-
-        fg.drawImage(frame, -frame.getWidth() / 2, -frame.getHeight() / 2, null);
-
-        fg.dispose();
-
-    }
-
-
-
-    /** Get animated VFX frame index based on timer */
-
-    private int getVFXFrame(int effectIndex, double timer, double startTime, double duration) {
-
-        if (vfxFrames == null || effectIndex >= vfxFrames.length || vfxFrames[effectIndex] == null) return 0;
-
-        int numFrames = vfxFrames[effectIndex].length;
-
-        double progress = Math.max(0, Math.min(1, (timer - startTime) / duration));
-
-        return Math.min(numFrames - 1, (int)(progress * numFrames));
-
-    }
-
-
-
-    /**
-
-     * Draw the anime-style boss intro cinematic.
-
-     * 6 phases: flash -> player spotlight -> slash -> boss reveal -> VS clash -> fade out.
-
-     */
-
-    private void drawBossIntroCinematic(Graphics2D g, int width, int height,
-
-            Player player, Boss boss, String bossIntroText, double bossIntroTimer,
-
-            double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale,
-
-            double bossIntroFlash, int bossIntroPhase, java.util.List<Particle> introParticles,
-
-            double time, int level, double bossIntroFlashTimer) {
-
-
-
-        // Lazy-load VFX sprites and starfield
-
-        ensureVFXLoaded();
-
-        ensureIntroStars(width, height);
-
-
-
-        int M = 250; // shake margin
-
-        int cx = width / 2;
-
-        int cy = height / 2;
-
-        double t = bossIntroTimer;
-
-
-
-        // Master alpha: fade in phase 0, fade out phase 5
-
-        float masterAlpha;
-
-        if (bossIntroPhase == 0) masterAlpha = Math.min(1f, (float)(t / 25.0));
-
-        else if (bossIntroPhase == 5) masterAlpha = Math.max(0f, 1f - (float)((t - 330) / 50.0));
-
-        else masterAlpha = 1f;
-
-        masterAlpha = Math.max(0f, Math.min(1f, masterAlpha));
-
-
-
-        // Player Y - slides up from bottom during phase 1, flies down off screen in phase 5
-
-        double playerY;
-
-        if (bossIntroPhase < 1) playerY = height + 200;
-
-        else if (bossIntroPhase == 1) {
-
-            double p = Math.min(1.0, (t - 30) / 60.0);
-
-            p = 1.0 - Math.pow(1.0 - p, 3);
-
-            playerY = height + 200 + (cy - (height + 200)) * p;
-
-        } else if (bossIntroPhase == 5) {
-
-            double flyP = Math.min(1.0, (t - 320) / 60.0);
-
-            double flyEase = flyP * flyP * flyP;
-
-            playerY = cy + flyEase * (height + 200 - cy);
-
-        } else playerY = cy;
-
-
-
-        // Boss Y - drops from top during phase 3, flies up off screen in phase 5
-
-        double bossDispY;
-
-        if (bossIntroPhase < 3) bossDispY = -250;
-
-        else if (bossIntroPhase == 3) {
-
-            double p = Math.min(1.0, (t - 155) / 60.0);
-
-            p = 1.0 - Math.pow(1.0 - p, 3);
-
-            bossDispY = -250 + (cy - (-250)) * p;
-
-        } else if (bossIntroPhase == 5) {
-
-            double flyP = Math.min(1.0, (t - 320) / 60.0);
-
-            double flyEase = flyP * flyP * flyP;
-
-            bossDispY = cy - flyEase * (cy + 300);
-
-        } else bossDispY = cy;
-
-
-
-        // Letterbox bars animation
-
-        double barSlide;
-
-        if (bossIntroPhase < 1) barSlide = Math.min(1.0, t / 20.0);
-
-        else if (bossIntroPhase == 5) barSlide = Math.max(0.0, 1.0 - (t - 330) / 40.0);
-
-        else barSlide = 1.0;
-
-        barSlide = barSlide * barSlide * (3 - 2 * barSlide);
-
-        int barH = (int)(70 * barSlide);
-
-        boolean isPhase5 = (bossIntroPhase == 5);
-
-        // ===== BACKGROUND: deep space =====
-
-        g.setColor(new Color(5, 5, 15, clampA((int)(255 * masterAlpha))));
-
-        g.fillRect(-M, -M, width + M * 2, height + M * 2);
-
-
-
-        // Nebula wash
-
-        if (masterAlpha > 0.05f && !isPhase5) {
-
-            RadialGradientPaint neb = new RadialGradientPaint(
-
-                new Point2D.Float(cx, cy), width * 0.8f,
-
-                new float[]{0f, 0.3f, 0.6f, 1f},
-
-                new Color[]{new Color(20, 10, 40, clampA((int)(40 * masterAlpha))),
-
-                            new Color(10, 5, 30, clampA((int)(30 * masterAlpha))),
-
-                            new Color(5, 2, 20, clampA((int)(15 * masterAlpha))),
-
-                            RenderCache.BLACK_0});
-
-            g.setPaint(neb);
-
-            g.fillRect(-M, -M, width + M * 2, height + M * 2);
-
-        }
-
-
-
-        // ===== ANIMATED STARFIELD =====
-
-        if (introStars != null && masterAlpha > 0.05f && !isPhase5) {
-
-            int starStep = 1;
-            for (int i = 0; i < introStars.length; i += starStep) {
-
-                double sx = introStars[i][0];
-
-                double sy = introStars[i][1] - time * introStars[i][3] * 15;
-
-                sy = ((sy % (height + 200)) + (height + 200)) % (height + 200) - 100;
-
-                double sz = introStars[i][2];
-
-                double sbr = introStars[i][4];
-
-                float twinkle = (float)(sbr * (0.6 + 0.4 * Math.sin(time * (2 + i * 0.1) + i)));
-
-                twinkle = Math.max(0f, Math.min(1f, twinkle * masterAlpha));
-
-                if (twinkle < 0.05f) continue;
-
-                g.setColor(new Color(220, 230, 255, clampA((int)(255 * twinkle))));
-
-                int ssz = (int)Math.ceil(sz);
-
-                g.fillOval((int)sx - ssz/2, (int)sy - ssz/2, ssz, ssz);
-
-                // Larger stars get a cross-shaped glint (skip in phase 5 - invisible through blur)
-
-                if (!isPhase5 && sz > 1.8 && twinkle > 0.3f) {
-
-                    g.setColor(new Color(200, 220, 255, clampA((int)(80 * twinkle))));
-
-                    int gLen = (int)(sz * 3);
-
-                    g.drawLine((int)sx - gLen, (int)sy, (int)sx + gLen, (int)sy);
-
-                    g.drawLine((int)sx, (int)sy - gLen, (int)sx, (int)sy + gLen);
-
-                }
-
-            }
-
-        }
-
-
-
-        // ===== RADIAL SPEED LINES (anime power-up) =====
-
-        if (masterAlpha > 0.15f && !isPhase5) {
-
-            Graphics2D slg = (Graphics2D) g.create();
-
-            for (int i = 0; i < 40; i++) {
-
-                double angle = (i * Math.PI * 2.0 / 40) + time * 0.5;
-
-                float sa = (float)(0.04 + 0.03 * Math.sin(time * 4 + i * 0.8));
-
-                sa = Math.max(0f, Math.min(1f, sa * masterAlpha));
-
-                slg.setComposite(RenderCache.getAlpha(sa));
-
-                slg.setColor(new Color(200, 200, 255));
-
-                slg.setStroke(RenderCache.getStroke(1.5f));
-
-                slg.drawLine(cx + (int)(Math.cos(angle) * 120), cy + (int)(Math.sin(angle) * 120),
-
-                             cx + (int)(Math.cos(angle) * 700), cy + (int)(Math.sin(angle) * 700));
-
-            }
-
-            slg.dispose();
-
-        }
-
-
-
-        // ===== PHASE 0: IMPACT FLASH =====
-
-        if (bossIntroPhase == 0 && bossIntroFlash > 0) {
-
-            float fAlpha = Math.max(0f, Math.min(1f, (float)bossIntroFlash * masterAlpha));
-
-            g.setColor(new Color(255, 255, 255, clampA((int)(255 * fAlpha))));
-
-            g.fillRect(-M, -M, width + M * 2, height + M * 2);
-
-            // Anamorphic lens flares
-
-            g.setColor(new Color(200, 220, 255, clampA((int)(200 * bossIntroFlash))));
-
-            g.fillRect(-M, cy - 4, width + M * 2, 8);
-
-            // Diagonal cross flares + circular lens ghosts
-            {
-                Graphics2D flg = (Graphics2D) g.create();
-                if (Game.enableAntiAliasing)
-                    flg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                float flAlpha = Math.max(0f, Math.min(1f, (float)(bossIntroFlash * 0.5)));
-                flg.setComposite(RenderCache.getAlpha(flAlpha));
-                flg.setStroke(RenderCache.getStroke(3f));
-                flg.setColor(new Color(180, 210, 255));
-                flg.drawLine(cx - width, cy - (int)(width * 0.12), cx + width, cy + (int)(width * 0.12));
-                flg.drawLine(cx - width, cy + (int)(width * 0.12), cx + width, cy - (int)(width * 0.12));
-                flg.setColor(new Color(255, 245, 210));
-                flg.setStroke(RenderCache.getStroke(1.5f));
-                flg.drawLine(cx - width, cy - (int)(width * 0.06), cx + width, cy + (int)(width * 0.06));
-                flg.drawLine(cx - width, cy + (int)(width * 0.06), cx + width, cy - (int)(width * 0.06));
-                for (int lr = 0; lr < 5; lr++) {
-                    int lrX = cx + (int)((lr - 2) * width * 0.16);
-                    int lrR = 12 + lr * 7;
-                    flg.setColor(new Color(200, 225, 255, clampA((int)(25 * bossIntroFlash))));
-                    flg.drawOval(lrX - lrR, cy - lrR, lrR * 2, lrR * 2);
-                }
-                flg.dispose();
-            }
-
-            // VFX explosion overlay (effect 0 = 652.png)
-
-            int flashFrame = getVFXFrame(0, t, 0, 30);
-
-            drawVFXFrame(g, 0, flashFrame, cx, cy, 8.0, time * 0.5, (float)(bossIntroFlash * 0.9));
-
-            // Second VFX layer rotated (effect 3 = 655.png)
-
-            drawVFXFrame(g, 3, flashFrame, cx, cy, 6.0, -time * 0.3 + Math.PI / 4, (float)(bossIntroFlash * 0.6));
-
-        }
-
-
-
-        // ===== PLAYER SPRITE + AURA (phases 1+) =====
-
-        if (bossIntroPhase >= 1 && bossIntroPhase <= 5 && player != null) {
-
-            int px = (int)bossIntroPlayerX;
-
-            int py = (int)playerY;
-
-            float auraI = (bossIntroPhase == 1) ? Math.min(1f, (float)((t - 30) / 50.0)) : 1f;
-
-            auraI = Math.max(0f, auraI * masterAlpha);
-
-
-
-            // Blue aura (skip in phase 5 - blurred away)
-
-            if (auraI > 0.01f && !isPhase5) {
-
-                float breathe = 0.85f + 0.15f * (float)Math.sin(time * 3);
-
-                float ar = 240 * breathe;
-
-                RadialGradientPaint aura = new RadialGradientPaint(
-
-                    new Point2D.Float(px, py), ar,
-
-                    new float[]{0f, 0.15f, 0.35f, 0.6f, 0.85f, 1f},
-
-                    new Color[]{new Color(130, 220, 255, clampA((int)(90 * auraI))),
-
-                                new Color(80, 180, 255, clampA((int)(65 * auraI))),
-
-                                new Color(50, 140, 255, clampA((int)(45 * auraI))),
-
-                                new Color(30, 100, 220, clampA((int)(25 * auraI))),
-
-                                new Color(15, 50, 150, clampA((int)(10 * auraI))),
-
-                                RenderCache.BLACK_0});
-
-                g.setPaint(aura);
-
-                g.fillOval((int)(px - ar), (int)(py - ar), (int)(ar * 2), (int)(ar * 2));
-
-            }
-
-
-
-            // 3 shockwave rings
-
-            if (bossIntroPhase == 1 && t > 40) {
-
-                Graphics2D rg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    rg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                for (int r = 0; r < 3; r++) {
-
-                    double rp = ((t - 40) / 50.0 + r * 0.25) % 1.0;
-
-                    float ra = Math.max(0f, (1f - (float)rp) * 0.5f * masterAlpha);
-
-                    int rr = (int)(20 + rp * 300);
-
-                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
-
-                    rg.setColor(RenderCache.BLUE_100_180_255);
-
-                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 3f - (float)rp * 2.5f)));
-
-                    rg.drawOval(px - rr, py - rr, rr * 2, rr * 2);
-
-                }
-
-                rg.dispose();
-
-            }
-
-            // Horizontal wind streaks (anime power rush)
-            if (bossIntroPhase == 1 && t > 35 && auraI > 0.1f) {
-                Graphics2D wsg = (Graphics2D) g.create();
-                for (int i = 0; i < 22; i++) {
-                    double lineY = py - 220 + i * 20 + Math.sin(time * 3.5 + i) * 12;
-                    double lineLen = 50 + Math.abs(Math.sin(time * 5 + i * 1.3)) * 50;
-                    float wAlpha = (float)(0.04 + 0.03 * Math.sin(time * 6 + i * 0.8));
-                    wAlpha = Math.max(0f, Math.min(1f, wAlpha * auraI));
-                    wsg.setComposite(RenderCache.getAlpha(wAlpha));
-                    wsg.setColor(new Color(140, 210, 255));
-                    wsg.setStroke(RenderCache.getStroke(1.2f + (float)(Math.sin(time * 4 + i) * 0.5f)));
-                    double drift = (time * (70 + i * 10)) % 500;
-                    int sx = (int)(px - 250 + drift);
-                    wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
-                }
-                wsg.dispose();
-            }
-
-            // 16 rotating energy rays
-
-            if (auraI > 0.1f && !isPhase5) {
-
-                Graphics2D rayG = (Graphics2D) g.create();
-
-                for (int i = 0; i < 16; i++) {
-
-                    double angle = (i * Math.PI * 2.0 / 16) + time * 1.5;
-
-                    float rAlpha = (float)(0.06 + 0.04 * Math.sin(time * 5 + i * 1.2));
-
-                    rAlpha = Math.max(0f, Math.min(1f, rAlpha * auraI));
-
-                    rayG.setComposite(RenderCache.getAlpha(rAlpha));
-
-                    rayG.setColor(RenderCache.BLUE_120_200_255);
-
-                    rayG.setStroke(RenderCache.getStroke(6f));
-
-                    rayG.drawLine(px + (int)(Math.cos(angle) * 40), py + (int)(Math.sin(angle) * 40),
-
-                                  px + (int)(Math.cos(angle) * 210), py + (int)(Math.sin(angle) * 210));
-
-                }
-
-                rayG.dispose();
-
-            }
-
-
-
-            // Ground energy reflection pool under player
-
-            if (auraI > 0.1f && !isPhase5) {
-
-                float grAlpha = auraI * 0.25f * masterAlpha;
-
-                float grBreathe = 0.8f + 0.2f * (float)Math.sin(time * 3.5);
-
-                int grW = (int)(180 * grBreathe);
-
-                int grH = (int)(40 * grBreathe);
-
-                RadialGradientPaint grPool = new RadialGradientPaint(
-
-                    new Point2D.Float(px, py + 130), grW,
-
-                    new float[]{0f, 0.4f, 0.8f, 1f},
-
-                    new Color[]{new Color(100, 200, 255, clampA((int)(80 * grAlpha))),
-
-                                new Color(60, 160, 255, clampA((int)(50 * grAlpha))),
-
-                                new Color(30, 100, 200, clampA((int)(20 * grAlpha))),
-
-                                RenderCache.BLACK_0});
-
-                Graphics2D grg = (Graphics2D) g.create();
-
-                grg.setPaint(grPool);
-
-                grg.scale(1.0, (double)grH / grW);
-
-                int grCy = (int)((py + 130) * ((double)grW / grH));
-
-                grg.fillOval(px - grW, grCy - grW, grW * 2, grW * 2);
-
-                grg.dispose();
-
-            }
-
-
-
-            // VFX energy behind player (effect 4 = 662.png, effect 7 = 665.png)
-
-            if (bossIntroPhase >= 1 && bossIntroPhase <= 3 && auraI > 0.15f && !isPhase5) {
-
-                int ef = getVFXFrame(4, t, 30, 80);
-
-                drawVFXFrame(g, 4, ef, px, py, 5.0, time * 0.4, auraI * 0.7f);
-
-                drawVFXFrame(g, 7, ef, px, py, 4.0, -time * 0.6 + Math.PI / 3, auraI * 0.5f);
-
-            }
-
-
-
-            // Player sprite - tilted, scaled 6x, with hover bob + afterimage trails
-            {
-                // Hovering bob animation
-                double bob = Math.sin(time * 2.5) * 8 + Math.sin(time * 4.1) * 3;
-                double sway = Math.sin(time * 1.8) * 4;
-                int drawPx = (int)(px + sway);
-                int drawPy = (int)(py + bob);
-                // Subtle tilt oscillation
-                double tiltOsc = Math.sin(time * 2.0) * 2.0;
-                double baseAngle = -15 + tiltOsc;
-
-                // Afterimage trails (3 ghosts trailing behind during movement phases)
-                if (bossIntroPhase >= 1 && bossIntroPhase <= 4 && auraI > 0.3f) {
-                    for (int ai = 3; ai >= 1; ai--) {
-                        float aiAlpha = Math.max(0f, Math.min(1f, (0.12f - ai * 0.03f) * auraI * masterAlpha));
-                        double aiDelay = ai * 0.06;
-                        double aiBob = Math.sin((time - aiDelay) * 2.5) * 8 + Math.sin((time - aiDelay) * 4.1) * 3;
-                        double aiSway = Math.sin((time - aiDelay) * 1.8) * 4;
-                        int aiPx = (int)(px + aiSway - ai * 3);
-                        int aiPy = (int)(py + aiBob + ai * 2);
-                        Graphics2D ag = (Graphics2D) g.create();
-                        ag.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        ag.setComposite(RenderCache.getAlpha(aiAlpha));
-                        ag.translate(aiPx, aiPy);
-                        ag.rotate(Math.toRadians(baseAngle - ai * 0.5));
-                        ag.scale(6.0, 6.0);
-                        ag.translate(-player.getX(), -player.getY());
-                        player.draw(ag);
-                        ag.dispose();
-                    }
-                }
-
-                // Main sprite
-                Graphics2D pg = (Graphics2D) g.create();
-                pg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                if (Game.enableAntiAliasing)
-                    pg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                pg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha * auraI))));
-                pg.translate(drawPx, drawPy);
-                pg.rotate(Math.toRadians(baseAngle));
-                pg.scale(6.0, 6.0);
-                pg.translate(-player.getX(), -player.getY());
-                player.draw(pg);
-                pg.dispose();
-
-                // White highlight rim pulse
-                if (auraI > 0.3f && !isPhase5) {
-                    float rimPulse = 0.15f + 0.1f * (float)Math.sin(time * 5);
-                    Graphics2D rimg = (Graphics2D) g.create();
-                    rimg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, rimPulse * auraI * masterAlpha))));
-                    rimg.translate(drawPx, drawPy);
-                    rimg.rotate(Math.toRadians(baseAngle));
-                    rimg.scale(6.15, 6.15);
-                    rimg.translate(-player.getX(), -player.getY());
-                    player.draw(rimg);
-                    rimg.dispose();
-                }
-            }
-
-
-
-            // Player name plate "CHALLENGER" - anime style
-            if (bossIntroPhase >= 1 && bossIntroPhase <= 4) {
-                double ns = (bossIntroPhase == 1) ?
-                    Math.min(1.0, Math.max(0, (t - 50) / 40.0)) : 1.0;
-                ns = 1.0 - Math.pow(1.0 - ns, 3);
-                float na = Math.max(0f, Math.min(1f, (float)ns * masterAlpha));
-                if (na > 0.05f) {
-                    Graphics2D npg = (Graphics2D) g.create();
-                    if (Game.enableAntiAliasing)
-                        npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    String pName = "CHALLENGER";
-                    npg.setFont(FontPalette.CINEMATIC_48);
-                    FontMetrics fm = npg.getFontMetrics();
-                    int nw = fm.stringWidth(pName);
-                    int nx = (int)(px - nw / 2 + (1.0 - ns) * -200);
-                    int ny = py + 105;
-                    int pad = 22;
-                    // Skewed parallelogram background panel
-                    int skew = 10;
-                    Path2D panelBg = new Path2D.Double();
-                    panelBg.moveTo(nx - pad + skew, ny - fm.getAscent() - 10);
-                    panelBg.lineTo(nx + nw + pad + skew, ny - fm.getAscent() - 10);
-                    panelBg.lineTo(nx + nw + pad - skew, ny + 10);
-                    panelBg.lineTo(nx - pad - skew, ny + 10);
-                    panelBg.closePath();
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
-                    GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
-                        new Color(5, 20, 50, 230), nx, ny + 10, new Color(10, 30, 70, 200));
-                    npg.setPaint(panelGrad);
-                    npg.fill(panelBg);
-                    // Bright cyan border
-                    npg.setStroke(RenderCache.getStroke(2.5f));
-                    npg.setColor(new Color(80, 210, 255, clampA((int)(240 * na))));
-                    npg.draw(panelBg);
-                    // Inner highlight line
-                    npg.setStroke(RenderCache.getStroke(1f));
-                    npg.setColor(new Color(120, 220, 255, clampA((int)(100 * na))));
-                    npg.drawLine(nx - pad + skew + 4, ny - fm.getAscent() - 8,
-                                 nx + nw + pad + skew - 4, ny - fm.getAscent() - 8);
-                    // Extending horizontal accent lines from corners
-                    float lineExt = (float)(ns * 140);
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.7f))));
-                    npg.setStroke(RenderCache.getStroke(2f));
-                    npg.setColor(new Color(80, 210, 255));
-                    npg.drawLine((int)(nx - pad - skew), ny + 10,
-                                 (int)(nx - pad - skew - lineExt), ny + 10);
-                    npg.drawLine((int)(nx + nw + pad + skew), ny - fm.getAscent() - 10,
-                                 (int)(nx + nw + pad + skew + lineExt), ny - fm.getAscent() - 10);
-                    // Diamond end-caps
-                    int dSz = 5;
-                    int leftEndX = (int)(nx - pad - skew - lineExt);
-                    int rightEndX = (int)(nx + nw + pad + skew + lineExt);
-                    npg.fillPolygon(new int[]{leftEndX, leftEndX - dSz, leftEndX, leftEndX + dSz},
-                        new int[]{ny + 10 - dSz, ny + 10, ny + 10 + dSz, ny + 10}, 4);
-                    npg.fillPolygon(new int[]{rightEndX, rightEndX - dSz, rightEndX, rightEndX + dSz},
-                        new int[]{ny - fm.getAscent() - 10 - dSz, ny - fm.getAscent() - 10,
-                                  ny - fm.getAscent() - 10 + dSz, ny - fm.getAscent() - 10}, 4);
-                    // Text drop shadow
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.5f))));
-                    npg.setColor(new Color(0, 40, 90));
-                    npg.drawString(pName, nx + 2, ny + 2);
-                    // Text outline
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
-                    npg.setColor(new Color(0, 20, 60, clampA((int)(255 * na))));
-                    for (int ox = -2; ox <= 2; ox++)
-                        for (int oy = -2; oy <= 2; oy++)
-                            if (ox * ox + oy * oy <= 5)
-                                npg.drawString(pName, nx + ox, ny + oy);
-                    // Gradient text fill
-                    GradientPaint textGrad = new GradientPaint(nx, ny - fm.getAscent(),
-                        new Color(230, 248, 255), nx, ny, new Color(100, 215, 255));
-                    npg.setPaint(textGrad);
-                    npg.drawString(pName, nx, ny);
-                    // White highlight pass
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.45f))));
-                    npg.setColor(Color.WHITE);
-                    npg.drawString(pName, nx, ny - 1);
-                    npg.dispose();
-                }
-            }
-
-
-
-            // Blue energy crackle (lightning arcs)
-
-            if (bossIntroPhase == 1 && t > 45 && auraI > 0.3f) {
-
-                Graphics2D lg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    lg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                lg.setStroke(RenderCache.getStroke(2f));
-
-                for (int c = 0; c < 6; c++) {
-
-                    double ba = (c * Math.PI * 2.0 / 6) + time * 2;
-
-                    double lx = px + Math.cos(ba) * 25;
-
-                    double ly = py + Math.sin(ba) * 25;
-
-                    for (int s = 0; s < 4; s++) {
-
-                        double nx = lx + Math.cos(ba + Math.sin(time * 10 + c + s) * 0.8) * (15 + s * 12);
-
-                        double ny = ly + Math.sin(ba + Math.cos(time * 8 + c + s) * 0.8) * (15 + s * 12);
-
-                        float ca = Math.max(0f, Math.min(1f, (0.5f - s * 0.1f) * masterAlpha));
-
-                        lg.setComposite(RenderCache.getAlpha(ca));
-
-                        lg.setColor(new Color(180, 230, 255));
-
-                        lg.drawLine((int)lx, (int)ly, (int)nx, (int)ny);
-
-                        lx = nx; ly = ny;
-
-                    }
-
-                }
-
-                lg.dispose();
-
-            }
-
-        }
-
-
-
-        // ===== PHASE 2: SLASH TRANSITION =====
-
-        if (bossIntroPhase == 2 || (bossIntroPhase == 3 && t < 175)) {
-
-            double sp;
-
-            float sa;
-
-            if (bossIntroPhase == 2) { sp = bossIntroFlash; sa = masterAlpha; }
-
-            else { sp = 1.0; sa = Math.max(0f, 1.0f - (float)((t - 155) / 20.0)); }
-
-            if (sa > 0.01f) {
-
-                Graphics2D sg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    sg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                int sx1 = (int)(width * (1.0 - sp * 0.3));
-
-                int sy1 = (int)(-50 + sp * 50);
-
-                int sx2 = (int)(width * (0.7 - sp * 0.7));
-
-                int sy2 = (int)(height * (0.3 + sp * 0.7));
-
-                for (int layer = 5; layer >= 0; layer--) {
-
-                    float la = Math.max(0f, Math.min(1f, (0.05f + layer * 0.03f) * sa));
-
-                    sg.setComposite(RenderCache.getAlpha(la));
-
-                    sg.setColor(layer < 2 ? Color.WHITE :
-
-                                layer < 4 ? new Color(255, 220, 120) : new Color(255, 180, 60));
-
-                    sg.setStroke(RenderCache.getStroke(2 + layer * 8f));
-
-                    sg.drawLine(sx1, sy1, sx2, sy2);
-
-                }
-
-                int sparkCount = 12;
-
-                for (int i = 0; i < sparkCount; i++) {
-
-                    double spp = (i + 0.5) / sparkCount;
-
-                    if (spp > sp) break;
-
-                    int skx = (int)(sx1 + (sx2 - sx1) * spp + Math.sin(time * 15 + i) * 8);
-
-                    int sky = (int)(sy1 + (sy2 - sy1) * spp + Math.cos(time * 12 + i) * 8);
-
-                    int ss = Math.max(1, 3 + (int)(Math.sin(time * 8 + i * 2) * 2));
-
-                    sg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, 0.8f * sa))));
-
-                    sg.setColor(RenderCache.CREAM_255_255_220);
-
-                    sg.fillOval(skx - ss, sky - ss, ss * 2, ss * 2);
-
-                }
-
-                sg.dispose();
-
-
-
-                // VFX effect on slash line (effect 6 = 664.png)
-
-                int slFrame = getVFXFrame(6, t, 120, 35);
-
-                int slMidX = (sx1 + sx2) / 2;
-
-                int slMidY = (sy1 + sy2) / 2;
-
-                double slAngle = Math.atan2(sy2 - sy1, sx2 - sx1);
-
-                drawVFXFrame(g, 6, slFrame, slMidX, slMidY, 4.0, slAngle, sa * 0.6f);
-
-            }
-
-        }
-
-
-
-        // ===== BOSS SPRITE + AURA (phases 3+) =====
-
-        if (bossIntroPhase >= 3 && (bossIntroPhase == 5 || bossDispY > -200)) {
-
-            int bx = (int)bossIntroBossX;
-
-            int by = (int)bossDispY;
-
-            float ba = (bossIntroPhase == 3) ? Math.min(1f, (float)((t - 155) / 50.0)) : 1f;
-
-            ba = Math.max(0f, ba * masterAlpha);
-
-
-
-            // Menacing red aura (skip in phase 5 - blurred away)
-
-            if (ba > 0.01f && !isPhase5) {
-
-                float breath = 0.8f + 0.2f * (float)Math.sin(time * 3);
-
-                float ar = 260 * breath;
-
-                RadialGradientPaint bap = new RadialGradientPaint(
-
-                    new Point2D.Float(bx, by), ar,
-
-                    new float[]{0f, 0.15f, 0.35f, 0.55f, 0.75f, 1f},
-
-                    new Color[]{
-
-                        new Color(255, 200, 150, clampA((int)(60 * ba))),
-
-                        new Color(255, 100, 50, clampA((int)(50 * ba))),
-
-                        new Color(200, 50, 20, clampA((int)(40 * ba))),
-
-                        new Color(150, 20, 10, clampA((int)(25 * ba))),
-
-                        new Color(80, 10, 5, clampA((int)(12 * ba))),
-
-                        RenderCache.BLACK_0});
-
-                g.setPaint(bap);
-
-                g.fillOval((int)(bx - ar), (int)(by - ar), (int)(ar * 2), (int)(ar * 2));
-
-            }
-
-
-
-            // 22 energy spikes (rotating opposite)
-
-            if (ba > 0.2f && !isPhase5) {
-
-                Graphics2D spG = (Graphics2D) g.create();
-
-                for (int i = 0; i < 22; i++) {
-
-                    double angle = (i * Math.PI * 2.0 / 22) - time * 1.2;
-
-                    float sAlpha = (float)(0.08 + 0.05 * Math.sin(time * 4 + i * 0.9));
-
-                    sAlpha = Math.max(0f, Math.min(1f, sAlpha * ba));
-
-                    spG.setComposite(RenderCache.getAlpha(sAlpha));
-
-                    spG.setColor(new Color(255, 120, 40));
-
-                    spG.setStroke(RenderCache.getStroke(10f));
-
-                    spG.drawLine(bx + (int)(Math.cos(angle) * 50), by + (int)(Math.sin(angle) * 50),
-
-                                 bx + (int)(Math.cos(angle) * 280), by + (int)(Math.sin(angle) * 280));
-
-                    spG.setColor(PANEL_MEGA_LABEL);
-
-                    spG.setStroke(RenderCache.getStroke(3f));
-
-                    spG.drawLine(bx + (int)(Math.cos(angle) * 50), by + (int)(Math.sin(angle) * 50),
-
-                                 bx + (int)(Math.cos(angle) * 230), by + (int)(Math.sin(angle) * 230));
-
-                }
-
-                spG.dispose();
-
-            }
-
-
-
-            // Impact shockwave on boss arrival
-
-            if (bossIntroPhase == 3 && t > 180 && t < 220) {
-
-                Graphics2D rg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    rg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                for (int r = 0; r < 3; r++) {
-
-                    double rp = Math.min(1.0, ((t - 180) / 40.0 + r * 0.15) % 1.0);
-
-                    float ra = Math.max(0f, (1f - (float)rp) * 0.6f * masterAlpha);
-
-                    int rr = (int)(30 + rp * 350);
-
-                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
-
-                    rg.setColor(RenderCache.WARM_255_150_80);
-
-                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 4f - (float)rp * 3f)));
-
-                    rg.drawOval(bx - rr, by - rr, rr * 2, rr * 2);
-
-                }
-
-                rg.dispose();
-
-            }
-
-            // Wind streaks (boss power entrance)
-            if (bossIntroPhase == 3 && t > 160 && ba > 0.1f) {
-                Graphics2D wsg = (Graphics2D) g.create();
-                for (int i = 0; i < 24; i++) {
-                    double lineY = by - 250 + i * 21 + Math.sin(time * 2.8 + i * 0.7) * 14;
-                    double lineLen = 55 + Math.abs(Math.sin(time * 4.5 + i * 1.5)) * 55;
-                    float wAlpha = (float)(0.05 + 0.04 * Math.sin(time * 5 + i * 1.1));
-                    wAlpha = Math.max(0f, Math.min(1f, wAlpha * ba));
-                    wsg.setComposite(RenderCache.getAlpha(wAlpha));
-                    wsg.setColor(RenderCache.WARM_255_150_60);
-                    wsg.setStroke(RenderCache.getStroke(1.3f + (float)(Math.sin(time * 3.5 + i) * 0.6f)));
-                    double drift = (time * (75 + i * 11)) % 520;
-                    int sx = (int)(bx - 260 + drift);
-                    wsg.drawLine(sx, (int)lineY, (int)(sx + lineLen), (int)lineY);
-                }
-                wsg.dispose();
-            }
-
-
-
-            // Ground energy reflection pool under boss
-
-            if (ba > 0.1f && !isPhase5) {
-
-                float grAlpha = ba * 0.2f * masterAlpha;
-
-                float grBreathe = 0.8f + 0.2f * (float)Math.sin(time * 2.8);
-
-                int grW = (int)(200 * grBreathe);
-
-                int grH = (int)(45 * grBreathe);
-
-                RadialGradientPaint grPool = new RadialGradientPaint(
-
-                    new Point2D.Float(bx, by + 140), grW,
-
-                    new float[]{0f, 0.4f, 0.8f, 1f},
-
-                    new Color[]{new Color(255, 140, 40, clampA((int)(70 * grAlpha))),
-
-                                new Color(255, 80, 20, clampA((int)(45 * grAlpha))),
-
-                                new Color(200, 40, 10, clampA((int)(18 * grAlpha))),
-
-                                RenderCache.BLACK_0});
-
-                Graphics2D grg = (Graphics2D) g.create();
-
-                grg.setPaint(grPool);
-
-                grg.scale(1.0, (double)grH / grW);
-
-                int grCy = (int)((by + 140) * ((double)grW / grH));
-
-                grg.fillOval(bx - grW, grCy - grW, grW * 2, grW * 2);
-
-                grg.dispose();
-
-            }
-
-
-
-            // VFX fire behind boss (effect 8 = 672.png, effect 9 = 673.png)
-
-            if (bossIntroPhase >= 3 && ba > 0.15f && !isPhase5) {
-
-                int ef = getVFXFrame(8, t, 155, 95);
-
-                drawVFXFrame(g, 8, ef, bx, by, 6.0, -time * 0.3, ba * 0.7f);
-
-                drawVFXFrame(g, 9, ef, bx, by, 4.5, time * 0.5 + Math.PI / 6, ba * 0.5f);
-
-            }
-
-
-
-            // Boss sprite - tilted, scaled 5x, with hover bob + afterimage trails
-            {
-                // Menacing hover animation (slower, heavier feel than player)
-                double bBob = Math.sin(time * 1.8 + Math.PI) * 10 + Math.sin(time * 3.3) * 4;
-                double bSway = Math.sin(time * 1.3 + 0.5) * 5;
-                int drawBx = (int)(bx + bSway);
-                int drawBy = (int)(by + bBob);
-                double bTiltOsc = Math.sin(time * 1.5 + Math.PI) * 2.5;
-                double bBaseAngle = 15 + bTiltOsc;
-
-                // Afterimage trails (red-tinted ghosts)
-                if (bossIntroPhase >= 3 && bossIntroPhase <= 4 && ba > 0.3f) {
-                    for (int ai = 3; ai >= 1; ai--) {
-                        float aiAlpha = Math.max(0f, Math.min(1f, (0.14f - ai * 0.035f) * ba * masterAlpha));
-                        double aiDelay = ai * 0.07;
-                        double aiBob = Math.sin((time - aiDelay) * 1.8 + Math.PI) * 10 + Math.sin((time - aiDelay) * 3.3) * 4;
-                        double aiSway = Math.sin((time - aiDelay) * 1.3 + 0.5) * 5;
-                        int aiPx = (int)(bx + aiSway + ai * 3);
-                        int aiPy = (int)(by + aiBob + ai * 2);
-                        Graphics2D ag = (Graphics2D) g.create();
-                        ag.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                        ag.setComposite(RenderCache.getAlpha(aiAlpha));
-                        ag.translate(aiPx, aiPy);
-                        ag.rotate(Math.toRadians(bBaseAngle + ai * 0.5));
-                        ag.scale(5.0, 5.0);
-                        ag.translate(-boss.getX(), -boss.getY());
-                        boss.draw(ag);
-                        ag.dispose();
-                    }
-                }
-
-                // Main sprite
-                Graphics2D bg = (Graphics2D) g.create();
-                bg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                if (Game.enableAntiAliasing)
-                    bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                bg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha * ba))));
-                bg.translate(drawBx, drawBy);
-                bg.rotate(Math.toRadians(bBaseAngle));
-                bg.scale(5.0, 5.0);
-                bg.translate(-boss.getX(), -boss.getY());
-                boss.draw(bg);
-                bg.dispose();
-
-                // Red rim highlight pulse
-                if (ba > 0.3f && !isPhase5) {
-                    float rimPulse = 0.12f + 0.08f * (float)Math.sin(time * 4);
-                    Graphics2D rimg = (Graphics2D) g.create();
-                    rimg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, rimPulse * ba * masterAlpha))));
-                    rimg.translate(drawBx, drawBy);
-                    rimg.rotate(Math.toRadians(bBaseAngle));
-                    rimg.scale(5.15, 5.15);
-                    rimg.translate(-boss.getX(), -boss.getY());
-                    boss.draw(rimg);
-                    rimg.dispose();
-                }
-            }
-
-
-
-            // Boss name plate - anime style
-            if (bossIntroPhase >= 3 && bossIntroPhase <= 4) {
-                double ns = (bossIntroPhase == 3) ?
-                    Math.min(1.0, Math.max(0, (t - 175) / 40.0)) : 1.0;
-                ns = 1.0 - Math.pow(1.0 - ns, 3);
-                float na = Math.max(0f, Math.min(1f, (float)ns * masterAlpha));
-                if (na > 0.05f) {
-                    Graphics2D npg = (Graphics2D) g.create();
-                    if (Game.enableAntiAliasing)
-                        npg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    int fs = bossIntroText.length() > 14 ? 38 : bossIntroText.length() > 10 ? 44 : 52;
-                    npg.setFont(FontPalette.get(Font.BOLD, fs));
-                    FontMetrics fm = npg.getFontMetrics();
-                    int nw = fm.stringWidth(bossIntroText);
-                    int nx = (int)(bx - nw / 2 + (1.0 - ns) * 200);
-                    int ny = by + 120;
-                    int pad = 22;
-                    // Skewed parallelogram panel (opposite skew from player)
-                    int skew = 10;
-                    Path2D panelBg = new Path2D.Double();
-                    panelBg.moveTo(nx - pad - skew, ny - fm.getAscent() - 10);
-                    panelBg.lineTo(nx + nw + pad - skew, ny - fm.getAscent() - 10);
-                    panelBg.lineTo(nx + nw + pad + skew, ny + 10);
-                    panelBg.lineTo(nx - pad + skew, ny + 10);
-                    panelBg.closePath();
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
-                    GradientPaint panelGrad = new GradientPaint(nx, ny - fm.getAscent() - 10,
-                        new Color(50, 10, 5, 230), nx, ny + 10, new Color(70, 15, 10, 200));
-                    npg.setPaint(panelGrad);
-                    npg.fill(panelBg);
-                    // Red-orange border
-                    npg.setStroke(RenderCache.getStroke(2.5f));
-                    npg.setColor(new Color(255, 130, 40, clampA((int)(240 * na))));
-                    npg.draw(panelBg);
-                    // Inner highlight line
-                    npg.setStroke(RenderCache.getStroke(1f));
-                    npg.setColor(new Color(255, 180, 80, clampA((int)(100 * na))));
-                    npg.drawLine(nx - pad - skew + 4, ny - fm.getAscent() - 8,
-                                 nx + nw + pad - skew - 4, ny - fm.getAscent() - 8);
-                    // Extending horizontal accent lines
-                    float lineExt = (float)(ns * 140);
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.7f))));
-                    npg.setStroke(RenderCache.getStroke(2f));
-                    npg.setColor(new Color(255, 130, 40));
-                    npg.drawLine((int)(nx - pad - skew), ny - fm.getAscent() - 10,
-                                 (int)(nx - pad - skew - lineExt), ny - fm.getAscent() - 10);
-                    npg.drawLine((int)(nx + nw + pad + skew), ny + 10,
-                                 (int)(nx + nw + pad + skew + lineExt), ny + 10);
-                    // Diamond end-caps
-                    int dSz = 5;
-                    int leftEndX = (int)(nx - pad - skew - lineExt);
-                    int rightEndX = (int)(nx + nw + pad + skew + lineExt);
-                    npg.fillPolygon(new int[]{leftEndX, leftEndX - dSz, leftEndX, leftEndX + dSz},
-                        new int[]{ny - fm.getAscent() - 10 - dSz, ny - fm.getAscent() - 10,
-                                  ny - fm.getAscent() - 10 + dSz, ny - fm.getAscent() - 10}, 4);
-                    npg.fillPolygon(new int[]{rightEndX, rightEndX - dSz, rightEndX, rightEndX + dSz},
-                        new int[]{ny + 10 - dSz, ny + 10, ny + 10 + dSz, ny + 10}, 4);
-                    // "WARNING" subtitle above boss name
-                    npg.setFont(FontPalette.get(Font.PLAIN, 16));
-                    FontMetrics sfm = npg.getFontMetrics();
-                    String subtitle = "WARNING";
-                    int subW = sfm.stringWidth(subtitle);
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.6f))));
-                    npg.setColor(PANEL_MEGA_LABEL);
-                    npg.drawString(subtitle, nx + nw / 2 - subW / 2, ny - fm.getAscent() - 18);
-                    // Text drop shadow
-                    npg.setFont(FontPalette.get(Font.BOLD, fs));
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.5f))));
-                    npg.setColor(new Color(100, 20, 0));
-                    npg.drawString(bossIntroText, nx + 2, ny + 2);
-                    // Text outline
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na))));
-                    npg.setColor(new Color(60, 10, 0, clampA((int)(255 * na))));
-                    for (int ox = -2; ox <= 2; ox++)
-                        for (int oy = -2; oy <= 2; oy++)
-                            if (ox * ox + oy * oy <= 5)
-                                npg.drawString(bossIntroText, nx + ox, ny + oy);
-                    // Gradient text fill
-                    GradientPaint textGrad = new GradientPaint(nx, ny - fm.getAscent(),
-                        new Color(255, 235, 180), nx, ny, RenderCache.WARM_255_150_60);
-                    npg.setPaint(textGrad);
-                    npg.drawString(bossIntroText, nx, ny);
-                    // White highlight pass
-                    npg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, na * 0.4f))));
-                    npg.setColor(Color.WHITE);
-                    npg.drawString(bossIntroText, nx, ny - 1);
-                    npg.dispose();
-                }
-            }
-
-
-
-            // Red lightning crackle
-
-            if (bossIntroPhase == 3 && t > 185 && ba > 0.3f) {
-
-                Graphics2D lg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    lg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                lg.setStroke(RenderCache.getStroke(2.5f));
-
-                for (int c = 0; c < 8; c++) {
-
-                    double baseA = (c * Math.PI * 2.0 / 8) - time * 2.5;
-
-                    double lx = bx + Math.cos(baseA) * 30;
-
-                    double ly = by + Math.sin(baseA) * 30;
-
-                    for (int s = 0; s < 5; s++) {
-
-                        double nx = lx + Math.cos(baseA + Math.sin(time * 12 + c + s) * 0.9) * (18 + s * 15);
-
-                        double ny = ly + Math.sin(baseA + Math.cos(time * 9 + c + s) * 0.9) * (18 + s * 15);
-
-                        float ca = Math.max(0f, Math.min(1f, (0.4f - s * 0.07f) * masterAlpha));
-
-                        lg.setComposite(RenderCache.getAlpha(ca));
-
-                        lg.setColor(RenderCache.WARM_255_160_80);
-
-                        lg.drawLine((int)lx, (int)ly, (int)nx, (int)ny);
-
-                        lx = nx; ly = ny;
-
-                    }
-
-                }
-
-                lg.dispose();
-
-            }
-
-        }
-
-
-
-        // ===== PHASE 4: VS CLASH =====
-
-        if (bossIntroPhase >= 4 && bossIntroVsScale > 0.05 && !isPhase5) {
-
-            // Energy beam connection between player and boss
-            int pDrawX = (int)bossIntroPlayerX;
-            int bDrawX = (int)bossIntroBossX;
-            if (pDrawX > 0 && bDrawX < width) {
-                Graphics2D ebg = (Graphics2D) g.create();
-                if (Game.enableAntiAliasing)
-                    ebg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                float beamAlpha = Math.max(0f, Math.min(1f, (float)(bossIntroVsScale * 0.35 * masterAlpha)));
-                // Pulsing energy strands between the two fighters
-                for (int strand = 0; strand < 5; strand++) {
-                    float sAlpha = Math.max(0f, Math.min(1f, beamAlpha * (0.6f - strand * 0.1f)));
-                    ebg.setComposite(RenderCache.getAlpha(sAlpha));
-                    Path2D beam = new Path2D.Double();
-                    beam.moveTo(pDrawX + 80, cy);
-                    // Wavy control points
-                    double wave1 = Math.sin(time * 6 + strand * 1.5) * (30 + strand * 15);
-                    double wave2 = Math.cos(time * 5 + strand * 2.0) * (25 + strand * 12);
-                    double midX = (pDrawX + bDrawX) / 2.0;
-                    beam.curveTo(midX - 80, cy + wave1, midX + 80, cy + wave2, bDrawX - 80, cy);
-                    ebg.setStroke(RenderCache.getStroke(4f - strand * 0.6f));
-                    // Blue near player, red near boss, white in middle
-                    if (strand < 2)
-                        ebg.setColor(new Color(150, 220, 255));
-                    else if (strand > 3)
-                        ebg.setColor(RenderCache.WARM_255_160_80);
-                    else
-                        ebg.setColor(RenderCache.CREAM_255_255_220);
-                    ebg.draw(beam);
-                }
-                ebg.dispose();
-            }
-
-            // Expanding shockwave rings (alternating blue/red)
-
-            if (bossIntroPhase == 4 && t < 275) {
-
-                Graphics2D rg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    rg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                double shockP = (t - 250) / 25.0;
-
-                for (int r = 0; r < 5; r++) {
-
-                    double rp = Math.min(1.0, shockP + r * 0.12);
-
-                    if (rp < 0) continue;
-
-                    float ra = Math.max(0f, (1f - (float)rp) * 0.7f * masterAlpha);
-
-                    int rr = (int)(20 + rp * 500);
-
-                    rg.setComposite(RenderCache.getAlpha(Math.min(1f, ra)));
-
-                    rg.setColor(r % 2 == 0 ? RenderCache.BLUE_120_200_255 : RenderCache.WARM_255_150_80);
-
-                    rg.setStroke(RenderCache.getStroke(Math.max(0.5f, 5f - (float)rp * 4f)));
-
-                    rg.drawOval(cx - rr, cy - rr, rr * 2, rr * 2);
-
-                }
-
-                rg.dispose();
-
-            }
-
-
-
-            // 12 rotating cross-flare arms (alternating blue/red)
-
-            {
-
-                Graphics2D fg = (Graphics2D) g.create();
-
-                for (int i = 0; i < 12; i++) {
-
-                    double angle = (i * Math.PI * 2.0 / 12) + time * 0.5;
-
-                    float aa = (float)(0.1 + 0.06 * Math.sin(time * 3 + i));
-
-                    aa = Math.max(0f, Math.min(1f, aa * (float)bossIntroVsScale * masterAlpha));
-
-                    fg.setComposite(RenderCache.getAlpha(aa));
-
-                    fg.setColor(i % 2 == 0 ? new Color(80, 160, 255) : new Color(255, 100, 40));
-
-                    fg.setStroke(RenderCache.getStroke(18f));
-
-                    fg.drawLine(cx + (int)(Math.cos(angle) * 20), cy + (int)(Math.sin(angle) * 20),
-
-                                cx + (int)(Math.cos(angle) * 200), cy + (int)(Math.sin(angle) * 200));
-
-                    fg.setColor(Color.WHITE);
-
-                    fg.setStroke(RenderCache.getStroke(5f));
-
-                    fg.drawLine(cx + (int)(Math.cos(angle) * 20), cy + (int)(Math.sin(angle) * 20),
-
-                                cx + (int)(Math.cos(angle) * 160), cy + (int)(Math.sin(angle) * 160));
-
-                }
-
-                fg.dispose();
-
-            }
-
-
-
-            // Manga impact lines (black wedge shapes radiating from center)
-
-            {
-
-                Graphics2D mg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    mg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                float impactA = Math.max(0f, Math.min(1f, (float)bossIntroVsScale * 0.4f * masterAlpha));
-
-                mg.setComposite(RenderCache.getAlpha(impactA));
-
-                int numWedges = 24;
-
-                double maxR = Math.max(width, height) * 0.9;
-
-                double innerR = 180;
-
-                for (int i = 0; i < numWedges; i++) {
-
-                    double angle = (i * Math.PI * 2.0 / numWedges);
-
-                    double halfWidth = Math.PI / numWedges * 0.35;
-
-                    Path2D wedge = new Path2D.Double();
-
-                    wedge.moveTo(cx + Math.cos(angle - halfWidth) * innerR, cy + Math.sin(angle - halfWidth) * innerR);
-
-                    wedge.lineTo(cx + Math.cos(angle - halfWidth * 0.3) * maxR, cy + Math.sin(angle - halfWidth * 0.3) * maxR);
-
-                    wedge.lineTo(cx + Math.cos(angle + halfWidth * 0.3) * maxR, cy + Math.sin(angle + halfWidth * 0.3) * maxR);
-
-                    wedge.lineTo(cx + Math.cos(angle + halfWidth) * innerR, cy + Math.sin(angle + halfWidth) * innerR);
-
-                    wedge.closePath();
-
-                    mg.setColor(i % 2 == 0 ? Color.BLACK : Color.WHITE);
-
-                    mg.fill(wedge);
-
-                }
-
-                mg.dispose();
-
-            }
-
-
-
-            // VFX explosion at VS center (effect 2 = 654.png, effect 11 = 675.png)
-
-            {
-
-                float vfxA = Math.max(0f, Math.min(1f, (float)bossIntroVsScale * masterAlpha * 0.8f));
-
-                int ef = getVFXFrame(2, t, 250, 80);
-
-                drawVFXFrame(g, 2, ef, cx, cy, 10.0, time * 0.2, vfxA);
-
-                drawVFXFrame(g, 11, ef, cx, cy, 8.0, -time * 0.4 + Math.PI / 3, vfxA * 0.7f);
-
-            }
-
-
-
-            // Radial energy explosion from center
-
-            float expA = Math.max(0f, Math.min(1f, (float)bossIntroVsScale * 0.3f * masterAlpha));
-
-            if (expA > 0.01f) {
-
-                RadialGradientPaint expl = new RadialGradientPaint(
-
-                    new Point2D.Float(cx, cy), 200,
-
-                    new float[]{0f, 0.3f, 0.7f, 1f},
-
-                    new Color[]{
-
-                        new Color(255, 255, 255, clampA((int)(120 * expA * bossIntroVsScale))),
-
-                        new Color(255, 220, 100, clampA((int)(80 * expA * bossIntroVsScale))),
-
-                        new Color(255, 150, 50, clampA((int)(30 * expA * bossIntroVsScale))),
-
-                        RenderCache.BLACK_0});
-
-                g.setPaint(expl);
-
-                g.fillOval(cx - 200, cy - 200, 400, 400);
-
-            }
-
-
-
-            // VS TEXT with chromatic aberration + glow
-
-            {
-
-                Graphics2D vg = (Graphics2D) g.create();
-
-                if (Game.enableAntiAliasing)
-
-                    vg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                vg.setFont(FontPalette.get(Font.BOLD, 200));
-
-                FontMetrics fm = vg.getFontMetrics();
-
-                String vsText = "VS";
-
-                int vsW = fm.stringWidth(vsText);
-
-                int vsX = cx - vsW / 2;
-
-                int vsY = cy + fm.getAscent() / 2 - fm.getDescent();
-
-                float va = Math.max(0f, Math.min(1f, (float)bossIntroVsScale * masterAlpha));
-
-
-
-                // Layered shadow
-
-                for (int s = 10; s >= 1; s--) {
-
-                    vg.setColor(new Color(0, 0, 0, clampA((int)(15 * va))));
-
-                    vg.drawString(vsText, vsX + s * 2, vsY + s * 2);
-
-                }
-
-
-
-                // Multi-pass glow (draw at increasing scales with decreasing alpha)
-
-                for (int gl = 4; gl >= 1; gl--) {
-
-                    float glAlpha = va * 0.12f / gl;
-
-                    if (glAlpha < 0.01f) continue;
-
-                    Graphics2D gg = (Graphics2D) vg.create();
-
-                    gg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, glAlpha))));
-
-                    float glScale = 1.0f + gl * 0.08f;
-
-                    gg.translate(cx, vsY - fm.getAscent() / 2);
-
-                    gg.scale(glScale, glScale);
-
-                    gg.translate(-cx, -(vsY - fm.getAscent() / 2));
-
-                    gg.setColor(PANEL_MEGA_LABEL);
-
-                    gg.drawString(vsText, vsX, vsY);
-
-                    gg.dispose();
-
-                }
-
-
-
-                // Dark outline
-
-                vg.setColor(new Color(40, 20, 10, clampA((int)(255 * va))));
-
-                for (int ox = -3; ox <= 3; ox++) {
-
-                    for (int oy = -3; oy <= 3; oy++) {
-
-                        if (ox * ox + oy * oy <= 10)
-
-                            vg.drawString(vsText, vsX + ox, vsY + oy);
-
-                    }
-
-                }
-
-
-
-                // Chromatic aberration - red channel offset left, blue offset right
-
-                if (va > 0.1f) {
-
-                    int chromaOff = (int)(3 * bossIntroVsScale);
-
-                    Graphics2D cr = (Graphics2D) vg.create();
-
-                    cr.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, va * 0.4f))));
-
-                    cr.setColor(new Color(255, 60, 60));
-
-                    cr.drawString(vsText, vsX - chromaOff, vsY);
-
-                    cr.setColor(new Color(60, 60, 255));
-
-                    cr.drawString(vsText, vsX + chromaOff, vsY);
-
-                    cr.dispose();
-
-                }
-
-
-
-                // Fire gradient fill (main text)
-
-                if (va > 0.1f) {
-
-                    GradientPaint vsp = new GradientPaint(vsX, vsY - fm.getAscent(),
-
-                        new Color(255, 255, 240), vsX, vsY, new Color(255, 150, 30));
-
-                    vg.setPaint(vsp);
-
-                    vg.drawString(vsText, vsX, vsY);
-
-                    vg.setColor(new Color(255, 255, 255, clampA((int)(200 * va))));
-
-                    vg.drawString(vsText, vsX, vsY - 2);
-
-                }
-
-                vg.dispose();
-
-            }
-
-        }
-
-
-
-        // ===== VS FLASH OVERLAY =====
-
-        if (bossIntroFlash > 0 && bossIntroPhase == 4) {
-
-            g.setColor(new Color(255, 255, 255, clampA((int)(200 * bossIntroFlash * masterAlpha))));
-
-            g.fillRect(-M, -M, width + M * 2, height + M * 2);
-
-        }
-
-
-
-        // ===== INTRO PARTICLES (thread-safe snapshot) =====
-
-        if (!isPhase5) try {
-
-            java.util.List<Particle> pCopy = new java.util.ArrayList<>(introParticles);
-
-            for (Particle p : pCopy) {
-
-                if (p != null && p.isAlive()) {
-
-                    Graphics2D pg = (Graphics2D) g.create();
-
-                    pg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, masterAlpha))));
-
-                    p.draw(pg);
-
-                    pg.dispose();
-
-                }
-
-            }
-
-        } catch (Exception e) { /* thread safety */ }
-
-
-
-        // ===== LETTERBOX BARS =====
-
-        if (barH > 2) {
-
-            GradientPaint topBar = new GradientPaint(0, -M, Color.BLACK, 0, barH, new Color(15, 18, 30));
-
-            g.setPaint(topBar);
-
-            g.fillRect(-M, -M, width + M * 2, barH + M);
-
-            GradientPaint botBar = new GradientPaint(0, height - barH, new Color(15, 18, 30), 0, height + M, Color.BLACK);
-
-            g.setPaint(botBar);
-
-            g.fillRect(-M, height - barH, width + M * 2, barH + M);
-
-
-
-            // Gold trim
-
-            int trimA = clampA((int)(180 + 40 * Math.sin(time * 3)));
-
-            g.setColor(new Color(235, 203, 139, trimA));
-
-            g.setStroke(RenderCache.getStroke(2.5f));
-
-            g.drawLine(-M, barH, width + M, barH);
-
-            g.drawLine(-M, height - barH, width + M, height - barH);
-
-
-
-            // Stage banner
-
-            if (bossIntroPhase >= 3 && barH > 30) {
-
-                String stageText = "STAGE " + level;
-
-                g.setFont(FontPalette.getBody(Font.BOLD, 28));
-
-                FontMetrics fm = g.getFontMetrics();
-
-                int stW = fm.stringWidth(stageText);
-
-                int stX = cx - stW / 2;
-
-                int stY = height - barH / 2 + fm.getAscent() / 2 - 3;
-
-                int stPad = 20;
-
-                g.setColor(new Color(20, 22, 35, 200));
-
-                g.fillRect(stX - stPad, stY - fm.getAscent() - 3, stW + stPad * 2, fm.getHeight() + 6);
-
-                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 160));
-
-                g.setStroke(RenderCache.getStroke(1.5f));
-
-                g.drawRect(stX - stPad, stY - fm.getAscent() - 3, stW + stPad * 2, fm.getHeight() + 6);
-
-                int dSize = 6;
-
-                int dY = stY - fm.getAscent() / 2;
-
-                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_GOLD, 200));
-
-                g.fillPolygon(new int[]{stX - stPad - 12, stX - stPad - 12 + dSize, stX - stPad - 12, stX - stPad - 12 - dSize},
-
-                              new int[]{dY - dSize, dY, dY + dSize, dY}, 4);
-
-                g.fillPolygon(new int[]{stX + stW + stPad + 12, stX + stW + stPad + 12 + dSize, stX + stW + stPad + 12, stX + stW + stPad + 12 - dSize},
-
-                              new int[]{dY - dSize, dY, dY + dSize, dY}, 4);
-
-                GradientPaint stp = new GradientPaint(stX, stY - fm.getAscent(),
-
-                    RenderCache.WARM_255_240_200, stX, stY, ColorPalette.TEXT_GOLD);
-
-                g.setPaint(stp);
-
-                g.drawString(stageText, stX, stY);
-
-            }
-
-
-
-            // Skip prompt
-
-            if (bossIntroPhase >= 1 && barH > 20) {
-
-                float skipPulse = 0.5f + 0.5f * (float)Math.sin(time * 3);
-
-                g.setFont(FontPalette.get(Font.BOLD, 14));
-
-                g.setColor(new Color(216, 222, 233, clampA((int)(180 * skipPulse * masterAlpha))));
-
-                Object[] skipSegs = {"PRESS ", KeyBindManager.Action.CONFIRM, " TO SKIP"};
-
-                int skipW = measurePromptWidth(g, skipSegs);
-
-                drawPromptWithIcons(g, width - 20 - skipW / 2, barH / 2 + g.getFontMetrics().getAscent() / 2 - 2, skipSegs);
-
-            }
-
-        }
-
-
-
-        // ===== ANIME SCANLINE OVERLAY =====
-        if (masterAlpha > 0.2f && bossIntroPhase >= 1 && !isPhase5) {
-            Graphics2D slg2 = (Graphics2D) g.create();
-            float scanAlpha = Math.max(0f, Math.min(1f, 0.04f * masterAlpha));
-            slg2.setComposite(RenderCache.getAlpha(scanAlpha));
-            slg2.setColor(Color.BLACK);
-            // Draw horizontal scanlines every 4 pixels
-            for (int sy = -M; sy < height + M; sy += 4) {
-                slg2.drawLine(-M, sy, width + M, sy);
-            }
-            slg2.dispose();
-        }
-
-        // ===== CORNER BRACKETS (phases 3+) =====
-
-        if (bossIntroPhase >= 3 && bossIntroPhase <= 4 && barH > 30) {
-
-            Graphics2D cg = (Graphics2D) g.create();
-
-            if (Game.enableAntiAliasing)
-
-                cg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int bSize = 40, inset = 18;
-
-            int bAlpha = clampA((int)(160 * masterAlpha + 40 * Math.sin(time * 2)));
-
-            // Glow layer
-
-            cg.setStroke(ROUND_STROKE_8);
-
-            cg.setColor(new Color(235, 203, 139, clampA(bAlpha / 4)));
-
-            cg.drawLine(inset, barH + inset, inset + bSize, barH + inset);
-
-            cg.drawLine(inset, barH + inset, inset, barH + inset + bSize);
-
-            cg.drawLine(width - inset, barH + inset, width - inset - bSize, barH + inset);
-
-            cg.drawLine(width - inset, barH + inset, width - inset, barH + inset + bSize);
-
-            cg.drawLine(inset, height - barH - inset, inset + bSize, height - barH - inset);
-
-            cg.drawLine(inset, height - barH - inset, inset, height - barH - inset - bSize);
-
-            cg.drawLine(width - inset, height - barH - inset, width - inset - bSize, height - barH - inset);
-
-            cg.drawLine(width - inset, height - barH - inset, width - inset, height - barH - inset - bSize);
-
-            // Sharp layer
-
-            cg.setStroke(ROUND_STROKE_3_5);
-
-            cg.setColor(new Color(235, 203, 139, clampA(bAlpha)));
-
-            cg.drawLine(inset, barH + inset, inset + bSize, barH + inset);
-
-            cg.drawLine(inset, barH + inset, inset, barH + inset + bSize);
-
-            cg.drawLine(width - inset, barH + inset, width - inset - bSize, barH + inset);
-
-            cg.drawLine(width - inset, barH + inset, width - inset, barH + inset + bSize);
-
-            cg.drawLine(inset, height - barH - inset, inset + bSize, height - barH - inset);
-
-            cg.drawLine(inset, height - barH - inset, inset, height - barH - inset - bSize);
-
-            cg.drawLine(width - inset, height - barH - inset, width - inset - bSize, height - barH - inset);
-
-            cg.drawLine(width - inset, height - barH - inset, width - inset, height - barH - inset - bSize);
-
-            cg.dispose();
-
-        }
-
-
-
-        // ===== DRAMATIC VIGNETTE =====
-
-        if (masterAlpha > 0.1f && !isPhase5) {
-
-            RadialGradientPaint vig = new RadialGradientPaint(
-
-                new Point2D.Float(cx, cy), width * 0.65f,
-
-                new float[]{0f, 0.5f, 0.8f, 1f},
-
-                new Color[]{RenderCache.BLACK_0,
-
-                           new Color(0, 0, 0, clampA((int)(25 * masterAlpha))),
-
-                           new Color(0, 0, 0, clampA((int)(90 * masterAlpha))),
-
-                           new Color(0, 0, 0, clampA((int)(180 * masterAlpha)))});
-
-            g.setPaint(vig);
-
-            g.fillRect(-M, -M, width + M * 2, height + M * 2);
-
-
-
-            // Phase-based color temperature overlay
-            if (bossIntroPhase >= 1) {
-                Color tempColor;
-                float tempAlpha;
-                if (bossIntroPhase <= 2) {
-                    tempColor = new Color(30, 80, 180);
-                    tempAlpha = 0.035f;
-                } else if (bossIntroPhase == 3) {
-                    tempColor = new Color(180, 60, 20);
-                    tempAlpha = 0.035f;
-                } else if (bossIntroPhase == 4) {
-                    tempColor = new Color(200, 170, 80);
-                    tempAlpha = 0.025f;
-                } else {
-                    tempColor = new Color(80, 80, 100);
-                    tempAlpha = 0.02f;
-                }
-                tempAlpha = Math.max(0f, Math.min(1f, tempAlpha * masterAlpha));
-                g.setColor(new Color(tempColor.getRed(), tempColor.getGreen(), tempColor.getBlue(),
-                    clampA((int)(255 * tempAlpha))));
-                g.fillRect(-M, -M, width + M * 2, height + M * 2);
-            }
-
-            // Edge color tint - blue left, red right (wider reach)
-            if (bossIntroPhase >= 1 && bossIntroPhase <= 4 && !isPhase5) {
-                float edgeAlpha = Math.max(0f, Math.min(1f, 0.1f * masterAlpha));
-                GradientPaint leftEdge = new GradientPaint(
-                    -M, cy, new Color(50, 130, 255, clampA((int)(50 * edgeAlpha * 255))),
-                    width / 3, cy, RenderCache.BLACK_0);
-                g.setPaint(leftEdge);
-                g.fillRect(-M, -M, width / 3 + M, height + M * 2);
-                GradientPaint rightEdge = new GradientPaint(
-                    width * 2 / 3, cy, RenderCache.BLACK_0,
-                    width + M, cy, new Color(255, 90, 20, clampA((int)(45 * edgeAlpha * 255))));
-                g.setPaint(rightEdge);
-                g.fillRect(width * 2 / 3, -M, width / 3 + M, height + M * 2);
-            }
-
-            // Film grain overlay (cinematic noise)
-            if (!isPhase5) {
-                Graphics2D grg = (Graphics2D) g.create();
-                grg.setComposite(RenderCache.getAlpha(Math.max(0f, Math.min(1f, 0.025f * masterAlpha))));
-                int seed = (int)(time * 60);
-                for (int gy = 0; gy < height; gy += 12) {
-                    for (int gx = 0; gx < width; gx += 12) {
-                        int hash = ((gx * 73 + gy * 137 + seed * 41) ^ 0x5F3759DF) & 0xFF;
-                        if (hash > 220) {
-                            grg.setColor(hash > 240 ? Color.WHITE : Color.BLACK);
-                            grg.fillRect(gx, gy, 2, 2);
-                        }
-                    }
-                }
-                grg.dispose();
-            }
-
-        }
-
-    }
-
-
 
 }
 

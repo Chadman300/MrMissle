@@ -233,9 +233,9 @@ public class Game extends JPanel implements Runnable {
     private double bossIntroTimer;
     private static final int BOSS_INTRO_DURATION = 380; // 6-phase anime sequential reveal
     private String bossIntroText;
-    private double bossIntroPlayerX; // Player X position (center → left)
+    private double bossIntroPlayerX; // Player X position (center â†’ left)
     private double bossIntroPlayerY; // Player Y position (computed from phase)
-    private double bossIntroBossX;   // Boss X position (off-screen → right)
+    private double bossIntroBossX;   // Boss X position (off-screen â†’ right)
     private double bossIntroBossY;   // Boss Y position (computed from phase)
     private double bossIntroVsScale; // VS text scale animation
     private double bossIntroFlash;   // Flash/slash intensity
@@ -690,7 +690,7 @@ public class Game extends JPanel implements Runnable {
         "ABCDEFGHIJ",
         "KLMNOPQRST",
         "UVWXYZ0123",
-        "456789 \u2190\u23CE"  // space, backspace (←), confirm (⏎)
+        "456789 \u2190\u23CE"  // space, backspace (â†), confirm (âŽ)
     };
     private static final int MAX_SAVE_NAME_LENGTH = 20;
     
@@ -980,7 +980,7 @@ public class Game extends JPanel implements Runnable {
     private void handleKeyPress(KeyEvent e) {
         int key = e.getKeyCode();
         
-        // Keybind rebinding intercept — capture the pressed key when waiting
+        // Keybind rebinding intercept â€” capture the pressed key when waiting
         if (waitingForKeyBind && gameState == GameState.SETTINGS && selectedSettingsCategory == 4) {
             if (key == KeyEvent.VK_ESCAPE) {
                 // Cancel rebinding
@@ -1031,7 +1031,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     if (selectedSaveSlot < saveMetadataCache.size()) {
-                        // Clicking on an existing save — load it
+                        // Clicking on an existing save â€” load it
                         SaveManager.SaveMetadata meta = saveMetadataCache.get(selectedSaveSlot);
                         int slot = meta.slotNumber;
                         SaveData saveData = saveManager.load(slot);
@@ -1055,7 +1055,7 @@ public class Game extends JPanel implements Runnable {
                             transitionToState(GameState.MENU);
                         }
                     } else {
-                        // "New Save" button — go to mode selection
+                        // "New Save" button â€” go to mode selection
                         pendingSaveSlot = saveManager.getNextAvailableSlot();
                         selectedGameModeIndex = 1; // Default to HARD
                         soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
@@ -1667,19 +1667,12 @@ public class Game extends JPanel implements Runnable {
                         cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                         cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                         screenShakeIntensity = 8;
-                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && bossIntroActive) {
-                        // Skip boss intro cinematic
-                        bossIntroActive = false;
-                        screenShakeIntensity = 5;
-                        // Reset player and boss to proper gameplay positions
-                        if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
-                        if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
-                        introParticles.clear();
+                        if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
                         if (demoIntroActive) {
                             demoIntroActive = false;
                             transitionToState(GameState.MENU);
                         }
-                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.USE_ITEM, key) : key == KeyEvent.VK_SPACE) && !eKeyPressed && !introPanActive && !bossIntroActive) {
+                    } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.USE_ITEM, key) : key == KeyEvent.VK_SPACE) && !eKeyPressed && !introPanActive) {
                         // Activate equipped item (only once per key press, and not during intro)
                         System.out.println("SPACE pressed - Attempting item activation");
                         // Powerless contract (type 3) disables ALL active items
@@ -2365,12 +2358,12 @@ public class Game extends JPanel implements Runnable {
         String symbol = "?";
         
         // Choose symbol based on attack type
-        if (attackId.contains("bullet")) symbol = "•";
-        else if (attackId.contains("beam")) symbol = "═";
-        else if (attackId.contains("shock")) symbol = "◯";
-        else if (attackId.contains("grenade") || attackId.contains("nuke") || attackId.contains("bomb")) symbol = "💣";
-        else if (attackId.contains("twirl")) symbol = "↻";
-        else if (attackId.contains("spiral")) symbol = "🌀";
+        if (attackId.contains("bullet")) symbol = "â€¢";
+        else if (attackId.contains("beam")) symbol = "â•";
+        else if (attackId.contains("shock")) symbol = "â—¯";
+        else if (attackId.contains("grenade") || attackId.contains("nuke") || attackId.contains("bomb")) symbol = "ðŸ’£";
+        else if (attackId.contains("twirl")) symbol = "â†»";
+        else if (attackId.contains("spiral")) symbol = "ðŸŒ€";
         
         int textX = (size - fm.stringWidth(symbol)) / 2;
         int textY = (size + fm.getAscent() - fm.getDescent()) / 2;
@@ -2670,7 +2663,7 @@ public class Game extends JPanel implements Runnable {
                             transitionToState(GameState.MENU);
                         }
                     } else {
-                        // "New Save" — go to mode selection
+                        // "New Save" â€” go to mode selection
                         pendingSaveSlot = saveManager.getNextAvailableSlot();
                         selectedGameModeIndex = 1;
                         soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
@@ -3398,8 +3391,8 @@ public class Game extends JPanel implements Runnable {
         
         // Create massive death explosion (plays for ALL deaths including final)
         if (enableParticles) {
-            // DEBRIS fragments - spinning missile body fragments (40 pieces)
-            for (int i = 0; i < 40; i++) {
+            // DEBRIS fragments - spinning missile body fragments (55 pieces)
+            for (int i = 0; i < 55; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 1.5 + Math.random() * 5.0;
                 Color debrisColor = Math.random() < 0.5 
@@ -3413,8 +3406,8 @@ public class Game extends JPanel implements Runnable {
                 );
             }
             
-            // EXHAUST particles - fireball bloom (55 pieces)
-            for (int i = 0; i < 55; i++) {
+            // EXHAUST particles - fireball bloom (75 pieces)
+            for (int i = 0; i < 75; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 2 + Math.random() * 8;
                 Color fireColor;
@@ -3431,18 +3424,18 @@ public class Game extends JPanel implements Runnable {
                 );
             }
             
-            // EXPLOSION rings - 7 expanding rings (white-hot center to deep red)
-            for (int i = 0; i < 7; i++) {
+            // EXPLOSION rings - 10 expanding rings (white-hot center to deep red)
+            for (int i = 0; i < 10; i++) {
                 addParticle(
                     deathExplosionX, deathExplosionY, 0, 0,
-                    new Color(255, Math.max(0, 250 - i * 40), Math.max(0, 140 - i * 20), Math.max(60, 250 - i * 30)),
+                    new Color(255, Math.max(0, 250 - i * 28), Math.max(0, 140 - i * 14), Math.max(60, 250 - i * 22)),
                     40 + i * 8, 25 + i * 30,
                     Particle.ParticleType.EXPLOSION
                 );
             }
             
-            // SPARK streaks - fast radiating sparks (40 pieces)
-            for (int i = 0; i < 40; i++) {
+            // SPARK streaks - fast radiating sparks (60 pieces)
+            for (int i = 0; i < 60; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 6 + Math.random() * 10;
                 Color sparkColor;
@@ -3458,8 +3451,8 @@ public class Game extends JPanel implements Runnable {
                 );
             }
             
-            // SMOKE particles - lingering dark smoke (15 pieces)
-            for (int i = 0; i < 15; i++) {
+            // SMOKE particles - lingering dark smoke (25 pieces)
+            for (int i = 0; i < 25; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 0.3 + Math.random() * 2.0;
                 int gray = 80 + (int)(Math.random() * 50);
@@ -3472,8 +3465,8 @@ public class Game extends JPanel implements Runnable {
                 );
             }
             
-            // EMBERS - slow drifting fire particles for lingering effect (20 pieces)
-            for (int i = 0; i < 20; i++) {
+            // EMBERS - slow drifting fire particles for lingering effect (30 pieces)
+            for (int i = 0; i < 30; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 0.5 + Math.random() * 1.5;
                 Color emberColor = Math.random() < 0.5
@@ -3530,6 +3523,10 @@ public class Game extends JPanel implements Runnable {
                     comboSystem.setAnnouncement("MISSILE USED!", WIDTH / 2.0, HEIGHT / 2.0);
                 }
             }
+            
+            // Floating "-1" damage number so player clearly sees missile loss
+            damageNumbers.add(new DamageNumber("-1", deathExplosionX, deathExplosionY - 30,
+                new Color(255, 60, 60), 48));
             
             // Don't end the game - continue playing
             return;
@@ -3883,7 +3880,7 @@ public class Game extends JPanel implements Runnable {
     private void startDemoIntro() {
         demoIntroActive = true;
         
-        // Create temporary player and boss for the cinematic
+        // Create temporary player and boss for the demo
         int speedLevel = getActiveSpeedLevel();
         player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, 1, soundManager, gameData.getGameMode());
@@ -3896,17 +3893,14 @@ public class Game extends JPanel implements Runnable {
         flares.clear();
         flareCooldownTimer = 300;
         
-        // Set up boss intro state
-        bossIntroActive = true;
-        bossIntroTimer = 0;
+        // Set up intro pan with boss name banner
+        bossIntroActive = false;
         bossIntroText = currentBoss.getVehicleName();
-        bossIntroPlayerX = WIDTH / 2.0;
-        bossIntroBossX = WIDTH + 300;
-        bossIntroVsScale = 0;
-        bossIntroFlash = 1.0;
-        bossIntroPhase = 0;
-        bossIntroFlashTimer = 25;
-        introPanActive = false;
+        introPanActive = true;
+        introPanTimer = 0;
+        bossEntranceY = -200;
+        cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+        cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
         isPaused = false;
         
         // Switch to PLAYING so the update loop and renderer handle it
@@ -4049,15 +4043,15 @@ public class Game extends JPanel implements Runnable {
         g.setColor(itemColor);
         String symbol = "?";
         switch (itemTypeName) {
-            case "SHIELD": symbol = "◉"; break;
-            case "MAGNET": symbol = "⊛"; break;
-            case "SLOW_TIME": symbol = "◷"; break;
-            case "PHASE": symbol = "◈"; break;
-            case "BOMB": symbol = "◆"; break;
-            case "STUN": symbol = "⚡"; break;
-            case "DOUBLE_DAMAGE": symbol = "×2"; break;
-            case "IMPULSE": symbol = "◎"; break;
-            case "FROST_BEAM": symbol = "❄"; break;
+            case "SHIELD": symbol = "â—‰"; break;
+            case "MAGNET": symbol = "âŠ›"; break;
+            case "SLOW_TIME": symbol = "â—·"; break;
+            case "PHASE": symbol = "â—ˆ"; break;
+            case "BOMB": symbol = "â—†"; break;
+            case "STUN": symbol = "âš¡"; break;
+            case "DOUBLE_DAMAGE": symbol = "Ã—2"; break;
+            case "IMPULSE": symbol = "â—Ž"; break;
+            case "FROST_BEAM": symbol = "â„"; break;
         }
         FontMetrics fm = g.getFontMetrics();
         int symbolX = (size - fm.stringWidth(symbol)) / 2;
@@ -4425,27 +4419,13 @@ public class Game extends JPanel implements Runnable {
         
         comboSystem.resetCombo();
         
-        // Start boss intro cinematic — only on first encounter with each boss
-        int lvl = gameData.getCurrentLevel();
-        boolean seenBefore = (lvl >= 1 && lvl <= gameData.getDefeatedBosses().length && gameData.getDefeatedBosses()[lvl - 1]);
-        if (!seenBefore) {
-            bossIntroActive = true;
-            bossIntroTimer = 0;
-            introParticles.clear();
-            bossIntroText = currentBoss.getVehicleName();
-            if (currentBoss.isMegaBoss()) {
-                bossIntroText += " [MEGA]";
-            }
-            bossIntroPlayerX = WIDTH / 2.0; // Start at center (flies up from bottom)
-            bossIntroBossX = WIDTH + 300; // Start off-screen right
-            bossIntroVsScale = 0;
-            bossIntroFlash = 1.0; // Immediate impact flash
-            bossIntroPhase = 0;
-            bossIntroFlashTimer = 25;
-            soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
-        } else {
-            bossIntroActive = false;
+        // Set boss name for intro banner
+        bossIntroActive = false;
+        bossIntroText = currentBoss.getVehicleName();
+        if (currentBoss.isMegaBoss()) {
+            bossIntroText += " [MEGA]";
         }
+        soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
         // Start intro sequence with boss entrance
         introPanActive = true;
@@ -4506,7 +4486,7 @@ public class Game extends JPanel implements Runnable {
         final double nsPerTick = 1000000000.0 / FIXED_UPDATE_HZ;
         double delta = 0;
         
-        // Initialize off-screen render buffers (TYPE_INT_RGB — no alpha needed for display)
+        // Initialize off-screen render buffers (TYPE_INT_RGB â€” no alpha needed for display)
         renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         
@@ -4621,7 +4601,7 @@ public class Game extends JPanel implements Runnable {
         if (controllerManager != null) {
             controllerManager.poll();
             
-            // Controller rebind capture — intercept button presses when rebinding
+            // Controller rebind capture â€” intercept button presses when rebinding
             if (waitingForKeyBind && gameState == GameState.SETTINGS && selectedSettingsCategory == 4
                     && controllerManager.isConnected()) {
                 // Check for B button to cancel rebinding
@@ -4846,7 +4826,7 @@ public class Game extends JPanel implements Runnable {
             
             // NOTE: refreshSaveMetadata() is already called on state entry
             // (transitionToState) and after delete operations. No need to
-            // poll the filesystem every frame — that caused a death-spiral freeze.
+            // poll the filesystem every frame â€” that caused a death-spiral freeze.
             
             // Smooth scroll animation for save select
             double saveScrollDiff = saveSelectScroll - saveSelectScrollAnimated;
@@ -5265,6 +5245,22 @@ public class Game extends JPanel implements Runnable {
             if (respawnBlinkTimer <= 0) {
                 respawnBlinkTimer = 0;
             }
+            
+            // Damage smoke trail during respawn blink â€” shows the missile was just hit
+            if (enableParticles && player != null && Math.random() < 0.40) {
+                double px = player.getX() + (Math.random() - 0.5) * 16;
+                double py = player.getY() + (Math.random() - 0.5) * 16;
+                if (Math.random() < 0.6) {
+                    int gray = 60 + (int)(Math.random() * 40);
+                    addParticle(px, py, (Math.random()-0.5)*0.6, -0.4 - Math.random()*0.8,
+                        new Color(gray, gray, gray, 160), 40, 4 + Math.random()*3,
+                        Particle.ParticleType.SMOKE);
+                } else {
+                    addParticle(px, py, (Math.random()-0.5)*0.5, -0.3 - Math.random()*0.6,
+                        new Color(255, 140 + (int)(Math.random()*60), 30, 170), 30, 3 + Math.random()*2,
+                        Particle.ParticleType.EXHAUST);
+                }
+            }
         }
         
         // Handle respawn invincibility timer
@@ -5426,7 +5422,7 @@ public class Game extends JPanel implements Runnable {
                         while (angleDiff > Math.PI) angleDiff -= TWO_PI;
                         while (angleDiff < -Math.PI) angleDiff += TWO_PI;
                         
-                        // Angle cone widens with level: ~70° / ~90° / ~110°
+                        // Angle cone widens with level: ~70Â° / ~90Â° / ~110Â°
                         double maxAngleCone = (Math.PI / 3) + (targetingLevel * Math.PI / 9);
                         if (Math.abs(angleDiff) < maxAngleCone) {
                             // Strength scales with level: 0.045 / 0.09 / 0.135
@@ -5619,6 +5615,11 @@ public class Game extends JPanel implements Runnable {
                     introPanActive = false;
                     cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                     cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                    if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
+                    if (demoIntroActive) {
+                        demoIntroActive = false;
+                        transitionToState(GameState.MENU);
+                    }
                 }
             } else if (player != null && !deathSequenceActive) {
                 // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
@@ -5650,247 +5651,6 @@ public class Game extends JPanel implements Runnable {
                 double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom * dt;
                 cameraX += (targetCameraX - cameraX) * zoomAdjustedSmoothing;
                 cameraY += (targetCameraY - cameraY) * zoomAdjustedSmoothing;
-            }
-            
-            // Update boss intro cinematic — anime shonen sequential reveal
-            if (bossIntroActive) {
-                bossIntroTimer += deltaTime;
-                double t = bossIntroTimer;
-                double w = WIDTH;
-                int cY = HEIGHT / 2;
-                
-                // Phase 0: Impact flash (0-30)
-                if (t < 30) {
-                    bossIntroPlayerX = w / 2.0;
-                    bossIntroBossX = w + 300;
-                    bossIntroVsScale = 0;
-                    bossIntroFlash = Math.max(0, 1.0 - t / 30.0);
-                    bossIntroPhase = 0;
-                }
-                // Phase 1: Player spotlight — flies up from bottom center (30-110)
-                else if (t < 110) {
-                    double progress = (t - 30) / 80.0;
-                    bossIntroPlayerX = w / 2.0;
-                    bossIntroBossX = w + 300;
-                    bossIntroVsScale = 0;
-                    bossIntroFlash = 0;
-                    bossIntroPhase = 1;
-                    if (t >= 50 && t < 53) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 10);
-                    }
-                }
-                // Phase 2: Slash transition — player slides to left (110-155)
-                else if (t < 155) {
-                    double progress = (t - 110) / 45.0;
-                    double ease = 1.0 - Math.pow(1.0 - progress, 3);
-                    bossIntroPlayerX = w * 0.5 - (w * 0.5 - w * 0.27) * ease;
-                    bossIntroBossX = w + 300;
-                    bossIntroVsScale = 0;
-                    bossIntroFlash = ease; // slash progress 0→1
-                    bossIntroPhase = 2;
-                    if (t >= 110 && t < 113) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 12);
-                    }
-                }
-                // Phase 3: Boss reveal — crashes in from top-right (155-250)
-                else if (t < 250) {
-                    double progress = (t - 155) / 95.0;
-                    double ease = 1.0 - Math.pow(1.0 - Math.min(progress * 1.3, 1.0), 3);
-                    bossIntroPlayerX = w * 0.27;
-                    bossIntroBossX = w + 300 - (w + 300 - w * 0.73) * ease;
-                    bossIntroVsScale = 0;
-                    bossIntroFlash = 0;
-                    bossIntroPhase = 3;
-                    if (t >= 155 && t < 158) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 12);
-                    }
-                    if (t >= 180 && t < 185) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 15);
-                    }
-                }
-                // Phase 4: VS clash — both slide toward center (250-320)
-                else if (t < 320) {
-                    double progress = (t - 250) / 70.0;
-                    double slideEase = 1.0 - Math.pow(1.0 - Math.min(progress * 2, 1.0), 3);
-                    bossIntroPlayerX = w * 0.27 + (w * 0.35 - w * 0.27) * slideEase;
-                    bossIntroBossX = w * 0.73 - (w * 0.73 - w * 0.65) * slideEase;
-                    double vsProgress = Math.min(1.0, progress * 2.5);
-                    double elasticEase = 1.0 + Math.sin(vsProgress * Math.PI * 2) * 0.15 * (1.0 - vsProgress);
-                    bossIntroVsScale = Math.min(1.0, vsProgress * 1.5) * elasticEase;
-                    if (t < 255) {
-                        bossIntroFlash = Math.max(0, 1.0 - (t - 250) / 5.0);
-                    } else {
-                        bossIntroFlash = 0;
-                    }
-                    bossIntroPhase = 4;
-                    if (t >= 250 && t < 253) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 20);
-                    }
-                }
-                // Phase 5: Fade out — sprites fly off screen (320-380)
-                else {
-                    double progress = Math.min(1.0, (t - 320) / 60.0);
-                    // Accelerating fly-off with easeIn (slow start, fast end)
-                    double flyEase = progress * progress * progress;
-                    bossIntroPlayerX = w * 0.35 - flyEase * (w * 0.35 + 300);
-                    bossIntroBossX = w * 0.65 + flyEase * (w * 0.35 + 300);
-                    bossIntroVsScale = Math.max(0, 1.0 - progress * 1.5);
-                    bossIntroFlash = 0;
-                    bossIntroPhase = 5;
-                    if (t >= 320 && t < 323) {
-                        screenShakeIntensity = Math.max(screenShakeIntensity, 10);
-                    }
-                }
-                
-                // Compute Y positions (mirrors Renderer logic so entities stay synced)
-                if (bossIntroPhase < 1) bossIntroPlayerY = HEIGHT + 200;
-                else if (bossIntroPhase == 1) {
-                    double yp = Math.min(1.0, (t - 30) / 60.0);
-                    yp = 1.0 - Math.pow(1.0 - yp, 3);
-                    bossIntroPlayerY = HEIGHT + 200 + (cY - (HEIGHT + 200)) * yp;
-                } else if (bossIntroPhase == 5) {
-                    double flyP = Math.min(1.0, (t - 320) / 60.0);
-                    double flyEase = flyP * flyP * flyP;
-                    bossIntroPlayerY = cY + flyEase * (HEIGHT + 200 - cY);
-                } else bossIntroPlayerY = cY;
-                
-                if (bossIntroPhase < 3) bossIntroBossY = -250;
-                else if (bossIntroPhase == 3) {
-                    double yp = Math.min(1.0, (t - 155) / 60.0);
-                    yp = 1.0 - Math.pow(1.0 - yp, 3);
-                    bossIntroBossY = -250 + (cY - (-250)) * yp;
-                } else if (bossIntroPhase == 5) {
-                    double flyP = Math.min(1.0, (t - 320) / 60.0);
-                    double flyEase = flyP * flyP * flyP;
-                    bossIntroBossY = cY - flyEase * (cY + 300);
-                } else bossIntroBossY = cY;
-                
-                // Sync entity positions to cinematic positions so sprites track correctly
-                if (player != null) player.setPosition(bossIntroPlayerX, bossIntroPlayerY);
-                if (currentBoss != null) currentBoss.setPosition(bossIntroBossX, bossIntroBossY);
-                
-                // Update existing intro particles
-                for (int i = introParticles.size() - 1; i >= 0; i--) {
-                    Particle p = introParticles.get(i);
-                    if (p == null) { introParticles.remove(i); continue; }
-                    p.update(deltaTime);
-                    if (!p.isAlive()) {
-                        introParticles.remove(i);
-                    }
-                }
-                
-                // Spawn phase-aware anime particles
-                if (enableParticles) {
-                    Color[] blueColors = {new Color(100, 200, 255), new Color(60, 160, 255),
-                                          new Color(150, 220, 255), new Color(200, 240, 255)};
-                    Color[] redColors = {new Color(255, 180, 40), new Color(255, 120, 20),
-                                         new Color(255, 200, 60), new Color(255, 80, 10)};
-                    Color[] goldColors = {new Color(255, 240, 180), new Color(255, 220, 120),
-                                          new Color(255, 255, 200), new Color(255, 200, 80)};
-                    
-                    // Phase 1: Blue energy burst radiating from player
-                    if (bossIntroPhase == 1) {
-                        for (int i = 0; i < 4; i++) {
-                            double angle = Math.random() * Math.PI * 2;
-                            double speed = 2.0 + Math.random() * 3.0;
-                            double py = cY + (t < 60 ? (HEIGHT + 200 - (HEIGHT + 200 - cY) * ((t - 30) / 30.0)) - cY : 0);
-                            introParticles.add(new Particle(
-                                bossIntroPlayerX + (Math.random() - 0.5) * 30, py + (Math.random() - 0.5) * 30,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                blueColors[(int)(Math.random() * blueColors.length)],
-                                15 + (int)(Math.random() * 20), 3 + Math.random() * 5,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                    }
-                    // Phase 2: Slash sparks along diagonal cut line
-                    if (bossIntroPhase == 2) {
-                        double slashX = w * bossIntroFlash;
-                        double slashY = HEIGHT * (1.0 - bossIntroFlash);
-                        for (int i = 0; i < 3; i++) {
-                            introParticles.add(new Particle(
-                                slashX + (Math.random() - 0.5) * 40, slashY + (Math.random() - 0.5) * 40,
-                                (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4,
-                                goldColors[(int)(Math.random() * goldColors.length)],
-                                10 + (int)(Math.random() * 15), 2 + Math.random() * 4,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                    }
-                    // Phase 3: Red fire particles swirling around boss
-                    if (bossIntroPhase == 3 && bossIntroBossX < w) {
-                        for (int i = 0; i < 4; i++) {
-                            double angle = Math.random() * Math.PI * 2;
-                            double speed = 1.5 + Math.random() * 2.5;
-                            introParticles.add(new Particle(
-                                bossIntroBossX + (Math.random() - 0.5) * 40, cY + (Math.random() - 0.5) * 40,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed - 1.0,
-                                redColors[(int)(Math.random() * redColors.length)],
-                                15 + (int)(Math.random() * 25), 3 + Math.random() * 6,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                    }
-                    // Phase 4: White/gold explosion from VS impact
-                    if (bossIntroPhase == 4 && t < 265) {
-                        for (int i = 0; i < 6; i++) {
-                            double angle = Math.random() * Math.PI * 2;
-                            double speed = 3.0 + Math.random() * 5.0;
-                            introParticles.add(new Particle(
-                                w / 2.0 + (Math.random() - 0.5) * 20, cY + (Math.random() - 0.5) * 20,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                goldColors[(int)(Math.random() * goldColors.length)],
-                                12 + (int)(Math.random() * 18), 2 + Math.random() * 5,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                    }
-                    // Phase 1-4: Exhaust particles behind sprites when visible
-                    if (bossIntroPhase >= 1 && bossIntroPhase <= 4) {
-                        // Player exhaust
-                        double pExAngle = Math.toRadians(90);
-                        for (int i = 0; i < 2; i++) {
-                            double spread = (Math.random() - 0.5) * 0.8;
-                            introParticles.add(new Particle(
-                                bossIntroPlayerX + (Math.random() - 0.5) * 12, cY + 50,
-                                Math.cos(pExAngle + spread) * 1.5, Math.sin(pExAngle + spread) * 2.0,
-                                blueColors[(int)(Math.random() * blueColors.length)],
-                                12 + (int)(Math.random() * 15), 3 + Math.random() * 4,
-                                Particle.ParticleType.EXHAUST
-                            ));
-                        }
-                        // Boss exhaust (only when on-screen)
-                        if (bossIntroPhase >= 3 && bossIntroBossX < w) {
-                            for (int i = 0; i < 3; i++) {
-                                double spread = (Math.random() - 0.5) * 0.8;
-                                introParticles.add(new Particle(
-                                    bossIntroBossX + (Math.random() - 0.5) * 14, cY + 55,
-                                    Math.cos(pExAngle + spread) * 1.8, Math.sin(pExAngle + spread) * 2.5,
-                                    redColors[(int)(Math.random() * redColors.length)],
-                                    12 + (int)(Math.random() * 18), 3 + Math.random() * 5,
-                                    Particle.ParticleType.EXHAUST
-                                ));
-                            }
-                        }
-                    }
-                    // Cap intro particles
-                    while (introParticles.size() > 250) {
-                        introParticles.remove(0);
-                    }
-                }
-                
-                if (bossIntroTimer >= BOSS_INTRO_DURATION) {
-                    bossIntroActive = false;
-                    introParticles.clear();
-                    // Reset player and boss to proper gameplay positions after cinematic
-                    if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
-                    if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
-                    if (demoIntroActive) {
-                        demoIntroActive = false;
-                        transitionToState(GameState.MENU);
-                    }
-                }
-                if (bossIntroActive) return; // Freeze all gameplay while boss intro is playing
             }
             
             // Update combo system
@@ -6001,7 +5761,7 @@ public class Game extends JPanel implements Runnable {
             final double particleDt = deltaTime;
             int pSize = particles.size();
             if (pSize > 300 && THREAD_COUNT > 1) {
-                // Parallel particle position update — only worth it above ~300 particles
+                // Parallel particle position update â€” only worth it above ~300 particles
                 // (thread submission + latch overhead exceeds benefit for small counts)
                 int chunkSize = (pSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
@@ -6328,82 +6088,177 @@ public class Game extends JPanel implements Runnable {
                     // Make player disappear (missile hit)
                     player = null;
                     
-                    // Massive final explosion
-                    screenShakeIntensity = 25;
+                    // Massive final explosion — bomb detonation
+                    screenShakeIntensity = 35;
                 
-                // Create massive fiery explosion particles
-                int explosionParticleCount = bullets.size() > 200 ? 50 : 100; // Reduce at high bullet density
-                for (int i = 0; i < explosionParticleCount; i++) {
-                    double angle = Math.random() * TWO_PI;
-                    double speed = 3 + Math.random() * 8;
-                    Color fireColor;
-                    double rand = Math.random();
-                    if (rand < 0.4) {
-                        fireColor = FIRE_ORANGE;
-                    } else if (rand < 0.7) {
-                        fireColor = FIRE_YELLOW;
-                    } else {
-                        fireColor = FIRE_RED;
+                if (enableParticles) {
+                    double boomX = currentBoss.getX();
+                    double boomY = currentBoss.getY();
+                    
+                    // EXHAUST fireball bloom (80 pieces — white-hot core fading to deep red)
+                    for (int i = 0; i < 80; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 1.5 + Math.random() * 9;
+                        Color fireColor;
+                        double r = Math.random();
+                        if (r < 0.2) fireColor = new Color(255, 255, 230);      // White-hot core
+                        else if (r < 0.45) fireColor = new Color(255, 220, 60); // Bright yellow
+                        else if (r < 0.7) fireColor = FIRE_ORANGE;              // Orange
+                        else fireColor = FIRE_RED;                               // Deep red
+                        addParticle(boomX, boomY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            fireColor, 55 + (int)(Math.random() * 30), 10 + Math.random() * 8,
+                            Particle.ParticleType.EXHAUST);
                     }
-                    addParticle(
-                        currentBoss.getX(), currentBoss.getY(),
-                        Math.cos(angle) * speed, Math.sin(angle) * speed,
-                        fireColor, 50 + (int)(Math.random() * 30), 6,
-                        Particle.ParticleType.SPARK
-                    );
-                }
-                
-                // Multiple explosion rings
-                for (int i = 0; i < 5; i++) {
-                    addParticle(
-                        currentBoss.getX(), currentBoss.getY(), 0, 0,
-                        new Color(255, 150 - i * 20, 0), 40 + i * 15, 40 + i * 25,
-                        Particle.ParticleType.EXPLOSION
-                    );
+                    
+                    // SMOKE cloud (30 pieces — thick dark smoke billowing out)
+                    for (int i = 0; i < 30; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 0.3 + Math.random() * 2.5;
+                        int gray = 40 + (int)(Math.random() * 50);
+                        addParticle(
+                            boomX + (Math.random() - 0.5) * 30, boomY + (Math.random() - 0.5) * 30,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            new Color(gray, gray, gray, 200), 80 + (int)(Math.random() * 30), 16 + Math.random() * 10,
+                            Particle.ParticleType.SMOKE);
+                    }
+                    
+                    // EXPLOSION shockwave rings (10 expanding rings)
+                    for (int i = 0; i < 10; i++) {
+                        addParticle(boomX, boomY, 0, 0,
+                            new Color(255, Math.max(0, 240 - i * 25), Math.max(0, 80 - i * 8), Math.max(40, 240 - i * 22)),
+                            35 + i * 8, 60 + i * 35,
+                            Particle.ParticleType.EXPLOSION);
+                    }
+                    
+                    // SPARK streaks (50 fast radiating sparks)
+                    for (int i = 0; i < 50; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 5 + Math.random() * 12;
+                        Color sparkColor;
+                        double r = Math.random();
+                        if (r < 0.4) sparkColor = new Color(255, 255, 200);
+                        else if (r < 0.7) sparkColor = new Color(255, 200, 80);
+                        else sparkColor = FIRE_ORANGE;
+                        addParticle(boomX, boomY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            sparkColor, 22, 2 + Math.random() * 3,
+                            Particle.ParticleType.SPARK);
+                    }
+                    
+                    // DEBRIS fragments (30 spinning missile body pieces)
+                    for (int i = 0; i < 30; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 2 + Math.random() * 6;
+                        Color debrisColor = Math.random() < 0.5 ? METAL_DEBRIS : PLAYER_DEATH_RED;
+                        addParticle(boomX, boomY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            debrisColor, 70, 5 + Math.random() * 8,
+                            Particle.ParticleType.DEBRIS);
+                    }
                 }
                 } else {
-                    // Non-fatal hit - delay respawn and show explosion
+                    // Non-fatal hit - delay respawn and show bomb detonation
                     double hitX = (player.getX() + currentBoss.getX()) / 2;
                     double hitY = (player.getY() + currentBoss.getY()) / 2;
                     player = null; // Remove player temporarily
                     waitingForRespawn = true;
                     respawnDelayTimer = RESPAWN_DELAY;
                     
-                    // Huge screen shake for explosion
-                    screenShakeIntensity = 20;
+                    // Massive screen shake for bomb detonation
+                    screenShakeIntensity = 25 + (bossHitCount * 8);
                     
-                    // Create explosion at hit location
+                    // === BOMB DETONATION EXPLOSION ===
                     if (enableParticles) {
-                        // Large explosion particles
-                        for (int i = 0; i < 50; i++) {
+                        // EXHAUST fireball bloom (60 pieces — white-hot core to deep red)
+                        for (int i = 0; i < 60; i++) {
                             double angle = Math.random() * TWO_PI;
-                            double speed = 2 + Math.random() * 6;
-                            Color expColor = Math.random() < 0.5 ? FIRE_ORANGE : FIRE_YELLOW;
-                            addParticle(
-                                hitX, hitY,
+                            double speed = 1 + Math.random() * 7;
+                            Color fireColor;
+                            double r = Math.random();
+                            if (r < 0.2) fireColor = new Color(255, 255, 230);      // White-hot core
+                            else if (r < 0.45) fireColor = new Color(255, 220, 60); // Bright yellow
+                            else if (r < 0.7) fireColor = FIRE_ORANGE;              // Orange
+                            else fireColor = FIRE_RED;                               // Deep red
+                            addParticle(hitX, hitY,
                                 Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                expColor, 40, 10,
-                                Particle.ParticleType.SPARK
-                            );
+                                fireColor, 45 + (int)(Math.random() * 25), 10 + Math.random() * 6,
+                                Particle.ParticleType.EXHAUST);
                         }
                         
-                        // Explosion rings
-                        for (int i = 0; i < 4; i++) {
+                        // SMOKE cloud (25 pieces — thick dark billowing smoke)
+                        for (int i = 0; i < 25; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 0.2 + Math.random() * 2.0;
+                            int gray = 40 + (int)(Math.random() * 50);
                             addParticle(
-                                hitX, hitY, 0, 0,
-                                new Color(255, 150 - i * 30, 50, 220 - i * 50), 
-                                30 + i * 10, 
-                                30 + i * 15,
-                                Particle.ParticleType.EXPLOSION
-                            );
+                                hitX + (Math.random() - 0.5) * 25, hitY + (Math.random() - 0.5) * 25,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                new Color(gray, gray, gray, 190), 70 + (int)(Math.random() * 25), 14 + Math.random() * 8,
+                                Particle.ParticleType.SMOKE);
+                        }
+                        
+                        // EXPLOSION shockwave rings (8 expanding rings)
+                        for (int i = 0; i < 8; i++) {
+                            addParticle(hitX, hitY, 0, 0,
+                                new Color(255, Math.max(0, 240 - i * 30), Math.max(0, 80 - i * 10), Math.max(50, 240 - i * 25)),
+                                30 + i * 7, 50 + i * 30,
+                                Particle.ParticleType.EXPLOSION);
+                        }
+                        
+                        // SPARK streaks (35 fast radiating sparks)
+                        for (int i = 0; i < 35; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 5 + Math.random() * 9;
+                            Color sparkColor;
+                            double r = Math.random();
+                            if (r < 0.4) sparkColor = new Color(255, 255, 200);
+                            else if (r < 0.7) sparkColor = new Color(255, 200, 80);
+                            else sparkColor = FIRE_ORANGE;
+                            addParticle(hitX, hitY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                sparkColor, 20, 2 + Math.random() * 3,
+                                Particle.ParticleType.SPARK);
+                        }
+                        
+                        // DEBRIS fragments (20 spinning missile body pieces)
+                        for (int i = 0; i < 20; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 1.5 + Math.random() * 5;
+                            Color debrisColor = Math.random() < 0.5 ? METAL_DEBRIS : PLAYER_DEATH_RED;
+                            addParticle(hitX, hitY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                debrisColor, 65, 5 + Math.random() * 7,
+                                Particle.ParticleType.DEBRIS);
+                        }
+                    }
+                    
+                    // === BLAST RADIUS — destroy nearby bullets in the bomb explosion ===
+                    // Large blast radius so it visibly clears bullets around the detonation
+                    double blastRadius = 250;
+                    double blastRadiusSq = blastRadius * blastRadius;
+                    int bulletsDestroyed = 0;
+                    for (int bi = bullets.size() - 1; bi >= 0; bi--) {
+                        Bullet b = bullets.get(bi);
+                        double dx = b.getX() - hitX;
+                        double dy = b.getY() - hitY;
+                        if (dx * dx + dy * dy < blastRadiusSq) {
+                            // Spark at each destroyed bullet position (cap particles at 40)
+                            if (enableParticles && bulletsDestroyed < 40) {
+                                addParticle(b.getX(), b.getY(),
+                                    (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4,
+                                    FIRE_YELLOW, 18, 5,
+                                    Particle.ParticleType.SPARK);
+                            }
+                            bullets.remove(bi);
+                            returnBulletToPool(b);
+                            bulletsDestroyed++;
                         }
                     }
                     
                     // Reset vulnerability
                     bossVulnerable = false;
                     invulnerabilityTimer = 300; // 5 seconds of invulnerability
-                    
-                    screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 }
                 
                 return;
@@ -6563,6 +6418,31 @@ public class Game extends JPanel implements Runnable {
             int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, deltaTime, particles);
             beamAttacks = currentBoss.getBeamAttacks();
+            
+            // Continuous smoke/fire particles on damaged boss
+            if (enableParticles) {
+                float bossHpPct = currentBoss.getHealthPercent();
+                if (bossHpPct < 0.7f) {
+                    float dmgRatio = 1.0f - bossHpPct;
+                    // Emit more particles as damage increases (up to ~40% chance/frame)
+                    if (Math.random() < dmgRatio * 0.5) {
+                        double bx = currentBoss.getX() + (Math.random() - 0.5) * currentBoss.getSize() * 0.8;
+                        double by = currentBoss.getY() + (Math.random() - 0.5) * currentBoss.getSize() * 0.5;
+                        if (Math.random() < 0.6) {
+                            // Dark smoke
+                            int gray = 50 + (int)(Math.random() * 40);
+                            addParticle(bx, by, (Math.random()-0.5)*0.8, -0.5 - Math.random()*1.0,
+                                new Color(gray, gray, gray, 180), 50, 6 + Math.random()*5,
+                                Particle.ParticleType.SMOKE);
+                        } else {
+                            // Fire/exhaust
+                            addParticle(bx, by, (Math.random()-0.5)*0.6, -0.3 - Math.random()*0.8,
+                                new Color(255, 130 + (int)(Math.random()*80), 20, 200), 35, 4 + Math.random()*3,
+                                Particle.ParticleType.EXHAUST);
+                        }
+                    }
+                }
+            }
             
             // Track bullets spawned for stats
             int bulletsSpawned = bullets.size() - bulletCountBefore;
@@ -6731,7 +6611,7 @@ public class Game extends JPanel implements Runnable {
             int bSize = bullets.size();
             
             if (bSize > 500 && THREAD_COUNT > 1) {
-                // Parallel position update — only worth it above ~500 bullets
+                // Parallel position update â€” only worth it above ~500 bullets
                 // (thread submission + latch overhead exceeds benefit for <500)
                 int chunkSize = (bSize + THREAD_COUNT - 1) / THREAD_COUNT;
                 CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
@@ -7537,7 +7417,7 @@ public class Game extends JPanel implements Runnable {
             buf = displayBuffer;
         }
         if (buf != null) {
-            // Stretch buffer to fill the entire panel — no black bars.
+            // Stretch buffer to fill the entire panel â€” no black bars.
             // The window is always sized to match the screen's native aspect ratio,
             // so distortion is negligible.
             g.drawImage(buf, 0, 0, getWidth(), getHeight(), null);
@@ -8447,12 +8327,7 @@ public class Game extends JPanel implements Runnable {
                             cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                             cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                             screenShakeIntensity = 8;
-                        } else if (bossIntroActive) {
-                            bossIntroActive = false;
-                            screenShakeIntensity = 5;
-                            if (player != null) player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
-                            if (currentBoss != null) currentBoss.setPosition(WORLD_WIDTH / 2, 100);
-                            introParticles.clear();
+                            if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
                             if (demoIntroActive) {
                                 demoIntroActive = false;
                                 transitionToState(GameState.MENU);
@@ -8824,22 +8699,22 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // ── Military themed background ──────────────────────────────────
+        // â”€â”€ Military themed background â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         UITheme.drawScreenBackground(g, width, height, time);
         
-        // ── Title — stencil-style with ember particles ───────────────────
+        // â”€â”€ Title â€” stencil-style with ember particles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         UITheme.drawTitle(g, "MR. MISSLE", width, height / 2 - 120,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
         
-        // ── Loading stage label ──────────────────────────────────────────
+        // â”€â”€ Loading stage label â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         String stageText;
         if (smoothProgress < 30)       stageText = "LOADING AUDIO SYSTEMS";
         else if (smoothProgress < 45)  stageText = "SCANNING HOSTILE AIRCRAFT";
         else if (smoothProgress < 55)  stageText = "LOADING MUNITIONS";
         else if (smoothProgress < 65)  stageText = "CALIBRATING FLIGHT CONTROLS";
         else if (smoothProgress < 90)  stageText = "PAINTING COCKPIT VIEW";
-        else                           stageText = "SYSTEMS ARMED — READY";
+        else                           stageText = "SYSTEMS ARMED â€” READY";
         
         // Animated dots
         int dotCount = (int)((System.currentTimeMillis() / 350) % 4);
@@ -8853,7 +8728,7 @@ public class Game extends JPanel implements Runnable {
         String fullStageText = stageText + dots;
         g.drawString(fullStageText, (width - fm.stringWidth(stageText + "...")) / 2, height / 2 + 10);
         
-        // ── Missile-arming gauge progress bar (1.5x wider) ───────────────
+        // â”€â”€ Missile-arming gauge progress bar (1.5x wider) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         int barWidth = Math.min(750, (int)((width - 200) * 1.5));
         int barHeight = 28;
         int barX = (width - barWidth) / 2;
@@ -8861,7 +8736,7 @@ public class Game extends JPanel implements Runnable {
         UITheme.drawProgressBar(g, barX, barY, barWidth, barHeight,
             smoothProgress / 100.0, ColorPalette.ACCENT_ORANGE);
         
-        // ── Version tag in bottom-right corner ───────────────────────────
+        // â”€â”€ Version tag in bottom-right corner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         g.setFont(FontPalette.XS_13);
         g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 100));
         String verText = Game.GAME_VERSION;
@@ -9329,7 +9204,7 @@ public class Game extends JPanel implements Runnable {
         // Track current Y position for layout
         int currentY = boxY + boxPaddingV;
 
-        // "NEW ATTACK!" header — using stencil title style
+        // "NEW ATTACK!" header â€” using stencil title style
         UITheme.drawTitle(g, "NEW ATTACK!", boxWidth, currentY + 50,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, gradientTime,
             FontPalette.getDisplay(Font.BOLD, Math.min(50, boxWidth / 10)));
@@ -9675,7 +9550,7 @@ public class Game extends JPanel implements Runnable {
                 fm = g.getFontMetrics();
                 g.drawString(itemCategory, cardX + cardW - fm.stringWidth(itemCategory) - 16, cardY + cardH - 16);
 
-                // START button — military style
+                // START button â€” military style
                 int startBtnW = 200;
                 int startBtnH = 50;
                 int startBtnX = cardCenterX - startBtnW / 2;
@@ -9746,7 +9621,7 @@ public class Game extends JPanel implements Runnable {
         g.drawString(instructions, (width - fm.stringWidth(instructions)) / 2, height - 30);
     }
 
-    /** Draw an arrow box for the showcase carousel — military style */
+    /** Draw an arrow box for the showcase carousel â€” military style */
     private void drawShowcaseArrowBox(Graphics2D g, int x, int y, int w, int h, boolean isLeft,
                                        boolean hovered, boolean enabled, double time, float arrowPulse) {
         String arrow = isLeft ? "<" : ">";
@@ -9806,7 +9681,7 @@ public class Game extends JPanel implements Runnable {
             g.fillRoundRect(x - 5, y - 5, width + 10, height + 10, 10, 10);
         }
 
-        // Tab background — metallic gradient
+        // Tab background â€” metallic gradient
         if (active) {
             GradientPaint tabGrad = new GradientPaint(x, y, new Color(50, 60, 85), x, y + height, new Color(35, 40, 60));
             g.setPaint(tabGrad);
@@ -10361,7 +10236,7 @@ public class Game extends JPanel implements Runnable {
             g.fillOval(centerX - glowSize, currentY - glowSize, glowSize * 2, glowSize * 2);
         }
         
-        // Animated orbiting particles — optimized for performance
+        // Animated orbiting particles â€” optimized for performance
         if (progress > 0.3f && enableParticles) {
             int particleCount = 12;
             double baseAngle = now / 120.0;
