@@ -1177,7 +1177,7 @@ public class Renderer {
                 g.setFont(FONT_SMALL);
                 FontMetrics statsFm = g.getFontMetrics();
                 int statsX = slotX + UIScale.px(20);
-                int statsY = slotY + UIScale.px(58);
+                int statsY = slotY + UIScale.px(60);
 
                 // Money in gold
                 String moneyStr = "$" + meta.totalMoney;
@@ -1214,7 +1214,7 @@ public class Renderer {
                 int totalGameLevels = 28;
                 float completionPct = Math.min(1.0f, (float) meta.maxLevel / totalGameLevels);
                 int pBarX = slotX + UIScale.px(20);
-                int pBarY = slotY + UIScale.px(72);
+                int pBarY = slotY + UIScale.px(165);
                 int pBarW = slotWidth - UIScale.px(150);
                 int pBarH = UIScale.px(16);
                 
@@ -1267,7 +1267,7 @@ public class Renderer {
                 g.setFont(FONT_SMALL);
                 g.setColor(ColorPalette.TEXT_PRIMARY);
                 String stats2 = String.format("Best Run: Level %d  |  Bosses Defeated: %d", meta.bestRunLevel, meta.totalBosses);
-                g.drawString(stats2, slotX + UIScale.px(20), slotY + UIScale.px(140));
+                g.drawString(stats2, slotX + UIScale.px(20), slotY + UIScale.px(90));
 
                 // Created date (left) and Last saved date (right)
 
@@ -1277,7 +1277,7 @@ public class Renderer {
 
                 String createdText = "Created: " + meta.getFormattedCreationDate();
 
-                g.drawString(createdText, slotX + UIScale.px(20), slotY + UIScale.px(170));
+                g.drawString(createdText, slotX + UIScale.px(20), slotY + UIScale.px(120));
 
                 
 
@@ -1287,7 +1287,7 @@ public class Renderer {
 
                 FontMetrics dateFm = g.getFontMetrics();
 
-                g.drawString(dateText, slotX + slotWidth - UIScale.px(20) - dateFm.stringWidth(dateText), slotY + UIScale.px(170));
+                g.drawString(dateText, slotX + slotWidth - UIScale.px(20) - dateFm.stringWidth(dateText), slotY + UIScale.px(120));
 
                 
 

@@ -4550,9 +4550,14 @@ public class Game extends JPanel implements Runnable {
                     scrollCooldown -= 1.0;
                 }
                 
-                // Update game timer (only during gameplay)
+                // Update game timer (only during active, unpaused gameplay — not during intro animations)
                 if (gameState == GameState.PLAYING && player != null) {
-                    gameTimeSeconds = (System.currentTimeMillis() - gameStartTime) / 1000.0;
+                    if (!isPaused && !introPanActive && !bossIntroActive) {
+                        gameTimeSeconds = (System.currentTimeMillis() - gameStartTime) / 1000.0;
+                    } else {
+                        // Keep gameStartTime in sync so timer doesn't jump when unpaused/intro ends
+                        gameStartTime = System.currentTimeMillis() - (long)(gameTimeSeconds * 1000);
+                    }
                 }
                 
                 delta--;
@@ -4746,11 +4751,13 @@ public class Game extends JPanel implements Runnable {
         cameraBreathTime += 0.02 * deltaTime;
         cameraBreathOffset = Math.sin(cameraBreathTime) * 2.0;
         
-        // Smooth UI number animations
-        double scoreTarget = gameData.getScore();
-        double moneyTarget = gameData.getTotalMoney() + gameData.getRunMoney();
-        displayedScore += (scoreTarget - displayedScore) * 0.15 * deltaTime;
-        displayedMoney += (moneyTarget - displayedMoney) * 0.15 * deltaTime;
+        // Smooth UI number animations (freeze during pause so score doesn't appear to tick up)
+        if (!(gameState == GameState.PLAYING && isPaused)) {
+            double scoreTarget = gameData.getScore();
+            double moneyTarget = gameData.getTotalMoney() + gameData.getRunMoney();
+            displayedScore += (scoreTarget - displayedScore) * 0.15 * deltaTime;
+            displayedMoney += (moneyTarget - displayedMoney) * 0.15 * deltaTime;
+        }
         
         // Update item unlock animation timer (let it countdown for animation progress)
         if (itemUnlockTimer > 0) {
@@ -5313,12 +5320,10 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
-        // Track survival and score (scaled by delta time) - only when player is alive
-        if (player != null) {
+        // Track survival time (for stats only - score is awarded at level completion based on speed)
+        // Don't count intro animation time as survival time
+        if (player != null && !introPanActive && !bossIntroActive) {
             gameData.incrementSurvivalTime();
-            
-            int scoreGain = (int)deltaTime;
-            gameData.addScore(scoreGain);
         }
         
         // Update active item
@@ -6063,6 +6068,11 @@ public class Game extends JPanel implements Runnable {
                     winBonus = (int)(winBonus * comboSystem.getMultiplier());
                     // Apply score multiplier passive
                     winBonus = (int)(winBonus * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
+                    // Apply speed bonus: faster completion = higher score
+                    // Par time = 55 + level * 3 seconds; finishing faster gives up to 3x, slow runs floor at 0.5x
+                    double parTime = 55.0 + gameData.getCurrentLevel() * 3.0;
+                    double speedMultiplier = Math.max(0.5, Math.min(3.0, 2.0 - (gameTimeSeconds / parTime)));
+                    winBonus = (int)(winBonus * speedMultiplier);
                     gameData.addScore(winBonus);
                     
                     int moneyReward = currentBoss.getMoneyReward();
@@ -6438,9 +6448,10 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Update boss with delta time (but not during death animation, intro, respawn delay, stun, or boss intro cinematic)
+        // Use dt (time-slowed) so boss movement/twirl also slows during Time Slow
         if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned) {
             int bulletCountBefore = bullets.size();
-            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, deltaTime, particles);
+            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, dt, particles);
             beamAttacks = currentBoss.getBeamAttacks();
             
             // Continuous smoke/fire particles on damaged boss
@@ -8329,9 +8340,8 @@ public class Game extends JPanel implements Runnable {
                         renderer.configurePauseMenu(debugShowcaseInGameplay);
                         screenShakeIntensity = 3;
                     }
-                    // Use item with A button
-                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.USE_ITEM) && !eKeyPressed && !introPanActive && !bossIntroActive) {
-                        eKeyPressed = true;
+                    // Use item with A button (isActionJustPressed already handles single-press detection)
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.USE_ITEM) && !introPanActive && !bossIntroActive) {
                         ActiveItem item = gameData.getEquippedItem();
                         if (item != null && item.canActivate()) {
                             item.activate();
@@ -8552,13 +8562,8 @@ public class Game extends JPanel implements Runnable {
     }
     
     private boolean hasNoUpgradesPurchased() {
-        // Check shop upgrades
-        if (gameData.getSpeedUpgradeLevel() > 0) return false;
-        if (gameData.getBulletSlowUpgradeLevel() > 0) return false;
-        if (gameData.getLuckyDodgeUpgradeLevel() > 0) return false;
-        if (gameData.getAttackWindowUpgradeLevel() > 0) return false;
-        
-        // Check passive upgrades
+        // Check if any passive upgrade has been purchased on this save file
+        // Active items are allowed - only passive upgrades disqualify
         if (passiveUpgradeManager != null) {
             for (PassiveUpgrade upgrade : passiveUpgradeManager.getAllUpgrades()) {
                 if (upgrade.getCurrentLevel() > 0) {
@@ -8566,7 +8571,6 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         }
-        
         return true;
     }
     
