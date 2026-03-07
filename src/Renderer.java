@@ -36,6 +36,9 @@ public class Renderer {
     // Mode select card bounds (populated during drawModeSelect)
     private java.awt.Rectangle[] modeCardBounds = new java.awt.Rectangle[0];
 
+    // Warning dialog button bounds (populated during drawSettings when warning shown)
+    private java.awt.Rectangle[] warningButtonBounds = new java.awt.Rectangle[3];
+
     
 
     // Settings UI click target tracking (populated during rendering)
@@ -9711,6 +9714,24 @@ public class Renderer {
 
         
 
+        if (stats.getMissileSurvivalBonus() > 0) {
+
+            String missileBonus = "Missile Bonus: +" + stats.getMissileSurvivalBonus();
+
+            fm = g.getFontMetrics();
+
+            g.setColor(ColorPalette.SUCCESS_GREEN);
+
+            g.drawString(missileBonus, (width - fm.stringWidth(missileBonus)) / 2, statsY);
+
+            g.setColor(RenderCache.SLATE_180_190_200);
+
+            statsY += UIScale.px(26);
+
+        }
+
+        
+
         g.setColor(ColorPalette.TEXT_PRIMARY);
 
         g.setFont(FONT_MEDIUM);
@@ -9877,7 +9898,7 @@ public class Renderer {
 
         
 
-        // Instructions
+        // Instructions / Bottom bar
 
         g.setColor(ColorPalette.TEXT_PRIMARY);
 
@@ -9887,15 +9908,181 @@ public class Renderer {
 
         if (settingsCtrlMode) {
 
+            String dirtyMarker = Game.settingsDirty ? "  *" : "";
+
             drawPromptWithIcons(g, width / 2, height - UIScale.px(30),
 
-                KeyBindManager.ControllerButton.Y, ": Reset Defaults  |  ", KeyBindManager.Action.BACK, " : Return to Menu");
+                KeyBindManager.ControllerButton.Y, ": Reset Tab  |  ",
+
+                KeyBindManager.ControllerButton.START, ": Apply" + dirtyMarker + "  |  ",
+
+                KeyBindManager.Action.BACK, " : Return to Menu");
 
         } else {
 
+            String dirtyMarker = Game.settingsDirty ? "  *" : "";
+
             drawPromptWithIcons(g, width / 2, height - UIScale.px(30),
 
-                java.awt.event.KeyEvent.VK_R, " Reset Defaults  |  ", java.awt.event.KeyEvent.VK_ESCAPE, " Return to Menu");
+                java.awt.event.KeyEvent.VK_R, " Reset Tab  |  ",
+
+                java.awt.event.KeyEvent.VK_ENTER, " Apply" + dirtyMarker + "  |  ",
+
+                java.awt.event.KeyEvent.VK_ESCAPE, " Return to Menu");
+
+        }
+
+        
+
+        // Unsaved changes warning overlay
+
+        if (Game.showSettingsWarning) {
+
+            // Darken background
+
+            g.setColor(new Color(0, 0, 0, 180));
+
+            g.fillRect(0, 0, width, height);
+
+            
+
+            // Warning box
+
+            int boxW = UIScale.px(600);
+
+            int boxH = UIScale.px(200);
+
+            int boxX = (width - boxW) / 2;
+
+            int boxY = (height - boxH) / 2;
+
+            
+
+            // Box background
+
+            g.setColor(new Color(30, 30, 45, 240));
+
+            g.fillRoundRect(boxX, boxY, boxW, boxH, UIScale.px(12), UIScale.px(12));
+
+            g.setColor(ColorPalette.ACCENT_ORANGE);
+
+            g.setStroke(new java.awt.BasicStroke(UIScale.px(2)));
+
+            g.drawRoundRect(boxX, boxY, boxW, boxH, UIScale.px(12), UIScale.px(12));
+
+            
+
+            // Warning title
+
+            g.setColor(ColorPalette.ACCENT_YELLOW);
+
+            g.setFont(FONT_SUBTITLE);
+
+            String warnTitle = "Unsaved Changes";
+
+            java.awt.FontMetrics wfm = g.getFontMetrics();
+
+            g.drawString(warnTitle, width / 2 - wfm.stringWidth(warnTitle) / 2, boxY + UIScale.px(45));
+
+            
+
+            // Warning message
+
+            g.setColor(ColorPalette.TEXT_PRIMARY);
+
+            g.setFont(FONT_INFO);
+
+            wfm = g.getFontMetrics();
+
+            String warnMsg = "You have unsaved settings changes.";
+
+            g.drawString(warnMsg, width / 2 - wfm.stringWidth(warnMsg) / 2, boxY + UIScale.px(80));
+
+            
+
+            if (Game.settingsNeedsRestart) {
+
+                g.setColor(ColorPalette.ACCENT_YELLOW);
+
+                String restartMsg = "Applying will restart the window.";
+
+                g.drawString(restartMsg, width / 2 - wfm.stringWidth(restartMsg) / 2, boxY + UIScale.px(100));
+
+            }
+
+            
+
+            // Three options
+
+            String[] options = {"Apply & Exit", "Discard & Exit", "Cancel"};
+
+            int btnW = UIScale.px(155);
+
+            int btnH = UIScale.px(36);
+
+            int totalBtnW = btnW * 3 + UIScale.px(20) * 2;
+
+            int btnStartX = (width - totalBtnW) / 2;
+
+            int btnY = boxY + boxH - UIScale.px(60);
+
+            // Store bounds for mouse click detection
+
+            for (int bi = 0; bi < 3; bi++) {
+
+                warningButtonBounds[bi] = new java.awt.Rectangle(
+
+                    btnStartX + bi * (btnW + UIScale.px(20)), btnY, btnW, btnH);
+
+            }
+
+            
+
+            g.setFont(FONT_INFO);
+
+            wfm = g.getFontMetrics();
+
+            for (int i = 0; i < 3; i++) {
+
+                int bx = btnStartX + i * (btnW + UIScale.px(20));
+
+                boolean sel = (i == Game.settingsWarningSelection);
+
+                
+
+                // Button background
+
+                if (sel) {
+
+                    g.setColor(ColorPalette.ACCENT_ORANGE);
+
+                } else {
+
+                    g.setColor(new Color(50, 50, 70, 200));
+
+                }
+
+                g.fillRoundRect(bx, btnY, btnW, btnH, UIScale.px(6), UIScale.px(6));
+
+                
+
+                // Button border
+
+                g.setColor(sel ? ColorPalette.TEXT_PRIMARY : ColorPalette.TEXT_DIM);
+
+                g.setStroke(new java.awt.BasicStroke(sel ? UIScale.px(2) : 1));
+
+                g.drawRoundRect(bx, btnY, btnW, btnH, UIScale.px(6), UIScale.px(6));
+
+                
+
+                // Button text
+
+                g.setColor(sel ? Color.WHITE : ColorPalette.TEXT_DIM);
+
+                g.drawString(options[i], bx + (btnW - wfm.stringWidth(options[i])) / 2, btnY + btnH / 2 + wfm.getAscent() / 2 - 2);
+
+            }
 
         }
 
@@ -9905,11 +10092,65 @@ public class Renderer {
 
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
 
-        // Reorganized into logical groups: Display, Quality, Effects, Camera
+        // Dynamic GPU settings offset — GPU section only appears when GPU is detected
 
-        String[] settingNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax", "UI Scale"};
+        int offset = Game.getGPUSettingsOffset();
 
-        String[] settingValues = {
+        int totalItems = 15 + offset;
+
+        
+
+        // Build arrays dynamically to accommodate GPU settings
+
+        java.util.ArrayList<String> namesList = new java.util.ArrayList<>();
+
+        java.util.ArrayList<String> valuesList = new java.util.ArrayList<>();
+
+        java.util.ArrayList<String> descList = new java.util.ArrayList<>();
+
+        java.util.ArrayList<boolean[]> togglesList = new java.util.ArrayList<>();
+
+        
+
+        // --- GPU ACCELERATION section (only if GPU detected) ---
+
+        if (Game.gpuAvailable) {
+
+            namesList.add("Hardware Acceleration");
+
+            valuesList.add(Game.enableGPUAcceleration ? "ON" : "OFF");
+
+            descList.add("Enable GPU-accelerated rendering pipeline (restart required)");
+
+            
+
+            if (Game.enableGPUAcceleration) {
+
+                namesList.add("Rendering Pipeline");
+
+                valuesList.add(Game.gpuPipelineType == 0 ? "Auto" : Game.gpuPipelineType == 1 ? "OpenGL" : "Direct3D");
+
+                descList.add("GPU rendering backend — Auto lets Java choose the best (restart required)");
+
+                
+
+                namesList.add("Buffer Mode");
+
+                valuesList.add(Game.bufferStrategyMode == 0 ? "Double" : "Triple");
+
+                descList.add("Triple buffering = smoother but +1 frame latency; Double = lower latency");
+
+            }
+
+        }
+
+        
+
+        // --- Original 15 settings ---
+
+        String[] baseNames = {"Fullscreen Mode", "Resolution", "VSync", "FPS Limit", "Anti-Aliasing", "Shadows", "Particle Effects", "Bloom/Glow", "Motion Blur", "Chromatic Aberration", "Vignette", "Grain Effect", "Camera Zoom", "UI Parallax", "UI Scale"};
+
+        String[] baseValues = {
 
             Game.isFullscreen ? "Fullscreen" : "Windowed",
 
@@ -9943,9 +10184,7 @@ public class Renderer {
 
         };
 
-        
-
-        String[] descriptions = {
+        String[] baseDescriptions = {
 
             "Toggle between fullscreen and windowed mode (F11)",
 
@@ -9979,17 +10218,51 @@ public class Renderer {
 
         };
 
+        for (int i = 0; i < baseNames.length; i++) {
+
+            namesList.add(baseNames[i]);
+
+            valuesList.add(baseValues[i]);
+
+            descList.add(baseDescriptions[i]);
+
+        }
+
         
 
-        // Only Camera Zoom (12) uses a continuous slider now
+        String[] settingNames = namesList.toArray(new String[0]);
+
+        String[] settingValues = valuesList.toArray(new String[0]);
+
+        String[] descriptions = descList.toArray(new String[0]);
+
+        
+
+        // Camera Zoom slider — shifted by offset
 
         float[][] sliders = new float[settingNames.length][4];
 
-        sliders[12] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom};
+        sliders[12 + offset] = new float[]{1, 0.75f, 1.5f, (float)Game.cameraZoom};
 
         
 
-        boolean[] toggles = {
+        // Toggles array
+
+        boolean[] toggles = new boolean[settingNames.length];
+
+        // GPU toggles
+
+        if (Game.gpuAvailable) {
+
+            toggles[0] = Game.enableGPUAcceleration;
+
+            // indices 1,2 when expanded are pills, not toggles — leave false
+
+        }
+
+        // Original toggles shifted by offset
+
+        boolean[] baseToggles = {
 
             Game.isFullscreen, false, Game.enableVSync, false, Game.enableAntiAliasing,
 
@@ -10003,23 +10276,35 @@ public class Renderer {
 
         };
 
+        for (int i = 0; i < baseToggles.length; i++) {
+
+            toggles[i + offset] = baseToggles[i];
+
+        }
+
         
 
-        // Section headers: which setting index starts a new section
+        // Section headers
 
         String[] sectionHeaders = new String[settingNames.length];
 
-        sectionHeaders[0] = "DISPLAY";
+        if (Game.gpuAvailable) {
 
-        sectionHeaders[4] = "QUALITY";
+            sectionHeaders[0] = "GPU ACCELERATION";
 
-        sectionHeaders[8] = "EFFECTS";
+        }
 
-        sectionHeaders[12] = "CAMERA";
+        sectionHeaders[0 + offset] = "DISPLAY";
+
+        sectionHeaders[4 + offset] = "QUALITY";
+
+        sectionHeaders[8 + offset] = "EFFECTS";
+
+        sectionHeaders[12 + offset] = "CAMERA";
 
         
 
-        // Pill selector options for discrete multi-option settings
+        // Pill selector options
 
         String[][] pillOptions = new String[settingNames.length][];
 
@@ -10027,33 +10312,53 @@ public class Renderer {
 
         
 
-        pillOptions[0] = new String[]{"Windowed", "Fullscreen"};
+        // GPU pills (only when acceleration is enabled)
 
-        pillSelected[0] = Game.isFullscreen ? 1 : 0;
+        if (Game.gpuAvailable && Game.enableGPUAcceleration) {
 
-        
+            pillOptions[1] = new String[]{"Auto", "OpenGL", "Direct3D"};
 
-        pillOptions[1] = new String[]{"1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"};
+            pillSelected[1] = Game.gpuPipelineType;
 
-        pillSelected[1] = Game.resolutionPreset;
+            
 
-        
+            pillOptions[2] = new String[]{"Double", "Triple"};
 
-        pillOptions[3] = new String[]{"30", "60", "120", "144", "Unlimited"};
+            pillSelected[2] = Game.bufferStrategyMode;
 
-        pillSelected[3] = Game.fpsLimit;
-
-        
-
-        pillOptions[5] = new String[]{"Off", "Low", "Medium", "High"};
-
-        pillSelected[5] = Game.shadowQuality;
+        }
 
         
 
-        pillOptions[14] = new String[]{"Small", "Medium", "Large"};
+        // Original pills shifted by offset
 
-        pillSelected[14] = Game.uiScale;
+        pillOptions[0 + offset] = new String[]{"Windowed", "Fullscreen"};
+
+        pillSelected[0 + offset] = Game.isFullscreen ? 1 : 0;
+
+        
+
+        pillOptions[1 + offset] = new String[]{"1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"};
+
+        pillSelected[1 + offset] = Game.resolutionPreset;
+
+        
+
+        pillOptions[3 + offset] = new String[]{"30", "60", "120", "144", "Unlimited"};
+
+        pillSelected[3 + offset] = Game.fpsLimit;
+
+        
+
+        pillOptions[5 + offset] = new String[]{"Off", "Low", "Medium", "High"};
+
+        pillSelected[5 + offset] = Game.shadowQuality;
+
+        
+
+        pillOptions[14 + offset] = new String[]{"Small", "Medium", "Large"};
+
+        pillSelected[14 + offset] = Game.uiScale;
 
         
 
@@ -12690,6 +12995,9 @@ public class Renderer {
 
     /** Returns the mode card hit-test rectangles (populated by drawModeSelect). */
     public java.awt.Rectangle[] getModeCardBounds() { return modeCardBounds; }
+
+    /** Returns the warning dialog button bounds (populated by drawSettings when warning is shown). */
+    public java.awt.Rectangle[] getWarningButtonBounds() { return warningButtonBounds; }
 
     
 

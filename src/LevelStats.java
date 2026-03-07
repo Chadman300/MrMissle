@@ -10,6 +10,7 @@ public class LevelStats {
     private double closestCall; // Closest bullet distance achieved
     private double totalGrazeDistance; // Sum of all graze distances
     private int grazeCount; // Number of grazes for averaging
+    private int missileSurvivalBonus; // Score bonus for surviving with missiles
     
     public LevelStats() {
         this.timeInFrames = 0;
@@ -23,6 +24,7 @@ public class LevelStats {
         this.closestCall = 999.0; // Start with high value
         this.totalGrazeDistance = 0;
         this.grazeCount = 0;
+        this.missileSurvivalBonus = 0;
     }
     
     // Getters
@@ -35,6 +37,7 @@ public class LevelStats {
     public int getNearMisses() { return nearMisses; }
     public int getMaxCombo() { return maxCombo; }
     public double getClosestCall() { return closestCall; }
+    public int getMissileSurvivalBonus() { return missileSurvivalBonus; }
     
     // Setters
     public void setTimeInFrames(int time) { this.timeInFrames = time; }
@@ -46,6 +49,7 @@ public class LevelStats {
     public void setNearMisses(int nearMisses) { this.nearMisses = nearMisses; }
     public void setMaxCombo(int maxCombo) { this.maxCombo = maxCombo; }
     public void setClosestCall(double closest) { this.closestCall = closest; }
+    public void setMissileSurvivalBonus(int bonus) { this.missileSurvivalBonus = bonus; }
     
     // Incrementers
     public void incrementDodges() { this.dodges++; }
@@ -72,8 +76,12 @@ public class LevelStats {
     public int getRiskPercentage() {
         if (grazeCount == 0) return 0;
         double avgDistance = totalGrazeDistance / grazeCount;
-        // Max graze distance is 25, convert to risk % (closer = higher risk)
-        double risk = (1.0 - (avgDistance / 25.0)) * 100.0;
+        // Grazes only register between player collision radius (10px) and
+        // GRAZE_DISTANCE (25px), so normalize within that actual band.
+        double minGrazeDist = 10.0; // player radius (SIZE/2)
+        double maxGrazeDist = 25.0; // GRAZE_DISTANCE
+        double normalized = (avgDistance - minGrazeDist) / (maxGrazeDist - minGrazeDist);
+        double risk = (1.0 - normalized) * 100.0;
         return Math.max(0, Math.min(100, (int)risk));
     }
     
@@ -90,6 +98,7 @@ public class LevelStats {
         this.closestCall = 999.0;
         this.totalGrazeDistance = 0;
         this.grazeCount = 0;
+        this.missileSurvivalBonus = 0;
     }
     
     // Copy constructor for saving stats
@@ -106,6 +115,7 @@ public class LevelStats {
         copy.closestCall = this.closestCall;
         copy.totalGrazeDistance = this.totalGrazeDistance;
         copy.grazeCount = this.grazeCount;
+        copy.missileSurvivalBonus = this.missileSurvivalBonus;
         return copy;
     }
     

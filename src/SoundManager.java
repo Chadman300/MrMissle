@@ -655,7 +655,7 @@ public class SoundManager {
             ambientClip = loadSound(Sound.AMBIENT_BACKGROUND);
             if (ambientClip != null) {
                 ambientClip.loop(Clip.LOOP_CONTINUOUSLY);
-                setVolume(ambientClip, masterVolume * sfxVolume * 0.03f); // Very quiet ambient
+                setVolume(ambientClip, masterVolume * sfxVolume * 0.01f); // Barely audible ambient
             }
         } catch (Exception e) {
             System.err.println("Error starting ambient sound: " + e.getMessage());

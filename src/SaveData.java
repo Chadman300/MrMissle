@@ -108,6 +108,11 @@ public class SaveData implements Serializable {
     public boolean enableUIParallax = true;
     public int uiScale = 1; // 0=Small (0.85x), 1=Medium (1.0x default), 2=Large (1.2x)
     
+    // GPU Acceleration settings
+    public boolean enableGPUAcceleration = false;
+    public int gpuPipelineType = 0; // 0=Auto, 1=OpenGL, 2=Direct3D
+    public int bufferStrategyMode = 1; // 0=Double buffer, 1=Triple buffer
+    
     // HUD Layout customization
     public HUDLayout hudLayout;
     
@@ -407,6 +412,9 @@ public class SaveData implements Serializable {
         data.enableAntiAliasing = Game.enableAntiAliasing;
         data.enableUIParallax = Game.enableUIParallax;
         data.uiScale = Game.uiScale;
+        data.enableGPUAcceleration = Game.enableGPUAcceleration;
+        data.gpuPipelineType = Game.gpuPipelineType;
+        data.bufferStrategyMode = Game.bufferStrategyMode;
         data.enableHitboxes = Game.enableHitboxes;
         
         // HUD Layout
@@ -587,6 +595,9 @@ public class SaveData implements Serializable {
         Game.enableUIParallax = enableUIParallax;
         Game.uiScale = uiScale;
         config.UIScale.setScale(uiScale);
+        Game.enableGPUAcceleration = enableGPUAcceleration;
+        Game.gpuPipelineType = gpuPipelineType;
+        Game.bufferStrategyMode = bufferStrategyMode;
         Game.enableHitboxes = enableHitboxes;
         
         // HUD Layout

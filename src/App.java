@@ -9,12 +9,73 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileInputStream;
+import java.util.Properties;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
 public class App {
     public static void main(String[] args) {
+        // Apply GPU pipeline flags BEFORE any AWT/Swing class creates a window.
+        // Read saved GPU settings from a lightweight config file (independent of save slots)
+        // so we can set JVM properties before the rendering pipeline initializes.
+        System.out.println("[GPU] === GPU Pipeline Initialization ===");
+        try {
+            File gpuConfig = new File("config/gpu.properties");
+            if (gpuConfig.exists()) {
+                Properties props = new Properties();
+                try (FileInputStream fis = new FileInputStream(gpuConfig)) {
+                    props.load(fis);
+                }
+                boolean gpuEnabled = Boolean.parseBoolean(props.getProperty("enableGPUAcceleration", "false"));
+                int pipelineType = Integer.parseInt(props.getProperty("gpuPipelineType", "0"));
+                
+                System.out.println("[GPU] Config loaded: enabled=" + gpuEnabled + ", pipeline=" + pipelineType
+                    + ", bufferMode=" + props.getProperty("bufferStrategyMode", "1"));
+                
+                if (gpuEnabled) {
+                    switch (pipelineType) {
+                        case 0: // Auto — enable both, Java picks the best
+                            System.setProperty("sun.java2d.opengl", "True");
+                            break;
+                        case 1: // OpenGL
+                            System.setProperty("sun.java2d.opengl", "True");
+                            System.setProperty("sun.java2d.d3d", "false");
+                            break;
+                        case 2: // Direct3D
+                            System.setProperty("sun.java2d.d3d", "True");
+                            System.setProperty("sun.java2d.opengl", "false");
+                            break;
+                    }
+                    System.out.println("[GPU] Pipeline flags set: opengl=" + System.getProperty("sun.java2d.opengl")
+                        + ", d3d=" + System.getProperty("sun.java2d.d3d"));
+                } else {
+                    // Explicitly disable hardware pipelines so the JVM uses software rendering
+                    System.setProperty("sun.java2d.opengl", "false");
+                    System.setProperty("sun.java2d.d3d", "false");
+                    System.out.println("[GPU] Acceleration disabled in config \u2014 forcing software pipeline");
+                    System.out.println("[GPU] Pipeline flags set: opengl=" + System.getProperty("sun.java2d.opengl")
+                        + ", d3d=" + System.getProperty("sun.java2d.d3d"));
+                }
+                
+                // Pre-load saved values so Game can use them immediately
+                Game.enableGPUAcceleration = gpuEnabled;
+                Game.gpuPipelineType = pipelineType;
+                Game.bufferStrategyMode = Integer.parseInt(props.getProperty("bufferStrategyMode", "1"));
+            } else {
+                System.out.println("[GPU] No config/gpu.properties found — first run, using defaults");
+            }
+        } catch (Exception e) {
+            System.err.println("[GPU] Could not load GPU config: " + e.getMessage());
+        }
+        
         SwingUtilities.invokeLater(() -> {
+            // Detect GPU availability (safe to call here — no window created yet)
+            Game.detectGPU();
+            System.out.println("[GPU] Active Java2D pipeline: opengl=" + System.getProperty("sun.java2d.opengl")
+                + ", d3d=" + System.getProperty("sun.java2d.d3d"));
+            System.out.println("[GPU] === End GPU Init ===");
+            
             JFrame frame = new JFrame("Missile Man");
             
             // Set application icon

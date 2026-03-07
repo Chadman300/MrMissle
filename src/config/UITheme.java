@@ -114,7 +114,6 @@ public class UITheme {
             bg.drawImage(cachedStaticBase, 0, 0, null);
 
             // Animated layers only
-            drawRadarSweep(bg, width, height, time);
             drawMilitaryCorners(bg, width, height, time);
 
             bg.dispose();

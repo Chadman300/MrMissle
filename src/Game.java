@@ -635,6 +635,52 @@ public class Game extends JPanel implements Runnable {
     public static boolean enableAntiAliasing = false; // Anti-aliasing disabled by default for performance
     public static int uiScale = 1; // 0=Small (0.85x), 1=Medium (1.0x), 2=Large (1.2x)
     
+    // GPU Acceleration settings
+    public static boolean gpuAvailable = false; // Detected at startup
+    public static boolean enableGPUAcceleration = false; // Master toggle
+    public static int gpuPipelineType = 0; // 0=Auto, 1=OpenGL, 2=Direct3D
+    public static int bufferStrategyMode = 1; // 0=Double buffer, 1=Triple buffer
+    
+    // Settings snapshot (for Apply/Revert system)
+    public static boolean settingsDirty = false; // True if any setting changed since last apply/snapshot
+    public static boolean settingsNeedsRestart = false; // True if a change requires window restart (pipeline, resolution)
+    public static boolean showSettingsWarning = false; // True when showing unsaved-changes warning dialog
+    public static int settingsWarningSelection = 0; // 0=Apply & Exit, 1=Discard & Exit, 2=Cancel
+    // --- Snapshot fields (saved when entering Settings) ---
+    private static int snap_resolutionPreset;
+    private static boolean snap_enableVSync;
+    private static int snap_fpsLimit;
+    private static boolean snap_enableAntiAliasing;
+    private static int snap_backgroundMode;
+    private static boolean snap_enableGradientAnimation;
+    private static int snap_gradientQuality;
+    private static boolean snap_enableGrainEffect;
+    private static boolean snap_enableParticles;
+    private static boolean snap_enableShadows;
+    private static int snap_shadowQuality;
+    private static boolean snap_enableBloom;
+    private static boolean snap_enableMotionBlur;
+    private static boolean snap_enableChromaticAberration;
+    private static boolean snap_enableVignette;
+    private static double snap_cameraZoom;
+    private static boolean snap_enableUIParallax;
+    private static int snap_uiScale;
+    private static boolean snap_enableGPUAcceleration;
+    private static int snap_gpuPipelineType;
+    private static int snap_bufferStrategyMode;
+    private static boolean snap_soundEnabled;
+    private static float snap_masterVolume;
+    private static float snap_sfxVolume;
+    private static float snap_uiVolume;
+    private static float snap_musicVolume;
+    private static boolean snap_spatialAudioEnabled;
+    private static int snap_countdownMode;
+    private static boolean snap_enableHitboxes;
+    private static boolean snap_showTrackName;
+    private static int[] snap_keyBinds;
+    private static int snap_presetOrdinal;
+    private static boolean snap_isFullscreen;
+    
     // Sound Manager
     private SoundManager soundManager;
     
@@ -695,6 +741,64 @@ public class Game extends JPanel implements Runnable {
         "456789 \u2190\u23CE"  // space, backspace (â†), confirm (âŽ)
     };
     private static final int MAX_SAVE_NAME_LENGTH = 20;
+    
+    /** Detect whether the system has GPU-accelerated graphics support. */
+    public static void detectGPU() {
+        try {
+            java.awt.GraphicsConfiguration gc = java.awt.GraphicsEnvironment
+                .getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+            boolean hwAccelerated = gc.getImageCapabilities().isAccelerated();
+            System.out.println("[GPU] ImageCapabilities.isAccelerated() = " + hwAccelerated);
+            System.out.println("[GPU] GraphicsDevice: " + gc.getDevice().getIDstring());
+            gpuAvailable = hwAccelerated;
+            if (!gpuAvailable) {
+                // Some drivers report false even when acceleration is available.
+                // Check if OpenGL or D3D pipeline can be used as a fallback indicator.
+                String os = System.getProperty("os.name", "").toLowerCase();
+                gpuAvailable = os.contains("win") || os.contains("mac"); // Most desktop OS have GPU support
+                System.out.println("[GPU] Fallback detection (OS=" + os + "): gpuAvailable=" + gpuAvailable);
+            }
+            System.out.println("[GPU] Final result: gpuAvailable=" + gpuAvailable);
+        } catch (Exception e) {
+            gpuAvailable = false;
+            System.out.println("[GPU] Detection failed: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Returns how many GPU-specific settings are shown at the top of the Graphics tab.
+     * 0 = no GPU detected, 1 = GPU detected but acceleration off (just master toggle),
+     * 3 = GPU detected and acceleration on (toggle + pipeline + buffer mode).
+     */
+    public static int getGPUSettingsOffset() {
+        if (!gpuAvailable) return 0;
+        return enableGPUAcceleration ? 3 : 1;
+    }
+    
+    /**
+     * Save GPU settings to a lightweight config file so they can be read
+     * before AWT initialization on next launch (JVM pipeline flags must be
+     * set before any window is created).
+     */
+    public static void saveGPUConfig() {
+        try {
+            java.io.File configDir = new java.io.File("config");
+            if (!configDir.exists()) configDir.mkdirs();
+            java.util.Properties props = new java.util.Properties();
+            props.setProperty("enableGPUAcceleration", String.valueOf(enableGPUAcceleration));
+            props.setProperty("gpuPipelineType", String.valueOf(gpuPipelineType));
+            props.setProperty("bufferStrategyMode", String.valueOf(bufferStrategyMode));
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream("config/gpu.properties")) {
+                props.store(fos, "GPU Acceleration Settings — read before AWT init on startup");
+            }
+            System.out.println("[GPU] Settings saved: enabled=" + enableGPUAcceleration 
+                + ", pipeline=" + (gpuPipelineType == 0 ? "Auto" : gpuPipelineType == 1 ? "OpenGL" : "Direct3D")
+                + ", bufferMode=" + (bufferStrategyMode == 0 ? "Double" : "Triple")
+                + " — RESTART REQUIRED for pipeline changes to take effect");
+        } catch (Exception e) {
+            System.err.println("[GPU] Failed to save config: " + e.getMessage());
+        }
+    }
     
     public Game() {
         instance = this;
@@ -1237,7 +1341,7 @@ public class Game extends JPanel implements Runnable {
                         case 2: transitionToState(GameState.STATS); break;
                         case 3: transitionToState(GameState.ACHIEVEMENTS); break;
                         case 4: transitionToState(GameState.INFO); break;
-                        case 5: settingsEnteredFrom = GameState.MENU; transitionToState(GameState.SETTINGS); break;
+                        case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
                         case 6: transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
                     }
                 }
@@ -1332,6 +1436,27 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SETTINGS:
+                // Warning dialog navigation intercepts all keys except ESC
+                if (showSettingsWarning) {
+                    if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                        settingsWarningSelection = Math.max(0, settingsWarningSelection - 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                        settingsWarningSelection = Math.min(2, settingsWarningSelection + 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_ENTER || key == KeyEvent.VK_SPACE) {
+                        // Confirm current warning selection
+                        confirmWarningSelection();
+                    } else if (key == KeyEvent.VK_ESCAPE) {
+                        // ESC in warning dialog = Cancel
+                        soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        showSettingsWarning = false;
+                        screenShakeIntensity = 3;
+                    }
+                    break;
+                }
                 mouseActive = false; // Keyboard takes priority over mouse selection
                 clampSettingsItem();
                 // HUD tab: suppress item navigation (editor handles its own interaction)
@@ -1373,6 +1498,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         // Try to adjust setting
                         if (adjustSetting(selectedSettingsItem, -1)) {
+                            markSettingsDirty();
                             soundManager.playSound(SoundManager.Sound.UI_SELECT);
                             screenShakeIntensity = 2;
                         }
@@ -1388,6 +1514,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         // Try to adjust setting
                         if (adjustSetting(selectedSettingsItem, 1)) {
+                            markSettingsDirty();
                             soundManager.playSound(SoundManager.Sound.UI_SELECT);
                             screenShakeIntensity = 2;
                         }
@@ -1403,6 +1530,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         // Try to adjust setting
                         if (adjustSetting(selectedSettingsItem, -1)) {
+                            markSettingsDirty();
                             soundManager.playSound(SoundManager.Sound.UI_SELECT);
                             screenShakeIntensity = 2;
                         }
@@ -1418,6 +1546,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         // Try to adjust setting
                         if (adjustSetting(selectedSettingsItem, 1)) {
+                            markSettingsDirty();
                             soundManager.playSound(SoundManager.Sound.UI_SELECT);
                             screenShakeIntensity = 2;
                         }
@@ -1444,22 +1573,32 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_R) {
-                    // Reset settings to defaults
-                    resetSettingsToDefaults();
+                    // Reset current tab to defaults
+                    resetCurrentTabToDefaults();
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 5;
                 }
+                else if (key == KeyEvent.VK_ENTER) {
+                    // Apply settings
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    applySettings();
+                    screenShakeIntensity = 5;
+                }
                 else if (key == KeyEvent.VK_ESCAPE) { 
-                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                    // Save settings changes
-                    performAutoSave();
-                    // Return to where we came from (pause menu or main menu)
-                    if (settingsEnteredFrom == GameState.PLAYING) {
-                        // Came from pause menu - return to paused game
-                        isPaused = true;
-                        gameState = GameState.PLAYING;
+                    if (settingsDirty) {
+                        // Show unsaved changes warning
+                        soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        showSettingsWarning = true;
+                        settingsWarningSelection = 0;
                     } else {
-                        transitionToState(GameState.MENU);
+                        // No changes - just exit
+                        soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        if (settingsEnteredFrom == GameState.PLAYING) {
+                            isPaused = true;
+                            gameState = GameState.PLAYING;
+                        } else {
+                            transitionToState(GameState.MENU);
+                        }
                     }
                     screenShakeIntensity = 3; 
                 }
@@ -2450,6 +2589,21 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
+            // When warning dialog is showing, only update button hover selection
+            if (showSettingsWarning) {
+                java.awt.Rectangle[] warnBtns = renderer.getWarningButtonBounds();
+                for (int i = 0; i < 3; i++) {
+                    if (warnBtns[i] != null && warnBtns[i].contains(mouseX, mouseY)) {
+                        if (settingsWarningSelection != i) {
+                            settingsWarningSelection = i;
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                        break;
+                    }
+                }
+                return;
+            }
             // Check if hovering over category tabs (use UIScale to match Renderer positions)
             String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
             int tabWidth = UIScale.px(130);
@@ -2507,6 +2661,58 @@ public class Game extends JPanel implements Runnable {
                             screenShakeIntensity = 1;
                         }
                         break;
+                    }
+                }
+            }
+        } else if (gameState == GameState.SAVE_SELECT) {
+            // Check if hovering over save slots
+            int slotWidth = WIDTH * 2 / 3;
+            int slotHeight = 200;
+            int slotX = (WIDTH - slotWidth) / 2;
+            int startY = 200;
+            int slotSpacing = 230;
+            int totalEntries = saveMetadataCache.size() + 1; // existing saves + "New Save"
+
+            for (int i = 0; i < totalEntries; i++) {
+                int slotY = startY + i * slotSpacing - (int)saveSelectScrollAnimated;
+                if (slotY + slotHeight < 0 || slotY > HEIGHT) continue;
+
+                if (mouseX >= slotX && mouseX <= slotX + slotWidth &&
+                    mouseY >= slotY && mouseY <= slotY + slotHeight) {
+                    if (selectedSaveSlot != i) {
+                        selectedSaveSlot = i;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                        deletingSlot = false;
+                        deleteConfirmTimer = 0;
+                    }
+                    break;
+                }
+            }
+        } else if (gameState == GameState.NAME_INPUT) {
+            // Check if hovering over on-screen keyboard keys
+            int kbStartY = UIScale.px(260);
+            int keySize = UIScale.px(42);
+            int keyGap = UIScale.px(6);
+
+            for (int r = 0; r < ON_SCREEN_KB_ROWS.length; r++) {
+                String row = ON_SCREEN_KB_ROWS[r];
+                int rowWidth = row.length() * (keySize + keyGap) - keyGap;
+                int rowX = (WIDTH - rowWidth) / 2;
+
+                for (int c = 0; c < row.length(); c++) {
+                    int kx = rowX + c * (keySize + keyGap);
+                    int ky = kbStartY + r * (keySize + keyGap);
+
+                    if (mouseX >= kx && mouseX <= kx + keySize &&
+                        mouseY >= ky && mouseY <= ky + keySize) {
+                        if (onScreenKbRow != r || onScreenKbCol != c) {
+                            onScreenKbRow = r;
+                            onScreenKbCol = c;
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                        return;
                     }
                 }
             }
@@ -2756,6 +2962,19 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SETTINGS) {
+            // Handle warning dialog clicks first
+            if (showSettingsWarning) {
+                java.awt.Rectangle[] warnBtns = renderer.getWarningButtonBounds();
+                for (int i = 0; i < 3; i++) {
+                    if (warnBtns[i] != null && warnBtns[i].contains(mouseX, mouseY)) {
+                        settingsWarningSelection = i;
+                        confirmWarningSelection();
+                        return;
+                    }
+                }
+                // Clicked outside buttons but dialog is open — do nothing (block clicks behind)
+                return;
+            }
             // Check if clicking on category tabs first (use UIScale to match Renderer positions)
             String[] categories = {"GRAPHICS", "AUDIO", "GAMEPLAY", "DEBUG", "CONTROLS", "HUD"};
             int tabWidth = UIScale.px(130);
@@ -3303,7 +3522,7 @@ public class Game extends JPanel implements Runnable {
             case 2: transitionToState(GameState.STATS); break;
             case 3: transitionToState(GameState.ACHIEVEMENTS); break;
             case 4: transitionToState(GameState.INFO); break;
-            case 5: settingsEnteredFrom = GameState.MENU; transitionToState(GameState.SETTINGS); break;
+            case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
             case 6: transitionToState(GameState.SAVE_SELECT); break; // Save Files
         }
     }
@@ -3315,6 +3534,7 @@ public class Game extends JPanel implements Runnable {
                 case 0: // Settings
                     soundManager.playSound(SoundManager.Sound.MENU_OPEN);
                     settingsEnteredFrom = GameState.PLAYING;
+                    snapshotSettings();
                     gameState = GameState.SETTINGS;
                     break;
                 case 1: // Restart
@@ -3356,6 +3576,7 @@ public class Game extends JPanel implements Runnable {
                 case 1: // Settings
                     soundManager.playSound(SoundManager.Sound.MENU_OPEN);
                     settingsEnteredFrom = GameState.PLAYING;
+                    snapshotSettings();
                     gameState = GameState.SETTINGS;
                     break;
                 case 2: // Main Menu
@@ -6104,6 +6325,18 @@ public class Game extends JPanel implements Runnable {
                     double parTime = 55.0 + gameData.getCurrentLevel() * 3.0;
                     double speedMultiplier = Math.max(0.5, Math.min(3.0, 2.0 - (gameTimeSeconds / parTime)));
                     winBonus = (int)(winBonus * speedMultiplier);
+                    
+                    // Missile survival bonus: remaining missiles (not extra lives) grant bonus score
+                    // Each surviving missile = 250 + level * 50 points
+                    int missilesRemaining = gameData.getMissiles();
+                    int missileSurvivalBonus = 0;
+                    if (missilesRemaining > 0) {
+                        missileSurvivalBonus = missilesRemaining * (250 + gameData.getCurrentLevel() * 50);
+                        missileSurvivalBonus = (int)(missileSurvivalBonus * passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.MONEY_AND_SCORE));
+                        winBonus += missileSurvivalBonus;
+                        gameData.getCurrentLevelStats().setMissileSurvivalBonus(missileSurvivalBonus);
+                    }
+                    
                     gameData.addScore(winBonus);
                     
                     int moneyReward = currentBoss.getMoneyReward();
@@ -7851,9 +8084,20 @@ public class Game extends JPanel implements Runnable {
         // Category 4: Controls (10 settings)
         
         if (selectedSettingsCategory == 0) {
-            // Graphics settings matching renderer order:
-            // Display(0-3), Quality(4-7), Effects(8-11), Camera(12-14)
-            switch (settingIndex) {
+            int offset = getGPUSettingsOffset();
+            // GPU-specific settings (only when GPU is available)
+            if (gpuAvailable && settingIndex == 0) {
+                enableGPUAcceleration = !enableGPUAcceleration; saveGPUConfig(); markNeedsRestart(); return;
+            }
+            if (gpuAvailable && enableGPUAcceleration && settingIndex == 1) {
+                gpuPipelineType = (gpuPipelineType + 1) % 3; saveGPUConfig(); markNeedsRestart(); return;
+            }
+            if (gpuAvailable && enableGPUAcceleration && settingIndex == 2) {
+                bufferStrategyMode = (bufferStrategyMode + 1) % 2; saveGPUConfig(); markNeedsRestart(); return;
+            }
+            // Original graphics settings shifted by offset
+            int idx = settingIndex - offset;
+            switch (idx) {
                 case 0: toggleFullscreen(); break;
                 case 1: resolutionPreset = (resolutionPreset + 1) % 6; break;
                 case 2: enableVSync = !enableVSync; break;
@@ -7906,13 +8150,15 @@ public class Game extends JPanel implements Runnable {
                 rebindingActionIndex = settingIndex - 1; // Maps to Action ordinal + 1 offset
             }
         }
+        markSettingsDirty();
     }
     
     /** Set a slider setting directly from a 0..1 progress value (for click/drag on slider track). */
     private void setSliderValue(int settingIndex, float progress) {
         progress = Math.max(0f, Math.min(1f, progress));
         if (selectedSettingsCategory == 0) {
-            if (settingIndex == 12) { // Camera Zoom: 0.75 .. 1.5
+            int offset = getGPUSettingsOffset();
+            if (settingIndex == 12 + offset) { // Camera Zoom: 0.75 .. 1.5
                 double range = 1.5 - 0.75;
                 double raw = 0.75 + progress * range;
                 cameraZoom = Math.round(raw * 20.0) / 20.0; // snap to 0.05 steps
@@ -7927,57 +8173,81 @@ public class Game extends JPanel implements Runnable {
                 case 4: gameData.setMusicVolume(vol); soundManager.setMusicVolume(vol); break;
             }
         }
+        markSettingsDirty();
     }
 
     private boolean adjustSetting(int settingIndex, int direction) {
-        // Graphics sliders (matching renderer 15-item order: Display, Quality, Effects, Camera)
+        // Graphics sliders (matching renderer order with dynamic GPU offset)
         if (selectedSettingsCategory == 0) {
-            if (settingIndex == 0) { // Fullscreen (toggle)
+            int offset = getGPUSettingsOffset();
+            // GPU-specific settings
+            if (gpuAvailable && settingIndex == 0) { // Hardware Acceleration (toggle)
+                enableGPUAcceleration = !enableGPUAcceleration;
+                saveGPUConfig();
+                markNeedsRestart();
+                return true;
+            }
+            if (gpuAvailable && enableGPUAcceleration && settingIndex == 1) { // Pipeline Type (pill)
+                gpuPipelineType = Math.max(0, Math.min(2, gpuPipelineType + direction));
+                saveGPUConfig();
+                markNeedsRestart();
+                return true;
+            }
+            if (gpuAvailable && enableGPUAcceleration && settingIndex == 2) { // Buffer Mode (pill)
+                bufferStrategyMode = Math.max(0, Math.min(1, bufferStrategyMode + direction));
+                saveGPUConfig();
+                markNeedsRestart();
+                return true;
+            }
+            // Original settings shifted by offset
+            int idx = settingIndex - offset;
+            if (idx == 0) { // Fullscreen (toggle)
                 toggleFullscreen();
                 return true;
-            } else if (settingIndex == 1) { // Resolution Preset
+            } else if (idx == 1) { // Resolution Preset
                 resolutionPreset = Math.max(0, Math.min(5, resolutionPreset + direction));
+                markNeedsRestart();
                 return true;
-            } else if (settingIndex == 2) { // VSync (toggle)
+            } else if (idx == 2) { // VSync (toggle)
                 enableVSync = !enableVSync;
                 return true;
-            } else if (settingIndex == 3) { // FPS Limit
+            } else if (idx == 3) { // FPS Limit
                 fpsLimit = Math.max(0, Math.min(4, fpsLimit + direction));
                 updateFPSLimit();
                 return true;
-            } else if (settingIndex == 4) { // Anti-Aliasing (toggle)
+            } else if (idx == 4) { // Anti-Aliasing (toggle)
                 enableAntiAliasing = !enableAntiAliasing;
                 return true;
-            } else if (settingIndex == 5) { // Shadow Quality (slider)
+            } else if (idx == 5) { // Shadow Quality (slider)
                 shadowQuality = Math.max(0, Math.min(3, shadowQuality + direction));
                 enableShadows = shadowQuality > 0;
                 return true;
-            } else if (settingIndex == 6) { // Particle Effects (toggle)
+            } else if (idx == 6) { // Particle Effects (toggle)
                 enableParticles = !enableParticles;
                 return true;
-            } else if (settingIndex == 7) { // Bloom (toggle)
+            } else if (idx == 7) { // Bloom (toggle)
                 enableBloom = !enableBloom;
                 return true;
-            } else if (settingIndex == 8) { // Motion Blur (toggle)
+            } else if (idx == 8) { // Motion Blur (toggle)
                 enableMotionBlur = !enableMotionBlur;
                 return true;
-            } else if (settingIndex == 9) { // Chromatic Aberration (toggle)
+            } else if (idx == 9) { // Chromatic Aberration (toggle)
                 enableChromaticAberration = !enableChromaticAberration;
                 return true;
-            } else if (settingIndex == 10) { // Vignette (toggle)
+            } else if (idx == 10) { // Vignette (toggle)
                 enableVignette = !enableVignette;
                 return true;
-            } else if (settingIndex == 11) { // Grain Effect (toggle)
+            } else if (idx == 11) { // Grain Effect (toggle)
                 enableGrainEffect = !enableGrainEffect;
                 return true;
-            } else if (settingIndex == 12) { // Camera Zoom
+            } else if (idx == 12) { // Camera Zoom
                 double step = 0.05 * direction;
                 cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom + step));
                 return true;
-            } else if (settingIndex == 13) { // UI Parallax (toggle)
+            } else if (idx == 13) { // UI Parallax (toggle)
                 enableUIParallax = !enableUIParallax;
                 return true;
-            } else if (settingIndex == 14) { // UI Scale (pill)
+            } else if (idx == 14) { // UI Scale (pill)
                 uiScale = Math.max(0, Math.min(2, uiScale + direction));
                 config.UIScale.setScale(uiScale);
                 if (renderer != null) renderer.onUIScaleChanged();
@@ -8053,13 +8323,29 @@ public class Game extends JPanel implements Runnable {
     
     /** Set a graphics setting directly by pill option index */
     private void setGraphicsPillValue(int settingIndex, int pillIndex) {
-        switch (settingIndex) {
+        int offset = getGPUSettingsOffset();
+        // GPU-specific pills
+        if (gpuAvailable && enableGPUAcceleration && settingIndex == 1) {
+            gpuPipelineType = Math.max(0, Math.min(2, pillIndex));
+            saveGPUConfig();
+            markNeedsRestart();
+            return;
+        }
+        if (gpuAvailable && enableGPUAcceleration && settingIndex == 2) {
+            bufferStrategyMode = Math.max(0, Math.min(1, pillIndex));
+            saveGPUConfig();
+            markNeedsRestart();
+            return;
+        }
+        int idx = settingIndex - offset;
+        switch (idx) {
             case 0: // Fullscreen: 0=Windowed, 1=Fullscreen
                 boolean wantFull = pillIndex == 1;
                 if (wantFull != isFullscreen) toggleFullscreen();
                 break;
             case 1: // Resolution
                 resolutionPreset = Math.max(0, Math.min(5, pillIndex));
+                markNeedsRestart();
                 break;
             case 3: // FPS Limit
                 fpsLimit = Math.max(0, Math.min(4, pillIndex));
@@ -8075,10 +8361,11 @@ public class Game extends JPanel implements Runnable {
                 if (renderer != null) renderer.onUIScaleChanged();
                 break;
         }
+        markSettingsDirty();
     }
     
     private int getMaxSettingsItems() {
-        if (selectedSettingsCategory == 0) return 14; // Graphics: 15 items (0-14), matching renderer
+        if (selectedSettingsCategory == 0) return 14 + getGPUSettingsOffset(); // Graphics: 15 base items (0-14) + GPU settings
         if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
@@ -8102,6 +8389,262 @@ public class Game extends JPanel implements Runnable {
         if (selectedSettingsCategory == 5 && renderer != null) {
             renderer.hudLayoutEditor.onOpen(hudLayout);
         }
+    }
+    
+    /** Take a snapshot of all current settings when the user enters the Settings screen. */
+    public void snapshotSettings() {
+        // Graphics
+        snap_isFullscreen = isFullscreen;
+        snap_resolutionPreset = resolutionPreset;
+        snap_enableVSync = enableVSync;
+        snap_fpsLimit = fpsLimit;
+        snap_enableAntiAliasing = enableAntiAliasing;
+        snap_backgroundMode = backgroundMode;
+        snap_enableGradientAnimation = enableGradientAnimation;
+        snap_gradientQuality = gradientQuality;
+        snap_enableGrainEffect = enableGrainEffect;
+        snap_enableParticles = enableParticles;
+        snap_enableShadows = enableShadows;
+        snap_shadowQuality = shadowQuality;
+        snap_enableBloom = enableBloom;
+        snap_enableMotionBlur = enableMotionBlur;
+        snap_enableChromaticAberration = enableChromaticAberration;
+        snap_enableVignette = enableVignette;
+        snap_cameraZoom = cameraZoom;
+        snap_enableUIParallax = enableUIParallax;
+        snap_uiScale = uiScale;
+        // GPU
+        snap_enableGPUAcceleration = enableGPUAcceleration;
+        snap_gpuPipelineType = gpuPipelineType;
+        snap_bufferStrategyMode = bufferStrategyMode;
+        // Audio
+        snap_soundEnabled = gameData.isSoundEnabled();
+        snap_masterVolume = gameData.getMasterVolume();
+        snap_sfxVolume = gameData.getSfxVolume();
+        snap_uiVolume = gameData.getUiVolume();
+        snap_musicVolume = gameData.getMusicVolume();
+        snap_spatialAudioEnabled = gameData.isSpatialAudioEnabled();
+        // Gameplay
+        snap_countdownMode = gameData.getCountdownMode();
+        // Debug
+        snap_enableHitboxes = enableHitboxes;
+        snap_showTrackName = showTrackName;
+        // Controls
+        if (keyBindManager != null) {
+            snap_keyBinds = keyBindManager.exportKeyBinds();
+            snap_presetOrdinal = keyBindManager.exportPresetOrdinal();
+        }
+        // Reset state
+        settingsDirty = false;
+        settingsNeedsRestart = false;
+        showSettingsWarning = false;
+        settingsWarningSelection = 0;
+        System.out.println("[Settings] Snapshot taken");
+    }
+    
+    /** Restore all settings to the snapshot taken when entering Settings (discard changes). */
+    public void restoreSettings() {
+        // Graphics
+        if (snap_isFullscreen != isFullscreen) toggleFullscreen();
+        resolutionPreset = snap_resolutionPreset;
+        enableVSync = snap_enableVSync;
+        fpsLimit = snap_fpsLimit; updateFPSLimit();
+        enableAntiAliasing = snap_enableAntiAliasing;
+        backgroundMode = snap_backgroundMode;
+        enableGradientAnimation = snap_enableGradientAnimation;
+        gradientQuality = snap_gradientQuality;
+        enableGrainEffect = snap_enableGrainEffect;
+        enableParticles = snap_enableParticles;
+        enableShadows = snap_enableShadows;
+        shadowQuality = snap_shadowQuality;
+        enableBloom = snap_enableBloom;
+        enableMotionBlur = snap_enableMotionBlur;
+        enableChromaticAberration = snap_enableChromaticAberration;
+        enableVignette = snap_enableVignette;
+        cameraZoom = snap_cameraZoom;
+        enableUIParallax = snap_enableUIParallax;
+        uiScale = snap_uiScale;
+        config.UIScale.setScale(uiScale);
+        if (renderer != null) renderer.onUIScaleChanged();
+        // GPU
+        enableGPUAcceleration = snap_enableGPUAcceleration;
+        gpuPipelineType = snap_gpuPipelineType;
+        bufferStrategyMode = snap_bufferStrategyMode;
+        saveGPUConfig();
+        // Audio
+        gameData.setSoundEnabled(snap_soundEnabled);
+        soundManager.setSoundEnabled(snap_soundEnabled);
+        gameData.setMasterVolume(snap_masterVolume);
+        soundManager.setMasterVolume(snap_masterVolume);
+        gameData.setSfxVolume(snap_sfxVolume);
+        soundManager.setSfxVolume(snap_sfxVolume);
+        gameData.setUiVolume(snap_uiVolume);
+        soundManager.setUiVolume(snap_uiVolume);
+        gameData.setMusicVolume(snap_musicVolume);
+        soundManager.setMusicVolume(snap_musicVolume);
+        gameData.setSpatialAudioEnabled(snap_spatialAudioEnabled);
+        soundManager.setSpatialAudioEnabled(snap_spatialAudioEnabled);
+        // Gameplay
+        gameData.setCountdownMode(snap_countdownMode);
+        // Debug
+        enableHitboxes = snap_enableHitboxes;
+        showTrackName = snap_showTrackName;
+        // Controls
+        if (keyBindManager != null) {
+            keyBindManager.importPresetOrdinal(snap_presetOrdinal);
+            keyBindManager.importKeyBinds(snap_keyBinds);
+        }
+        settingsDirty = false;
+        settingsNeedsRestart = false;
+        System.out.println("[Settings] Restored to snapshot (changes discarded)");
+    }
+    
+    /** Commit current settings (apply): save, update snapshot, and optionally restart window. */
+    public void applySettings() {
+        performAutoSave();
+        boolean needsRestart = settingsNeedsRestart;
+        // Update snapshot to current values so further ESC won't revert
+        snapshotSettings();
+        System.out.println("[Settings] Applied" + (needsRestart ? " (restart required)" : ""));
+        if (needsRestart) {
+            restartWindow();
+        }
+    }
+    
+    /** Restart the game window to apply pipeline / resolution changes. */
+    private void restartWindow() {
+        System.out.println("[Settings] Restarting via new process (pipeline flags require fresh JVM)...");
+        // Save GPU config so the new process reads updated pipeline flags
+        saveGPUConfig();
+        try {
+            // Build command to launch a new JVM process
+            String javaBin = System.getProperty("java.home") + java.io.File.separator
+                + "bin" + java.io.File.separator + "java";
+            String classpath = System.getProperty("java.class.path");
+            ProcessBuilder pb = new ProcessBuilder(javaBin, "-cp", classpath, "App");
+            pb.directory(new java.io.File(System.getProperty("user.dir")));
+            pb.inheritIO(); // pipe stdout/stderr to parent console
+            pb.start();
+            System.out.println("[Settings] New process launched, exiting current JVM");
+        } catch (Exception e) {
+            System.err.println("[Settings] Failed to restart: " + e.getMessage());
+            // Fallback: re-launch in same JVM (pipeline won't change but at least window refreshes)
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                java.awt.Window[] windows = java.awt.Window.getWindows();
+                for (java.awt.Window w : windows) {
+                    if (w instanceof javax.swing.JFrame) {
+                        w.dispose();
+                    }
+                }
+                App.main(new String[0]);
+            });
+            return;
+        }
+        System.exit(0);
+    }
+    
+    /** Mark settings as dirty (something changed since last apply/snapshot). */
+    public void markSettingsDirty() {
+        settingsDirty = true;
+    }
+    
+    /** Mark that a restart will be needed on apply (pipeline or resolution change). */
+    public void markNeedsRestart() {
+        settingsNeedsRestart = true;
+        settingsDirty = true;
+    }
+    
+    /** Execute the currently selected warning-dialog option (Apply & Exit / Discard & Exit / Cancel). */
+    private void confirmWarningSelection() {
+        if (settingsWarningSelection == 0) {
+            // Apply & Exit
+            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+            showSettingsWarning = false;
+            applySettings();
+            if (settingsEnteredFrom == GameState.PLAYING) {
+                isPaused = true;
+                gameState = GameState.PLAYING;
+            } else {
+                transitionToState(GameState.MENU);
+            }
+        } else if (settingsWarningSelection == 1) {
+            // Discard & Exit
+            soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+            showSettingsWarning = false;
+            restoreSettings();
+            if (settingsEnteredFrom == GameState.PLAYING) {
+                isPaused = true;
+                gameState = GameState.PLAYING;
+            } else {
+                transitionToState(GameState.MENU);
+            }
+        } else {
+            // Cancel - close warning
+            soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+            showSettingsWarning = false;
+        }
+        screenShakeIntensity = 3;
+    }
+    
+    /** Reset only the current tab's settings to their defaults. */
+    private void resetCurrentTabToDefaults() {
+        switch (selectedSettingsCategory) {
+            case 0: // Graphics
+                resolutionPreset = 3;
+                enableVSync = true;
+                fpsLimit = 1; updateFPSLimit();
+                enableAntiAliasing = true;
+                backgroundMode = 0;
+                enableGradientAnimation = true;
+                gradientQuality = 1;
+                enableGrainEffect = false;
+                enableParticles = true;
+                enableShadows = true;
+                shadowQuality = 2;
+                enableBloom = true;
+                enableMotionBlur = false;
+                enableChromaticAberration = true;
+                enableVignette = true;
+                cameraZoom = 1.0;
+                enableUIParallax = true;
+                uiScale = 1;
+                config.UIScale.setScale(uiScale);
+                if (renderer != null) renderer.onUIScaleChanged();
+                enableGPUAcceleration = false;
+                gpuPipelineType = 0;
+                bufferStrategyMode = 1;
+                saveGPUConfig();
+                break;
+            case 1: // Audio
+                gameData.setSoundEnabled(true);
+                soundManager.setSoundEnabled(true);
+                gameData.setMasterVolume(1.0f);
+                soundManager.setMasterVolume(1.0f);
+                gameData.setSfxVolume(1.0f);
+                soundManager.setSfxVolume(1.0f);
+                gameData.setUiVolume(1.0f);
+                soundManager.setUiVolume(1.0f);
+                gameData.setMusicVolume(1.0f);
+                soundManager.setMusicVolume(1.0f);
+                gameData.setSpatialAudioEnabled(true);
+                soundManager.setSpatialAudioEnabled(true);
+                break;
+            case 2: // Gameplay
+                gameData.setCountdownMode(0);
+                break;
+            case 3: // Debug
+                enableHitboxes = false;
+                showTrackName = false;
+                break;
+            case 4: // Controls
+                if (keyBindManager != null) keyBindManager.resetDefaults();
+                break;
+            case 5: // HUD
+                // HUD layout reset handled by editor if needed
+                break;
+        }
+        markSettingsDirty();
+        System.out.println("[Settings] Reset tab " + selectedSettingsCategory + " to defaults");
     }
     
     private void resetSettingsToDefaults() {
@@ -8128,6 +8671,12 @@ public class Game extends JPanel implements Runnable {
         config.UIScale.setScale(uiScale);
         if (renderer != null) renderer.onUIScaleChanged();
         // Don't reset fullscreen - that's a user preference
+        
+        // Reset GPU acceleration settings
+        enableGPUAcceleration = false;
+        gpuPipelineType = 0; // Auto
+        bufferStrategyMode = 1; // Triple buffer
+        saveGPUConfig();
         
         // Reset all audio settings to defaults
         gameData.setSoundEnabled(true);
@@ -8354,8 +8903,8 @@ public class Game extends JPanel implements Runnable {
                         // Tab switch with RB
                         handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_TAB, ' '));
                     } else if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.Y)) {
-                        // Reset settings to defaults with Y button
-                        resetSettingsToDefaults();
+                        // Reset current tab to defaults with Y button
+                        resetCurrentTabToDefaults();
                         soundManager.playSound(SoundManager.Sound.UI_SELECT);
                         screenShakeIntensity = 5;
                     }
