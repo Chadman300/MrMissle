@@ -31,34 +31,55 @@ public class ShopManager {
         int count = upgrades.size();
         int bestLevel = gameData.getBestRunLevel();
         
-        // Separate unlocked non-maxed and maxed upgrade indices; skip locked items entirely
-        java.util.List<Integer> nonMaxed = new java.util.ArrayList<>();
-        java.util.List<Integer> maxed = new java.util.ArrayList<>();
+        // Build sorted order: non-maxed first, then maxed, but Flares and
+        // Extra Missiles always appear in that relative order at the end of
+        // whichever group (non-maxed or maxed) they belong to.
+        java.util.List<Integer> nonMaxedRegular = new java.util.ArrayList<>();
+        java.util.List<Integer> maxedRegular = new java.util.ArrayList<>();
+        int flaresIdx = -1, healthIdx = -1;
+        boolean flaresMaxed = false, healthMaxed = false;
+        
         for (int i = 0; i < count; i++) {
             PassiveUpgrade upgrade = upgrades.get(i);
-            
-            // Skip locked items entirely - they won't appear in the shop
-            if (upgrade.getUnlockLevel() > bestLevel) {
-                continue;
-            }
+            if (upgrade.getUnlockLevel() > bestLevel) continue;
             
             boolean isMax;
             if (upgrade.getId().equals("health")) {
                 int extraMissiles = Math.max(0, gameData.getMissiles() - gameData.getBaseMissiles());
                 isMax = extraMissiles >= upgrade.getMaxLevel();
+                healthIdx = i;
+                healthMaxed = isMax;
+                continue;
+            } else if (upgrade.getId().equals("flares")) {
+                isMax = upgrade.isMaxed();
+                flaresIdx = i;
+                flaresMaxed = isMax;
+                continue;
             } else {
                 isMax = upgrade.isMaxed();
             }
+            
             if (isMax) {
-                maxed.add(i);
+                maxedRegular.add(i);
             } else {
-                nonMaxed.add(i);
+                nonMaxedRegular.add(i);
             }
         }
-        sortedUpgradeOrder = new int[nonMaxed.size() + maxed.size()];
-        int idx = 0;
-        for (int i : nonMaxed) sortedUpgradeOrder[idx++] = i;
-        for (int i : maxed) sortedUpgradeOrder[idx++] = i;
+        
+        java.util.List<Integer> finalList = new java.util.ArrayList<>();
+        // 1. Non-maxed regular upgrades
+        for (int i : nonMaxedRegular) finalList.add(i);
+        // 2. Non-maxed flares, then non-maxed health
+        if (flaresIdx >= 0 && !flaresMaxed) finalList.add(flaresIdx);
+        if (healthIdx >= 0 && !healthMaxed) finalList.add(healthIdx);
+        // 3. Maxed regular upgrades
+        for (int i : maxedRegular) finalList.add(i);
+        // 4. Maxed flares, then maxed health
+        if (flaresIdx >= 0 && flaresMaxed) finalList.add(flaresIdx);
+        if (healthIdx >= 0 && healthMaxed) finalList.add(healthIdx);
+        
+        sortedUpgradeOrder = new int[finalList.size()];
+        for (int i = 0; i < finalList.size(); i++) sortedUpgradeOrder[i] = finalList.get(i);
     }
     
     /**

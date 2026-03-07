@@ -1,5 +1,4 @@
 import java.awt.*;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 
@@ -615,14 +614,16 @@ public class Bullet {
         
         // Draw sprite if loaded, otherwise fallback to orb
         if (spritesLoaded && bulletSprites[spriteIndex] != null) {
-            // Save state instead of g.create() — avoids Graphics2D allocation per bullet
-            AffineTransform savedTx = g.getTransform();
+            // Manual translate/rotate undo instead of getTransform() save/restore
+            // — eliminates 1 AffineTransform allocation per bullet per frame
             Composite savedComp = g.getComposite();
             
             // Calculate rotation angle based on velocity
             double angle = Math.atan2(vy, vx);
+            double rotation = angle + HALF_PI;
             
             g.translate(x, y);
+            g.rotate(rotation);
             
             // Draw shadow using ShadowCache (generated from the bullet sprite)
             // Gradual alpha fade as bullet count increases for smooth performance scaling
@@ -637,8 +638,7 @@ public class Bullet {
                 int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
                 int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
                 
-                double objectRotation = angle + HALF_PI;
-                g.rotate(objectRotation);
+                // Already rotated by `rotation` (== angle + HALF_PI)
                 
                 // Quality-based alpha (40% more transparent than original)
                 float baseAlpha = Game.shadowQuality == 1 ? 0.24f : Game.shadowQuality == 2 ? 0.33f : 0.45f;
@@ -659,13 +659,10 @@ public class Bullet {
                 g.drawImage(shadowImg,
                     -bulletDrawW / 2 - pad, -bulletDrawH / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
                     bulletDrawW + pad * 2, bulletDrawH + pad * 2, null);
-                
-                g.setComposite(RenderCache.getAlpha(finalAlpha));
-                g.rotate(-objectRotation);
-            } else {
-                g.setComposite(RenderCache.getAlpha(finalAlpha));
             }
-            g.rotate(angle + HALF_PI); // Rotate sprite to face direction of travel
+            
+            // Sprite composite — same rotation already applied
+            g.setComposite(RenderCache.getAlpha(finalAlpha));
             
             // Get native sprite dimensions and scale proportionally
             int nativeWidth = bulletSprites[spriteIndex].getWidth();
@@ -693,8 +690,9 @@ public class Bullet {
                 g.fillOval(-sparkleSize/2, -sparkleSize/2, sparkleSize, sparkleSize);
             }
             
-            // Restore state
-            g.setTransform(savedTx);
+            // Manual undo (no AffineTransform allocation)
+            g.rotate(-rotation);
+            g.translate(-x, -y);
             g.setComposite(savedComp);
         } else {
             // Fallback: draw colored orb

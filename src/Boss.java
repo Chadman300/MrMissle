@@ -284,7 +284,7 @@ public class Boss {
         if (isMegaBoss) {
             this.shootInterval = (int)(this.shootInterval * 0.85); // 15% faster firing for mega bosses
         } else {
-            this.shootInterval = (int)(this.shootInterval * 1.12); // 12% slower firing for normal bosses
+            this.shootInterval = (int)(this.shootInterval * 1.05); // 5% slower firing for normal bosses
         }
         // Start with random pattern from available pool
         this.patternType = (int)(Math.random() * maxPatterns);
@@ -1958,6 +1958,12 @@ public class Boss {
     
     public int getCurrentHealth() {
         return currentHealth;
+    }
+    
+    public void setCurrentHealth(int health) {
+        this.currentHealth = Math.max(0, Math.min(health, maxHealth));
+        // Recalculate phase based on health (without triggering transition animation)
+        this.currentPhase = Math.min((maxHealth - currentHealth) / 2, 3);
     }
     
     public int getMaxHealth() {

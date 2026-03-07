@@ -115,7 +115,7 @@ public class Renderer {
         long key = ((long)level << 32) | ((long)targetW << 16) | (targetH & 0xFFFFL);
         BufferedImage cached = planeSpriteCache.get(key);
         if (cached == null) {
-            cached = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
+            cached = Game.createOptimalImage(targetW, targetH, true);
             Graphics2D cg = cached.createGraphics();
             cg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             // Rotate 180° around center, then draw scaled
@@ -286,6 +286,21 @@ public class Renderer {
     private static final Color ANNOUNCE_GREEN = new Color(100, 255, 100);
     private static final Color ANNOUNCE_GRAY = new Color(150, 150, 150);
     private static final Color ANNOUNCE_RED_PINK = new Color(191, 97, 106);
+    // ── Cached Colors for boss intro banner (avoid ~15 new Color() per frame) ──
+    private static final Color INTRO_SCAN_RED = new Color(255, 30, 30);
+    private static final Color INTRO_STRIPE_RED = new Color(200, 30, 30);
+    private static final Color INTRO_GLOW_RED = new Color(180, 20, 20);
+    private static final Color INTRO_PANEL_BG = new Color(8, 8, 12);
+    private static final Color INTRO_BORDER_BRIGHT = new Color(200, 35, 35);
+    private static final Color INTRO_BORDER_DARK = new Color(140, 20, 20);
+    private static final Color INTRO_HIGHLIGHT = new Color(255, 100, 100);
+    private static final Color INTRO_SHADOW_200 = new Color(0, 0, 0, 200);
+    private static final Color INTRO_GLOW_MEGA = new Color(255, 180, 30);
+    private static final Color INTRO_GLOW_MINI = new Color(200, 200, 255);
+    private static final Color INTRO_NAME_SHADOW = new Color(0, 0, 0, 220);
+    private static final Color INTRO_NAME_MEGA = new Color(255, 220, 80);
+    private static final Color INTRO_DASH_RED = new Color(200, 40, 40);
+    private static final Color INTRO_WARN_BASE = new Color(255, 40, 40);
 
     // Cached vignette for performance
 
@@ -536,7 +551,7 @@ public class Renderer {
                         double scale = (double) targetH / image.getHeight();
                         int targetW = (int)(image.getWidth() * scale);
                         if (targetW > 0 && targetH > 0) {
-                            BufferedImage prescaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
+                            BufferedImage prescaled = Game.createOptimalImage(targetW, targetH, true);
                             Graphics2D pg = prescaled.createGraphics();
                             pg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                             pg.drawImage(image, 0, 0, targetW, targetH, null);
@@ -608,7 +623,7 @@ public class Renderer {
         if (layer1 != null) compositeW = Math.max(compositeW, layer1.getWidth());
         if (layer2 != null) compositeW = Math.max(compositeW, layer2.getWidth());
         int compositeH = Game.HEIGHT;
-        BufferedImage merged = new BufferedImage(compositeW, compositeH, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage merged = Game.createOptimalImage(compositeW, compositeH, true);
         Graphics2D mg = merged.createGraphics();
         // Tile each layer across the composite width
         for (int li = 0; li < 3; li++) {
@@ -742,7 +757,7 @@ public class Renderer {
         // Ensure buffer exists and matches screen size
         if (bgBuffer == null || bgBuffer.getWidth() != width || bgBuffer.getHeight() != height) {
             if (bgBuffer != null) bgBuffer.flush();
-            bgBuffer = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            bgBuffer = Game.createOptimalImage(width, height, true);
         }
         // Snapshot scroll offsets so the worker reads stable values
         System.arraycopy(layerScrollOffsets, 0, bgScrollSnapshot, 0, 6);
@@ -7666,7 +7681,7 @@ public class Renderer {
 
             // === Horizontal red scan lines across background ===
             g.setComposite(RenderCache.getAlpha(0.08f));
-            g.setColor(new Color(255, 30, 30));
+            g.setColor(INTRO_SCAN_RED);
             for (int sy = 0; sy < height; sy += 4) {
                 g.fillRect(0, sy, width, 1);
             }
@@ -7674,7 +7689,7 @@ public class Renderer {
             // === Red warning stripe bars (top and bottom) ===
             int stripeH = 3;
             g.setComposite(RenderCache.getAlpha(0.7f));
-            g.setColor(new Color(200, 30, 30));
+            g.setColor(INTRO_STRIPE_RED);
             g.fillRect(0, height / 2 - 55 + shakeY, width, stripeH);
             g.fillRect(0, height / 2 + 50 + shakeY, width, stripeH);
 
@@ -7687,26 +7702,26 @@ public class Renderer {
             // Outer glow
             for (int gl = 3; gl >= 1; gl--) {
                 g.setComposite(RenderCache.getAlpha(0.12f * gl));
-                g.setColor(new Color(180, 20, 20));
+                g.setColor(INTRO_GLOW_RED);
                 g.fillRoundRect(panelX - gl * 3, panelY - gl * 3,
                     panelW + gl * 6, panelH + gl * 6, 14, 14);
             }
 
             // Dark panel fill
             g.setComposite(RenderCache.getAlpha(0.85f));
-            g.setColor(new Color(8, 8, 12));
+            g.setColor(INTRO_PANEL_BG);
             g.fillRoundRect(panelX, panelY, panelW, panelH, 10, 10);
 
             // Red border with double stroke
             g.setComposite(RenderCache.getAlpha(0.95f));
-            g.setColor(new Color(200, 35, 35));
+            g.setColor(INTRO_BORDER_BRIGHT);
             g.drawRoundRect(panelX, panelY, panelW, panelH, 10, 10);
-            g.setColor(new Color(140, 20, 20));
+            g.setColor(INTRO_BORDER_DARK);
             g.drawRoundRect(panelX + 2, panelY + 2, panelW - 4, panelH - 4, 8, 8);
 
             // Inner highlight line at top of panel
             g.setComposite(RenderCache.getAlpha(0.15f));
-            g.setColor(new Color(255, 100, 100));
+            g.setColor(INTRO_HIGHLIGHT);
             g.fillRect(panelX + 10, panelY + 1, panelW - 20, 1);
 
             // === "WARNING" subtitle ===
@@ -7718,11 +7733,12 @@ public class Renderer {
             int warnX = panelX + panelW / 2 - warnW / 2;
             int warnY = panelY + 24;
             // Shadow
-            g.setColor(new Color(0, 0, 0, 200));
+            g.setColor(INTRO_SHADOW_200);
             g.drawString(warningText, warnX + 1, warnY + 1);
-            // Pulsing red glow text
+            // Pulsing red glow text — use AlphaComposite with base color
             float pulse = (float)(0.7 + 0.3 * Math.sin(time * 8.0));
-            g.setColor(new Color((int)(255 * pulse), 40, 40));
+            g.setComposite(RenderCache.getAlpha(pulse));
+            g.setColor(INTRO_WARN_BASE);
             g.drawString(warningText, warnX, warnY);
 
             // === Boss name in large bold font ===
@@ -7735,8 +7751,7 @@ public class Renderer {
 
             // Text glow behind name
             g.setComposite(RenderCache.getAlpha(0.25f));
-            Color glowColor = boss.isMegaBoss() ? new Color(255, 180, 30) : new Color(200, 200, 255);
-            g.setColor(glowColor);
+            g.setColor(boss.isMegaBoss() ? INTRO_GLOW_MEGA : INTRO_GLOW_MINI);
             g.drawString(bossIntroText, nameX - 1, nameY);
             g.drawString(bossIntroText, nameX + 1, nameY);
             g.drawString(bossIntroText, nameX, nameY - 1);
@@ -7744,16 +7759,16 @@ public class Renderer {
 
             // Shadow
             g.setComposite(AlphaComposite.SrcOver);
-            g.setColor(new Color(0, 0, 0, 220));
+            g.setColor(INTRO_NAME_SHADOW);
             g.drawString(bossIntroText, nameX + 2, nameY + 2);
 
             // Main name text
-            g.setColor(boss.isMegaBoss() ? new Color(255, 220, 80) : Color.WHITE);
+            g.setColor(boss.isMegaBoss() ? INTRO_NAME_MEGA : Color.WHITE);
             g.drawString(bossIntroText, nameX, nameY);
 
             // === Small decorative dashes by the name ===
             g.setComposite(RenderCache.getAlpha(0.5f));
-            g.setColor(new Color(200, 40, 40));
+            g.setColor(INTRO_DASH_RED);
             int dashY = nameY - nfm.getAscent() / 2 + 4;
             g.fillRect(panelX + 12, dashY, 20, 2);
             g.fillRect(panelX + panelW - 32, dashY, 20, 2);
@@ -8687,7 +8702,7 @@ public class Renderer {
         if (deathFlashTimer > 0) {
             if (bakedDeathVignette == null || bakedDeathVigW != width || bakedDeathVigH != height) {
                 if (bakedDeathVignette != null) bakedDeathVignette.flush();
-                bakedDeathVignette = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+                bakedDeathVignette = Game.createOptimalImage(width, height, true);
                 Graphics2D dv = bakedDeathVignette.createGraphics();
                 dv.setPaint(new java.awt.RadialGradientPaint(
                     width / 2.0f, height / 2.0f,
@@ -8820,7 +8835,7 @@ public class Renderer {
 
                 g.setColor(RenderCache.BLACK_120);
 
-                g.fillRoundRect(itemX + UIScale.px(3), scrolledY - UIScale.px(27), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
+                g.fillRoundRect(itemX + UIScale.px(3), scrolledY - UIScale.px(27), UIScale.px(1050), UIScale.px(90), UIScale.px(15), UIScale.px(15));
 
                 
 
@@ -8854,7 +8869,7 @@ public class Renderer {
 
                 g.setColor(cardColor);
 
-                g.fillRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
+                g.fillRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(1050), UIScale.px(90), UIScale.px(15), UIScale.px(15));
 
                 
 
@@ -8866,7 +8881,7 @@ public class Renderer {
 
                     g.setStroke(RenderCache.getStroke(2f));
 
-                    g.drawRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(900), UIScale.px(70), UIScale.px(15), UIScale.px(15));
+                    g.drawRoundRect(itemX, scrolledY - UIScale.px(30), UIScale.px(1050), UIScale.px(90), UIScale.px(15), UIScale.px(15));
 
                     g.setStroke(RenderCache.getStroke(1f));
 
@@ -8907,7 +8922,7 @@ public class Renderer {
                 g.setColor(canAfford ? RenderCache.GRAY_200 : RenderCache.GRAY_100);
 
                 // Shrink font until description fits on one line
-                int maxDescWidth = UIScale.px(650); // Leave room for cost on right side
+                int maxDescWidth = UIScale.px(800); // Leave room for cost on right side
                 int descFontSize = 14;
                 g.setFont(FontPalette.get(Font.PLAIN, descFontSize));
                 if (!itemDesc.isEmpty()) {
@@ -8956,9 +8971,9 @@ public class Renderer {
 
                         int barX = itemX + UIScale.px(75);
 
-                        int barY = scrolledY + UIScale.px(30);
+                        int barY = scrolledY + UIScale.px(40);
 
-                        int barWidth = UIScale.px(550);
+                        int barWidth = UIScale.px(700);
 
                         int barHeight = UIScale.px(8);
 
@@ -9030,7 +9045,7 @@ public class Renderer {
 
                         int maxedW = costFm.stringWidth(maxedStr);
 
-                        g.drawString(maxedStr, itemX + UIScale.px(900) - maxedW - UIScale.px(20), scrolledY + UIScale.px(10));
+                        g.drawString(maxedStr, itemX + UIScale.px(1050) - maxedW - UIScale.px(20), scrolledY + UIScale.px(10));
 
                     } else {
 
@@ -9042,7 +9057,7 @@ public class Renderer {
 
                         int costW = costFm.stringWidth(costStr);
 
-                        g.drawString(costStr, itemX + UIScale.px(900) - costW - UIScale.px(20), scrolledY + UIScale.px(10));
+                        g.drawString(costStr, itemX + UIScale.px(1050) - costW - UIScale.px(20), scrolledY + UIScale.px(10));
 
                     }
 
@@ -9052,7 +9067,7 @@ public class Renderer {
 
             
 
-            y += UIScale.px(80);
+            y += UIScale.px(100);
 
         }
 
@@ -11576,7 +11591,7 @@ public class Renderer {
 
     
 
-    public void drawDebug(Graphics2D g, int width, int height, double time, int selectedOption) {
+    public void drawDebug(Graphics2D g, int width, int height, double time, int selectedOption, int debugSetLevelValue) {
 
         // Military themed background
 
@@ -11626,7 +11641,9 @@ public class Renderer {
 
             "Preview Item & Contract Popups",
 
-            "Preview Passive Upgrade Popups"
+            "Preview Passive Upgrade Popups",
+
+            "Set Unlocked Level: \u25C0 " + debugSetLevelValue + " \u25B6"
 
         };
 
@@ -11654,7 +11671,9 @@ public class Renderer {
 
             new Color(100, 200, 255),    // Cyan for item/contract preview
 
-            new Color(200, 150, 255)     // Lavender for passive preview
+            new Color(200, 150, 255),    // Lavender for passive preview
+
+            new Color(255, 140, 0)       // Dark orange for set level
 
         };
 
@@ -12295,12 +12314,10 @@ public class Renderer {
 
         if (cachedVignette == null || cachedVignetteWidth != width || cachedVignetteHeight != height) {
 
-            // Render at half resolution — vignette is a smooth gradient, so
-            // half-res is visually indistinguishable but blits 4x fewer pixels
-            int halfW = width / 2;
-            int halfH = height / 2;
+            // Cache at full resolution — eliminates per-frame scaling blit overhead
+            // (profiling showed 14.5s / 3% CPU on the upscale drawImage path)
             if (cachedVignette != null) cachedVignette.flush();
-            cachedVignette = new BufferedImage(halfW, halfH, BufferedImage.TYPE_INT_ARGB);
+            cachedVignette = Game.createOptimalImage(width, height, true);
 
             Graphics2D vg = cachedVignette.createGraphics();
 
@@ -12308,11 +12325,11 @@ public class Renderer {
 
             
 
-            // Create radial gradient from center (at half-res coordinates)
+            // Create radial gradient from center
 
-            int centerX = halfW / 2;
+            int centerX = width / 2;
 
-            int centerY = halfH / 2;
+            int centerY = height / 2;
 
             int radius = (int)Math.sqrt(centerX * centerX + centerY * centerY) * 3;
 
@@ -12344,7 +12361,7 @@ public class Renderer {
 
                 vg.setPaint(gradient);
 
-                vg.fillRect(0, 0, halfW, halfH);
+                vg.fillRect(0, 0, width, height);
 
             }
 
@@ -12360,9 +12377,9 @@ public class Renderer {
 
         
 
-        // Blit half-res vignette upscaled to full screen (smooth gradient hides upscale)
+        // 1:1 blit — no scaling overhead (was drawImage with upscale, 14.5s CPU)
 
-        g.drawImage(cachedVignette, 0, 0, width, height, null);
+        g.drawImage(cachedVignette, 0, 0, null);
 
     }
 
@@ -12377,56 +12394,56 @@ public class Renderer {
         int stripH = worldH + go * 2 - gs * 2; // height of left/right strips
 
         // Top strip: vertical gradient sb(top) → tr(bottom)
-        bakedEdgeTop = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedEdgeTop = Game.createOptimalImage(stripW, gs, true);
         Graphics2D gt = bakedEdgeTop.createGraphics();
         gt.setPaint(new GradientPaint(0, 0, sb, 0, gs, tr));
         gt.fillRect(0, 0, stripW, gs);
         gt.dispose();
 
         // Bottom strip: vertical gradient tr(top) → sb(bottom)
-        bakedEdgeBottom = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedEdgeBottom = Game.createOptimalImage(stripW, gs, true);
         Graphics2D gb = bakedEdgeBottom.createGraphics();
         gb.setPaint(new GradientPaint(0, 0, tr, 0, gs, sb));
         gb.fillRect(0, 0, stripW, gs);
         gb.dispose();
 
         // Left strip: horizontal gradient sb(left) → tr(right)
-        bakedEdgeLeft = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
+        bakedEdgeLeft = Game.createOptimalImage(gs, stripH, true);
         Graphics2D gl = bakedEdgeLeft.createGraphics();
         gl.setPaint(new GradientPaint(0, 0, sb, gs, 0, tr));
         gl.fillRect(0, 0, gs, stripH);
         gl.dispose();
 
         // Right strip: horizontal gradient tr(left) → sb(right)
-        bakedEdgeRight = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
+        bakedEdgeRight = Game.createOptimalImage(gs, stripH, true);
         Graphics2D gr2 = bakedEdgeRight.createGraphics();
         gr2.setPaint(new GradientPaint(0, 0, tr, gs, 0, sb));
         gr2.fillRect(0, 0, gs, stripH);
         gr2.dispose();
 
         // Top-left corner: radial gradient, center at inner corner (gs, gs)
-        bakedCornerTL = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedCornerTL = Game.createOptimalImage(gs, gs, true);
         Graphics2D gc1 = bakedCornerTL.createGraphics();
         gc1.setPaint(new java.awt.RadialGradientPaint((float)gs, (float)gs, (float)gs, cd, cc));
         gc1.fillRect(0, 0, gs, gs);
         gc1.dispose();
 
         // Top-right corner: center at (0, gs)
-        bakedCornerTR = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedCornerTR = Game.createOptimalImage(gs, gs, true);
         Graphics2D gc2 = bakedCornerTR.createGraphics();
         gc2.setPaint(new java.awt.RadialGradientPaint(0f, (float)gs, (float)gs, cd, cc));
         gc2.fillRect(0, 0, gs, gs);
         gc2.dispose();
 
         // Bottom-left corner: center at (gs, 0)
-        bakedCornerBL = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedCornerBL = Game.createOptimalImage(gs, gs, true);
         Graphics2D gc3 = bakedCornerBL.createGraphics();
         gc3.setPaint(new java.awt.RadialGradientPaint((float)gs, 0f, (float)gs, cd, cc));
         gc3.fillRect(0, 0, gs, gs);
         gc3.dispose();
 
         // Bottom-right corner: center at (0, 0)
-        bakedCornerBR = new BufferedImage(gs, gs, BufferedImage.TYPE_INT_ARGB);
+        bakedCornerBR = Game.createOptimalImage(gs, gs, true);
         Graphics2D gc4 = bakedCornerBR.createGraphics();
         gc4.setPaint(new java.awt.RadialGradientPaint(0f, 0f, (float)gs, cd, cc));
         gc4.fillRect(0, 0, gs, gs);
@@ -12451,7 +12468,7 @@ public class Renderer {
             cachedBgPaletteIdx = paletteIndex;
             if (sizeChanged) {
                 if (cachedBgGradient != null) cachedBgGradient.flush();
-                cachedBgGradient = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                cachedBgGradient = Game.createOptimalImage(width, height, false);
             }
             Graphics2D bg = cachedBgGradient.createGraphics();
 

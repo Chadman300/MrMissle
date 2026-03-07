@@ -23,7 +23,7 @@ public class AssetLoader {
             try {
                 BufferedImage img = ImageIO.read(stream);
                 if (img != null) {
-                    return img;
+                    return toCompatibleImage(img);
                 }
             } finally {
                 stream.close();
@@ -33,16 +33,37 @@ public class AssetLoader {
         // Fallback to file system (works in IDE)
         File file = new File(normalizedPath);
         if (file.exists()) {
-            return ImageIO.read(file);
+            return toCompatibleImage(ImageIO.read(file));
         }
         
         // Try with backslashes for Windows
         file = new File(path);
         if (file.exists()) {
-            return ImageIO.read(file);
+            return toCompatibleImage(ImageIO.read(file));
         }
         
         throw new IOException("Could not find image: " + path);
+    }
+
+    /**
+     * Convert a BufferedImage to a GPU-compatible format when hardware
+     * acceleration is enabled. This ensures the image is stored in a format
+     * the GPU can blit without per-pixel conversion, which is the single
+     * biggest performance win for hardware-accelerated rendering.
+     */
+    private static BufferedImage toCompatibleImage(BufferedImage img) {
+        if (img == null || !Game.enableGPUAcceleration) return img;
+        try {
+            boolean hasAlpha = img.getColorModel().hasAlpha();
+            BufferedImage compat = Game.createOptimalImage(img.getWidth(), img.getHeight(), hasAlpha);
+            Graphics2D g = compat.createGraphics();
+            g.drawImage(img, 0, 0, null);
+            g.dispose();
+            img.flush(); // release original non-compatible image
+            return compat;
+        } catch (Exception e) {
+            return img; // fallback to original on any error
+        }
     }
     
     /**
@@ -137,7 +158,7 @@ public class AssetLoader {
         int newW = Math.max(1, (int)(w * scale));
         int newH = Math.max(1, (int)(h * scale));
 
-        BufferedImage scaled = new BufferedImage(newW, newH, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage scaled = Game.createOptimalImage(newW, newH, true);
         Graphics2D g2d = scaled.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);

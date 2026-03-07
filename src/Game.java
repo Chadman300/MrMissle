@@ -17,6 +17,8 @@ import config.UIScale;
 import config.UITheme;
 
 public class Game extends JPanel implements Runnable {
+    // Cached identity transform — avoids new AffineTransform() allocations in overlays
+    private static final AffineTransform IDENTITY_TX = new AffineTransform();
     // Game constants
     public static final int WIDTH;
     public static final int HEIGHT;
@@ -107,6 +109,8 @@ public class Game extends JPanel implements Runnable {
     // Particle limits for performance
     private static final int MAX_PARTICLES = 200; // Reduced for better performance
     private static final int MAX_BULLETS = 500; // Cap bullets for performance
+    private static final int BULLET_POOL_PREWARM = 300; // Pre-allocate this many bullets to avoid mid-game lag
+    private static final int PARTICLE_POOL_PREWARM = 150; // Pre-allocate this many particles
     private int particleSpawnThrottle = 0; // Throttle particle spawns during high load
     
     // Cached colors for performance
@@ -167,6 +171,31 @@ public class Game extends JPanel implements Runnable {
     private volatile BufferedImage renderBuffer;
     private volatile BufferedImage displayBuffer;
     private final Object bufferSwapLock = new Object();
+
+    /**
+     * Create an optimally-backed BufferedImage. When GPU acceleration is enabled,
+     * this returns a hardware-compatible image (managed by the GPU driver, allowing
+     * fast VRAM blits). When disabled, falls back to a standard BufferedImage.
+     * @param w         width
+     * @param h         height
+     * @param hasAlpha  true for ARGB (sprites/overlays), false for RGB (opaque buffers)
+     */
+    public static BufferedImage createOptimalImage(int w, int h, boolean hasAlpha) {
+        if (enableGPUAcceleration) {
+            try {
+                GraphicsConfiguration gc = GraphicsEnvironment
+                    .getLocalGraphicsEnvironment()
+                    .getDefaultScreenDevice()
+                    .getDefaultConfiguration();
+                int transparency = hasAlpha ? Transparency.TRANSLUCENT : Transparency.OPAQUE;
+                return gc.createCompatibleImage(w, h, transparency);
+            } catch (Exception e) {
+                // Fallback if anything goes wrong
+            }
+        }
+        int type = hasAlpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+        return new BufferedImage(w, h, type);
+    }
     
     // Cached debug font (avoid per-frame allocation)
     private Font debugTrackFont;
@@ -479,7 +508,8 @@ public class Game extends JPanel implements Runnable {
     
     // Debug menu navigation
     private int selectedDebugOption = 0;
-    private static final int DEBUG_OPTION_COUNT = 11; // Total number of debug menu options
+    private static final int DEBUG_OPTION_COUNT = 12; // Total number of debug menu options
+    private int debugSetLevelValue = 1; // Value for "Set Unlocked Level" cheat (1-28)
     private java.util.Queue<ActiveItem.ItemType> debugItemPopupQueue; // Queue for debug item popup preview
     private boolean debugShowContractAfterItems = false; // Show contract popup after all item popups
     
@@ -819,15 +849,15 @@ public class Game extends JPanel implements Runnable {
         
         // Initialize systems
         keys = new boolean[256];
-        bullets = new ArrayList<>();
-        bulletPool = new ArrayList<>();
-        particles = new ArrayList<>();
-        particlePool = new ArrayList<>();
-        introParticles = new ArrayList<>();
-        beamAttacks = new ArrayList<>();
-        flares = new ArrayList<>();
+        bullets = new ArrayList<>(MAX_BULLETS);
+        bulletPool = new ArrayList<>(BULLET_POOL_PREWARM);
+        particles = new ArrayList<>(MAX_PARTICLES);
+        particlePool = new ArrayList<>(PARTICLE_POOL_PREWARM);
+        introParticles = new ArrayList<>(64);
+        beamAttacks = new ArrayList<>(8);
+        flares = new ArrayList<>(16);
         flareCooldownTimer = 300; // 5s grace period at start
-        bulletGrid = new HashMap<>();
+        bulletGrid = new HashMap<>(256);
         gameData = new GameData();
         shopManager = new ShopManager(gameData);
         achievementManager = new AchievementManager();
@@ -835,9 +865,12 @@ public class Game extends JPanel implements Runnable {
         shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
         saveManager = new SaveManager(); // Initialize save manager
-        pendingAchievements = new ArrayList<>();
-        damageNumbers = new ArrayList<>();
+        pendingAchievements = new ArrayList<>(8);
+        damageNumbers = new ArrayList<>(64);
         soundManager = SoundManager.getInstance();
+
+        // Pre-warm object pools to prevent allocation spikes during gameplay
+        prewarmPools();
         
         // Initialize keybind and controller systems
         keyBindManager = new KeyBindManager();
@@ -2220,6 +2253,20 @@ public class Game extends JPanel implements Runnable {
                     selectedDebugOption = (selectedDebugOption + 1) % DEBUG_OPTION_COUNT;
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                    if (selectedDebugOption == 11) { // Set Unlocked Level - decrease
+                        debugSetLevelValue = Math.max(1, debugSetLevelValue - 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
+                }
+                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                    if (selectedDebugOption == 11) { // Set Unlocked Level - increase
+                        debugSetLevelValue = Math.min(28, debugSetLevelValue + 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     activateDebugOption(selectedDebugOption);
@@ -3637,6 +3684,33 @@ public class Game extends JPanel implements Runnable {
             return; // Ignore death in showcase mode
         }
         
+        // Deactivate any active item effects on death
+        ActiveItem equippedOnDeath = gameData.getEquippedItem();
+        if (equippedOnDeath != null && equippedOnDeath.isActive()) {
+            equippedOnDeath.setActive(false);
+            
+            // Stop lingering SFX for specific items
+            if (equippedOnDeath.getType() == ActiveItem.ItemType.STUN) {
+                soundManager.stopSound(SoundManager.Sound.ELECTRIC_ZAP);
+            }
+        }
+        
+        // Reset frost beam state immediately (no retraction animation on death)
+        frostBeamExtending = false;
+        frostBeamRetracting = false;
+        frostBeamProgress = 0;
+        frostBeamRetractPhase = 0;
+        frostBeamShakeTriggered = false;
+        frostBeamStopDistance = -1;
+        
+        // Reset boss stun (item-driven effect)
+        bossStunned = false;
+        bossStunShakeOffset = 0;
+        
+        // Reset shield (item-driven effect)
+        shieldActive = false;
+        shieldHits = 0;
+        
         // No missiles left - immediate game over (shouldn't normally reach here)
         if (gameData.getMissiles() <= 0) {
             soundManager.playSound(SoundManager.Sound.PLAYER_DEATH);
@@ -4028,6 +4102,13 @@ public class Game extends JPanel implements Runnable {
         
         // Restore game state
         bossHitCount = rs.bossHitCount;
+        
+        // Apply saved hits to boss's internal health so it matches the visual health bar
+        int restoredHealth = currentBoss.getMaxHealth() - rs.bossHitCount;
+        if (restoredHealth < currentBoss.getMaxHealth()) {
+            currentBoss.setCurrentHealth(restoredHealth);
+        }
+        
         bossVulnerable = rs.bossVulnerable;
         vulnerabilityTimer = rs.vulnerabilityTimer;
         invulnerabilityTimer = rs.invulnerabilityTimer;
@@ -4634,6 +4715,10 @@ public class Game extends JPanel implements Runnable {
         moneyCircles.clear(); // Clear Pool of Loot circles from previous level
         flares.clear();
         flareCooldownTimer = 300;
+        
+        // Top off object pools between levels to prevent allocation spikes
+        prewarmPools();
+        
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager, gameData.getGameMode()); // Normal position, will move during intro
         setupBossFactory(currentBoss);
         currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
@@ -4763,8 +4848,11 @@ public class Game extends JPanel implements Runnable {
         double delta = 0;
         
         // Initialize off-screen render buffers (TYPE_INT_RGB â€” no alpha needed for display)
-        renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
-        displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+        renderBuffer = createOptimalImage(WIDTH, HEIGHT, false);
+        displayBuffer = createOptimalImage(WIDTH, HEIGHT, false);
+        System.out.println("[GPU] Render buffers: " + renderBuffer.getClass().getSimpleName()
+            + " type=" + renderBuffer.getType()
+            + " (GPU=" + enableGPUAcceleration + ")");
         
         while (running) {
             long now = System.nanoTime();
@@ -7501,7 +7589,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void returnBulletToPool(Bullet bullet) {
-        if (bulletPool.size() < 500) { // Cap pool size
+        if (bulletPool.size() < BULLET_POOL_PREWARM) { // Cap pool size
             bulletPool.add(bullet);
         }
     }
@@ -7526,8 +7614,24 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void returnParticleToPool(Particle particle) {
-        if (particlePool.size() < 300) { // Cap pool size
+        if (particlePool.size() < PARTICLE_POOL_PREWARM) { // Cap pool size
             particlePool.add(particle);
+        }
+    }
+
+    /**
+     * Pre-warm object pools by creating objects up front so the first
+     * wave of bullets/particles doesn't trigger hundreds of allocations.
+     * Called once at startup and again at each level start.
+     */
+    private void prewarmPools() {
+        // Top off bullet pool
+        while (bulletPool.size() < BULLET_POOL_PREWARM) {
+            bulletPool.add(new Bullet(0, 0, 0, 0));
+        }
+        // Top off particle pool
+        while (particlePool.size() < PARTICLE_POOL_PREWARM) {
+            particlePool.add(new Particle(0, 0, 0, 0, Color.WHITE, 1, 1, Particle.ParticleType.SPARK));
         }
     }
     
@@ -7709,6 +7813,11 @@ public class Game extends JPanel implements Runnable {
     
     @Override
     protected void paintComponent(Graphics g) {
+        // Fill panel with black first so any sub-pixel edge gaps from
+        // buffer scaling don't show stale white pixels in recordings.
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, getWidth(), getHeight());
+        
         // Lightweight blit: just draw the pre-rendered buffer to screen
         // All heavy rendering was done on the game thread in renderToBuffer()
         BufferedImage buf;
@@ -7855,7 +7964,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
             case DEBUG:
-                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption);
+                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption, debugSetLevelValue);
                 // Draw item/contract unlock animations if active (debug preview)
                 if (itemUnlockAnimation) {
                     drawItemUnlockAnimation(g2d, WIDTH, HEIGHT);
@@ -8054,11 +8163,11 @@ public class Game extends JPanel implements Runnable {
     private void updateShopScroll() {
         // Calculate target scroll offset to keep selected item centered
         int selectedItem = shopManager.getSelectedShopItem();
-        int itemsVisible = 7; // Number of items visible on screen
+        int itemsVisible = 6; // Number of items visible on screen
         
         // Only scroll if selection is beyond visible area
         if (selectedItem > itemsVisible - 3) {
-            shopScroll = (selectedItem - (itemsVisible - 3)) * 80; // 80 pixels per item
+            shopScroll = (selectedItem - (itemsVisible - 3)) * 100; // 100 pixels per item
         } else {
             shopScroll = 0;
         }
@@ -10411,7 +10520,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset translation to avoid screen shake affecting overlay
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setTransform(new java.awt.geom.AffineTransform());
+        g2d.setTransform(IDENTITY_TX);
         g.fillRect(0, 0, width, height);
         
         // Calculate position (slide up from bottom, slide down when dismissing)
@@ -10618,7 +10727,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset translation to avoid screen shake affecting overlay
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setTransform(new java.awt.geom.AffineTransform());
+        g2d.setTransform(IDENTITY_TX);
         g.fillRect(0, 0, width, height);
         
         // Calculate position (slide up from bottom, slide down when dismissing)
@@ -10830,7 +10939,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset translation to avoid screen shake affecting overlay
         Graphics2D g2d = (Graphics2D) g;
-        g2d.setTransform(new java.awt.geom.AffineTransform());
+        g2d.setTransform(IDENTITY_TX);
         g.fillRect(0, 0, width, height);
         
         // Calculate position (slide up from bottom, slide down when dismissing)
@@ -11084,6 +11193,14 @@ public class Game extends JPanel implements Runnable {
                 break;
             case 10: // Preview all passive upgrade popups
                 debugPreviewPassivePopups();
+                break;
+            case 11: // Set unlocked level to specific value
+                gameData.setMaxUnlockedLevel(debugSetLevelValue);
+                if (gameData.getCurrentLevel() > debugSetLevelValue) {
+                    gameData.setCurrentLevel(debugSetLevelValue);
+                }
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: Set max unlocked level to " + debugSetLevelValue);
                 break;
         }
     }

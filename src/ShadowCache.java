@@ -106,7 +106,7 @@ public class ShadowCache {
         }
         
         // Step 5: Create the final shadow BufferedImage
-        BufferedImage shadow = new BufferedImage(shadowW, shadowH, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage shadow = Game.createOptimalImage(shadowW, shadowH, true);
         shadow.setRGB(0, 0, shadowW, shadowH, pixels, 0, shadowW);
         
         return shadow;
