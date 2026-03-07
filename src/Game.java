@@ -44,6 +44,8 @@ public class Game extends JPanel implements Runnable {
     private int lastMouseX = -1, lastMouseY = -1; // Previous mouse position for dead-zone threshold
     private static final int MOUSE_MOVE_THRESHOLD = 8; // Minimum pixels mouse must move to update UI selection
     private boolean mouseActive = false; // Whether mouse is currently controlling selection
+    private boolean draggingSlider = false; // Whether currently dragging a settings slider
+    private int draggingSliderIndex = -1;   // Which setting index is being dragged
     private boolean mouseEnabled = true; // Track if mouse navigation is active
     private boolean controllerHudMouseDown = false; // Track controller A button for HUD editor drag
     private static final float CONTROLLER_CURSOR_SPEED = 8.0f; // Pixels per frame at full stick deflection
@@ -925,6 +927,19 @@ public class Game extends JPanel implements Runnable {
                 mouseX = (int) (e.getX() / scaleX);
                 mouseY = (int) (e.getY() / scaleY);
                 
+                // Slider drag in settings
+                if (draggingSlider && draggingSliderIndex >= 0 && gameState == GameState.SETTINGS && renderer != null) {
+                    float progress = renderer.getSliderTrackClick(draggingSliderIndex, mouseX, mouseY);
+                    if (progress < 0) {
+                        // Mouse moved off vertically — clamp to track horizontally
+                        progress = renderer.getSliderTrackProgress(draggingSliderIndex, mouseX);
+                    }
+                    if (progress >= 0) {
+                        setSliderValue(draggingSliderIndex, progress);
+                    }
+                    return;
+                }
+                
                 // Delegate to HUD layout editor when on HUD tab
                 if (gameState == GameState.SETTINGS && selectedSettingsCategory == 5 && renderer != null) {
                     renderer.hudLayoutEditor.handleMouseDragged(mouseX, mouseY, hudLayout);
@@ -941,14 +956,46 @@ public class Game extends JPanel implements Runnable {
                 mouseX = (int) (e.getX() / scaleX);
                 mouseY = (int) (e.getY() / scaleY);
 
+                // Dismiss attack intro on any mouse button
+                if (gameState == GameState.ATTACK_INTRO) {
+                    dismissAttackIntro();
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                    return;
+                }
+
                 // Handle press for responsive feel
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
+                    // Check for slider track click to start drag
+                    if (gameState == GameState.SETTINGS && renderer != null) {
+                        UIButton[] buttons = renderer.getSettingsButtons();
+                        if (buttons != null) {
+                            for (int i = 0; i < buttons.length; i++) {
+                                if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
+                                    float progress = renderer.getSliderTrackClick(i, mouseX, mouseY);
+                                    if (progress >= 0) {
+                                        draggingSlider = true;
+                                        draggingSliderIndex = i;
+                                        selectedSettingsItem = i;
+                                        setSliderValue(i, progress);
+                                        return;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     handleMouseClick(e);
                 }
             }
             
             @Override
             public void mouseReleased(java.awt.event.MouseEvent e) {
+                // Stop slider drag
+                if (draggingSlider) {
+                    draggingSlider = false;
+                    draggingSliderIndex = -1;
+                }
                 // Stop delete hold when mouse is released in save select
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1 && gameState == GameState.SAVE_SELECT) {
                     deletingSlot = false;
@@ -1442,15 +1489,9 @@ public class Game extends JPanel implements Runnable {
                 
             case ATTACK_INTRO:
                 // Press any key to continue from attack intro
-                if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
-                    dismissAttackIntro();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 3;
-                } else if (key == KeyEvent.VK_ESCAPE) {
-                    dismissAttackIntro();
-                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                    screenShakeIntensity = 3;
-                }
+                dismissAttackIntro();
+                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                screenShakeIntensity = 3;
                 break;
             
             case ATTACK_SHOWCASE:
@@ -2455,23 +2496,18 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.MODE_SELECT) {
-            // Check if hovering over mode cards
-            int cardWidth = 700;
-            int cardHeight = 130;
-            int cardX = (WIDTH - cardWidth) / 2;
-            int modeStartY = 205;
-            int cardSpacing = 150;
-            
-            for (int i = 0; i < GameMode.values().length; i++) {
-                int cardY = modeStartY + i * cardSpacing;
-                if (mouseX >= cardX && mouseX <= cardX + cardWidth &&
-                    mouseY >= cardY && mouseY <= cardY + cardHeight) {
-                    if (selectedGameModeIndex != i) {
-                        selectedGameModeIndex = i;
-                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                        screenShakeIntensity = 1;
+            // Check if hovering over mode cards (use stored bounds from Renderer)
+            java.awt.Rectangle[] modeBounds = renderer.getModeCardBounds();
+            if (modeBounds != null) {
+                for (int i = 0; i < modeBounds.length; i++) {
+                    if (modeBounds[i] != null && modeBounds[i].contains(mouseX, mouseY)) {
+                        if (selectedGameModeIndex != i) {
+                            selectedGameModeIndex = i;
+                            soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                            screenShakeIntensity = 1;
+                        }
+                        break;
                     }
-                    break;
                 }
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
@@ -2698,21 +2734,16 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.MODE_SELECT) {
-            // Check if clicking on mode cards
-            int cardWidth = 700;
-            int cardHeight = 130;
-            int cardX = (WIDTH - cardWidth) / 2;
-            int startY = 500;
-            int cardSpacing = 150;
-            
-            for (int i = 0; i < GameMode.values().length; i++) {
-                int cardY = startY + i * cardSpacing;
-                if (mouseX >= cardX && mouseX <= cardX + cardWidth &&
-                    mouseY >= cardY && mouseY <= cardY + cardHeight) {
-                    selectedGameModeIndex = i;
-                    // Simulate Enter to confirm selection
-                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, ' '));
-                    break;
+            // Check if clicking on mode cards (use stored bounds from Renderer)
+            java.awt.Rectangle[] modeBounds = renderer.getModeCardBounds();
+            if (modeBounds != null) {
+                for (int i = 0; i < modeBounds.length; i++) {
+                    if (modeBounds[i] != null && modeBounds[i].contains(mouseX, mouseY)) {
+                        selectedGameModeIndex = i;
+                        // Simulate Enter to confirm selection
+                        handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, ' '));
+                        break;
+                    }
                 }
             }
         } else if (gameState == GameState.MENU) {
@@ -7877,6 +7908,27 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    /** Set a slider setting directly from a 0..1 progress value (for click/drag on slider track). */
+    private void setSliderValue(int settingIndex, float progress) {
+        progress = Math.max(0f, Math.min(1f, progress));
+        if (selectedSettingsCategory == 0) {
+            if (settingIndex == 12) { // Camera Zoom: 0.75 .. 1.5
+                double range = 1.5 - 0.75;
+                double raw = 0.75 + progress * range;
+                cameraZoom = Math.round(raw * 20.0) / 20.0; // snap to 0.05 steps
+                cameraZoom = Math.max(0.75, Math.min(1.5, cameraZoom));
+            }
+        } else if (selectedSettingsCategory == 1) {
+            float vol = Math.round(progress * 20f) / 20f; // snap to 0.05 steps
+            switch (settingIndex) {
+                case 1: gameData.setMasterVolume(vol); soundManager.setMasterVolume(vol); break;
+                case 2: gameData.setSfxVolume(vol); soundManager.setSfxVolume(vol); break;
+                case 3: gameData.setUiVolume(vol); soundManager.setUiVolume(vol); break;
+                case 4: gameData.setMusicVolume(vol); soundManager.setMusicVolume(vol); break;
+            }
+        }
+    }
+
     private boolean adjustSetting(int settingIndex, int direction) {
         // Graphics sliders (matching renderer 15-item order: Display, Quality, Effects, Camera)
         if (selectedSettingsCategory == 0) {
@@ -8406,7 +8458,8 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case ATTACK_INTRO:
-                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM) ||
+                    controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
                     dismissAttackIntro();
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     screenShakeIntensity = 3;
@@ -8734,7 +8787,7 @@ public class Game extends JPanel implements Runnable {
         UITheme.drawScreenBackground(g, width, height, time);
         
         // â”€â”€ Title â€” stencil-style with ember particles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        UITheme.drawTitle(g, "MR. MISSLE", width, height / 2 - 120,
+        UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - 120,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
         

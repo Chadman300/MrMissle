@@ -280,6 +280,12 @@ public class Boss {
         
         this.shootTimer = 0;
         this.shootInterval = Math.max(45, 75 + level * 2); // Slightly faster but more consistent
+        // Normal bosses fire slightly less, mega bosses fire slightly more
+        if (isMegaBoss) {
+            this.shootInterval = (int)(this.shootInterval * 0.85); // 15% faster firing for mega bosses
+        } else {
+            this.shootInterval = (int)(this.shootInterval * 1.12); // 12% slower firing for normal bosses
+        }
         // Start with random pattern from available pool
         this.patternType = (int)(Math.random() * maxPatterns);
         // Start with current position as target
@@ -303,11 +309,15 @@ public class Boss {
         // Assault gets longer and recovery gets shorter at higher levels (slower scaling)
         this.assaultPhaseDuration = 300 + level * 8; // 5-6.3 seconds (reduced from *15)
         this.recoveryPhaseDuration = Math.max(150, 210 - level * 4); // 3.5-2.5 seconds (reduced from *8)
-        // Mega bosses are more aggressive (but not overwhelming)
+        // Normal bosses are slightly less aggressive
+        if (!isMegaBoss) {
+            this.assaultSpeedMultiplier = 1.5; // Slightly slower attacks during assault for normal bosses
+        }
+        // Mega bosses are more aggressive
         if (isMegaBoss) {
-            this.assaultPhaseDuration += 15; // +0.25 second assault (easier than normal bosses)
-            this.recoveryPhaseDuration -= 15; // -0.25 second recovery (reduced from -30)
-            this.assaultSpeedMultiplier = 1.6; // Moderately faster attacks (easier than before)
+            this.assaultPhaseDuration += 30; // +0.5 second assault
+            this.recoveryPhaseDuration -= 25; // -0.4 second recovery
+            this.assaultSpeedMultiplier = 2.0; // Significantly faster attacks during assault
         }
         
         // Apply game mode scaling (Easy mode makes bosses more forgiving)
@@ -876,8 +886,8 @@ public class Boss {
         }
         
         // Mega bosses have special attack patterns (only if not in forced pattern mode)
-        if (isMegaBoss && forcedPatternType < 0 && Math.random() < 0.15) {
-            // 15% chance to use mega boss special attacks (reduced from 25%)
+        if (isMegaBoss && forcedPatternType < 0 && Math.random() < 0.25) {
+            // 25% chance to use mega boss special attacks
             int specialPattern = (int)(Math.random() * 5);
             switch (specialPattern) {
                 case 0:
@@ -1844,7 +1854,7 @@ public class Boss {
                     AffineTransform bladeTx = g.getTransform();
                     g.setComposite(RenderCache.ALPHA_HALF);
                     g.rotate(bladeRotation);
-                    int bladeSize = (int)(spriteWidth * 3.6); // 3x bigger blades
+                    int bladeSize = (int)(spriteWidth * 2.4); // 2x bigger blades
                     g.drawImage(bladeSprite, -bladeSize/2, -bladeSize/2, bladeSize, bladeSize, null);
                     g.setTransform(bladeTx);
                 }

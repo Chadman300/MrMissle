@@ -33,6 +33,9 @@ public class Renderer {
 
     private UIButton[] pauseButtons;
 
+    // Mode select card bounds (populated during drawModeSelect)
+    private java.awt.Rectangle[] modeCardBounds = new java.awt.Rectangle[0];
+
     
 
     // Settings UI click target tracking (populated during rendering)
@@ -80,12 +83,12 @@ public class Renderer {
 
     private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
 
-    // Parallax speeds for each layer (furthest to closest) â€” static to avoid per-frame allocation
+    // Parallax speeds for each layer (furthest to closest) — static to avoid per-frame allocation
     private static final double[] PARALLAX_SPEEDS = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
 
     
 
-    // Async background rendering â€” renders parallax on worker thread while game thread sleeps
+    // Async background rendering — renders parallax on worker thread while game thread sleeps
     private BufferedImage bgBuffer;               // Off-screen buffer for background
     private volatile boolean bgBufferReady;        // True when bgBuffer has valid content
     private volatile int bgBufferLevel = -1;       // Level the buffer was rendered for
@@ -101,10 +104,10 @@ public class Renderer {
 
 
     // Pre-cached rotated+scaled plane sprites for level select (avoids per-frame AffineTransform rotation)
-    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180Â°-rotated & scaled BufferedImage
+    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180°-rotated & scaled BufferedImage
     private static final java.util.HashMap<Long, BufferedImage> planeSpriteCache = new java.util.HashMap<>();
 
-    /** Get a pre-rotated (180Â°) and scaled plane sprite for the level select screen. */
+    /** Get a pre-rotated (180°) and scaled plane sprite for the level select screen. */
     private static BufferedImage getCachedPlaneSprite(BufferedImage source, int level, int targetW, int targetH) {
         long key = ((long)level << 32) | ((long)targetW << 16) | (targetH & 0xFFFFL);
         BufferedImage cached = planeSpriteCache.get(key);
@@ -112,7 +115,7 @@ public class Renderer {
             cached = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_ARGB);
             Graphics2D cg = cached.createGraphics();
             cg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            // Rotate 180Â° around center, then draw scaled
+            // Rotate 180° around center, then draw scaled
             cg.translate(targetW / 2.0, targetH / 2.0);
             cg.rotate(Math.PI);
             cg.drawImage(source, -targetW / 2, -targetH / 2, targetW, targetH, null);
@@ -152,17 +155,17 @@ public class Renderer {
     private static final BasicStroke ROUND_STROKE_6 = new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_3_5 = new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_2_5 = new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-    // Shockwave arc strokes (cached â€” was 5 new BasicStroke per frame in loop)
+    // Shockwave arc strokes (cached — was 5 new BasicStroke per frame in loop)
     private static final BasicStroke SHOCKWAVE_STROKE_0 = new BasicStroke(12f);
     private static final BasicStroke SHOCKWAVE_STROKE_1 = new BasicStroke(10.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_2 = new BasicStroke(9f);
     private static final BasicStroke SHOCKWAVE_STROKE_3 = new BasicStroke(7.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_4 = new BasicStroke(6f);
     private static final BasicStroke[] SHOCKWAVE_STROKES = { SHOCKWAVE_STROKE_0, SHOCKWAVE_STROKE_1, SHOCKWAVE_STROKE_2, SHOCKWAVE_STROKE_3, SHOCKWAVE_STROKE_4 };
-    // Cached identity transform â€” avoids new AffineTransform() every frame
+    // Cached identity transform — avoids new AffineTransform() every frame
     private static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
 
-    // Ã¢â€â‚¬Ã¢â€â‚¬ Cached Colors for journey map & UI menus (avoid per-frame new Color()) Ã¢â€â‚¬Ã¢â€â‚¬
+    // ── Cached Colors for journey map & UI menus (avoid per-frame new Color()) ──
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
     private static final Color NODE_CURRENT_BLUE = RenderCache.BLUE_100_200_255;
     private static final Color NODE_LOCKED_GRAY = new Color(60, 60, 70);
@@ -205,7 +208,7 @@ public class Renderer {
     private static final Color PANEL_LOCK_TEXT = new Color(120, 120, 130);
     private static final Color PANEL_NAV_HINT = new Color(100, 110, 130);
 
-    // Ã¢"â‚¬Ã¢"â‚¬ Cached Colors for in-level drawGame (avoid per-frame new Color()) Ã¢"â‚¬Ã¢"â‚¬
+    // â"€â"€ Cached Colors for in-level drawGame (avoid per-frame new Color()) â"€â"€
     // Player shield arcs (6 per shield segment, per-frame)
     private static final Color SHIELD_ARC_OUTER = new Color(60, 180, 255, 50);
     private static final Color SHIELD_ARC_MID = new Color(80, 200, 255, 90);
@@ -221,7 +224,7 @@ public class Renderer {
     private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
     private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
     private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
-    // Baked level bounds images (rendered once â€” eliminates 8 gradient fills per frame)
+    // Baked level bounds images (rendered once — eliminates 8 gradient fills per frame)
     private static BufferedImage bakedEdgeTop, bakedEdgeBottom, bakedEdgeLeft, bakedEdgeRight;
     private static BufferedImage bakedCornerTL, bakedCornerTR, bakedCornerBL, bakedCornerBR;
     private static boolean levelBoundsBaked = false;
@@ -291,7 +294,7 @@ public class Renderer {
 
     
 
-    // Cached Font objects ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â all derived from FontPalette (custom font with fallback)
+    // Cached Font objects — all derived from FontPalette (custom font with fallback)
     // FontPalette.init() must be called before first use (done in AssetLoader.initAll())
     private static Font FONT_TITLE_LARGE;
     private static Font FONT_TITLE;
@@ -394,7 +397,7 @@ public class Renderer {
 
         
 
-        // Initialize menu buttons ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â military/rock themed colors
+        // Initialize menu buttons — military/rock themed colors
         menuButtons = new UIButton[7];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
         menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
@@ -694,7 +697,7 @@ public class Renderer {
 
             
 
-            // Draw tiled layers with wrapping (no scaling â€” simple blit)
+            // Draw tiled layers with wrapping (no scaling — simple blit)
 
             int x = (int)(-offset);
 
@@ -782,7 +785,7 @@ public class Renderer {
         try {
             bgRenderFuture.get(8, java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            // Timed out or failed â€” fall back to synchronous render
+            // Timed out or failed — fall back to synchronous render
         }
         bgRenderFuture = null;
         return bgBufferReady;
@@ -870,7 +873,7 @@ public class Renderer {
         // Military themed background
         UITheme.drawScreenBackground(g, width, height, time);
 
-        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stencil-style with ember particles
+        // Title — stencil-style with ember particles
         UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - UIScale.px(100),
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
@@ -912,7 +915,7 @@ public class Renderer {
             g.fillRect(0, 0, width, height);
         }
 
-        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â stencil-style with embers
+        // Title — stencil-style with embers
         UITheme.drawTitle(g, "MISSILE MAN", width, 150,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE);
@@ -962,7 +965,7 @@ public class Renderer {
             g2.dispose();
         }
 
-        // Draw buttons ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â mission briefing clipboard stack
+        // Draw buttons — mission briefing clipboard stack
         int buttonY = 240;
         int buttonSpacing = 75;
         for (int i = 0; i < menuButtons.length; i++) {
@@ -1081,7 +1084,7 @@ public class Renderer {
 
                 
 
-                // Main slot background ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â chamfered military card
+                // Main slot background — chamfered military card
 
                 Color slotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1375,7 +1378,7 @@ public class Renderer {
 
             } else {
 
-                // "New Save" button ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â dashed military card
+                // "New Save" button — dashed military card
 
                 Color newSlotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1623,6 +1626,9 @@ public class Renderer {
 
         
 
+        // Store card bounds for mouse hit-testing in Game
+        modeCardBounds = new java.awt.Rectangle[modes.length];
+
         int currentY = startY;
 
         for (int i = 0; i < modes.length; i++) {
@@ -1632,6 +1638,8 @@ public class Renderer {
             int cardHeight = cardHeights[i];
 
             int cardY = currentY;
+
+            modeCardBounds[i] = new java.awt.Rectangle(cardX, cardY, cardWidth, cardHeight);
 
             boolean isSelected = (i == selectedIndex);
 
@@ -1673,7 +1681,7 @@ public class Renderer {
 
             
 
-            // Card background ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â chamfered military card
+            // Card background — chamfered military card
 
             Color bgColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1980,7 +1988,7 @@ public class Renderer {
 
     private void drawFloatingShapes(Graphics2D g, int width, int height, double time) {
 
-        // Draw floating hexagons and triangles â€” save/restore transform instead of 12 g.create()/dispose() per frame
+        // Draw floating hexagons and triangles — save/restore transform instead of 12 g.create()/dispose() per frame
 
         int numShapes = 12;
 
@@ -2472,37 +2480,37 @@ public class Renderer {
 
             "VULNERABILITY SYSTEM:",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Boss invulnerable for 20 seconds",
+            "  • Boss invulnerable for 20 seconds",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Watch for GOLDEN GLOW = Attack Window!",
+            "  • Watch for GOLDEN GLOW = Attack Window!",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Window lasts 20 seconds (longer with upgrades)",
+            "  • Window lasts 20 seconds (longer with upgrades)",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Hit boss 3 times to win",
+            "  • Hit boss 3 times to win",
 
             "",
 
             "GRAZE SYSTEM:",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 25px from bullet = Graze (+score, +combo)",
+            "  • 25px from bullet = Graze (+score, +combo)",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 15px = Close Call (bonus points)",
+            "  • 15px = Close Call (bonus points)",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 8px = Perfect Dodge (grants i-frames!)",
+            "  • 8px = Perfect Dodge (grants i-frames!)",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Build combos: Chain dodges within 3s",
+            "  • Build combos: Chain dodges within 3s",
 
             "",
 
             "DEATH & RESPAWN:",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ One hit = death (unless Lucky Dodge procs)",
+            "  • One hit = death (unless Lucky Dodge procs)",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Boss hit (non-fatal) = 1.5s respawn delay",
+            "  • Boss hit (non-fatal) = 1.5s respawn delay",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Use extra missiles for second chances",
+            "  • Use extra missiles for second chances",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Lucky Dodge upgrade = revival chance"
+            "  • Lucky Dodge upgrade = revival chance"
 
         };
 
@@ -2540,37 +2548,37 @@ public class Renderer {
 
             "SPEED BOOST (Max Lv 10):",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ +10% movement speed per level",
+            "  • +10% movement speed per level",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Essential for dodging dense patterns",
+            "  • Essential for dodging dense patterns",
 
             "",
 
             "BULLET SLOW (Max Lv 50):",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Slows enemy bullets by 2% per level",
+            "  • Slows enemy bullets by 2% per level",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ More time to react and plan dodges",
+            "  • More time to react and plan dodges",
 
             "",
 
             "LUCKY DODGE (Max Lv 12):",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ 8% chance per level to survive hits",
+            "  • 8% chance per level to survive hits",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Flicker effect on successful dodge",
+            "  • Flicker effect on successful dodge",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Stacks with extra missiles",
+            "  • Stacks with extra missiles",
 
             "",
 
             "ATTACK WINDOW (Max Lv 10):",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ +1 second vulnerability per level",
+            "  • +1 second vulnerability per level",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Max: 30 seconds to hit boss",
+            "  • Max: 30 seconds to hit boss",
 
-            "  ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ More forgiving timing"
+            "  • More forgiving timing"
 
         };
 
@@ -2937,12 +2945,14 @@ public class Renderer {
 
             g.setColor(ach.isUnlocked() ? RenderCache.SLATE_200_200_210 : new Color(100, 100, 110));
 
+            int descEndY;
             {
                 String desc = ach.getDescription();
                 int descMaxW = cardWidth - UIScale.px(80);
                 FontMetrics descFm = g.getFontMetrics();
                 if (descFm.stringWidth(desc) <= descMaxW) {
                     g.drawString(desc, x + UIScale.px(65), y + UIScale.px(48));
+                    descEndY = y + UIScale.px(48);
                 } else {
                     // Word wrap into lines
                     String[] words = desc.split(" ");
@@ -2962,6 +2972,7 @@ public class Renderer {
                     if (line.length() > 0) {
                         g.drawString(line.toString(), x + UIScale.px(65), descY);
                     }
+                    descEndY = descY;
                 }
             }
 
@@ -2977,7 +2988,7 @@ public class Renderer {
 
                 int barX = x + UIScale.px(65);
 
-                int barY = y + UIScale.px(60);
+                int barY = descEndY + UIScale.px(10);
 
                 
 
@@ -3007,7 +3018,7 @@ public class Renderer {
 
                 String progressText = ach.getProgress() + " / " + ach.getTarget();
 
-                g.drawString(progressText, barX + barWidth - fm.stringWidth(progressText) + UIScale.px(20), y + UIScale.px(85));
+                g.drawString(progressText, barX + barWidth - fm.stringWidth(progressText) + UIScale.px(20), barY + UIScale.px(20));
 
             } else {
 
@@ -3017,7 +3028,7 @@ public class Renderer {
 
                 g.setColor(ColorPalette.SUCCESS_GREEN);
 
-                g.drawString("COMPLETE", x + UIScale.px(65), y + UIScale.px(75));
+                g.drawString("COMPLETE", x + UIScale.px(65), descEndY + UIScale.px(20));
 
             }
 
@@ -4402,7 +4413,7 @@ public class Renderer {
 
                     
 
-                    // Use pre-cached 180Â°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
+                    // Use pre-cached 180°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
 
                     AffineTransform oldTransform = g.getTransform();
 
@@ -4454,9 +4465,17 @@ public class Renderer {
 
                             
 
-                            // Position rotor near top of helicopter (offset from center)
+                            // Position rotor near top of helicopter (negative Y = upward from center)
 
-                            int rotorOffsetY = spriteHeight / 6; // Adjusted rotor position (lower)
+                            int rotorOffsetY = -spriteHeight / 4; // Default offset upward toward rotor hub
+
+                            // Per-level adjustments for helicopters with different body shapes
+
+                            if (level == 16 || level == 24) {
+
+                                rotorOffsetY = -spriteHeight / 6; // Blades sit a bit lower on these models
+
+                            }
 
                             g.translate(0, rotorOffsetY); // Move to rotor center position
 
@@ -5538,7 +5557,7 @@ public class Renderer {
 
         } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
 
-            // Parallax mode â€” use async pre-rendered buffer if available
+            // Parallax mode — use async pre-rendered buffer if available
 
             waitForBackground();
 
@@ -5970,7 +5989,7 @@ public class Renderer {
 
             
 
-            // Outer glow circle â€” use base color + AlphaComposite instead of new Color(r,g,b,a)
+            // Outer glow circle — use base color + AlphaComposite instead of new Color(r,g,b,a)
 
             g.setComposite(RenderCache.getAlpha((float)(80 * circleProgress) / 255f));
 
@@ -6529,7 +6548,7 @@ public class Renderer {
 
                 } else {
 
-                    // Subtle cool bloom when invulnerable â€” 1 layer instead of 3
+                    // Subtle cool bloom when invulnerable — 1 layer instead of 3
 
                     bloomColor = BOSS_COOL_BLOOM;
 
@@ -6631,7 +6650,7 @@ public class Renderer {
 
                 double bossArcSpan = 45; // Wider arcs with fewer segments
 
-                int numArcs = 5; // Reduced from 8 â€” saves ~30 draw calls/frame
+                int numArcs = 5; // Reduced from 8 — saves ~30 draw calls/frame
 
                 double bossShieldAngle = time * 0.12;
 
@@ -6695,14 +6714,14 @@ public class Renderer {
             boss.draw(g);
 
             
-            // Boss accumulated damage overlay â€” smoke wisps & fire glow
+            // Boss accumulated damage overlay — smoke wisps & fire glow
             float bossHpPct = boss.getHealthPercent(); // 1.0 = full, 0.0 = dead
             if (bossHpPct < 0.7f) {
                 Composite _damSave = g.getComposite();
                 int bSize = boss.getSize();
                 int bCx = (int) boss.getX();
                 int bCy = (int) boss.getY();
-                float dmgRatio = 1.0f - bossHpPct; // 0â†’1 as more damaged
+                float dmgRatio = 1.0f - bossHpPct; // 0→1 as more damaged
                 float overlayAlpha = Math.min(dmgRatio * 0.7f, 0.55f);
 
                 // Dark smoke haze across body
@@ -6727,7 +6746,7 @@ public class Renderer {
             // Draw shockwave during recovery phase (circular arc directed at player)
 
             if (boss.isShockwaveActive()) {
-                // Save/restore instead of g.create() â€” avoids Graphics2D clone
+                // Save/restore instead of g.create() — avoids Graphics2D clone
                 Composite shockSavedComp = g.getComposite();
                 Stroke shockSavedStroke = g.getStroke();
 
@@ -6830,7 +6849,7 @@ public class Renderer {
 
         
 
-        // Draw bullets (including warnings for inactive bullets) â€” with viewport culling
+        // Draw bullets (including warnings for inactive bullets) — with viewport culling
         Bullet.activeBulletCount = bullets.size(); // Set for dynamic shadow reduction
         for (int i = 0; i < bullets.size(); i++) {
 
@@ -6849,7 +6868,7 @@ public class Renderer {
 
         
 
-        // Draw MONEY_SIGN particles ON TOP of player and bullets â€” with viewport culling
+        // Draw MONEY_SIGN particles ON TOP of player and bullets — with viewport culling
         for (int pi = 0; pi < particleCount; pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
@@ -7462,7 +7481,7 @@ public class Renderer {
 
             
 
-            // Gentle sway rotation (like hanging text) Ã¢â‚¬â€ reduced for boss HP
+            // Gentle sway rotation (like hanging text) — reduced for boss HP
 
             float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / (isBossHP ? 48 : 24));
 
@@ -7472,7 +7491,7 @@ public class Renderer {
 
             
 
-            // Smooth float upward with easing Ã¢â‚¬â€ less float for boss HP
+            // Smooth float upward with easing — less float for boss HP
 
             float floatUp = easeOutQuad(lifeProgress) * (isBossHP ? 40 : 80);
 
@@ -8643,7 +8662,7 @@ public class Renderer {
 
         
 
-        // Boss hit flash effect (orange/amber flash â€” distinct from red death flash)
+        // Boss hit flash effect (orange/amber flash — distinct from red death flash)
 
         if (bossHitFlashTimer > 0) {
 
@@ -9084,13 +9103,13 @@ public class Renderer {
 
         
 
-        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MISSION FAILED stamp
+        // Title — MISSION FAILED stamp
 
         UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - UIScale.px(140), ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
-        // Stencil stamp overlay Ã¢â‚¬â€ slam animation (randomized position/rotation)
+        // Stencil stamp overlay — slam animation (randomized position/rotation)
 
         double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
 
@@ -9378,13 +9397,13 @@ public class Renderer {
 
         
 
-        // Title ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MISSION COMPLETE
+        // Title — MISSION COMPLETE
 
         UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - UIScale.px(180), ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
         
 
-        // Rank badge Ã¢â‚¬â€ slam animation (randomized corner)
+        // Rank badge — slam animation (randomized corner)
 
         int scoreForRank = gameData.getScore();
 
@@ -9844,7 +9863,7 @@ public class Renderer {
             drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
 
         } else if (selectedCategory == 5) {
-            // HUD Layout Editor Ã¢â‚¬â€ renders its own mock screen + side panel
+            // HUD Layout Editor — renders its own mock screen + side panel
             if (Game.hudLayout != null) {
                 hudLayoutEditor.render(g, 50, 200, width - 100, height - 270, Game.hudLayout, time);
             }
@@ -9956,7 +9975,7 @@ public class Renderer {
 
             "UI elements shift slightly with camera movement for depth effect",
 
-            "Scale all UI elements â€” menus, buttons, HUD, shop, popups (Small / Medium / Large)"
+            "Scale all UI elements — menus, buttons, HUD, shop, popups (Small / Medium / Large)"
 
         };
 
@@ -11760,7 +11779,7 @@ public class Renderer {
 
         
 
-        // Glow around bright particles â€” CAPPED for performance
+        // Glow around bright particles — CAPPED for performance
         // Skip particle bloom entirely when too many (saves 200-400 fillOval/frame)
         int particleCount = particles.size();
         if (particleCount <= 80) {
@@ -11971,7 +11990,7 @@ public class Renderer {
 
         if (cachedVignette == null || cachedVignetteWidth != width || cachedVignetteHeight != height) {
 
-            // Render at half resolution â€” vignette is a smooth gradient, so
+            // Render at half resolution — vignette is a smooth gradient, so
             // half-res is visually indistinguishable but blits 4x fewer pixels
             int halfW = width / 2;
             int halfH = height / 2;
@@ -12052,28 +12071,28 @@ public class Renderer {
         int stripW = worldW + go * 2 - gs * 2; // width of top/bottom strips
         int stripH = worldH + go * 2 - gs * 2; // height of left/right strips
 
-        // Top strip: vertical gradient sb(top) â†’ tr(bottom)
+        // Top strip: vertical gradient sb(top) → tr(bottom)
         bakedEdgeTop = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gt = bakedEdgeTop.createGraphics();
         gt.setPaint(new GradientPaint(0, 0, sb, 0, gs, tr));
         gt.fillRect(0, 0, stripW, gs);
         gt.dispose();
 
-        // Bottom strip: vertical gradient tr(top) â†’ sb(bottom)
+        // Bottom strip: vertical gradient tr(top) → sb(bottom)
         bakedEdgeBottom = new BufferedImage(stripW, gs, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gb = bakedEdgeBottom.createGraphics();
         gb.setPaint(new GradientPaint(0, 0, tr, 0, gs, sb));
         gb.fillRect(0, 0, stripW, gs);
         gb.dispose();
 
-        // Left strip: horizontal gradient sb(left) â†’ tr(right)
+        // Left strip: horizontal gradient sb(left) → tr(right)
         bakedEdgeLeft = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gl = bakedEdgeLeft.createGraphics();
         gl.setPaint(new GradientPaint(0, 0, sb, gs, 0, tr));
         gl.fillRect(0, 0, gs, stripH);
         gl.dispose();
 
-        // Right strip: horizontal gradient tr(left) â†’ sb(right)
+        // Right strip: horizontal gradient tr(left) → sb(right)
         bakedEdgeRight = new BufferedImage(gs, stripH, BufferedImage.TYPE_INT_ARGB);
         Graphics2D gr2 = bakedEdgeRight.createGraphics();
         gr2.setPaint(new GradientPaint(0, 0, tr, gs, 0, sb));
@@ -12152,7 +12171,7 @@ public class Renderer {
         // Draw the cached gradient image (one drawImage instead of up to 3 GradientPaint fills)
         g.drawImage(cachedBgGradient, 0, 0, null);
 
-        // Optional grain effect (drawn live â€” only 40 tiny rects)
+        // Optional grain effect (drawn live — only 40 tiny rects)
         if (Game.enableGrainEffect) {
             g.setComposite(RenderCache.getAlpha(0.03f));
             for (int i = 0; i < 40; i++) {
@@ -12387,7 +12406,7 @@ public class Renderer {
                     }
                 }
             } else if (seg instanceof Integer) {
-                // Raw VK key code Ã¢â‚¬â€ render as keyboard sprite or keycap
+                // Raw VK key code — render as keyboard sprite or keycap
                 int vkCode = (Integer) seg;
                 java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
                 if (icon != null) {
@@ -12559,7 +12578,7 @@ public class Renderer {
 
             } else if (seg instanceof Integer) {
 
-                // Raw VK key code Ã¢â‚¬â€ render as keyboard sprite or keycap
+                // Raw VK key code — render as keyboard sprite or keycap
 
                 int vkCode = (Integer) seg;
 
@@ -12669,6 +12688,9 @@ public class Renderer {
 
     public UIButton[] getPauseButtons() { return pauseButtons; }
 
+    /** Returns the mode card hit-test rectangles (populated by drawModeSelect). */
+    public java.awt.Rectangle[] getModeCardBounds() { return modeCardBounds; }
+
     
 
     /** Returns which pill option was clicked for a given setting, or -1 if none */
@@ -12728,7 +12750,7 @@ public class Renderer {
         if (sliderTrackStartX[settingIndex] < 0) return -1;
         int by = sliderBtnYPos[settingIndex];
         int bs = sliderBtnSize;
-        // Use button Y range for vertical hit (generous â€” covers the slider area)
+        // Use button Y range for vertical hit (generous — covers the slider area)
         if (mouseY >= by && mouseY <= by + bs) {
             int sx = sliderTrackStartX[settingIndex];
             int ex = sliderTrackEndX[settingIndex];
@@ -12737,6 +12759,15 @@ public class Renderer {
             }
         }
         return -1;
+    }
+
+    /** Returns 0..1 progress based on horizontal mouse position only (ignores Y). Used during drag. */
+    public float getSliderTrackProgress(int settingIndex, int mouseX) {
+        if (sliderTrackStartX == null || settingIndex >= sliderTrackStartX.length) return -1;
+        if (sliderTrackStartX[settingIndex] < 0) return -1;
+        int sx = sliderTrackStartX[settingIndex];
+        int ex = sliderTrackEndX[settingIndex];
+        return Math.max(0f, Math.min(1f, (float)(mouseX - sx) / (float)(ex - sx)));
     }
 
     public void configurePauseMenu(boolean isShowcase) {

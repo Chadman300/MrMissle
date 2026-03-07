@@ -15,7 +15,7 @@ Add showcase to the stats or wtvr tab
 Beam attack should merge into one large beam like pool of loot
 //Boss twirl attack should not go into player but instead orbit the player
 
-Remove boss intro replace with simpler one like previous
+//Remove boss intro replace with simpler one like previous
 
 In jouney map fix helecopter blade placement
 In level fix size of helecopter blades
