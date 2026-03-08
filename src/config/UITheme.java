@@ -783,6 +783,10 @@ public class UITheme {
      * rotating rays, shine sweep, and ribbon banner.
      */
     public static void drawRankBadge(Graphics2D g, int cx, int cy, int radius, String rank, double time) {
+        drawRankBadge(g, cx, cy, radius, rank, time, 0, 0);
+    }
+    
+    public static void drawRankBadge(Graphics2D g, int cx, int cy, int radius, String rank, double time, int screenWidth, int screenHeight) {
         Font savedFont = g.getFont();
         Color savedColor = g.getColor();
         Graphics2D g2 = g;
@@ -824,17 +828,33 @@ public class UITheme {
             int rayCount = "S".equals(rank) ? 12 : 8;
             float rayAlpha = "S".equals(rank) ? 0.18f : 0.10f;
             double rotSpeed = "S".equals(rank) ? 0.4 : 0.25;
+            // Rays span across the whole screen with a fade-out gradient
+            double rayLength = (screenWidth > 0 && screenHeight > 0)
+                ? Math.sqrt((double)screenWidth * screenWidth + (double)screenHeight * screenHeight)
+                : radius * 2.8;
             Graphics2D gr = (Graphics2D) g2.create();
-            gr.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, rayAlpha));
             for (int i = 0; i < rayCount; i++) {
                 double a = time * rotSpeed + i * Math.PI * 2.0 / rayCount;
                 double halfW = Math.PI / (rayCount * 2.5);
                 Path2D ray = new Path2D.Double();
                 ray.moveTo(cx, cy);
-                ray.lineTo(cx + Math.cos(a - halfW) * radius * 2.8, cy + Math.sin(a - halfW) * radius * 2.8);
-                ray.lineTo(cx + Math.cos(a + halfW) * radius * 2.8, cy + Math.sin(a + halfW) * radius * 2.8);
+                ray.lineTo(cx + Math.cos(a - halfW) * rayLength, cy + Math.sin(a - halfW) * rayLength);
+                ray.lineTo(cx + Math.cos(a + halfW) * rayLength, cy + Math.sin(a + halfW) * rayLength);
                 ray.closePath();
-                gr.setColor(rankColorBright);
+                // Radial gradient: full color near badge, fading to transparent quickly
+                float fadeStart = (float)(radius * 1.2);
+                float fadeEnd = (float)rayLength;
+                int r = rankColorBright.getRed(), gn = rankColorBright.getGreen(), b = rankColorBright.getBlue();
+                int alphaFull = (int)(rayAlpha * 150); // more transparent overall
+                gr.setPaint(new RadialGradientPaint(cx, cy, fadeEnd,
+                    new float[]{0.0f, fadeStart / fadeEnd, 0.35f, 0.6f, 1.0f},
+                    new Color[]{
+                        new Color(r, gn, b, alphaFull),
+                        new Color(r, gn, b, alphaFull),
+                        new Color(r, gn, b, alphaFull / 3),
+                        new Color(r, gn, b, alphaFull / 8),
+                        new Color(r, gn, b, 0)
+                    }));
                 gr.fill(ray);
             }
             gr.dispose();
@@ -963,7 +983,7 @@ public class UITheme {
         g2.setFont(rankFont);
         FontMetrics fm = g2.getFontMetrics();
         int tx = cx - fm.stringWidth(rank) / 2;
-        int ty = cy + fm.getAscent() / 2 - 2;
+        int ty = cy + fm.getAscent() / 2 - fm.getDescent() / 2 - 2;
 
         // Shadow (offset down-right)
         g2.setColor(new Color(0, 0, 0, 160));

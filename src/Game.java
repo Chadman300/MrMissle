@@ -532,7 +532,7 @@ public class Game extends JPanel implements Runnable {
         {"BOMBS", "7", "Bombs", "Rain down explosive bombs across the screen!\n6 second cooldown, staggered explosions"},
         {"STUN", "9", "Stun", "Freeze the boss - can't move or shoot!\n10 second cooldown, lasts 1 second"},
         {"IMPULSE", "21", "Impulse", "Push all bullets away from you\n5 second cooldown, instant effect"},
-        {"TIME_SLOW", "15", "Time Slow", "Slow bullets & beams by 85%\n10 second cooldown, lasts 6 seconds"},
+        {"TIME_SLOW", "15", "Time Slow", "Slow bullets, beams & boss by 85%\n10 second cooldown, lasts 4 seconds"},
         {"TYPE_PURGE", "12", "Chromatic Purge", "Erase ALL bullets of a random type\n15 second cooldown, screen flashes their color"},
         {"DASH", "18", "Dash", "Quick dash with invincibility frames\n2 second cooldown, soft aim assist near boss"},
         {"FROST_BEAM", "24", "Frost Beam", "Freeze bullets in a powerful icy beam\n5 second cooldown, lasts 2 seconds"}
@@ -6270,6 +6270,30 @@ public class Game extends JPanel implements Runnable {
                 // Increment hit counter (for old visual effects)
                 bossHitCount++;
                 
+                // Cancel any active item effects on boss hit
+                ActiveItem equippedOnHit = gameData.getEquippedItem();
+                if (equippedOnHit != null && equippedOnHit.isActive()) {
+                    equippedOnHit.setActive(false);
+                    
+                    // Stop lingering SFX for specific items
+                    if (equippedOnHit.getType() == ActiveItem.ItemType.STUN) {
+                        soundManager.stopSound(SoundManager.Sound.ELECTRIC_ZAP);
+                    }
+                }
+                // Reset frost beam state on boss hit
+                frostBeamExtending = false;
+                frostBeamRetracting = false;
+                frostBeamProgress = 0;
+                frostBeamRetractPhase = 0;
+                frostBeamShakeTriggered = false;
+                frostBeamStopDistance = -1;
+                // Reset boss stun on boss hit
+                bossStunned = false;
+                bossStunShakeOffset = 0;
+                // Reset shield on boss hit
+                shieldActive = false;
+                shieldHits = 0;
+                
                 // Progressive damage effects - more smoke and fire with each hit
                 int particleMultiplier = bossHitCount; // 1x, 2x, 3x particles
                 
@@ -6800,10 +6824,15 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Update boss with delta time (but not during death animation, intro, respawn delay, stun, or boss intro cinematic)
-        // Use dt (time-slowed) so boss movement/twirl also slows during Time Slow
+        // Apply TIME_SLOW factor to boss delta so boss also moves slower
+        double bossDt = dt;
+        ActiveItem equippedForBoss = gameData.getEquippedItem();
+        if (equippedForBoss != null && equippedForBoss.isActive() && equippedForBoss.getType() == ActiveItem.ItemType.TIME_SLOW) {
+            bossDt *= 0.15; // 15% speed (85% slow) — same factor as bullets/beams
+        }
         if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned) {
             int bulletCountBefore = bullets.size();
-            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, dt, particles);
+            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, bossDt, particles);
             beamAttacks = currentBoss.getBeamAttacks();
             
             // Continuous smoke/fire particles on damaged boss

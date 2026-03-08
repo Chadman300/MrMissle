@@ -109,9 +109,9 @@ public class ActiveItem {
                 break;
             case TIME_SLOW:
                 name = "Time Slow";
-                description = "Slow bullets 85% (10s cooldown)";
+                description = "Slow bullets & boss 85% (10s cooldown)";
                 cooldownFrames = 600; // 10 seconds
-                activeDuration = 360; // 6 seconds
+                activeDuration = 240; // 4 seconds (was 6)
                 break;
             case FROST_BEAM:
                 name = "Frost Beam";

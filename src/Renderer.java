@@ -9421,110 +9421,6 @@ public class Renderer {
 
         
 
-        // Rank badge — slam animation (randomized corner)
-
-        int scoreForRank = gameData.getScore();
-
-        String rank = UITheme.calculateRank(scoreForRank);
-
-        double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
-
-        double rankDelay = 0.4;
-
-        double rankSlamDuration = 0.45;
-
-        double rankElapsed = elapsed - rankDelay;
-
-        int badgeRadius = UIScale.px(60);
-
-        int badgeCX, badgeCY;
-
-        // Badge placed near the text area with slight random offset per quadrant
-
-        int textCenterX = width / 2;
-
-        int textTopY = height / 2 - UIScale.px(180);
-
-        switch (badgeCorner) {
-
-            case 0:  badgeCX = textCenterX + UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break; // right of title
-
-            case 1:  badgeCX = textCenterX - UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break; // left of title
-
-            case 2:  badgeCX = textCenterX + UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break; // right-below
-
-            default: badgeCX = textCenterX - UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break; // left-below
-
-        }
-
-        if (rankElapsed < 0) {
-
-            // Not yet visible
-
-        } else if (rankElapsed < rankSlamDuration) {
-
-            float t = (float)(rankElapsed / rankSlamDuration);
-
-            float scale = 1.0f + 3.5f * (1.0f - easeOutBack(t));
-
-            float alpha = Math.min(1.0f, t * 3.0f);
-
-            Graphics2D g2 = (Graphics2D) g.create();
-
-            g2.setComposite(RenderCache.getAlpha(alpha));
-
-            g2.translate(badgeCX, badgeCY);
-
-            g2.rotate(badgeRotation);
-
-            g2.scale(scale, scale);
-
-            g2.translate(-badgeCX, -badgeCY);
-
-            UITheme.drawRankBadge(g2, badgeCX, badgeCY, badgeRadius, rank, time);
-
-            g2.dispose();
-
-        } else {
-
-            // Gentle float/bob after slam
-
-            double postSlam = rankElapsed - rankSlamDuration;
-
-            float bobY = (float)(Math.sin(postSlam * 1.8) * 3.0);
-
-            float pulse = 1.0f + 0.015f * (float)Math.sin(postSlam * 2.5);
-
-            Graphics2D g2 = (Graphics2D) g.create();
-
-            g2.translate(badgeCX, badgeCY + bobY);
-
-            g2.rotate(badgeRotation);
-
-            g2.scale(pulse, pulse);
-
-            g2.translate(-badgeCX, -(badgeCY + bobY));
-
-            UITheme.drawRankBadge(g2, badgeCX, (int)(badgeCY + bobY), badgeRadius, rank, time);
-
-            g2.dispose();
-
-        }
-
-        // Play slam sound when rank lands
-
-        if (!slamSoundPlayed && rankElapsed >= rankSlamDuration) {
-
-            SoundManager.getInstance().playSound(SoundManager.Sound.HIT_METAL, 0.9f);
-
-            SoundManager.getInstance().playSound(SoundManager.Sound.RANK_UP, 0.7f);
-
-            slamSoundPlayed = true;
-
-        }
-
-        
-
         // Stats with military styling
 
         g.setColor(ColorPalette.TEXT_PRIMARY);
@@ -9758,6 +9654,110 @@ public class Renderer {
         drawPromptWithIcons(g, width / 2, instructionY,
 
             "Press ", KeyBindManager.Action.CONFIRM, " to Visit Armory");
+
+        
+
+        // Rank badge — slam animation (drawn last so it renders on top of all text)
+
+        int scoreForRank = gameData.getScore();
+
+        String rank = UITheme.calculateRank(scoreForRank);
+
+        double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
+
+        double rankDelay = 0.4;
+
+        double rankSlamDuration = 0.45;
+
+        double rankElapsed = elapsed - rankDelay;
+
+        int badgeRadius = UIScale.px(60);
+
+        int badgeCX, badgeCY;
+
+        // Badge placed near the text area with slight random offset per quadrant
+
+        int textCenterX = width / 2;
+
+        int textTopY = height / 2 - UIScale.px(180);
+
+        switch (badgeCorner) {
+
+            case 0:  badgeCX = textCenterX + UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break;
+
+            case 1:  badgeCX = textCenterX - UIScale.px(220); badgeCY = textTopY - UIScale.px(10);  break;
+
+            case 2:  badgeCX = textCenterX + UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break;
+
+            default: badgeCX = textCenterX - UIScale.px(200); badgeCY = textTopY + UIScale.px(60);  break;
+
+        }
+
+        if (rankElapsed < 0) {
+
+            // Not yet visible
+
+        } else if (rankElapsed < rankSlamDuration) {
+
+            float t = (float)(rankElapsed / rankSlamDuration);
+
+            float scale = 1.0f + 3.5f * (1.0f - easeOutBack(t));
+
+            float alpha = Math.min(1.0f, t * 3.0f);
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setComposite(RenderCache.getAlpha(alpha));
+
+            g2.translate(badgeCX, badgeCY);
+
+            g2.rotate(badgeRotation);
+
+            g2.scale(scale, scale);
+
+            g2.translate(-badgeCX, -badgeCY);
+
+            UITheme.drawRankBadge(g2, badgeCX, badgeCY, badgeRadius, rank, time, width, height);
+
+            g2.dispose();
+
+        } else {
+
+            // Gentle float/bob after slam
+
+            double postSlam = rankElapsed - rankSlamDuration;
+
+            float bobY = (float)(Math.sin(postSlam * 1.8) * 3.0);
+
+            float pulse = 1.0f + 0.015f * (float)Math.sin(postSlam * 2.5);
+
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.translate(badgeCX, badgeCY + bobY);
+
+            g2.rotate(badgeRotation);
+
+            g2.scale(pulse, pulse);
+
+            g2.translate(-badgeCX, -(badgeCY + bobY));
+
+            UITheme.drawRankBadge(g2, badgeCX, (int)(badgeCY + bobY), badgeRadius, rank, time, width, height);
+
+            g2.dispose();
+
+        }
+
+        // Play slam sound when rank lands
+
+        if (!slamSoundPlayed && rankElapsed >= rankSlamDuration) {
+
+            SoundManager.getInstance().playSound(SoundManager.Sound.HIT_METAL, 0.9f);
+
+            SoundManager.getInstance().playSound(SoundManager.Sound.RANK_UP, 0.7f);
+
+            slamSoundPlayed = true;
+
+        }
 
     }
 
