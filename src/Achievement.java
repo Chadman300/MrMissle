@@ -70,7 +70,8 @@ public class Achievement {
         PERFECT_BOSS,    // Defeat boss taking no damage
         NO_UPGRADES,     // Complete levels without purchasing any upgrades
         SPEED_RUN,       // Complete a level within X seconds
-        CLUTCH_SURVIVAL  // Use 5 missiles and survive on the last one
+        CLUTCH_SURVIVAL, // Use 5 missiles and survive on the last one
+        TUTORIAL_COMPLETE // Complete the tutorial
     }
     
     public Achievement(String id, String name, String description, AchievementType type, int target) {

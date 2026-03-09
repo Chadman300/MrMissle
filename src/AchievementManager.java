@@ -63,6 +63,9 @@ public class AchievementManager {
         
         // Clutch survival
         addAchievement("clutch", "Clutch!", "Use 5 missiles in a single run and survive on your last one.", Achievement.AchievementType.CLUTCH_SURVIVAL, 5);
+        
+        // Tutorial
+        addAchievement("training_thrusters", "Training Thrusters", "Complete the tutorial", Achievement.AchievementType.TUTORIAL_COMPLETE, 1);
     }
     
     private void addAchievement(String id, String name, String description, Achievement.AchievementType type, int target) {

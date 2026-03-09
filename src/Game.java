@@ -627,6 +627,68 @@ public class Game extends JPanel implements Runnable {
     private static final double MONEY_CIRCLE_RADIUS = 160; // Bigger circle (was 120)
     private static final int MONEY_CIRCLE_BONUS = 1; // Money per tick while standing in circle (reduced)
     
+    // === TUTORIAL SYSTEM ===
+    public boolean tutorialMode = false;
+    public int tutorialStep = 0; // 0-based index into TUTORIAL_STEPS
+    public boolean tutorialPopupActive = false;
+    public String tutorialPopupTitle = "";
+    public String[] tutorialPopupBody = {};
+    private boolean tutorialStepCompleted = false;
+    public double tutorialPlayerMoveDistance = 0; // Track movement for step 1
+    public int tutorialGrazeCount = 0; // Track grazes for step 2
+    private boolean tutorialPlayerDied = false; // Track death for step 3
+    private boolean tutorialItemUsed = false; // Track item use for step 4
+    public int tutorialShieldBlockCount = 0; // Track shield blocks for step 4
+    private boolean tutorialShopPurchased = false; // Track actual purchase for step 6
+    private boolean tutorialShopVisited = false; // Track shop visit
+
+    private double tutorialPrevPlayerX = 0, tutorialPrevPlayerY = 0; // For movement tracking
+    public boolean showTutorialPrompt = false; // First-save tutorial prompt
+    public int tutorialPromptSelection = 0; // 0 = Yes, 1 = No
+    public boolean tutorialCompleteScreen = false; // Show completion screen with options
+    public int tutorialCompleteSelection = 0; // 0 = Leave, 1 = Play Again
+    public String tutorialTaskText = ""; // Current task description for task bar
+    public double tutorialTaskProgress = 0; // 0.0 to 1.0 progress
+    public boolean tutorialTaskHasBar = false; // Whether to show progress bar
+    
+    // Tutorial showcase return path
+    private GameState showcaseEnteredFrom = GameState.MENU;
+    
+    // Tutorial cinematic slow-down phases
+    // 0 = NONE, 1 = SLOWING_IN, 2 = POPUP_SHOWN, 3 = SLOWING_OUT
+    private int tutorialSlowdownPhase = 0;
+    private int tutorialSlowdownTimer = 0;
+    private int tutorialPopupInputDelay = 0; // Frames before popup can be dismissed (120 = 2 seconds)
+    
+    // Tutorial saved state (to restore after tutorial ends)
+    private int tutorialSavedMoney = 0;
+    private int tutorialSavedMissiles = 0;
+    private int tutorialSavedLevel = 1;
+    private ActiveItem tutorialSavedItem = null;
+    private int[] tutorialSavedUpgradeLevels = null; // Saved passive upgrade levels
+    private int[] tutorialSavedActiveUpgradeLevels = null; // Saved active upgrade levels
+    private int tutorialSavedBestRunLevel = 0; // Saved best run level for shop filtering
+    
+    private static final int TUTORIAL_MOVE_GOAL = 1000;
+    private static final int TUTORIAL_GRAZE_GOAL = 5;
+    private static final int TUTORIAL_SHIELD_GOAL = 3;
+    
+    // Tutorial step definitions: {title, body line 1, body line 2, ...}
+    // Order: Welcome, Movement, Dodging, Death, Active Items, Defeat Boss, Shop, Settings, Complete
+    // Tokens: {MOVE} = movement keys, {USE_ITEM} = use item key, {PAUSE} = pause key
+    // Color tokens: {C:GOLD}text{/C}, {C:CYAN}text{/C}, {C:RED}text{/C}, {C:GREEN}text{/C}, {C:ORANGE}text{/C}
+    // Key references are rendered dynamically with sprites in drawTutorialPopup
+    private static final String[][] TUTORIAL_STEPS = {
+        {"WELCOME TO MISSILE MAN!", "Let's learn the basics of the game.", "Press any key to continue through each step."},
+        {"MOVEMENT", "Use {MOVE} to move around!", "Fly around the screen to fill the bar."},
+        {"DODGING", "Bullets are coming! {C:RED}Dodge{/C} them to survive.", "Fly close to bullets to {C:CYAN}\"Graze\"{/C} them.", "Graze {C:GOLD}5{/C} bullets to continue."},
+        {"DEATH & RESPAWN", "Don't worry — if you get hit, you'll {C:GREEN}respawn{/C}!", "In a real game, this costs a {C:ORANGE}missile{/C}.", "Get hit once to continue."},
+        {"ACTIVE ITEMS", "Press {USE_ITEM} to activate your {C:CYAN}Shield{/C}!", "A Shield has been equipped for you.", "Block {C:GOLD}3{/C} bullets with your Shield."},
+        {"DEFEAT THE BOSS", "Time to defeat the boss!", "The boss has an {C:RED}invulnerability shield{/C}.", "It activates when the game starts, after you {C:ORANGE}hit the boss{/C},", "and after you {C:ORANGE}get hit{/C}. Attack when the {C:CYAN}shield isn't visible{/C}!", "The boss only has {C:GOLD}1 HP{/C}. Fly into it to attack!"},
+        {"THE SHOP", "Welcome to the {C:GOLD}Shop{/C}!", "Here you can buy upgrades with money you earn.", "Buy something from the shop to continue."},
+        {"TUTORIAL COMPLETE!", "{C:GREEN}Great job!{/C} You're ready for the real thing.", "Your {C:GOLD}\"Training Thrusters\"{/C} achievement has been unlocked!", "Customize controls and more in {C:CYAN}Settings{/C} (pause menu).", "Press any key to return to the menu."}
+    };
+
     // Camera tracking with smooth interpolation
     private double cameraX = 0;
     private double cameraY = 0;
@@ -1354,6 +1416,29 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case MENU:
+                // Tutorial prompt intercepts all input
+                if (showTutorialPrompt) {
+                    if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                        tutorialPromptSelection = 1 - tutorialPromptSelection;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_ENTER || key == KeyEvent.VK_SPACE) {
+                        showTutorialPrompt = false;
+                        if (tutorialPromptSelection == 0) {
+                            // Yes — start tutorial
+                            startTutorial();
+                        } else {
+                            // No — dismiss
+                            soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        }
+                        screenShakeIntensity = 3;
+                    } else if (key == KeyEvent.VK_ESCAPE) {
+                        showTutorialPrompt = false;
+                        soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        screenShakeIntensity = 2;
+                    }
+                    break;
+                }
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
                     selectedMenuItem = Math.max(0, selectedMenuItem - 1);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
@@ -1632,13 +1717,39 @@ public class Game extends JPanel implements Runnable {
                         } else {
                             transitionToState(GameState.MENU);
                         }
+
                     }
                     screenShakeIntensity = 3; 
                 }
                 break;
                 
             case INFO:
-                if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
+                if (key == KeyEvent.VK_ESCAPE) {
+                    transitionToState(GameState.MENU);
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 3;
+                } else if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    renderer.helpSelectedButton = (renderer.helpSelectedButton + 1) % 2;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    renderer.helpSelectedButton = (renderer.helpSelectedButton + 1) % 2;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                } else if (key == KeyEvent.VK_ENTER || key == KeyEvent.VK_SPACE) {
+                    if (renderer.helpSelectedButton == 0) {
+                        // Showcase
+                        showcaseEnteredFrom = GameState.INFO;
+                        startDebugShowcase();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                        screenShakeIntensity = 5;
+                    } else {
+                        // Start Tutorial
+                        startTutorial();
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                        screenShakeIntensity = 5;
+                    }
+                }
                 break;
                 
             case ACHIEVEMENTS:
@@ -1756,7 +1867,8 @@ public class Game extends JPanel implements Runnable {
                     gameData.restoreEquippedItem(savedEquippedItem); // Restore original item
                     debugShowcaseMode = false;
                     debugShowcaseInGameplay = false;
-                    transitionToState(GameState.MENU);
+                    transitionToState(showcaseEnteredFrom != null ? showcaseEnteredFrom : GameState.MENU);
+                    showcaseEnteredFrom = GameState.MENU; // Reset for next time
                     soundManager.playSound(SoundManager.Sound.UI_SELECT);
                     System.out.println("DEBUG SHOWCASE: Exited - restored level to " + savedRealLevel);
                 }
@@ -1829,6 +1941,57 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case PLAYING:
+                // Tutorial completion screen input
+                if (tutorialMode && tutorialCompleteScreen) {
+                    if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A || key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                        tutorialCompleteSelection = 1 - tutorialCompleteSelection;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (key == KeyEvent.VK_ENTER || key == KeyEvent.VK_SPACE) {
+                        if (tutorialCompleteSelection == 0) {
+                            completeTutorial();
+                        } else {
+                            // Play again — restart tutorial
+                            completeTutorial();
+                            startTutorial();
+                        }
+                        screenShakeIntensity = 5;
+                    }
+                    break;
+                }
+                // Tutorial popup dismiss — intercept all input during popup
+                if (tutorialMode && tutorialPopupActive) {
+                    if (tutorialPopupInputDelay > 0) break; // 2-second buffer before allowing dismiss
+                    if (!KeyBindManager.isReservedKey(key)) {
+                        tutorialPopupActive = false;
+                        renderer.tutorialPopupActive = false;
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 2;
+                        
+                        // Reset per-step tracking for the next step
+                        tutorialPlayerMoveDistance = 0;
+                        tutorialGrazeCount = 0;
+                        tutorialPlayerDied = false;
+                        tutorialItemUsed = false;
+                        tutorialShieldBlockCount = 0;
+                        tutorialShopPurchased = false;
+                        tutorialShopVisited = false;
+                        if (player != null) {
+                            tutorialPrevPlayerX = player.getX();
+                            tutorialPrevPlayerY = player.getY();
+                        }
+                        
+                        // For popup-only steps (Welcome, Complete), advance immediately
+                        if (tutorialStep == 0 || tutorialStep == 7) {
+                            advanceTutorialStep();
+                        }
+                        
+                        // Resume normal speed
+                        tutorialSlowdownPhase = 3; // SLOWING_OUT
+                        tutorialSlowdownTimer = 30;
+                    }
+                    break;
+                }
                 if (isPaused) {
                     // Pause menu navigation
                     if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
@@ -1859,7 +2022,7 @@ public class Game extends JPanel implements Runnable {
                         soundManager.stopProximityHum();
                         isPaused = true;
                         selectedPauseItem = 0;
-                        renderer.configurePauseMenu(debugShowcaseInGameplay);
+                        renderer.configurePauseMenu(debugShowcaseInGameplay, tutorialMode);
                         screenShakeIntensity = 3;
                     } else if (keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.RESTART, key) : key == KeyEvent.VK_R) {
                         // Reset: in showcase mode just clear bullets and reset boss, otherwise restart level
@@ -1902,6 +2065,7 @@ public class Game extends JPanel implements Runnable {
                                 double cdMult = passiveUpgradeManager.getMultiplier(PassiveUpgrade.UpgradeType.ITEM_COOLDOWN);
                                 if (cdMult < 1.0) item.setCurrentCooldown(item.getCurrentCooldown() * cdMult);
                                 System.out.println("SPACE: Item activated!");
+                                if (tutorialMode) tutorialItemUsed = true;
                                 screenShakeIntensity = 3;
                                 // Handle instant effects immediately (before update() deactivates them)
                                 if (item.getActiveDuration() == 0) {
@@ -1997,6 +2161,17 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case SHOP:
+                // Tutorial popup dismiss — intercept all input during popup
+                if (tutorialMode && tutorialPopupActive) {
+                    if (tutorialPopupInputDelay > 0) break; // 2-second buffer before allowing dismiss
+                    if (!KeyBindManager.isReservedKey(key)) {
+                        tutorialPopupActive = false;
+                        renderer.tutorialPopupActive = false;
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        screenShakeIntensity = 2;
+                    }
+                    break;
+                }
                 // Handle passive unlock animation input first (blocks normal shop input)
                 if (passiveUnlockAnimation) {
                     if (key == KeyEvent.VK_ESCAPE) {
@@ -2038,16 +2213,30 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_SPACE) {
                     int selected = shopManager.getSelectedShopItem();
                     if (selected == 0) {
-                        // Continue to level select
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        transitionToState(GameState.LEVEL_SELECT);
-                        screenShakeIntensity = 5;
+                        // Continue
+                        if (tutorialMode && !tutorialShopPurchased) {
+                            // Must buy something first in tutorial
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
+                            screenShakeIntensity = 2;
+                        } else {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            if (tutorialMode) {
+                                // Tutorial: advance to settings step and return to gameplay
+                                advanceTutorialStep();
+                                transitionToState(GameState.PLAYING);
+                            } else {
+                                transitionToState(GameState.LEVEL_SELECT);
+                            }
+                            screenShakeIntensity = 5;
+                        }
                     } else {
                         System.out.println("DEBUG SHOP: Attempting purchase of item " + selected + ", money: " + gameData.getTotalMoney() + ", cost: " + shopManager.getItemCost(selected));
                         boolean purchased = shopManager.purchaseItem(selected);
                         System.out.println("DEBUG SHOP: Purchase result: " + purchased + ", money after: " + gameData.getTotalMoney());
                         if (purchased) {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                            // Tutorial: track purchase for step 6
+                            if (tutorialMode) tutorialShopPurchased = true;
                             // Auto-save after successful purchase
                             performAutoSave();
                         } else {
@@ -2061,6 +2250,12 @@ public class Game extends JPanel implements Runnable {
                     
                     // Auto-save when exiting shop
                     performAutoSave();
+                    if (tutorialMode) {
+                        // Quit tutorial from shop
+                        quitTutorial();
+                        return;
+                    }
+                    tutorialShopVisited = true;
                     
                     // Go back to where we came from: menu if from menu, level select if from gameplay
                     if (shopEnteredFrom == GameState.MENU) {
@@ -2466,6 +2661,11 @@ public class Game extends JPanel implements Runnable {
             soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
             screenShakeIntensity = 5;
             transitionToState(GameState.MENU);
+            // Show tutorial prompt for new saves
+            if (!gameData.isTutorialCompleted()) {
+                showTutorialPrompt = true;
+                tutorialPromptSelection = 0;
+            }
         }
         pendingSaveSlot = -1;
     }
@@ -2709,6 +2909,21 @@ public class Game extends JPanel implements Runnable {
                         }
                         break;
                     }
+                }
+            }
+        } else if (gameState == GameState.INFO) {
+            // Help & Tutorial screen - hover over Showcase/Tutorial buttons
+            if (renderer.helpShowcaseButton != null && renderer.helpShowcaseButton.contains(mouseX, mouseY)) {
+                if (renderer.helpSelectedButton != 0) {
+                    renderer.helpSelectedButton = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+            } else if (renderer.helpTutorialButton != null && renderer.helpTutorialButton.contains(mouseX, mouseY)) {
+                if (renderer.helpSelectedButton != 1) {
+                    renderer.helpSelectedButton = 1;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
                 }
             }
         } else if (gameState == GameState.SAVE_SELECT) {
@@ -2999,6 +3214,20 @@ public class Game extends JPanel implements Runnable {
                     }
                 }
             }
+        } else if (gameState == GameState.INFO) {
+            // Help & Tutorial screen button clicks
+            if (renderer.helpShowcaseButton != null && renderer.helpShowcaseButton.contains(mouseX, mouseY)) {
+                renderer.helpSelectedButton = 0;
+                showcaseEnteredFrom = GameState.INFO;
+                startDebugShowcase();
+                soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                screenShakeIntensity = 5;
+            } else if (renderer.helpTutorialButton != null && renderer.helpTutorialButton.contains(mouseX, mouseY)) {
+                renderer.helpSelectedButton = 1;
+                startTutorial();
+                soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+                screenShakeIntensity = 5;
+            }
         } else if (gameState == GameState.MENU) {
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
@@ -3140,6 +3369,8 @@ public class Game extends JPanel implements Runnable {
                         boolean purchased = shopManager.purchaseItem(i);
                         if (purchased) {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_SUCCESS);
+                            // Tutorial: track purchase for step 6
+                            if (tutorialMode) tutorialShopPurchased = true;
                         } else {
                             soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
                         }
@@ -3626,20 +3857,25 @@ public class Game extends JPanel implements Runnable {
                     snapshotSettings();
                     gameState = GameState.SETTINGS;
                     break;
-                case 2: // Main Menu
-                    System.out.println("DEBUG: Going to main menu from pause - saving game state");
+                case 2: // Main Menu (or Quit Tutorial)
                     isPaused = false;
-                    if (!debugShowcaseMode) {
-                        saveGameState();
+                    if (tutorialMode) {
+                        System.out.println("DEBUG: Quitting tutorial from pause menu");
+                        quitTutorial();
                     } else {
-                        gameData.setCurrentLevel(savedRealLevel);
-                        gameData.restoreEquippedItem(savedEquippedItem);
-                        debugShowcaseMode = false;
-                        debugShowcaseInGameplay = false;
-                        System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
+                        System.out.println("DEBUG: Going to main menu from pause - saving game state");
+                        if (!debugShowcaseMode) {
+                            saveGameState();
+                        } else {
+                            gameData.setCurrentLevel(savedRealLevel);
+                            gameData.restoreEquippedItem(savedEquippedItem);
+                            debugShowcaseMode = false;
+                            debugShowcaseInGameplay = false;
+                            System.out.println("DEBUG SHOWCASE: Exited via pause menu - restored level to " + savedRealLevel);
+                        }
+                        transitionToState(GameState.MENU);
+                        selectedMenuItem = 0;
                     }
-                    transitionToState(GameState.MENU);
-                    selectedMenuItem = 0;
                     break;
             }
         }
@@ -3682,6 +3918,44 @@ public class Game extends JPanel implements Runnable {
         // In debug showcase mode, player is invincible
         if (debugShowcaseMode) {
             return; // Ignore death in showcase mode
+        }
+        
+        // In tutorial mode, play death effects but auto-respawn without penalty
+        if (tutorialMode) {
+            tutorialPlayerDied = true;
+            
+            // Play death effects
+            deathExplosionX = player.getX();
+            deathExplosionY = player.getY();
+            soundManager.playSound(SoundManager.Sound.PLAYER_DEATH, 0.7f);
+            soundManager.playSound(SoundManager.Sound.EXPL_MEDIUM_1, 0.9f);
+            screenShakeIntensity = 20;
+            slowMotionFactor = 0.15;
+            slowMotionTimer = 45;
+            screenFlashTimer = 10;
+            deathFlashTimer = 20;
+            
+            // Clear bullets to give breathing room
+            bullets.clear();
+            beamAttacks.clear();
+            
+            // Start death sequence (will auto-respawn)
+            deathSequenceActive = true;
+            deathCameraHoldTimer = DEATH_CAMERA_HOLD_FRAMES;
+            cameraPanBackTimer = 0;
+            playerHidden = true;
+            
+            // Give boss immunity
+            invulnerabilityTimer = 300;
+            bossVulnerable = false;
+            
+            // Show tip
+            if (comboSystem != null) {
+                comboSystem.setAnnouncement("YOU RESPAWNED!", WIDTH / 2.0, HEIGHT / 2.0);
+            }
+            
+            // Don't deduct missiles or track stats
+            return;
         }
         
         // Deactivate any active item effects on death
@@ -3895,6 +4169,7 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void saveGameState() {
+        if (tutorialMode) return; // Don't save during tutorial
         // Save current game state for resume feature
         hasSavedGame = true;
         savedLevel = gameData.getCurrentLevel();
@@ -4161,6 +4436,7 @@ public class Game extends JPanel implements Runnable {
      * Auto-save the current game state to the active save slot
      */
     private void performAutoSave() {
+        if (tutorialMode) return; // Don't auto-save during tutorial
         if (saveManager.getCurrentSaveSlot() == -1) {
             // No active save slot
             return;
@@ -4290,6 +4566,308 @@ public class Game extends JPanel implements Runnable {
         transitionToState(GameState.ATTACK_SHOWCASE);
         
         System.out.println("DEBUG SHOWCASE: Started - Use TAB to switch tabs, A/D to browse, SPACE to test, ESC to exit");
+    }
+    
+    /**
+     * Start tutorial mode — a guided practice level with pop-up instructions.
+     * No progress is saved. Player gets temporary money and auto-equipped Shield.
+     */
+    private void startTutorial() {
+        // Save current state to restore after tutorial
+        tutorialSavedMoney = gameData.getTotalMoney();
+        tutorialSavedMissiles = gameData.getMissiles();
+        tutorialSavedLevel = gameData.getCurrentLevel();
+        tutorialSavedItem = gameData.getEquippedItem();
+        
+        // Set up tutorial state
+        tutorialMode = true;
+        tutorialStep = 0;
+        tutorialStepCompleted = false;
+        tutorialPlayerMoveDistance = 0;
+        tutorialGrazeCount = 0;
+        tutorialPlayerDied = false;
+        tutorialItemUsed = false;
+        tutorialShieldBlockCount = 0;
+        tutorialShopPurchased = false;
+        tutorialShopVisited = false;
+        tutorialSlowdownPhase = 0;
+        tutorialSlowdownTimer = 0;
+        tutorialTaskText = "";
+        tutorialTaskProgress = 0;
+        tutorialTaskHasBar = false;
+        
+        // Give tutorial resources
+        gameData.setTotalMoney(500); // Temporary $500
+        gameData.setCurrentLevel(1); // Level 1 boss (easiest)
+        
+        // Save and zero out all passive upgrade levels for clean tutorial
+        java.util.List<PassiveUpgrade> allUpgrades = passiveUpgradeManager.getAllUpgrades();
+        tutorialSavedUpgradeLevels = new int[allUpgrades.size()];
+        tutorialSavedActiveUpgradeLevels = new int[allUpgrades.size()];
+        for (int i = 0; i < allUpgrades.size(); i++) {
+            tutorialSavedUpgradeLevels[i] = allUpgrades.get(i).getCurrentLevel();
+            tutorialSavedActiveUpgradeLevels[i] = allUpgrades.get(i).getActiveLevel();
+            allUpgrades.get(i).setCurrentLevel(0);
+            allUpgrades.get(i).setActiveLevel(0);
+        }
+        shopManager.hideUpgrades = false;
+        // Save and set bestRunLevel to 0 so only base upgrades (unlockLevel=0) show in tutorial shop
+        tutorialSavedBestRunLevel = gameData.getBestRunLevel();
+        gameData.setBestRunLevel(0);
+        shopManager.rebuildSortedOrder();
+        
+        // No item equipped at start — Shield introduced at step 4
+        
+        // Start the level using normal startGame
+        startGame();
+        
+        // Skip the boss intro animation for tutorial
+        introPanActive = false;
+        bossIntroActive = false;
+        if (currentBoss != null) {
+            currentBoss.setPosition(currentBoss.getX(), 100); // Place boss at normal position immediately
+            bossEntranceY = 100;
+        }
+        
+        // Sync tutorial mode to renderer
+        renderer.tutorialMode = true;
+        renderer.tutorialStep = 0;
+        
+        // Override after startGame: give 99 missiles (effectively infinite lives)
+        gameData.setMissiles(5);
+        gameData.setBaseMissiles(5);
+        
+        // Track initial player position for movement distance
+        if (player != null) {
+            tutorialPrevPlayerX = player.getX();
+            tutorialPrevPlayerY = player.getY();
+        }
+        
+        // Show first tutorial popup immediately (no slowing-in for step 0)
+        showTutorialPopup(0);
+        
+        System.out.println("TUTORIAL: Started - Step 0 (Welcome)");
+    }
+    
+    /**
+     * Show a tutorial popup for the given step.
+     */
+    private void showTutorialPopup(int step) {
+        if (step >= 0 && step < TUTORIAL_STEPS.length) {
+            tutorialPopupActive = true;
+            renderer.tutorialPopupActive = true;
+            tutorialPopupInputDelay = 120; // 2 seconds at 60fps before dismiss allowed
+            tutorialPopupTitle = TUTORIAL_STEPS[step][0];
+            // Body is everything after the title
+            tutorialPopupBody = new String[TUTORIAL_STEPS[step].length - 1];
+            System.arraycopy(TUTORIAL_STEPS[step], 1, tutorialPopupBody, 0, tutorialPopupBody.length);
+        }
+    }
+    
+    /**
+     * Advance to the next tutorial step.
+     */
+    private void advanceTutorialStep() {
+        tutorialStep++;
+        tutorialStepCompleted = false;
+        renderer.tutorialStep = tutorialStep;
+        
+        if (tutorialStep >= TUTORIAL_STEPS.length) {
+            // Show completion screen instead of immediately completing
+            tutorialCompleteScreen = true;
+            tutorialCompleteSelection = 0;
+            // Unlock achievement and mark complete now
+            achievementManager.incrementProgress(Achievement.AchievementType.TUTORIAL_COMPLETE, 1);
+            gameData.setTutorialCompleted(true);
+            performAutoSave();
+            return;
+        }
+        
+        // Equip Shield when reaching the Active Items step
+        if (tutorialStep == 4) {
+            gameData.equipItemByType(ActiveItem.ItemType.SHIELD);
+            tutorialShieldBlockCount = 0;
+        }
+        
+        // Set boss to 1 HP when reaching the Defeat Boss step
+        if (tutorialStep == 5 && currentBoss != null) {
+            currentBoss.setMaxHealth(1);
+            currentBoss.setCurrentHealth(1);
+        }
+        
+        // Trigger HUD highlight effect when new UI elements are introduced
+        if (tutorialStep == 3 || tutorialStep == 4 || tutorialStep == 5) {
+            renderer.tutorialHighlightElement = tutorialStep;
+            renderer.tutorialHighlightTimer = 180; // 3 seconds at 60fps
+        }
+        
+        // Show popup for next step (except step 6 - Shop popup is shown after SHOP transition)
+        if (tutorialStep != 6) {
+            showTutorialPopup(tutorialStep);
+        }
+        System.out.println("TUTORIAL: Advanced to step " + tutorialStep + " (" + TUTORIAL_STEPS[tutorialStep][0] + ")");
+    }
+    
+    /**
+     * Complete the tutorial — unlock achievement, restore state, return to menu.
+     */
+    private void completeTutorial() {
+        // Restore original state
+        gameData.setTotalMoney(tutorialSavedMoney);
+        gameData.setMissiles(tutorialSavedMissiles);
+        gameData.setBaseMissiles(Math.min(tutorialSavedMissiles, 5));
+        gameData.setCurrentLevel(tutorialSavedLevel);
+        gameData.restoreEquippedItem(tutorialSavedItem);
+        
+        // Restore passive upgrade levels
+        if (tutorialSavedUpgradeLevels != null) {
+            java.util.List<PassiveUpgrade> allUpgrades = passiveUpgradeManager.getAllUpgrades();
+            for (int i = 0; i < Math.min(tutorialSavedUpgradeLevels.length, allUpgrades.size()); i++) {
+                allUpgrades.get(i).setCurrentLevel(tutorialSavedUpgradeLevels[i]);
+                allUpgrades.get(i).setActiveLevel(tutorialSavedActiveUpgradeLevels[i]);
+            }
+            tutorialSavedUpgradeLevels = null;
+            tutorialSavedActiveUpgradeLevels = null;
+        }
+        gameData.setBestRunLevel(tutorialSavedBestRunLevel);
+        shopManager.rebuildSortedOrder();
+        
+        // Reset tutorial state
+        tutorialMode = false;
+        tutorialPopupActive = false;
+        tutorialCompleteScreen = false;
+        renderer.tutorialPopupActive = false;
+        tutorialSlowdownPhase = 0;
+        slowMotionFactor = 1.0;
+        slowMotionTimer = 0;
+        renderer.tutorialMode = false;
+        renderer.tutorialStep = 0;
+        
+        // Auto-save to persist achievement and tutorialCompleted flag
+        performAutoSave();
+        
+        // Return to Help menu
+        transitionToState(GameState.INFO);
+        System.out.println("TUTORIAL: Completed! Achievement unlocked.");
+    }
+    
+    /**
+     * Quit the tutorial early without saving progress.
+     */
+    private void quitTutorial() {
+        // Restore original state
+        gameData.setTotalMoney(tutorialSavedMoney);
+        gameData.setMissiles(tutorialSavedMissiles);
+        gameData.setBaseMissiles(Math.min(tutorialSavedMissiles, 5));
+        gameData.setCurrentLevel(tutorialSavedLevel);
+        gameData.restoreEquippedItem(tutorialSavedItem);
+        
+        // Restore passive upgrade levels
+        if (tutorialSavedUpgradeLevels != null) {
+            java.util.List<PassiveUpgrade> allUpgrades = passiveUpgradeManager.getAllUpgrades();
+            for (int i = 0; i < Math.min(tutorialSavedUpgradeLevels.length, allUpgrades.size()); i++) {
+                allUpgrades.get(i).setCurrentLevel(tutorialSavedUpgradeLevels[i]);
+                allUpgrades.get(i).setActiveLevel(tutorialSavedActiveUpgradeLevels[i]);
+            }
+            tutorialSavedUpgradeLevels = null;
+            tutorialSavedActiveUpgradeLevels = null;
+        }
+        gameData.setBestRunLevel(tutorialSavedBestRunLevel);
+        shopManager.rebuildSortedOrder();
+        
+        // Reset tutorial state
+        tutorialMode = false;
+        tutorialPopupActive = false;
+        renderer.tutorialPopupActive = false;
+        tutorialSlowdownPhase = 0;
+        slowMotionFactor = 1.0;
+        slowMotionTimer = 0;
+        renderer.tutorialMode = false;
+        renderer.tutorialStep = 0;
+        
+        transitionToState(GameState.MENU);
+        selectedMenuItem = 0;
+        System.out.println("TUTORIAL: Quit early - state restored.");
+    }
+    
+    /**
+     * Check if the current tutorial step's completion condition is met.
+     */
+    private void checkTutorialStepProgress() {
+        if (tutorialStepCompleted) return; // Already completed, waiting for slow-down
+        
+        boolean completed = false;
+        
+        switch (tutorialStep) {
+            case 0: // Welcome — dismissed by pressing ENTER (handled in popup input)
+                tutorialTaskText = "";
+                tutorialTaskHasBar = false;
+                break;
+            case 1: // Movement — move 1000+ pixels total
+                if (player != null) {
+                    double dx = player.getX() - tutorialPrevPlayerX;
+                    double dy = player.getY() - tutorialPrevPlayerY;
+                    tutorialPlayerMoveDistance += Math.sqrt(dx * dx + dy * dy);
+                    tutorialPrevPlayerX = player.getX();
+                    tutorialPrevPlayerY = player.getY();
+                }
+                tutorialTaskText = "Move around! " + (int)Math.min(tutorialPlayerMoveDistance, TUTORIAL_MOVE_GOAL) + "/" + TUTORIAL_MOVE_GOAL + " px";
+                tutorialTaskProgress = Math.min(1.0, tutorialPlayerMoveDistance / TUTORIAL_MOVE_GOAL);
+                tutorialTaskHasBar = true;
+                if (tutorialPlayerMoveDistance >= TUTORIAL_MOVE_GOAL) {
+                    completed = true;
+                }
+                break;
+            case 2: // Dodging — 5 grazes
+                tutorialTaskText = "Graze bullets! " + Math.min(tutorialGrazeCount, TUTORIAL_GRAZE_GOAL) + "/" + TUTORIAL_GRAZE_GOAL;
+                tutorialTaskProgress = Math.min(1.0, (double)tutorialGrazeCount / TUTORIAL_GRAZE_GOAL);
+                tutorialTaskHasBar = true;
+                if (tutorialGrazeCount >= TUTORIAL_GRAZE_GOAL) {
+                    completed = true;
+                }
+                break;
+            case 3: // Death & Respawn — get hit once
+                tutorialTaskText = "Get hit by a bullet to see respawning!";
+                tutorialTaskHasBar = false;
+                if (tutorialPlayerDied) {
+                    completed = true;
+                }
+                break;
+            case 4: // Active Items — block 3 bullets with Shield
+                tutorialTaskText = "Block bullets with Shield! " + Math.min(tutorialShieldBlockCount, TUTORIAL_SHIELD_GOAL) + "/" + TUTORIAL_SHIELD_GOAL;
+                tutorialTaskProgress = Math.min(1.0, (double)tutorialShieldBlockCount / TUTORIAL_SHIELD_GOAL);
+                tutorialTaskHasBar = true;
+                if (tutorialShieldBlockCount >= TUTORIAL_SHIELD_GOAL) {
+                    completed = true;
+                }
+                break;
+            case 5: // Defeat the boss (1 HP)
+                tutorialTaskText = "Attack when the shield disappears!";
+                tutorialTaskHasBar = false;
+                // Handled by boss death sequence
+                break;
+            case 6: // Shop — buy something
+                tutorialTaskText = "Buy an upgrade from the Shop!";
+                tutorialTaskHasBar = false;
+                if (tutorialShopPurchased) {
+                    completed = true;
+                }
+                break;
+            case 7: // Tutorial complete — handled by popup dismiss
+                tutorialTaskText = "";
+                tutorialTaskHasBar = false;
+                break;
+        }
+        
+        if (completed) {
+            tutorialStepCompleted = true;
+            // Start cinematic slow-down
+            tutorialSlowdownPhase = 1; // SLOWING_IN
+            tutorialSlowdownTimer = 40;
+            slowMotionFactor = 0.15;
+            slowMotionTimer = 999; // Keep slow-mo active until we manually reset
+            System.out.println("TUTORIAL: Step " + tutorialStep + " completed — slowing down...");
+        }
     }
     
     /**
@@ -5073,6 +5651,46 @@ public class Game extends JPanel implements Runnable {
         
         // Use effectiveDelta for all gameplay updates during slow-motion
         final double dt = effectiveDelta;
+        
+        // === TUTORIAL STEP PROGRESS CHECKING ===
+        if (tutorialMode && !tutorialPopupActive && !tutorialCompleteScreen && gameState == GameState.PLAYING) {
+            // Handle cinematic slow-down phases
+            if (tutorialSlowdownPhase == 1) {
+                // SLOWING_IN: gameplay runs in ultra slow-mo, timer counts down
+                tutorialSlowdownTimer--;
+                if (tutorialSlowdownTimer <= 0) {
+                    // Transition to POPUP_SHOWN — advance triggers popup via advanceTutorialStep
+                    tutorialSlowdownPhase = 2;
+                    advanceTutorialStep();
+                }
+            } else if (tutorialSlowdownPhase == 3) {
+                // SLOWING_OUT: gameplay resumes in slow-mo, gradually restore
+                tutorialSlowdownTimer--;
+                if (tutorialSlowdownTimer <= 0) {
+                    tutorialSlowdownPhase = 0;
+                    slowMotionFactor = 1.0;
+                    slowMotionTimer = 0;
+                }
+            } else {
+                // NONE: check step completion conditions
+                checkTutorialStepProgress();
+            }
+        }
+        
+        // If tutorial popup is active, skip all gameplay updates
+        if (tutorialMode && tutorialPopupActive) {
+            // Tick highlight timer even during popup
+            if (renderer.tutorialHighlightTimer > 0) renderer.tutorialHighlightTimer--;
+            // Tick popup input delay timer
+            if (tutorialPopupInputDelay > 0) tutorialPopupInputDelay--;
+            // Only allow input (handled in key press handler)
+            return;
+        }
+        
+        // Tick tutorial highlight timer
+        if (tutorialMode && renderer.tutorialHighlightTimer > 0) {
+            renderer.tutorialHighlightTimer--;
+        }
         
         // Update perfect dodge i-frames
         if (perfectDodgeIFrames > 0) {
@@ -6219,6 +6837,19 @@ public class Game extends JPanel implements Runnable {
         // In showcase mode, boss cannot be damaged
         if (currentBoss != null && player != null && player.collidesWith(currentBoss) && !bossDeathAnimation && !debugShowcaseMode && !deathSequenceActive) {
             if (bossVulnerable) {
+                // Tutorial: block boss hits before the "Defeat the Boss" step
+                if (tutorialMode && tutorialStep != 5) {
+                    // Teleport player back to respawn point and show message
+                    if (comboSystem != null) {
+                        comboSystem.setAnnouncement("COMPLETE THE CURRENT STEP FIRST!", 
+                            (double)(WIDTH / 2), (double)(HEIGHT / 2));
+                    }
+                    if (player != null) {
+                        player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                        player.resetVelocity();
+                    }
+                    bossVulnerable = false; // End vulnerability window
+                } else {
                 // Trigger wobble effect immediately on hit
                 currentBoss.triggerWobble();
                 
@@ -6395,6 +7026,15 @@ public class Game extends JPanel implements Runnable {
                 if (currentBoss.isDead()) {
                     // Roguelike: Track boss defeat for stats
                     gameData.onBossDefeated();
+                    
+                    // Tutorial: Boss defeated — advance to next step
+                    if (tutorialMode && tutorialStep == 5) {
+                        tutorialStepCompleted = true;
+                        tutorialSlowdownPhase = 1;
+                        tutorialSlowdownTimer = 40;
+                        slowMotionFactor = 0.15;
+                        slowMotionTimer = 999;
+                    }
                     
                     // Track perfect boss kill for achievements
                     if (!tookDamageThisBoss) {
@@ -6672,6 +7312,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 return;
+                } // end tutorial else (normal boss hit)
             } else {
                 // Hit boss when not vulnerable - player dies (only if not invincible)
                 if (!playerInvincible) {
@@ -6795,6 +7436,18 @@ public class Game extends JPanel implements Runnable {
                 
                 soundManager.playSound(SoundManager.Sound.LEVEL_COMPLETE);
                 soundManager.stopMusic();
+                
+                // Tutorial mode: skip WIN screen, go directly to SHOP
+                if (tutorialMode) {
+                    bossDeathAnimation = false;
+                    shopEnteredFrom = GameState.PLAYING;
+                    shopManager.rebuildSortedOrder();
+                    transitionToState(GameState.SHOP);
+                    // Show "Welcome to the Shop" popup now that we're actually in the shop
+                    showTutorialPopup(6);
+                    return;
+                }
+                
                 gameState = GameState.WIN;
                 if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
                 bossDeathAnimation = false;
@@ -7385,6 +8038,18 @@ public class Game extends JPanel implements Runnable {
                     if (shieldHits <= 0) {
                         shieldActive = false;
                     }
+                    // Tutorial: track shield blocks for step 4
+                    if (tutorialMode) {
+                        tutorialShieldBlockCount++;
+                        // Reset shield cooldown instantly in tutorial so player can reactivate
+                        if (shieldHits <= 0) {
+                            ActiveItem equipped = gameData.getEquippedItem();
+                            if (equipped != null) {
+                                equipped.setCurrentCooldown(0);
+                                equipped.setActive(false);
+                            }
+                        }
+                    }
                     soundManager.playSoundSpatial(SoundManager.Sound.SHIELD_BREAK, 1.0f, bullet.getX(), WORLD_WIDTH);
                     bullets.remove(bullet);
                     returnBulletToPool(bullet);
@@ -7475,7 +8140,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 // Check for graze (near miss) - use squared distance to avoid sqrt
-                double grazeRadius = GRAZE_DISTANCE;
+                double grazeRadius = (tutorialMode && tutorialStep == 2) ? GRAZE_DISTANCE * 3.0 : GRAZE_DISTANCE;
                 double closeCallRadius = CLOSE_CALL_DISTANCE;
                 double perfectDodgeRadius = PERFECT_DODGE_DISTANCE;
                 double gdx = bullet.getX() - player.getX();
@@ -7489,6 +8154,7 @@ public class Game extends JPanel implements Runnable {
                     double dist = Math.sqrt(distSq); // Only compute sqrt when actually grazing
                     bullet.setGrazed(true);
                     totalGrazesThisRun++;
+                    if (tutorialMode) tutorialGrazeCount++;
                     
                     // Track closest call and graze distance for risk %
                     gameData.getCurrentLevelStats().updateClosestCall(dist);
@@ -7882,6 +8548,9 @@ public class Game extends JPanel implements Runnable {
                 break;
             case MENU:
                 renderer.drawMenu(g2d, WIDTH, HEIGHT, gradientTime, escapeTimer, selectedMenuItem, saveManager.getCurrentSaveSlot(), gameData.getGameMode());
+                if (showTutorialPrompt) {
+                    renderer.drawTutorialPrompt(g2d, WIDTH, HEIGHT, gradientTime, tutorialPromptSelection);
+                }
                 break;
             case INFO:
                 renderer.drawInfo(g2d, WIDTH, HEIGHT, gradientTime);
@@ -7966,6 +8635,20 @@ public class Game extends JPanel implements Runnable {
                 
                 // Restore original transform (removes both shake and zoom)
                 g2d.setTransform(originalTransform);
+                
+                // Tutorial overlays — popup and HUD bar drawn AFTER drawGame (above highlight tint)
+                if (tutorialMode) {
+                    if (tutorialCompleteScreen) {
+                        renderer.drawTutorialCompleteScreen(g2d, WIDTH, HEIGHT, gradientTime, tutorialCompleteSelection);
+                    } else {
+                        renderer.drawTutorialHUD(g2d, WIDTH, HEIGHT, tutorialStep, TUTORIAL_STEPS.length, 
+                            tutorialStep < TUTORIAL_STEPS.length ? TUTORIAL_STEPS[tutorialStep][0] : "Complete",
+                            tutorialTaskText, tutorialTaskProgress, tutorialTaskHasBar);
+                        if (tutorialPopupActive) {
+                            renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime);
+                        }
+                    }
+                }
                 break;
             case LOADING:
                 // Draw loading screen directly (renderer not yet created)
@@ -7990,6 +8673,10 @@ public class Game extends JPanel implements Runnable {
                 // Draw passive upgrade unlock animation if active (overlay on top of shop)
                 if (passiveUnlockAnimation) {
                     drawPassiveUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
+                // Draw tutorial popup overlay on shop screen
+                if (tutorialMode && tutorialPopupActive) {
+                    renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime);
                 }
                 break;
             case DEBUG:
@@ -8866,8 +9553,66 @@ public class Game extends JPanel implements Runnable {
     private void handleControllerInput() {
         if (controllerManager == null || !controllerManager.isConnected()) return;
         
+        // Tutorial popup dismiss — any controller button dismisses the popup
+        if (tutorialMode && tutorialPopupActive) {
+            if (tutorialPopupInputDelay > 0) return; // 2-second buffer
+            if (controllerManager.getFirstJustPressedButton() != null) {
+                tutorialPopupActive = false;
+                renderer.tutorialPopupActive = false;
+                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                screenShakeIntensity = 2;
+                
+                if (gameState == GameState.PLAYING) {
+                    // Reset per-step tracking for the next step
+                    tutorialPlayerMoveDistance = 0;
+                    tutorialGrazeCount = 0;
+                    tutorialPlayerDied = false;
+                    tutorialItemUsed = false;
+                    tutorialShieldBlockCount = 0;
+                    tutorialShopPurchased = false;
+                    tutorialShopVisited = false;
+                    if (player != null) {
+                        tutorialPrevPlayerX = player.getX();
+                        tutorialPrevPlayerY = player.getY();
+                    }
+                    
+                    // For popup-only steps (Welcome, Complete), advance immediately
+                    if (tutorialStep == 0 || tutorialStep == 7) {
+                        advanceTutorialStep();
+                    }
+                    
+                    // Resume normal speed
+                    tutorialSlowdownPhase = 3; // SLOWING_OUT
+                    tutorialSlowdownTimer = 30;
+                }
+            }
+            return;
+        }
+        
         switch (gameState) {
             case MENU:
+                // Tutorial prompt intercepts all controller input
+                if (showTutorialPrompt) {
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                        tutorialPromptSelection = 1 - tutorialPromptSelection;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        showTutorialPrompt = false;
+                        if (tutorialPromptSelection == 0) {
+                            startTutorial();
+                        } else {
+                            soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        }
+                        screenShakeIntensity = 3;
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                        showTutorialPrompt = false;
+                        soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                        screenShakeIntensity = 2;
+                    }
+                    break;
+                }
                 if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
                     selectedMenuItem = Math.max(0, selectedMenuItem - 1);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
@@ -9050,6 +9795,24 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case PLAYING:
+                // Tutorial completion screen
+                if (tutorialMode && tutorialCompleteScreen) {
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                        tutorialCompleteSelection = 1 - tutorialCompleteSelection;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                        if (tutorialCompleteSelection == 0) {
+                            completeTutorial();
+                        } else {
+                            completeTutorial();
+                            startTutorial();
+                        }
+                        screenShakeIntensity = 5;
+                    }
+                    break;
+                }
                 if (isPaused) {
                     if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
                         selectedPauseItem = Math.max(0, selectedPauseItem - 1);
@@ -9076,7 +9839,7 @@ public class Game extends JPanel implements Runnable {
                         soundManager.playSound(SoundManager.Sound.PAUSE);
                         isPaused = true;
                         selectedPauseItem = 0;
-                        renderer.configurePauseMenu(debugShowcaseInGameplay);
+                        renderer.configurePauseMenu(debugShowcaseInGameplay, tutorialMode);
                         screenShakeIntensity = 3;
                     }
                     // Use item with A button (isActionJustPressed already handles single-press detection)

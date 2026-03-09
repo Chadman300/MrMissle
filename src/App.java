@@ -80,7 +80,7 @@ public class App {
             
             // Set application icon
             try {
-                BufferedImage icon = ImageIO.read(new File("sprites/Missle Man Assets/MissleManLogo.png"));
+                BufferedImage icon = ImageIO.read(new File("sprites/Steam Page Art/Shortcut Icon.png"));
                 frame.setIconImage(icon);
             } catch (Exception e) {
                 System.err.println("Could not load application icon: " + e.getMessage());

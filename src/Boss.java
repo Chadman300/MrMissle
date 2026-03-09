@@ -1970,6 +1970,11 @@ public class Boss {
         return maxHealth;
     }
     
+    public void setMaxHealth(int health) {
+        this.maxHealth = Math.max(1, health);
+        this.currentHealth = Math.min(this.currentHealth, this.maxHealth);
+    }
+    
     public float getHealthPercent() {
         return (float)currentHealth / maxHealth;
     }

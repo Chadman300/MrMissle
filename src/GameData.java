@@ -83,6 +83,9 @@ public class GameData {
     
     // Custom save name (set when player names their save)
     private String customSaveName = null;
+    
+    // Tutorial completion tracking
+    private boolean tutorialCompleted = false;
 
     public GameData() {
         score = 0;
@@ -531,4 +534,8 @@ public class GameData {
     // Custom save name accessors
     public String getCustomSaveName() { return customSaveName; }
     public void setCustomSaveName(String name) { this.customSaveName = name; }
+    
+    // Tutorial completion accessors
+    public boolean isTutorialCompleted() { return tutorialCompleted; }
+    public void setTutorialCompleted(boolean completed) { this.tutorialCompleted = completed; }
 }

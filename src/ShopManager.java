@@ -2,6 +2,7 @@ public class ShopManager {
     private GameData gameData;
     private PassiveUpgradeManager passiveUpgradeManager;
     private int selectedShopItem;
+    public boolean hideUpgrades = false; // When true, shop shows only Continue (for tutorial)
     
     // Maps display index (after "Continue") to original upgrade index in PassiveUpgradeManager
     // Maxed items are pushed to the bottom of this list
@@ -23,7 +24,7 @@ public class ShopManager {
      * Call this after any purchase or state change.
      */
     public void rebuildSortedOrder() {
-        if (passiveUpgradeManager == null) {
+        if (passiveUpgradeManager == null || hideUpgrades) {
             sortedUpgradeOrder = new int[0];
             return;
         }

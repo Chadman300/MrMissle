@@ -71,6 +71,19 @@ public class Renderer {
     private int statsActiveItemDisplayIndex = 0;
 
     
+    // Help & Tutorial screen buttons
+    public UIButton helpShowcaseButton;
+    public UIButton helpTutorialButton;
+    public int helpSelectedButton = 0; // 0 = Showcase, 1 = Tutorial
+    public boolean tutorialMode = false;
+    public int tutorialStep = 0;
+    public int tutorialHighlightElement = -1; // 3=missiles, 4=active item, 5=boss health
+    public int tutorialHighlightTimer = 0; // Frames remaining for highlight effect
+    public boolean tutorialPopupActive = false;
+    // Saved screen-space bounds of highlighted HUD elements (set during drawGame)
+    public int tutorialHLX, tutorialHLY, tutorialHLW, tutorialHLH;
+
+    
 
     // Number of background sets available
 
@@ -459,6 +472,9 @@ public class Renderer {
             pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, UIScale.px(300), UIScale.px(60), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
+        // Initialize help screen buttons
+        helpShowcaseButton = new UIButton("Showcase", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        helpTutorialButton = new UIButton("Start Tutorial", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
     }
 
     /**
@@ -504,6 +520,10 @@ public class Renderer {
         for (int i = 0; i < pauseButtons.length; i++) {
             pauseButtons[i] = new UIButton(pauseLabels[i], 0, 0, UIScale.px(300), UIScale.px(60), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
+        
+        // Recreate help screen buttons
+        helpShowcaseButton = new UIButton("Showcase", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        helpTutorialButton = new UIButton("Start Tutorial", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
     }
 
     
@@ -2468,17 +2488,13 @@ public class Renderer {
 
         int rightX = width / 2 + UIScale.px(40);
 
-        int columnWidth = width / 2 - UIScale.px(80);
-
         
 
-        // LEFT COLUMN
+        // LEFT COLUMN — Core Mechanics
 
         int y = UIScale.px(105);
 
         
-
-        // Core Mechanics section
 
         g.setColor(ColorPalette.ACCENT_CYAN);
 
@@ -2496,39 +2512,25 @@ public class Renderer {
 
         String[] mechanics = {
 
-            "VULNERABILITY SYSTEM:",
+            "• Boss is invulnerable for 20s — watch for GOLDEN GLOW!",
 
-            "  • Boss invulnerable for 20 seconds",
+            "• Attack Window: Hit the boss 3 times to win",
 
-            "  • Watch for GOLDEN GLOW = Attack Window!",
+            "• Graze bullets for score & combo bonuses",
 
-            "  • Window lasts 20 seconds (longer with upgrades)",
+            "• Perfect Dodge (8px) grants invincibility frames",
 
-            "  • Hit boss 3 times to win",
-
-            "",
-
-            "GRAZE SYSTEM:",
-
-            "  • 25px from bullet = Graze (+score, +combo)",
-
-            "  • 15px = Close Call (bonus points)",
-
-            "  • 8px = Perfect Dodge (grants i-frames!)",
-
-            "  • Build combos: Chain dodges within 3s",
+            "• Chain grazes within 3s to build combos",
 
             "",
 
-            "DEATH & RESPAWN:",
+            "• One hit = death (Lucky Dodge can save you)",
 
-            "  • One hit = death (unless Lucky Dodge procs)",
+            "• Extra missiles grant second chances",
 
-            "  • Boss hit (non-fatal) = 1.5s respawn delay",
+            "• Upgrades: Speed, Bullet Slow, Lucky Dodge, Attack Window",
 
-            "  • Use extra missiles for second chances",
-
-            "  • Lucky Dodge upgrade = revival chance"
+            "• Risk Contracts (Lv 6+): Higher risk = higher reward"
 
         };
 
@@ -2544,81 +2546,11 @@ public class Renderer {
 
         
 
-        // Passive Upgrades section
-
-        y += UIScale.px(10);
-
-        g.setColor(ColorPalette.TEXT_GOLD);
-
-        g.setFont(FONT_MEDIUM_BOLD);
-
-        g.drawString("PASSIVE UPGRADES", leftX, y);
-
-        y += UIScale.px(25);
-
-        
-
-        g.setColor(Color.WHITE);
-
-        g.setFont(FONT_EXTRA_SMALL_16);
-
-        String[] upgrades = {
-
-            "SPEED BOOST (Max Lv 10):",
-
-            "  • +10% movement speed per level",
-
-            "  • Essential for dodging dense patterns",
-
-            "",
-
-            "BULLET SLOW (Max Lv 50):",
-
-            "  • Slows enemy bullets by 2% per level",
-
-            "  • More time to react and plan dodges",
-
-            "",
-
-            "LUCKY DODGE (Max Lv 12):",
-
-            "  • 8% chance per level to survive hits",
-
-            "  • Flicker effect on successful dodge",
-
-            "  • Stacks with extra missiles",
-
-            "",
-
-            "ATTACK WINDOW (Max Lv 10):",
-
-            "  • +1 second vulnerability per level",
-
-            "  • Max: 30 seconds to hit boss",
-
-            "  • More forgiving timing"
-
-        };
-
-        
-
-        for (String line : upgrades) {
-
-            g.drawString(line, leftX + UIScale.px(10), y);
-
-            y += UIScale.px(20);
-
-        }
-
-        
-
-        // RIGHT COLUMN
+        // RIGHT COLUMN — Active Items summary
 
         y = UIScale.px(105);
 
         
-
-        // Active Items section
 
         g.setColor(ColorPalette.ACCENT_CYAN);
 
@@ -2636,57 +2568,23 @@ public class Renderer {
 
         String[] items = {
 
-            "POOL OF LOOT (Lv 3) - 35s cooldown",
+            "Pool of Loot (Lv 3) — Spawn money circle",
 
-            "  Spawn money circle for bonus cash",
+            "Shield (Lv 6) — Tank 3 hits",
 
-            "",
+            "Bombs (Lv 7) — Explosive barrage",
 
-            "SHIELD (Lv 6) - 7.5s cooldown",
+            "Stun (Lv 9) — Freeze boss 3 seconds",
 
-            "  Tank 3 hits, active for 1 second",
+            "Chromatic Purge (Lv 12) — Erase bullet type",
 
-            "",
+            "Time Slow (Lv 15) — Slow everything 85%",
 
-            "BOMBS (Lv 7) - 6s cooldown",
+            "Dash (Lv 18) — Quick dash + i-frames",
 
-            "  Explosive barrage across screen",
+            "Impulse (Lv 21) — Push all bullets away",
 
-            "",
-
-            "STUN (Lv 9) - 10s cooldown",
-
-            "  Freeze the boss for 3 seconds",
-
-            "",
-
-            "CHROMATIC PURGE (Lv 12) - 5s cooldown",
-
-            "  Erase all bullets of a random type",
-
-            "",
-
-            "TIME SLOW (Lv 15) - 7.5s cooldown",
-
-            "  Slow bullets & beams for 2 seconds",
-
-            "",
-
-            "DASH (Lv 18) - 2s cooldown",
-
-            "  Quick dash with invincibility frames",
-
-            "",
-
-            "IMPULSE (Lv 21) - 5s cooldown",
-
-            "  Push all bullets away instantly",
-
-            "",
-
-            "FROST BEAM (Lv 24) - 5s cooldown",
-
-            "  Freeze bullets in an icy beam"
+            "Frost Beam (Lv 24) — Freeze bullets in beam"
 
         };
 
@@ -2696,59 +2594,61 @@ public class Renderer {
 
             g.drawString(line, rightX + UIScale.px(10), y);
 
-            y += UIScale.px(19);
-
-        }
-
-        
-
-        // Risk Contracts section
-
-        y += UIScale.px(10);
-
-        g.setColor(ColorPalette.ACCENT_RED);
-
-        g.setFont(FONT_MEDIUM_BOLD);
-
-        g.drawString("RISK CONTRACTS", rightX, y);
-
-        y += UIScale.px(25);
-
-        
-
-        g.setColor(Color.WHITE);
-
-        g.setFont(FONT_EXTRA_SMALL_16);
-
-        String[] contracts = {
-
-            "Unlock at Level 6 for bonus rewards:",
-
-            "",
-
-            "BULLET STORM - 2x bullets (2x money)",
-
-            "SPEED DEMON - 50% faster bullets (1.75x)",
-
-            "POWERLESS - All active items disabled (1.5x)",
-
-            "CAN'T STOP - Must keep moving (2.5x)",
-
-            "",
-
-            "Higher risk = Higher reward!"
-
-        };
-
-        
-
-        for (String line : contracts) {
-
-            g.drawString(line, rightX + UIScale.px(10), y);
-
             y += UIScale.px(20);
 
         }
+
+        
+
+        // === ACTION BUTTONS (centered below text) ===
+
+        int btnW = UIScale.px(300);
+
+        int btnH = UIScale.px(55);
+
+        int btnX = (width - btnW) / 2;
+
+        int btnY1 = height - UIScale.px(220);
+
+        int btnY2 = height - UIScale.px(130);
+
+        
+
+        helpShowcaseButton.setPosition(btnX, btnY1);
+
+        helpTutorialButton.setPosition(btnX, btnY2);
+
+        
+
+        helpShowcaseButton.update(helpSelectedButton == 0, time);
+
+        helpTutorialButton.update(helpSelectedButton == 1, time);
+
+        
+
+        helpShowcaseButton.draw(g, time);
+
+        helpTutorialButton.draw(g, time);
+
+        
+
+        // Subtitles under each button
+
+        g.setFont(FONT_EXTRA_SMALL_13);
+
+        g.setColor(new Color(160, 170, 190));
+
+        String sub1 = "Browse all attacks and items";
+
+        FontMetrics fm1 = g.getFontMetrics();
+
+        g.drawString(sub1, btnX + (btnW - fm1.stringWidth(sub1)) / 2, btnY1 + btnH + UIScale.px(18));
+
+        
+
+        String sub2 = "Play a guided practice level";
+
+        g.drawString(sub2, btnX + (btnW - fm1.stringWidth(sub2)) / 2, btnY2 + btnH + UIScale.px(18));
 
         
 
@@ -2758,10 +2658,498 @@ public class Renderer {
 
         g.setFont(FONT_TINY);
 
-        drawPromptWithIcons(g, width / 2, height - UIScale.px(30), "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_DOWN, "/", KeyBindManager.Action.MOVE_RIGHT, " = Move  |  ", KeyBindManager.Action.USE_ITEM, " = Use Item  |  ", KeyBindManager.Action.PAUSE, " = Pause  |  Mouse = Navigate Menus");
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(20), "CONTROLS: ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " = Navigate  |  ENTER = Select  |  ESC = Back");
+    }
 
-        g.drawString("TIP: Visit SHOP for upgrades | Complete ACHIEVEMENTS | Use STATS to track progress", width / 2 - UIScale.px(420), height - UIScale.px(10));
+    /**
+     * Draw the tutorial popup overlay (semi-transparent backdrop + centered panel).
+     * Called from Game's render when tutorialPopupActive is true during PLAYING state.
+     */
+    public void drawTutorialPopup(Graphics2D g, int width, int height, String title, String[] body, double time) {
+        // Dark overlay
+        g.setColor(new Color(0, 0, 0, 180));
+        g.fillRect(0, 0, width, height);
+        
+        // Panel dimensions — larger for readability
+        int panelW = UIScale.px(700);
+        int lineCount = body.length + 2; // title + body lines + continue prompt
+        int panelH = UIScale.px(110 + lineCount * 38);
+        int panelX = (width - panelW) / 2;
+        int panelY = (height - panelH) / 2;
+        
+        // Panel background
+        g.setColor(new Color(15, 18, 30, 245));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 20, 20);
+        
+        // Outer glow border
+        g.setColor(new Color(80, 200, 240, 60));
+        g.setStroke(RenderCache.getStroke(4f));
+        g.drawRoundRect(panelX - 2, panelY - 2, panelW + 4, panelH + 4, 22, 22);
+        
+        // Inner border
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(panelX, panelY, panelW, panelH, 20, 20);
+        
+        // Title — large and bold
+        g.setFont(FONT_LARGE_32);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        FontMetrics fmTitle = g.getFontMetrics();
+        g.drawString(title, panelX + (panelW - fmTitle.stringWidth(title)) / 2, panelY + UIScale.px(50));
+        
+        // Divider line under title
+        int divY = panelY + UIScale.px(60);
+        g.setColor(new Color(80, 200, 240, 80));
+        g.setStroke(RenderCache.getStroke(1f));
+        g.drawLine(panelX + UIScale.px(30), divY, panelX + panelW - UIScale.px(30), divY);
+        
+        // Body text — parse {MOVE}, {USE_ITEM}, {PAUSE} and {C:COLOR}...{/C} tokens
+        g.setFont(FONT_SMALL);
+        int bodyY = panelY + UIScale.px(90);
+        int panelCenterX = panelX + panelW / 2;
+        for (String line : body) {
+            Object[] segments = parseTutorialTokens(line);
+            drawTutorialLine(g, panelCenterX, bodyY, segments);
+            bodyY += UIScale.px(34);
+        }
+        
+        // Continue prompt (pulsing)
+        double pulse = 0.5 + 0.5 * Math.sin(time * 4);
+        g.setColor(new Color(180, 190, 210, (int)(120 + 135 * pulse)));
+        g.setFont(FONT_EXTRA_SMALL_16);
+        FontMetrics fmHint = g.getFontMetrics();
+        String hint = "[ Press any key to continue ]";
+        g.drawString(hint, panelX + (panelW - fmHint.stringWidth(hint)) / 2, panelY + panelH - UIScale.px(22));
+    }
+    
+    /** Simple wrapper to carry a colored text segment in tutorial lines. */
+    private static class ColoredText {
+        final String text;
+        final Color color;
+        ColoredText(String text, Color color) { this.text = text; this.color = color; }
+    }
+    
+    /** Map a color name token to a Color. */
+    private static Color tutorialColor(String name) {
+        switch (name) {
+            case "GOLD":   return ColorPalette.TEXT_GOLD;
+            case "CYAN":   return ColorPalette.ACCENT_CYAN;
+            case "RED":    return ColorPalette.ACCENT_RED_BRIGHT;
+            case "GREEN":  return new Color(80, 230, 120);
+            case "ORANGE": return ColorPalette.ACCENT_ORANGE;
+            case "YELLOW": return ColorPalette.ACCENT_YELLOW;
+            default:       return Color.WHITE;
+        }
+    }
+    
+    /**
+     * Parse tutorial text tokens into mixed segments for rendering.
+     * Supports: {MOVE}, {USE_ITEM}, {PAUSE} → KeyBindManager.Action
+     *           {C:COLOR}text{/C} → ColoredText
+     *           Plain text → String
+     */
+    private Object[] parseTutorialTokens(String text) {
+        java.util.List<Object> segments = new java.util.ArrayList<>();
+        int i = 0;
+        while (i < text.length()) {
+            int braceStart = text.indexOf('{', i);
+            if (braceStart < 0) {
+                segments.add(text.substring(i));
+                break;
+            }
+            int braceEnd = text.indexOf('}', braceStart);
+            if (braceEnd < 0) {
+                segments.add(text.substring(i));
+                break;
+            }
+            // Add text before the token
+            if (braceStart > i) {
+                segments.add(text.substring(i, braceStart));
+            }
+            String token = text.substring(braceStart + 1, braceEnd);
+            
+            // Check for color start token: C:COLOR
+            if (token.startsWith("C:")) {
+                String colorName = token.substring(2);
+                Color color = tutorialColor(colorName);
+                // Find the closing {/C}
+                int closeIdx = text.indexOf("{/C}", braceEnd + 1);
+                if (closeIdx >= 0) {
+                    String coloredContent = text.substring(braceEnd + 1, closeIdx);
+                    segments.add(new ColoredText(coloredContent, color));
+                    i = closeIdx + 4; // skip past {/C}
+                } else {
+                    // No closing tag — treat as literal
+                    segments.add(text.substring(braceStart, braceEnd + 1));
+                    i = braceEnd + 1;
+                }
+                continue;
+            }
+            
+            // Check for closing color tag (shouldn't appear standalone)
+            if (token.equals("/C")) {
+                i = braceEnd + 1;
+                continue;
+            }
+            
+            switch (token) {
+                case "MOVE":
+                    segments.add(KeyBindManager.Action.MOVE_UP);
+                    segments.add(KeyBindManager.Action.MOVE_LEFT);
+                    segments.add(KeyBindManager.Action.MOVE_DOWN);
+                    segments.add(KeyBindManager.Action.MOVE_RIGHT);
+                    break;
+                case "USE_ITEM":
+                    segments.add(KeyBindManager.Action.USE_ITEM);
+                    break;
+                case "PAUSE":
+                    segments.add(KeyBindManager.Action.PAUSE);
+                    break;
+                default:
+                    segments.add("{" + token + "}");
+                    break;
+            }
+            i = braceEnd + 1;
+        }
+        return segments.toArray();
+    }
+    
+    /**
+     * Draw a single tutorial popup line with key sprites and colored text, centered.
+     */
+    private void drawTutorialLine(Graphics2D g, int centerX, int y, Object[] segments) {
+        FontMetrics fm = g.getFontMetrics();
+        int iconH = fm.getHeight() - 2;
+        
+        // Measure pass
+        int totalWidth = 0;
+        for (Object seg : segments) {
+            if (seg instanceof String) {
+                totalWidth += fm.stringWidth((String) seg);
+            } else if (seg instanceof ColoredText) {
+                totalWidth += fm.stringWidth(((ColoredText) seg).text);
+            } else if (seg instanceof KeyBindManager.Action) {
+                if (Game.keyBindManager != null) {
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon((KeyBindManager.Action) seg);
+                    if (icon != null) {
+                        totalWidth += iconH * icon.getWidth() / icon.getHeight() + 2;
+                    } else {
+                        totalWidth += measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
+                    }
+                } else {
+                    totalWidth += measureKeyCap(fm, keyText((KeyBindManager.Action) seg));
+                }
+            }
+        }
+        
+        // Draw pass
+        int drawX = centerX - totalWidth / 2;
+        for (Object seg : segments) {
+            if (seg instanceof String) {
+                g.setColor(Color.WHITE);
+                g.drawString((String) seg, drawX, y);
+                drawX += fm.stringWidth((String) seg);
+            } else if (seg instanceof ColoredText) {
+                ColoredText ct = (ColoredText) seg;
+                g.setColor(ct.color);
+                g.drawString(ct.text, drawX, y);
+                drawX += fm.stringWidth(ct.text);
+            } else if (seg instanceof KeyBindManager.Action) {
+                KeyBindManager.Action action = (KeyBindManager.Action) seg;
+                if (Game.keyBindManager != null) {
+                    java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon(action);
+                    if (icon != null) {
+                        int iW = iconH * icon.getWidth() / icon.getHeight();
+                        g.drawImage(icon, drawX, y - iconH + 2, iW, iconH, null);
+                        drawX += iW + 2;
+                    } else {
+                        Color sc = g.getColor();
+                        drawX += drawKeyCap(g, fm, keyText(action), drawX, y);
+                        g.setColor(sc);
+                    }
+                } else {
+                    Color sc = g.getColor();
+                    drawX += drawKeyCap(g, fm, keyText(action), drawX, y);
+                    g.setColor(sc);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Draw tutorial highlight effect — dims everything except the newly introduced HUD element
+     * and draws a pulsing glow around it. Called from within drawGame so transform matches HUD.
+     */
+    public void drawTutorialHighlight(Graphics2D g, int width, int height, double time) {
+        if (tutorialHighlightTimer <= 0 || tutorialHighlightElement < 0) return;
+        if (tutorialHLW <= 0 || tutorialHLH <= 0) return;
+        
+        int ex = tutorialHLX, ey = tutorialHLY, ew = tutorialHLW, eh = tutorialHLH;
+        int pad = UIScale.px(8);
+        
+        // Fade alpha based on timer (fade out in last 30 frames)
+        float alpha = tutorialHighlightTimer < 30 ? tutorialHighlightTimer / 30f : 1f;
+        
+        // Dark overlay with cutout — oversized rect covers screen at any zoom level
+        java.awt.geom.Area overlay = new java.awt.geom.Area(new java.awt.Rectangle(-width, -height, width * 3, height * 3));
+        overlay.subtract(new java.awt.geom.Area(new java.awt.Rectangle(ex - pad, ey - pad, ew + pad * 2, eh + pad * 2)));
+        Composite origComp = g.getComposite();
+        g.setComposite(RenderCache.getAlpha((float)(0.55 * alpha)));
+        g.setColor(Color.BLACK);
+        g.fill(overlay);
+        
+        // Pulsing glow border around the element
+        float pulse = (float)(0.5 + 0.5 * Math.sin(time * 5));
+        g.setComposite(RenderCache.getAlpha(alpha));
+        g.setColor(new Color(0, 255, 255, (int)(120 + 135 * pulse)));
+        g.setStroke(RenderCache.getStroke(3f));
+        g.drawRoundRect(ex - pad, ey - pad, ew + pad * 2, eh + pad * 2, 12, 12);
+        
+        // Outer glow
+        g.setComposite(RenderCache.getAlpha(alpha * 0.3f));
+        g.setColor(new Color(0, 255, 255));
+        g.setStroke(RenderCache.getStroke(6f));
+        g.drawRoundRect(ex - pad - 3, ey - pad - 3, ew + (pad + 3) * 2, eh + (pad + 3) * 2, 14, 14);
+        
+        g.setComposite(origComp);
+    }
 
+    /**
+     * Draw the tutorial HUD indicator (step progress + "TUTORIAL" label).
+     * Called during PLAYING state rendering when tutorialMode is true.
+     */
+    public void drawTutorialHUD(Graphics2D g, int width, int height, int currentStep, int totalSteps, String stepName,
+                                String taskText, double taskProgress, boolean taskHasBar) {
+        // Centered at top of screen, large and prominent
+        String label = "TUTORIAL";
+        String progress = "Step " + (currentStep + 1) + "/" + totalSteps + " — " + stepName;
+        
+        g.setFont(FONT_MEDIUM);
+        FontMetrics fmLabel = g.getFontMetrics();
+        int labelW = fmLabel.stringWidth(label);
+        
+        g.setFont(FONT_SMALL);
+        FontMetrics fmProg = g.getFontMetrics();
+        int progW = fmProg.stringWidth(progress);
+        
+        // Measure task text width
+        int taskW = 0;
+        if (taskText != null && !taskText.isEmpty()) {
+            taskW = fmProg.stringWidth(taskText);
+        }
+        
+        int barWidth = UIScale.px(200);
+        int contentW = Math.max(labelW, Math.max(progW, taskW + (taskHasBar ? barWidth + UIScale.px(16) : 0)));
+        int pillW = contentW + UIScale.px(40);
+        int hasTask = (taskText != null && !taskText.isEmpty()) ? 1 : 0;
+        int pillH = UIScale.px(60) + (hasTask > 0 ? UIScale.px(taskHasBar ? 40 : 24) : 0);
+        int pillX = (width - pillW) / 2;
+        int pillY;
+        if (tutorialMode && tutorialStep < 5) {
+            // Before boss bar appears: position at very bottom of screen
+            pillY = height - pillH - UIScale.px(12);
+        } else {
+            // After boss bar appears: position above the boss health bar
+            HUDLayout bossHudLayout = Game.hudLayout != null ? Game.hudLayout : HUDLayout.defaultLayout();
+            HUDLayout.HUDElementConfig bossTutCfg = bossHudLayout.getConfig(HUDLayout.HUDElement.BOSS_HEALTH);
+            int bossBarTop = (int)(bossTutCfg.yPercent * height);
+            pillY = bossBarTop - pillH - UIScale.px(12);
+        }
+        
+        // Background pill
+        g.setColor(new Color(20, 25, 40, 210));
+        g.fillRoundRect(pillX, pillY, pillW, pillH, 16, 16);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(pillX, pillY, pillW, pillH, 16, 16);
+        
+        // "TUTORIAL" label — large, centered
+        g.setFont(FONT_MEDIUM);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        g.drawString(label, (width - labelW) / 2, pillY + UIScale.px(24));
+        
+        // Step progress — centered below
+        g.setFont(FONT_SMALL);
+        g.setColor(new Color(200, 210, 230));
+        g.drawString(progress, (width - progW) / 2, pillY + UIScale.px(48));
+        
+        // Task bar — below step progress
+        if (taskText != null && !taskText.isEmpty()) {
+            int taskY = pillY + UIScale.px(60);
+            
+            // Task text
+            g.setFont(FONT_SMALL);
+            g.setColor(new Color(255, 230, 140));
+            if (taskHasBar) {
+                // Text on the left, bar on the right
+                g.drawString(taskText, pillX + UIScale.px(16), taskY + UIScale.px(12));
+                
+                // Progress bar
+                int barH = UIScale.px(12);
+                int barX = pillX + pillW - barWidth - UIScale.px(16);
+                int barY = taskY + UIScale.px(3);
+                
+                // Bar background
+                g.setColor(new Color(40, 45, 60, 200));
+                g.fillRoundRect(barX, barY, barWidth, barH, 6, 6);
+                
+                // Bar fill
+                int fillWidth = (int)(barWidth * Math.min(1.0, taskProgress));
+                if (fillWidth > 0) {
+                    Color barColor = taskProgress >= 1.0 ? new Color(80, 255, 120) : ColorPalette.ACCENT_CYAN;
+                    g.setColor(barColor);
+                    g.fillRoundRect(barX, barY, fillWidth, barH, 6, 6);
+                }
+                
+                // Bar border
+                g.setColor(new Color(100, 120, 160, 150));
+                g.setStroke(RenderCache.getStroke(1f));
+                g.drawRoundRect(barX, barY, barWidth, barH, 6, 6);
+            } else {
+                // Just centered task text
+                int tw = fmProg.stringWidth(taskText);
+                g.drawString(taskText, (width - tw) / 2, taskY + UIScale.px(12));
+            }
+        }
+    }
+
+    /**
+     * Draw the first-save tutorial prompt overlay on the menu screen.
+     */
+    public void drawTutorialPrompt(Graphics2D g, int width, int height, double time, int selection) {
+        // Dark overlay
+        g.setColor(new Color(0, 0, 0, 160));
+        g.fillRect(0, 0, width, height);
+        
+        // Panel
+        int panelW = UIScale.px(460);
+        int panelH = UIScale.px(220);
+        int panelX = (width - panelW) / 2;
+        int panelY = (height - panelH) / 2;
+        
+        g.setColor(new Color(20, 25, 35, 240));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+        
+        // Title
+        g.setFont(FONT_LARGE);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        FontMetrics fmTitle = g.getFontMetrics();
+        String title = "PLAY THE TUTORIAL?";
+        g.drawString(title, panelX + (panelW - fmTitle.stringWidth(title)) / 2, panelY + UIScale.px(45));
+        
+        // Body
+        g.setFont(FONT_EXTRA_SMALL_16);
+        g.setColor(Color.WHITE);
+        FontMetrics fmBody = g.getFontMetrics();
+        String line1 = "Learn the basics in a guided practice level.";
+        String line2 = "No progress will be saved.";
+        g.drawString(line1, panelX + (panelW - fmBody.stringWidth(line1)) / 2, panelY + UIScale.px(85));
+        g.drawString(line2, panelX + (panelW - fmBody.stringWidth(line2)) / 2, panelY + UIScale.px(110));
+        
+        // Buttons: Yes / No
+        int btnW = UIScale.px(120);
+        int btnH = UIScale.px(45);
+        int btnY = panelY + UIScale.px(145);
+        int btnGap = UIScale.px(30);
+        int yesX = panelX + (panelW / 2) - btnW - btnGap / 2;
+        int noX = panelX + (panelW / 2) + btnGap / 2;
+        
+        // Yes button
+        Color yesBg = selection == 0 ? new Color(40, 160, 60) : new Color(40, 60, 40);
+        Color yesBorder = selection == 0 ? new Color(80, 220, 100) : new Color(60, 80, 60);
+        g.setColor(yesBg);
+        g.fillRoundRect(yesX, btnY, btnW, btnH, 10, 10);
+        g.setColor(yesBorder);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(yesX, btnY, btnW, btnH, 10, 10);
+        g.setFont(FONT_MEDIUM_BOLD);
+        g.setColor(Color.WHITE);
+        FontMetrics fmBtn = g.getFontMetrics();
+        g.drawString("YES", yesX + (btnW - fmBtn.stringWidth("YES")) / 2, btnY + (btnH + fmBtn.getAscent()) / 2 - 2);
+        
+        // No button
+        Color noBg = selection == 1 ? new Color(160, 50, 50) : new Color(60, 40, 40);
+        Color noBorder = selection == 1 ? new Color(220, 80, 80) : new Color(80, 60, 60);
+        g.setColor(noBg);
+        g.fillRoundRect(noX, btnY, btnW, btnH, 10, 10);
+        g.setColor(noBorder);
+        g.drawRoundRect(noX, btnY, btnW, btnH, 10, 10);
+        g.setColor(Color.WHITE);
+        g.drawString("NO", noX + (btnW - fmBtn.stringWidth("NO")) / 2, btnY + (btnH + fmBtn.getAscent()) / 2 - 2);
+    }
+
+    public void drawTutorialCompleteScreen(Graphics2D g, int width, int height, double time, int selection) {
+        // Full opaque background
+        UITheme.drawScreenBackground(g, width, height, time);
+
+        // Panel
+        int panelW = UIScale.px(520);
+        int panelH = UIScale.px(320);
+        int panelX = (width - panelW) / 2;
+        int panelY = (height - panelH) / 2;
+
+        g.setColor(new Color(20, 25, 35, 240));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(panelX, panelY, panelW, panelH, 16, 16);
+
+        // Title
+        g.setFont(FONT_LARGE);
+        g.setColor(ColorPalette.ACCENT_CYAN);
+        FontMetrics fmTitle = g.getFontMetrics();
+        String title = "TUTORIAL COMPLETE!";
+        g.drawString(title, panelX + (panelW - fmTitle.stringWidth(title)) / 2, panelY + UIScale.px(50));
+
+        // Achievement line
+        g.setFont(FONT_MEDIUM_BOLD);
+        g.setColor(ColorPalette.ACCENT_YELLOW);
+        FontMetrics fmMed = g.getFontMetrics();
+        String achLine = "Achievement Unlocked!";
+        g.drawString(achLine, panelX + (panelW - fmMed.stringWidth(achLine)) / 2, panelY + UIScale.px(95));
+
+        // Body text
+        g.setFont(FONT_EXTRA_SMALL_16);
+        g.setColor(Color.WHITE);
+        FontMetrics fmBody = g.getFontMetrics();
+        String line1 = "Great job! You've learned the basics.";
+        String line2 = "You're ready for the real thing!";
+        g.drawString(line1, panelX + (panelW - fmBody.stringWidth(line1)) / 2, panelY + UIScale.px(140));
+        g.drawString(line2, panelX + (panelW - fmBody.stringWidth(line2)) / 2, panelY + UIScale.px(165));
+
+        // Buttons: Leave / Play Again
+        int btnW = UIScale.px(140);
+        int btnH = UIScale.px(45);
+        int btnY = panelY + UIScale.px(220);
+        int btnGap = UIScale.px(30);
+        int leaveX = panelX + (panelW / 2) - btnW - btnGap / 2;
+        int againX = panelX + (panelW / 2) + btnGap / 2;
+
+        // Leave button
+        Color leaveBg = selection == 0 ? new Color(40, 160, 60) : new Color(40, 60, 40);
+        Color leaveBorder = selection == 0 ? new Color(80, 220, 100) : new Color(60, 80, 60);
+        g.setColor(leaveBg);
+        g.fillRoundRect(leaveX, btnY, btnW, btnH, 10, 10);
+        g.setColor(leaveBorder);
+        g.setStroke(RenderCache.getStroke(2f));
+        g.drawRoundRect(leaveX, btnY, btnW, btnH, 10, 10);
+        g.setFont(FONT_MEDIUM_BOLD);
+        g.setColor(Color.WHITE);
+        FontMetrics fmBtn = g.getFontMetrics();
+        g.drawString("LEAVE", leaveX + (btnW - fmBtn.stringWidth("LEAVE")) / 2, btnY + (btnH + fmBtn.getAscent()) / 2 - 2);
+
+        // Play Again button
+        Color againBg = selection == 1 ? new Color(40, 100, 180) : new Color(40, 50, 70);
+        Color againBorder = selection == 1 ? new Color(80, 160, 240) : new Color(60, 70, 80);
+        g.setColor(againBg);
+        g.fillRoundRect(againX, btnY, btnW, btnH, 10, 10);
+        g.setColor(againBorder);
+        g.drawRoundRect(againX, btnY, btnW, btnH, 10, 10);
+        g.setColor(Color.WHITE);
+        g.drawString("REPLAY", againX + (btnW - fmBtn.stringWidth("REPLAY")) / 2, btnY + (btnH + fmBtn.getAscent()) / 2 - 2);
     }
 
     
@@ -7120,7 +7508,7 @@ public class Renderer {
         HUDLayout bossLayout = Game.hudLayout != null ? Game.hudLayout : HUDLayout.defaultLayout();
         HUDLayout.HUDElementConfig bossCfg = bossLayout.getConfig(HUDLayout.HUDElement.BOSS_HEALTH);
         // Animate boss health bar in/out
-        boolean bossPresent = boss != null && bossCfg.visible;
+        boolean bossPresent = boss != null && bossCfg.visible && (!tutorialMode || tutorialStep >= 5);
         if (bossPresent && !lastBossPresent) {
             bossHealthBarAnim = 0.0; // Reset animation on new boss
         }
@@ -7171,6 +7559,12 @@ public class Renderer {
             int barX = (int)(bossCfg.xPercent * width);
 
             int barY = (int)(bossCfg.yPercent * height + animSlideY);
+            
+            // Save bounds for tutorial highlight
+            if (tutorialHighlightElement == 5) {
+                tutorialHLX = barX; tutorialHLY = (int)(bossCfg.yPercent * height);
+                tutorialHLW = barWidth; tutorialHLH = barHeight + UIScale.px(45);
+            }
             
             // Apply scale transform centered on the bar
             AffineTransform bossBarTransform = g.getTransform();
@@ -8060,7 +8454,7 @@ public class Renderer {
 
             g.setColor(Color.WHITE);
             g.setFont(FONT_MEDIUM_BOLD);
-            g.drawString("Level: " + level, infoX + UIScale.px(10), infoY + UIScale.px(25));
+            g.drawString(tutorialMode ? "Tutorial" : "Level: " + level, infoX + UIScale.px(10), infoY + UIScale.px(25));
             g.drawString("Score: " + (int)displayedScore, infoX + UIScale.px(10), infoY + UIScale.px(55));
             g.drawString("Money: $" + (int)displayedMoney, infoX + UIScale.px(10), infoY + UIScale.px(85));
 
@@ -8155,7 +8549,7 @@ public class Renderer {
         // 3. Active item UI
         HUDLayout.HUDElementConfig itemCfg = activeLayout.getConfig(HUDLayout.HUDElement.ACTIVE_ITEM);
         equippedItem = gameData.getEquippedItem();
-        if (equippedItem != null && itemCfg.visible) {
+        if (equippedItem != null && itemCfg.visible && (!tutorialMode || tutorialStep >= 4)) {
             int itemUIX, itemUIY;
             if (hudStackMode) {
                 itemUIX = stackOriginX;
@@ -8166,6 +8560,11 @@ public class Renderer {
             }
             int itemUIW = 200;
             int itemUIH = 80;
+            // Save bounds for tutorial highlight
+            if (tutorialHighlightElement == 4) {
+                tutorialHLX = itemUIX; tutorialHLY = itemUIY;
+                tutorialHLW = itemUIW; tutorialHLH = itemUIH;
+            }
             if (itemCfg.opacity < 1.0f) {
                 g.setComposite(RenderCache.getAlpha(Math.max(0.01f, itemCfg.opacity)));
             }
@@ -8332,7 +8731,7 @@ public class Renderer {
 
         // 4. Missile bar indicator (layout-aware with style variant)
         HUDLayout.HUDElementConfig missileCfg = activeLayout.getConfig(HUDLayout.HUDElement.MISSILE_BAR);
-        if (missileCfg.visible && !introPanActive) {
+        if (missileCfg.visible && !introPanActive && (!tutorialMode || tutorialStep >= 3)) {
             if (missileCfg.opacity < 1.0f) {
                 g.setComposite(RenderCache.getAlpha(Math.max(0.01f, missileCfg.opacity)));
             }
@@ -8345,6 +8744,11 @@ public class Renderer {
                 // === HORIZONTAL MISSILE BAR (classic style) ===
                 int missileUIX = (int)(missileCfg.xPercent * width);
                 int missileUIY = (int)(missileCfg.yPercent * height);
+                // Save bounds for tutorial highlight
+                if (tutorialHighlightElement == 3) {
+                    tutorialHLX = missileUIX; tutorialHLY = missileUIY;
+                    tutorialHLW = 200; tutorialHLH = 40;
+                }
                 g.setColor(RenderCache.BLACK_150);
                 g.fillRoundRect(missileUIX, missileUIY, 200, 40, 10, 10);
                 g.setFont(FontPalette.get(Font.BOLD, 14));
@@ -8374,6 +8778,11 @@ public class Renderer {
 
                 int barX = (int)(missileCfg.xPercent * width);
                 int barY = (int)(missileCfg.yPercent * height);
+                // Save bounds for tutorial highlight
+                if (tutorialHighlightElement == 3) {
+                    tutorialHLX = barX; tutorialHLY = barY;
+                    tutorialHLW = panelWidth; tutorialHLH = panelHeight;
+                }
 
                 // Shadow
                 g.setColor(RenderCache.BLACK_100);
@@ -8520,6 +8929,12 @@ public class Renderer {
             g.drawString(ach.getDescription(), notifX + UIScale.px(20), notifY + UIScale.px(85));
 
             g.setComposite(_ac);
+        }
+
+        // Tutorial highlight overlay (drawn after HUD elements so cutout reveals them).
+        // Popup and tutorial bar are drawn AFTER drawGame in Game.java, so they appear above this.
+        if (tutorialMode && tutorialHighlightTimer > 0) {
+            drawTutorialHighlight(g, width, height, time);
         }
 
         
@@ -8815,7 +9230,7 @@ public class Renderer {
 
             int scrolledY = (int)(y - scrollOffset);
 
-            int itemX = (width - UIScale.px(900)) / 2;
+            int itemX = (width - UIScale.px(1050)) / 2;
 
             
 
@@ -9093,9 +9508,13 @@ public class Renderer {
 
         g.setFont(FONT_SMALL);
 
-        drawPromptWithIcons(g, width / 2, height - UIScale.px(35),
-
-            "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
+        if (tutorialMode) {
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(35),
+                "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to select | ", KeyBindManager.Action.CONFIRM, " to purchase | ", KeyBindManager.Action.BACK, " to quit tutorial");
+        } else {
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(35),
+                "Use ", KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " or MOUSE to select | ", KeyBindManager.Action.CONFIRM, " or CLICK to purchase | ", KeyBindManager.Action.BACK, " to continue");
+        }
 
     }
 
@@ -13095,7 +13514,7 @@ public class Renderer {
         return Math.max(0f, Math.min(1f, (float)(mouseX - sx) / (float)(ex - sx)));
     }
 
-    public void configurePauseMenu(boolean isShowcase) {
+    public void configurePauseMenu(boolean isShowcase, boolean isTutorial) {
 
         showcasePauseMode = isShowcase;
 
@@ -13119,7 +13538,7 @@ public class Renderer {
 
             pauseButtons[1].setText("Settings");
 
-            pauseButtons[2].setText("Main Menu");
+            pauseButtons[2].setText(isTutorial ? "Quit Tutorial" : "Main Menu");
 
         }
 

@@ -135,6 +135,9 @@ public class SaveData implements Serializable {
     // Passive upgrade unlock introductions that have been seen
     public List<String> seenPassiveUnlocks;
     
+    // Tutorial completion tracking
+    public boolean tutorialCompleted;
+    
     /**
      * Inner class to hold level stats data in a serializable format
      */
@@ -458,6 +461,9 @@ public class SaveData implements Serializable {
             ? new ArrayList<>(gameData.getSeenPassiveUnlocks()) 
             : new ArrayList<>();
         
+        // Tutorial completion
+        data.tutorialCompleted = gameData.isTutorialCompleted();
+        
         return data;
     }
     
@@ -656,6 +662,9 @@ public class SaveData implements Serializable {
         if (seenPassiveUnlocks != null) {
             gameData.setSeenPassiveUnlocks(new java.util.ArrayList<>(seenPassiveUnlocks));
         }
+        
+        // Tutorial completion
+        gameData.setTutorialCompleted(tutorialCompleted);
     }
     
     /**
