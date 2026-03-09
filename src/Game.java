@@ -1163,6 +1163,15 @@ public class Game extends JPanel implements Runnable {
                     return;
                 }
 
+                // Skip countdown on any mouse click
+                if (gameState == GameState.PLAYING && unpauseCountdownActive) {
+                    unpauseCountdownActive = false;
+                    lastCountdownSecond = -1;
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_GO);
+                    screenShakeIntensity = 2;
+                    return;
+                }
+
                 // Handle press for responsive feel
                 if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
                     // Check for slider track click to start drag
@@ -1501,51 +1510,75 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
                     if (selectedStatItem == 0) {
-                        // Browse active items (all 9 including locked)
-                        int idx = renderer.getStatsActiveItemDisplayIndex();
-                        if (idx > 0) {
-                            idx--;
-                            renderer.setStatsActiveItemDisplayIndex(idx);
-                            // Auto-equip if unlocked
-                            autoEquipStatsItem(idx);
+                        if (hasSavedGame) {
+                            // Locked - level in progress
+                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                            screenShakeIntensity = 3;
+                        } else {
+                            // Browse active items (all 9 including locked)
+                            int idx = renderer.getStatsActiveItemDisplayIndex();
+                            if (idx > 0) {
+                                idx--;
+                                renderer.setStatsActiveItemDisplayIndex(idx);
+                                // Auto-equip if unlocked
+                                autoEquipStatsItem(idx);
+                            }
+                            screenShakeIntensity = 2;
                         }
-                        screenShakeIntensity = 2;
                     } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
-                        // All upgrades are now in PassiveUpgradeManager (index 1+)
-                        int upgradeIndex = selectedStatItem - 1;
-                        int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Missiles (last item) - it's read-only
-                        if (upgradeIndex < numUpgrades - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                            if (upgrade.getActiveLevel() > 0) {
-                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
-                                screenShakeIntensity = 2;
+                        if (hasSavedGame) {
+                            // Locked - level in progress
+                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                            screenShakeIntensity = 3;
+                        } else {
+                            // All upgrades are now in PassiveUpgradeManager (index 1+)
+                            int upgradeIndex = selectedStatItem - 1;
+                            int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
+                            // Skip Extra Missiles (last item) - it's read-only
+                            if (upgradeIndex < numUpgrades - 1) {
+                                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
+                                if (upgrade.getActiveLevel() > 0) {
+                                    upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
+                                    screenShakeIntensity = 2;
+                                }
                             }
                         }
                     }
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
                     if (selectedStatItem == 0) {
-                        // Browse active items (all 9 including locked)
-                        int idx = renderer.getStatsActiveItemDisplayIndex();
-                        if (idx < 8) {
-                            idx++;
-                            renderer.setStatsActiveItemDisplayIndex(idx);
-                            // Auto-equip if unlocked
-                            autoEquipStatsItem(idx);
+                        if (hasSavedGame) {
+                            // Locked - level in progress
+                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                            screenShakeIntensity = 3;
+                        } else {
+                            // Browse active items (all 9 including locked)
+                            int idx = renderer.getStatsActiveItemDisplayIndex();
+                            if (idx < 8) {
+                                idx++;
+                                renderer.setStatsActiveItemDisplayIndex(idx);
+                                // Auto-equip if unlocked
+                                autoEquipStatsItem(idx);
+                            }
+                            screenShakeIntensity = 2;
                         }
-                        screenShakeIntensity = 2;
                     } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
-                        // All upgrades are now in PassiveUpgradeManager (index 1+)
-                        int upgradeIndex = selectedStatItem - 1;
-                        int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                        // Skip Extra Missiles (last item) - it's read-only
-                        if (upgradeIndex < numUpgrades - 1) {
-                            PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                            // Only allow increasing up to purchased level (not maxLevel)
-                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
-                                screenShakeIntensity = 2;
+                        if (hasSavedGame) {
+                            // Locked - level in progress
+                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                            screenShakeIntensity = 3;
+                        } else {
+                            // All upgrades are now in PassiveUpgradeManager (index 1+)
+                            int upgradeIndex = selectedStatItem - 1;
+                            int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
+                            // Skip Extra Missiles (last item) - it's read-only
+                            if (upgradeIndex < numUpgrades - 1) {
+                                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
+                                // Only allow increasing up to purchased level (not maxLevel)
+                                if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                    upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
+                                    screenShakeIntensity = 2;
+                                }
                             }
                         }
                     }
@@ -1992,7 +2025,13 @@ public class Game extends JPanel implements Runnable {
                     }
                     break;
                 }
-                if (isPaused) {
+                if (unpauseCountdownActive) {
+                    // Any key skips the countdown
+                    unpauseCountdownActive = false;
+                    lastCountdownSecond = -1;
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_GO);
+                    screenShakeIntensity = 2;
+                } else if (isPaused) {
                     // Pause menu navigation
                     if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
                         selectedPauseItem = Math.max(0, selectedPauseItem - 1);
@@ -3398,7 +3437,11 @@ public class Game extends JPanel implements Runnable {
                 updateStatsScroll();
                 
                 // Left half = previous item, right half = next item
-                if (gameData.hasActiveItems()) {
+                if (hasSavedGame) {
+                    // Locked - level in progress
+                    soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                    screenShakeIntensity = 3;
+                } else if (gameData.hasActiveItems()) {
                     if (mouseX < WIDTH / 2) {
                         gameData.equipPreviousItem();
                     } else {
@@ -3428,20 +3471,26 @@ public class Game extends JPanel implements Runnable {
                         updateStatsScroll();
                         
                         // Left side = decrease, right side = increase
-                        PassiveUpgrade upgrade = upgrades.get(i);
-                        if (mouseX < WIDTH / 2) {
-                            // Decrease active level
-                            if (upgrade.getActiveLevel() > 0) {
-                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
-                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                                screenShakeIntensity = 2;
-                            }
+                        if (hasSavedGame) {
+                            // Locked - level in progress
+                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                            screenShakeIntensity = 3;
                         } else {
-                            // Increase active level (up to purchased level)
-                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
-                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                                screenShakeIntensity = 2;
+                            PassiveUpgrade upgrade = upgrades.get(i);
+                            if (mouseX < WIDTH / 2) {
+                                // Decrease active level
+                                if (upgrade.getActiveLevel() > 0) {
+                                    upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
+                                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                    screenShakeIntensity = 2;
+                                }
+                            } else {
+                                // Increase active level (up to purchased level)
+                                if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                    upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
+                                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                    screenShakeIntensity = 2;
+                                }
                             }
                         }
                         return;
@@ -5709,8 +5758,8 @@ public class Game extends JPanel implements Runnable {
         cameraBreathTime += 0.02 * deltaTime;
         cameraBreathOffset = Math.sin(cameraBreathTime) * 2.0;
         
-        // Smooth UI number animations (freeze during pause so score doesn't appear to tick up)
-        if (!(gameState == GameState.PLAYING && isPaused)) {
+        // Smooth UI number animations (freeze during pause/countdown so score doesn't appear to tick up)
+        if (!(gameState == GameState.PLAYING && (isPaused || unpauseCountdownActive))) {
             double scoreTarget = gameData.getScore();
             double moneyTarget = gameData.getTotalMoney() + gameData.getRunMoney();
             displayedScore += (scoreTarget - displayedScore) * 0.15 * deltaTime;
@@ -8559,8 +8608,8 @@ public class Game extends JPanel implements Runnable {
                 renderer.drawAchievements(g2d, WIDTH, HEIGHT, gradientTime, achievementManager, achievementsScrollAnimated);
                 break;
             case STATS:
-                renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager);
-                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated);
+                renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager, hasSavedGame);
+                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated, hasSavedGame);
                 break;
             case SETTINGS:
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
@@ -9813,7 +9862,21 @@ public class Game extends JPanel implements Runnable {
                     }
                     break;
                 }
-                if (isPaused) {
+                if (unpauseCountdownActive) {
+                    // Any controller button skips the countdown
+                    if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.BACK) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.PAUSE) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_LEFT) ||
+                        controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_RIGHT)) {
+                        unpauseCountdownActive = false;
+                        lastCountdownSecond = -1;
+                        soundManager.playSound(SoundManager.Sound.COUNTDOWN_GO);
+                        screenShakeIntensity = 2;
+                    }
+                } else if (isPaused) {
                     if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
                         selectedPauseItem = Math.max(0, selectedPauseItem - 1);
                         screenShakeIntensity = 1;

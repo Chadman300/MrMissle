@@ -3462,7 +3462,7 @@ public class Renderer {
 
     
 
-    public void drawStats(Graphics2D g, int width, int height, double time, PassiveUpgradeManager passiveManager) {
+    public void drawStats(Graphics2D g, int width, int height, double time, PassiveUpgradeManager passiveManager, boolean loadoutLocked) {
 
         // Military themed background
 
@@ -3476,19 +3476,61 @@ public class Renderer {
 
         
 
-        // Show total money with glow
+        if (loadoutLocked) {
 
-        g.setColor(ColorPalette.SUCCESS_GREEN);
+            // Lock banner replaces the money line when level is in progress
 
-        g.setFont(FONT_LARGE);
+            int bannerW = UIScale.px(700);
 
-        String money = "Money: $" + gameData.getTotalMoney();
+            int bannerH = UIScale.px(28);
 
-        FontMetrics fm = g.getFontMetrics();
+            int bannerX = (width - bannerW) / 2;
 
-        int moneyX = (width - fm.stringWidth(money)) / 2;
+            int bannerY = 105;
 
-        g.drawString(money, moneyX, 120);
+            // Banner background
+
+            g.setColor(new Color(180, 60, 40, 180));
+
+            g.fillRoundRect(bannerX, bannerY, bannerW, bannerH, UIScale.px(8), UIScale.px(8));
+
+            g.setColor(new Color(255, 100, 80, 200));
+
+            g.setStroke(RenderCache.getStroke(1.5f));
+
+            g.drawRoundRect(bannerX, bannerY, bannerW, bannerH, UIScale.px(8), UIScale.px(8));
+
+            g.setStroke(RenderCache.getStroke(1f));
+
+            // Banner text
+
+            g.setFont(FONT_EXTRA_SMALL_16);
+
+            g.setColor(new Color(255, 220, 200));
+
+            String lockMsg = "LOCKED - Complete or abandon your current level to make changes";
+
+            FontMetrics lockFm = g.getFontMetrics();
+
+            g.drawString(lockMsg, (width - lockFm.stringWidth(lockMsg)) / 2, bannerY + UIScale.px(19));
+
+        } else {
+
+            // Show total money with glow
+
+            g.setColor(ColorPalette.SUCCESS_GREEN);
+
+            g.setFont(FONT_LARGE);
+
+            String money = "Money: $" + gameData.getTotalMoney();
+
+            FontMetrics fm = g.getFontMetrics();
+
+            int moneyX = (width - fm.stringWidth(money)) / 2;
+
+            g.drawString(money, moneyX, 120);
+
+        }
 
         
 
@@ -3504,7 +3546,7 @@ public class Renderer {
 
     
 
-    public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset) {
+    public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset, boolean loadoutLocked) {
 
         int baseY = 180;
 
@@ -3522,11 +3564,11 @@ public class Renderer {
 
         // Section 1: Active Item (index 0)
 
-        g.setColor(ColorPalette.SUCCESS_GREEN);
+        g.setColor(loadoutLocked ? ColorPalette.ACCENT_RED : ColorPalette.SUCCESS_GREEN);
 
         g.setFont(FONT_SMALL);
 
-        g.drawString("ACTIVE ITEM - Unlock from mega bosses", width / 2 - 400, y);
+        g.drawString(loadoutLocked ? "ACTIVE ITEM - LOCKED (level in progress)" : "ACTIVE ITEM - Unlock from mega bosses", width / 2 - 400, y);
 
         y += 30;
 
@@ -3711,10 +3753,10 @@ public class Renderer {
         
 
 
-        // Left arrow
+        // Left arrow (hidden when locked)
 
 
-        if (displayIndex > 0) {
+        if (displayIndex > 0 && !loadoutLocked) {
 
 
             g.setFont(FONT_LARGE);
@@ -3732,10 +3774,10 @@ public class Renderer {
         
 
 
-        // Right arrow
+        // Right arrow (hidden when locked)
 
 
-        if (displayIndex < allItems.length - 1) {
+        if (displayIndex < allItems.length - 1 && !loadoutLocked) {
 
 
             g.setFont(FONT_LARGE);
@@ -4058,11 +4100,11 @@ public class Renderer {
 
         y += UIScale.px(20);
 
-        g.setColor(ColorPalette.ACCENT_PURPLE);
+        g.setColor(loadoutLocked ? ColorPalette.ACCENT_RED : ColorPalette.ACCENT_PURPLE);
 
         g.setFont(FONT_SMALL);
 
-        g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - UIScale.px(400), y);
+        g.drawString(loadoutLocked ? "SHOP UPGRADES - LOCKED (level in progress)" : "SHOP UPGRADES - Allocate purchased levels", width / 2 - UIScale.px(400), y);
 
         y += UIScale.px(30);
 
@@ -4096,7 +4138,7 @@ public class Renderer {
 
                 drawUpgradeCard(g, width / 2 - cardWidth / 2, y, cardWidth, cardHeight,
 
-                               icon, upgrade.getName(), active, owned, isSelected, true, false);
+                               icon, upgrade.getName(), active, owned, isSelected, true, loadoutLocked);
 
                 
 
