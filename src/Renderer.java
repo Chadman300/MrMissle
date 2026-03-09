@@ -418,10 +418,10 @@ public class Renderer {
         // Initialize menu buttons — military/rock themed colors
         menuButtons = new UIButton[7];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
-        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
-        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
+        menuButtons[1] = new UIButton("Shop", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
+        menuButtons[2] = new UIButton("Loadout", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
         menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
-        menuButtons[4] = new UIButton("Intel", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[4] = new UIButton("Help & Tutorial", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
         menuButtons[5] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
         menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
 
@@ -475,10 +475,10 @@ public class Renderer {
         
         // Recreate menu buttons at new scale
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
-        menuButtons[1] = new UIButton("Armory", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
-        menuButtons[2] = new UIButton("Stats", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
+        menuButtons[1] = new UIButton("Shop", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
+        menuButtons[2] = new UIButton("Loadout", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
         menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
-        menuButtons[4] = new UIButton("Intel", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[4] = new UIButton("Help & Tutorial", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
         menuButtons[5] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
         menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
         
@@ -2460,7 +2460,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "MISSION INTEL", width, UIScale.px(60), ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
+        UITheme.drawTitle(g, "HELP & TUTORIAL", width, UIScale.px(60), ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
 
         
 
@@ -3084,7 +3084,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "STATS", width, 80, ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
+        UITheme.drawTitle(g, "LOADOUT", width, 80, ColorPalette.ACCENT_CYAN, ColorPalette.ACCENT_ORANGE, time, FONT_TITLE_MEDIUM);
 
         
 
@@ -8743,7 +8743,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "ARMORY", width, UIScale.px(100), ColorPalette.ACCENT_PURPLE, ColorPalette.TEXT_GOLD, time);
+        UITheme.drawTitle(g, "SHOP", width, UIScale.px(100), ColorPalette.ACCENT_PURPLE, ColorPalette.TEXT_GOLD, time);
 
         
 
@@ -9653,7 +9653,7 @@ public class Renderer {
 
         drawPromptWithIcons(g, width / 2, instructionY,
 
-            "Press ", KeyBindManager.Action.CONFIRM, " to Visit Armory");
+            "Press ", KeyBindManager.Action.CONFIRM, " to Visit Shop");
 
         
 
