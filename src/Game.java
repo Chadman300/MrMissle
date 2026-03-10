@@ -5517,9 +5517,9 @@ public class Game extends JPanel implements Runnable {
                     scrollCooldown -= 1.0;
                 }
                 
-                // Update game timer (only during active, unpaused gameplay — not during intro animations)
+                // Update game timer (only during active, unpaused gameplay — not during intro animations or unpause countdown)
                 if (gameState == GameState.PLAYING && player != null) {
-                    if (!isPaused && !introPanActive && !bossIntroActive) {
+                    if (!isPaused && !unpauseCountdownActive && !introPanActive && !bossIntroActive) {
                         gameTimeSeconds = (System.currentTimeMillis() - gameStartTime) / 1000.0;
                     } else {
                         // Keep gameStartTime in sync so timer doesn't jump when unpaused/intro ends

@@ -3476,17 +3476,27 @@ public class Renderer {
 
         
 
+        // Instructions at top (drawn first so banner/money appear between title and this)
+
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+
+        g.setFont(FONT_EXTRA_SMALL_16);
+
+        drawPromptWithIcons(g, width / 2, 145, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to select | ", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT, " to adjust | ", KeyBindManager.Action.BACK, " to return");
+
+        
+
         if (loadoutLocked) {
 
-            // Lock banner replaces the money line when level is in progress
+            // Lock banner below the controls line
 
             int bannerW = UIScale.px(700);
 
-            int bannerH = UIScale.px(28);
+            int bannerH = UIScale.px(30);
 
             int bannerX = (width - bannerW) / 2;
 
-            int bannerY = 105;
+            int bannerY = 160;
 
             // Banner background
 
@@ -3502,7 +3512,7 @@ public class Renderer {
 
             g.setStroke(RenderCache.getStroke(1f));
 
-            // Banner text
+            // Banner text - vertically centered in banner
 
             g.setFont(FONT_EXTRA_SMALL_16);
 
@@ -3512,7 +3522,7 @@ public class Renderer {
 
             FontMetrics lockFm = g.getFontMetrics();
 
-            g.drawString(lockMsg, (width - lockFm.stringWidth(lockMsg)) / 2, bannerY + UIScale.px(19));
+            g.drawString(lockMsg, (width - lockFm.stringWidth(lockMsg)) / 2, bannerY + bannerH / 2 + lockFm.getAscent() / 2 - 1);
 
         } else {
 
@@ -3532,23 +3542,13 @@ public class Renderer {
 
         }
 
-        
-
-        // Instructions at top
-
-        g.setColor(ColorPalette.TEXT_PRIMARY);
-
-        g.setFont(FONT_EXTRA_SMALL_16);
-
-        drawPromptWithIcons(g, width / 2, 145, KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN, " to select | ", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT, " to adjust | ", KeyBindManager.Action.BACK, " to return");
-
     }
 
     
 
     public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset, boolean loadoutLocked) {
 
-        int baseY = 180;
+        int baseY = loadoutLocked ? 220 : 180;
 
         int y = baseY - (int)scrollOffset;
 
@@ -3564,13 +3564,13 @@ public class Renderer {
 
         // Section 1: Active Item (index 0)
 
-        g.setColor(loadoutLocked ? ColorPalette.ACCENT_RED : ColorPalette.SUCCESS_GREEN);
+        g.setColor(loadoutLocked ? new Color(160, 140, 140) : ColorPalette.SUCCESS_GREEN);
 
         g.setFont(FONT_SMALL);
 
-        g.drawString(loadoutLocked ? "ACTIVE ITEM - LOCKED (level in progress)" : "ACTIVE ITEM - Unlock from mega bosses", width / 2 - 400, y);
+        g.drawString("ACTIVE ITEM - Unlock from mega bosses", width / 2 - UIScale.px(400), y);
 
-        y += 30;
+        y += UIScale.px(30);
 
         
 
@@ -4100,11 +4100,11 @@ public class Renderer {
 
         y += UIScale.px(20);
 
-        g.setColor(loadoutLocked ? ColorPalette.ACCENT_RED : ColorPalette.ACCENT_PURPLE);
+        g.setColor(loadoutLocked ? new Color(160, 140, 140) : ColorPalette.ACCENT_PURPLE);
 
         g.setFont(FONT_SMALL);
 
-        g.drawString(loadoutLocked ? "SHOP UPGRADES - LOCKED (level in progress)" : "SHOP UPGRADES - Allocate purchased levels", width / 2 - UIScale.px(400), y);
+        g.drawString("SHOP UPGRADES - Allocate purchased levels", width / 2 - UIScale.px(400), y);
 
         y += UIScale.px(30);
 
