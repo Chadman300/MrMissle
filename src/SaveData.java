@@ -601,9 +601,9 @@ public class SaveData implements Serializable {
         Game.enableUIParallax = enableUIParallax;
         Game.uiScale = uiScale;
         config.UIScale.setScale(uiScale);
-        Game.enableGPUAcceleration = enableGPUAcceleration;
-        Game.gpuPipelineType = gpuPipelineType;
-        Game.bufferStrategyMode = bufferStrategyMode;
+        // GPU settings are managed globally — do NOT overwrite from per-save data.
+        // Game.enableGPUAcceleration, gpuPipelineType, bufferStrategyMode come from
+        // GlobalSaveData / config/gpu.properties and are kept in sync across all saves.
         Game.enableHitboxes = enableHitboxes;
         
         // HUD Layout

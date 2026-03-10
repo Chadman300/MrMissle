@@ -136,4 +136,19 @@ public class AchievementManager {
         }
         recentlyUnlocked.clear();
     }
+    
+    /**
+     * Record any recently unlocked achievements into the global save data.
+     * Returns true if the global data was modified (needs saving).
+     */
+    public boolean recordGlobalUnlocks(List<Achievement> newlyUnlocked, GlobalSaveData globalData) {
+        if (globalData == null || newlyUnlocked == null) return false;
+        boolean changed = false;
+        for (Achievement achievement : newlyUnlocked) {
+            if (globalData.recordAchievement(achievement.getId())) {
+                changed = true;
+            }
+        }
+        return changed;
+    }
 }

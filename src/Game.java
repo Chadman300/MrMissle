@@ -79,6 +79,7 @@ public class Game extends JPanel implements Runnable {
     private PassiveUpgradeManager passiveUpgradeManager;
     private ComboSystem comboSystem;
     private SaveManager saveManager;
+    private GlobalSaveData globalSaveData;
     
     // Keybind & controller systems
     public static KeyBindManager keyBindManager;
@@ -890,6 +891,15 @@ public class Game extends JPanel implements Runnable {
         } catch (Exception e) {
             System.err.println("[GPU] Failed to save config: " + e.getMessage());
         }
+        
+        // Sync GPU settings to global save and propagate to all save slots
+        if (instance != null && instance.globalSaveData != null) {
+            instance.globalSaveData.enableGPUAcceleration = enableGPUAcceleration;
+            instance.globalSaveData.gpuPipelineType = gpuPipelineType;
+            instance.globalSaveData.bufferStrategyMode = bufferStrategyMode;
+            instance.saveManager.saveGlobal(instance.globalSaveData);
+            instance.saveManager.propagateGPUToAllSaves(enableGPUAcceleration, gpuPipelineType, bufferStrategyMode);
+        }
     }
     
     public Game() {
@@ -927,6 +937,18 @@ public class Game extends JPanel implements Runnable {
         shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
         saveManager = new SaveManager(); // Initialize save manager
+        
+        // Load or create global save data
+        globalSaveData = saveManager.loadGlobal();
+        if (globalSaveData == null) {
+            globalSaveData = saveManager.createInitialGlobalSave();
+        } else {
+            // Apply global GPU settings (override whatever gpu.properties loaded)
+            enableGPUAcceleration = globalSaveData.enableGPUAcceleration;
+            gpuPipelineType = globalSaveData.gpuPipelineType;
+            bufferStrategyMode = globalSaveData.bufferStrategyMode;
+        }
+        
         pendingAchievements = new ArrayList<>(8);
         damageNumbers = new ArrayList<>(64);
         soundManager = SoundManager.getInstance();
@@ -1286,29 +1308,10 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     if (selectedSaveSlot < saveMetadataCache.size()) {
-                        // Clicking on an existing save â€” load it
+                        // Load existing save
                         SaveManager.SaveMetadata meta = saveMetadataCache.get(selectedSaveSlot);
                         int slot = meta.slotNumber;
-                        SaveData saveData = saveManager.load(slot);
-                        if (saveData != null) {
-                            saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                            gameData.setCustomSaveName(meta.saveName);
-                            if (renderer != null) renderer.hudLayout = hudLayout;
-                            hasSavedGame = saveData.hasSavedGame();
-                            savedLevel = saveData.getSavedLevel();
-                            savedResumeState = saveData.getResumeState();
-                            levelSelectScroll = gameData.getSelectedLevelView();
-                            levelSelectScrollAnimated = gameData.getSelectedLevelView();
-                            soundManager.setMasterVolume(gameData.getMasterVolume());
-                            soundManager.setSfxVolume(gameData.getSfxVolume());
-                            soundManager.setUiVolume(gameData.getUiVolume());
-                            soundManager.setMusicVolume(gameData.getMusicVolume());
-                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
-                            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
-                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
-                            screenShakeIntensity = 5;
-                            transitionToState(GameState.MENU);
-                        }
+                        loadSaveSlot(slot, meta.saveName);
                     } else {
                         // "New Save" button â€” go to mode selection
                         pendingSaveSlot = saveManager.getNextAvailableSlot();
@@ -3185,26 +3188,7 @@ public class Game extends JPanel implements Runnable {
                         // Load existing save
                         SaveManager.SaveMetadata meta = saveMetadataCache.get(i);
                         int slot = meta.slotNumber;
-                        SaveData saveData = saveManager.load(slot);
-                        if (saveData != null) {
-                            saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
-                            gameData.setCustomSaveName(meta.saveName);
-                            if (renderer != null) renderer.hudLayout = hudLayout;
-                            hasSavedGame = saveData.hasSavedGame();
-                            savedLevel = saveData.getSavedLevel();
-                            savedResumeState = saveData.getResumeState();
-                            levelSelectScroll = gameData.getSelectedLevelView();
-                            levelSelectScrollAnimated = gameData.getSelectedLevelView();
-                            soundManager.setMasterVolume(gameData.getMasterVolume());
-                            soundManager.setSfxVolume(gameData.getSfxVolume());
-                            soundManager.setUiVolume(gameData.getUiVolume());
-                            soundManager.setMusicVolume(gameData.getMusicVolume());
-                            soundManager.setSoundEnabled(gameData.isSoundEnabled());
-                            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
-                            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
-                            screenShakeIntensity = 5;
-                            transitionToState(GameState.MENU);
-                        }
+                        loadSaveSlot(slot, meta.saveName);
                     } else {
                         // "New Save" â€” go to mode selection
                         pendingSaveSlot = saveManager.getNextAvailableSlot();
@@ -5475,13 +5459,19 @@ public class Game extends JPanel implements Runnable {
         double delta = 0;
         
         // Initialize off-screen render buffers (TYPE_INT_RGB â€” no alpha needed for display)
-        renderBuffer = createOptimalImage(WIDTH, HEIGHT, false);
-        displayBuffer = createOptimalImage(WIDTH, HEIGHT, false);
-        System.out.println("[GPU] Render buffers: " + renderBuffer.getClass().getSimpleName()
-            + " type=" + renderBuffer.getType()
+        renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+        displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+        System.out.println("[GPU] Render buffers: software BufferedImage"
             + " (GPU=" + enableGPUAcceleration + ")");
         
         while (running) {
+            // Recreate render buffers if needed (e.g. after fullscreen toggle)
+            if (needsBufferRecreate) {
+                needsBufferRecreate = false;
+                renderBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+                displayBuffer = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
+            }
+            
             long now = System.nanoTime();
             
             delta += (now - lastTime) / nsPerTick;
@@ -7112,6 +7102,10 @@ public class Game extends JPanel implements Runnable {
                         achievementNotificationTimer = ACHIEVEMENT_NOTIFICATION_DURATION;
                         achievementFlashTimer = 20; // Flash effect for achievement
                         soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCKED);
+                        // Record into global achievements
+                        if (achievementManager.recordGlobalUnlocks(newlyUnlocked, globalSaveData)) {
+                            saveManager.saveGlobal(globalSaveData);
+                        }
                         achievementManager.clearRecentlyUnlocked();
                     }
                     
@@ -7174,6 +7168,21 @@ public class Game extends JPanel implements Runnable {
                     // Check clutch survival achievement (used 5+ missiles and survived on last one)
                     if (missilesUsedThisRun >= 5 && gameData.getMissiles() == 1) {
                         achievementManager.updateProgress(Achievement.AchievementType.CLUTCH_SURVIVAL, missilesUsedThisRun);
+                    }
+                    
+                    // Record any speed/clutch achievements into global save
+                    List<Achievement> lateUnlocked = achievementManager.getRecentlyUnlocked();
+                    if (!lateUnlocked.isEmpty()) {
+                        pendingAchievements.addAll(lateUnlocked);
+                        if (achievementNotificationTimer <= 0) {
+                            achievementNotificationTimer = ACHIEVEMENT_NOTIFICATION_DURATION;
+                            achievementFlashTimer = 20;
+                            soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCKED);
+                        }
+                        if (achievementManager.recordGlobalUnlocks(lateUnlocked, globalSaveData)) {
+                            saveManager.saveGlobal(globalSaveData);
+                        }
+                        achievementManager.clearRecentlyUnlocked();
                     }
                     
                     // Start boss death animation
@@ -10076,44 +10085,80 @@ public class Game extends JPanel implements Runnable {
         } catch (Exception ignored) {}
     }
     
+    // Flag checked by game thread to recreate render buffers after fullscreen toggle
+    private volatile boolean needsBufferRecreate = false;
+
+    /** Load a save slot and sync all settings including fullscreen window state. */
+    private void loadSaveSlot(int slot, String saveName) {
+        SaveData saveData = saveManager.load(slot);
+        if (saveData != null) {
+            // Remember current window fullscreen state before save overwrites the flag
+            boolean windowIsFullscreen = isFullscreen;
+            saveData.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+            boolean wantFullscreen = isFullscreen; // loadIntoGameData set this from save data
+            gameData.setCustomSaveName(saveName);
+            if (renderer != null) renderer.hudLayout = hudLayout;
+            hasSavedGame = saveData.hasSavedGame();
+            savedLevel = saveData.getSavedLevel();
+            savedResumeState = saveData.getResumeState();
+            levelSelectScroll = gameData.getSelectedLevelView();
+            levelSelectScrollAnimated = gameData.getSelectedLevelView();
+            soundManager.setMasterVolume(gameData.getMasterVolume());
+            soundManager.setSfxVolume(gameData.getSfxVolume());
+            soundManager.setUiVolume(gameData.getUiVolume());
+            soundManager.setMusicVolume(gameData.getMusicVolume());
+            soundManager.setSoundEnabled(gameData.isSoundEnabled());
+            soundManager.setSpatialAudioEnabled(gameData.isSpatialAudioEnabled());
+            // Sync actual window fullscreen state with the loaded setting
+            if (wantFullscreen != windowIsFullscreen) {
+                isFullscreen = windowIsFullscreen; // reset so toggleFullscreen flips to desired state
+                toggleFullscreen();
+            }
+            soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+            screenShakeIntensity = 5;
+            transitionToState(GameState.MENU);
+        }
+    }
+
     private void toggleFullscreen() {
         isFullscreen = !isFullscreen;
         java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
         if (window instanceof javax.swing.JFrame) {
             javax.swing.JFrame frame = (javax.swing.JFrame) window;
             
-            // Get the graphics device for the screen where the window is currently located
-            java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
-            java.awt.GraphicsDevice device = gc.getDevice();
-            java.awt.Rectangle screenBounds = gc.getBounds();
+            java.awt.Rectangle screenBounds = frame.getGraphicsConfiguration().getBounds();
+            
+            // dispose() is required to change the undecorated property.
+            // Render buffers are plain software BufferedImages, so they
+            // survive the window dispose/recreate cycle.
+            frame.dispose();
             
             if (isFullscreen) {
-                // Switch to fullscreen on the current monitor
-                frame.dispose();
+                // Borderless windowed fullscreen — covers the entire screen
                 frame.setUndecorated(true);
-                frame.setVisible(true);
-                
-                // Set bounds to match the current screen exactly
                 frame.setBounds(screenBounds);
-                device.setFullScreenWindow(frame);
             } else {
-                // Switch to windowed - use screen's native aspect ratio so no black bars
-                device.setFullScreenWindow(null);
-                frame.dispose();
-                frame.setExtendedState(javax.swing.JFrame.NORMAL);
+                // Windowed with title bar — 80% screen height, 16:9 aspect ratio
                 frame.setUndecorated(false);
-                
-                // Content area at 80% screen height, locked 16:9 aspect ratio
+                frame.setExtendedState(javax.swing.JFrame.NORMAL);
                 int contentH = (int)(screenBounds.height * 0.8);
                 int contentW = (int)(contentH * 16.0 / 9.0);
                 setPreferredSize(new java.awt.Dimension(contentW, contentH));
-                frame.pack(); // sizes frame around content (accounts for title bar)
-                frame.setLocationRelativeTo(null); // center on screen
-                frame.setVisible(true);
+                frame.pack();
+                frame.setLocationRelativeTo(null);
             }
             
-            // Request focus back to game
+            frame.setVisible(true);
+            
+            // Recreate render buffers for the new window
+            needsBufferRecreate = true;
+            
+            // Request focus back to game panel
             this.requestFocusInWindow();
+            
+            // Force an immediate repaint so the new window isn't blank
+            revalidate();
+            repaint();
         }
     }
     

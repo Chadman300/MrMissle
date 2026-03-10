@@ -306,4 +306,111 @@ public class SaveManager {
                 maxLevel, totalMoney, totalRuns);
         }
     }
+    
+    // ========== Global Save (saves/global.dat) ==========
+    
+    private static final String GLOBAL_SAVE_FILE = SAVE_DIRECTORY + File.separator + "global.dat";
+    
+    /**
+     * Save global data to saves/global.dat
+     */
+    public boolean saveGlobal(GlobalSaveData data) {
+        try {
+            Files.createDirectories(Paths.get(SAVE_DIRECTORY));
+        } catch (IOException e) {
+            System.err.println("Failed to create save directory: " + e.getMessage());
+        }
+        
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(GLOBAL_SAVE_FILE))) {
+            data.saveTimestamp = System.currentTimeMillis();
+            oos.writeObject(data);
+            System.out.println("[Global] Saved global data (" + data.getUnlockedCount() + " global achievements)");
+            return true;
+        } catch (IOException e) {
+            System.err.println("[Global] Failed to save global data: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Load global data from saves/global.dat.
+     * Returns null if file doesn't exist or can't be read.
+     */
+    public GlobalSaveData loadGlobal() {
+        if (!Files.exists(Paths.get(GLOBAL_SAVE_FILE))) {
+            return null;
+        }
+        
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(GLOBAL_SAVE_FILE))) {
+            GlobalSaveData data = (GlobalSaveData) ois.readObject();
+            System.out.println("[Global] Loaded global data (" + data.getUnlockedCount() + " global achievements)");
+            return data;
+        } catch (java.io.InvalidClassException e) {
+            System.err.println("[Global] Global save incompatible (outdated format). Recreating.");
+            try { Files.deleteIfExists(Paths.get(GLOBAL_SAVE_FILE)); } catch (IOException ignored) {}
+            return null;
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("[Global] Failed to load global data: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Propagate GPU acceleration settings to ALL existing save slot files.
+     * Called when GPU settings are changed so every save stays in sync.
+     */
+    public void propagateGPUToAllSaves(boolean enableGPU, int pipelineType, int bufferMode) {
+        List<Integer> slots = getAllSaveSlots();
+        for (int slot : slots) {
+            try {
+                SaveData data = load(slot);
+                if (data != null) {
+                    data.enableGPUAcceleration = enableGPU;
+                    data.gpuPipelineType = pipelineType;
+                    data.bufferStrategyMode = bufferMode;
+                    save(slot, data);
+                }
+            } catch (Exception e) {
+                System.err.println("[Global] Failed to propagate GPU settings to slot " + slot + ": " + e.getMessage());
+            }
+        }
+        // Reset currentSaveSlot to -1 since we touched multiple slots for propagation only
+        currentSaveSlot = -1;
+        System.out.println("[Global] Propagated GPU settings to " + slots.size() + " save(s)");
+    }
+    
+    /**
+     * Create a GlobalSaveData by migrating data from existing saves
+     * (first-run migration when global.dat doesn't exist yet).
+     */
+    public GlobalSaveData createInitialGlobalSave() {
+        GlobalSaveData globalData = new GlobalSaveData();
+        
+        // Seed GPU settings from current Game static values (which came from gpu.properties)
+        globalData.enableGPUAcceleration = Game.enableGPUAcceleration;
+        globalData.gpuPipelineType = Game.gpuPipelineType;
+        globalData.bufferStrategyMode = Game.bufferStrategyMode;
+        
+        // Seed global achievements from the union of all existing saves
+        List<Integer> slots = getAllSaveSlots();
+        for (int slot : slots) {
+            try {
+                SaveData data = load(slot);
+                if (data != null && data.unlockedAchievements != null) {
+                    for (String id : data.unlockedAchievements) {
+                        globalData.recordAchievement(id);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[Global] Failed to read slot " + slot + " during migration: " + e.getMessage());
+            }
+        }
+        // Reset currentSaveSlot since we only read for migration
+        currentSaveSlot = -1;
+        
+        saveGlobal(globalData);
+        System.out.println("[Global] Created initial global save (migrated " + globalData.getUnlockedCount() 
+            + " achievements from " + slots.size() + " save(s))");
+        return globalData;
+    }
 }
