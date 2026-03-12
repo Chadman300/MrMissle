@@ -284,7 +284,10 @@ public class Boss {
         if (isMegaBoss) {
             this.shootInterval = (int)(this.shootInterval * 0.85); // 15% faster firing for mega bosses
         } else {
-            this.shootInterval = (int)(this.shootInterval * 1.05); // 5% slower firing for normal bosses
+            // Normal bosses progressively close the fire-rate gap at higher levels
+            // Level 1-4: 1.05x slower, Level 10: ~1.0x (same), Level 16+: ~0.95x (slightly faster)
+            double normalFireScale = Math.max(0.95, 1.05 - level * 0.006);
+            this.shootInterval = (int)(this.shootInterval * normalFireScale);
         }
         // Start with random pattern from available pool
         this.patternType = (int)(Math.random() * maxPatterns);
@@ -297,7 +300,8 @@ public class Boss {
         this.beamAttackInterval = Math.max(300, 480 - level * 10); // Less frequent, more manageable
         
         // Initialize health and phases
-        this.maxHealth = isMegaBoss ? 5 : 3; // Mega bosses have 5 hits, mini bosses have 3 hits
+        // Mega: 5 HP, Normal: 3 HP at low levels, 4 HP at level 10+
+        this.maxHealth = isMegaBoss ? 5 : (level >= 10 ? 4 : 3);
         this.currentHealth = maxHealth;
         this.currentPhase = 0;
         this.phaseTransitioning = false;
@@ -309,9 +313,15 @@ public class Boss {
         // Assault gets longer and recovery gets shorter at higher levels (slower scaling)
         this.assaultPhaseDuration = 300 + level * 8; // 5-6.3 seconds (reduced from *15)
         this.recoveryPhaseDuration = Math.max(150, 210 - level * 4); // 3.5-2.5 seconds (reduced from *8)
-        // Normal bosses are slightly less aggressive
+        // Normal bosses scale up aggression at higher levels
         if (!isMegaBoss) {
-            this.assaultSpeedMultiplier = 1.5; // Slightly slower attacks during assault for normal bosses
+            // Level 1: 1.5x, gradually up to 1.8x at level 15+
+            this.assaultSpeedMultiplier = Math.min(1.8, 1.5 + level * 0.02);
+            // At higher levels, normal bosses also get slightly longer assault phases
+            if (level >= 7) {
+                this.assaultPhaseDuration += (level - 7) * 5; // +5 frames per level past 7
+                this.recoveryPhaseDuration = Math.max(120, this.recoveryPhaseDuration - (level - 7) * 3);
+            }
         }
         // Mega bosses are more aggressive
         if (isMegaBoss) {
@@ -338,9 +348,15 @@ public class Boss {
         loadSprites();
     }
     
-    /** Scale a bullet count by the game mode's bullet count scale (minimum 1). */
+    /** Scale a bullet count by the game mode's bullet count scale (minimum 1).
+     *  Normal bosses at higher levels also get bonus bullets to close the difficulty gap. */
     private int scaleBulletCount(int baseCount) {
-        return Math.max(1, (int)(baseCount * gameMode.getBulletCountScale()));
+        double scale = gameMode.getBulletCountScale();
+        // Normal bosses at level 8+ get up to 20% more bullets (caps at level 18)
+        if (!isMegaBoss && level >= 8) {
+            scale *= Math.min(1.2, 1.0 + (level - 8) * 0.02);
+        }
+        return Math.max(1, (int)(baseCount * scale));
     }
     
     /** Get the speed multiplier for bullets, adjusted by effective level and game mode. */

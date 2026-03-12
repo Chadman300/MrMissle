@@ -273,6 +273,11 @@ public class GameData {
         }
     }
     
+    public void clearEquippedItem() {
+        equippedItem = null;
+        equippedItemIndex = -1;
+    }
+    
     public void equipNextItem() {
         if (!unlockedItems.isEmpty()) {
             equippedItemIndex = (equippedItemIndex + 1) % unlockedItems.size();

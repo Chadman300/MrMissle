@@ -205,6 +205,7 @@ public class SaveData implements Serializable {
         this.currentLevelStats = new LevelStatsData();
         this.cumulativeRunStats = new LevelStatsData();
         this.unlockedItems = new ArrayList<>();
+        this.equippedItemIndex = -1; // No item equipped by default
         this.unlockedAchievements = new ArrayList<>();
         this.unlockedPassiveUpgrades = new ArrayList<>();
         this.seenAttackIntros = new ArrayList<>();
@@ -533,6 +534,9 @@ public class SaveData implements Serializable {
         }
         if (equippedItemIndex >= 0 && equippedItemIndex < gameData.getUnlockedItems().size()) {
             gameData.equipItem(equippedItemIndex);
+        } else {
+            // Reset equipped item when no valid item index exists (prevents stale items from previous save)
+            gameData.clearEquippedItem();
         }
         
         gameData.setContractsUnlocked(contractsUnlocked);

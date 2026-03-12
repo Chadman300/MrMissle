@@ -5759,6 +5759,7 @@ public class Game extends JPanel implements Runnable {
         // Update item unlock animation timer (let it countdown for animation progress)
         if (itemUnlockTimer > 0) {
             itemUnlockTimer -= deltaTime;
+            if (itemUnlockTimer < 0) itemUnlockTimer = 0; // Clamp so == 0 checks work reliably
         }
         
         // Update dismiss animation
