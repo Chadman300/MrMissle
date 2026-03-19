@@ -1,0 +1,838 @@
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+
+public class Bullet {
+    private double x, y;
+    private double vx, vy;
+    private static final int SIZE = 6;
+    private BulletType type;
+    
+    // Dark glow shadow settings (centered underneath)
+    private static final double SHADOW_GLOW_OFFSET_Y = 2; // Slight downward offset for "underneath" feel
+    
+    // Bullet sprites
+    private static BufferedImage[] bulletSprites = new BufferedImage[17];
+    private static boolean spritesLoaded = false;
+    
+    // Cached colors for performance
+    private static final Color FIRE_ORANGE = new Color(255, 100, 0);
+    private static final Color FIRE_YELLOW = new Color(255, 200, 0);
+    private static final Color FIRE_RED = new Color(255, 50, 0);
+    private static final Color TRAIL_YELLOW = new Color(255, 220, 0, 180);
+    private static final Color TRAIL_PURPLE = new Color(200, 50, 255, 180);
+    
+    // Cached warning colors (used with AlphaComposite for per-frame alpha)
+    private static final Color WARNING_COLOR_RAPID = new Color(220, 40, 40);
+    private static final Color WARNING_COLOR_NORMAL = new Color(180, 40, 40);
+    
+    // Cached math constants
+    private static final double TWO_PI = Math.PI * 2;
+    private static final double HALF_PI = Math.PI / 2;
+    private static final double SQRT_2 = Math.sqrt(2);
+    private static final double INV_SQRT_2 = 1.0 / Math.sqrt(2);
+    
+    // Dynamic shadow reduction based on active bullet count
+    public static int activeBulletCount = 0;
+    
+    // Bullet size multiplier from passive upgrades
+    private static double bulletSizeMultiplier = 1.0;
+    
+    // Cached speed for collision detection (avoid repeated sqrt)
+    private double cachedSpeed = 0;
+    private int speedCacheAge = 0;
+    private double warningTime;
+    private static final int WARNING_DURATION = 120; // Frames before bullet activates
+    private double age; // Frames since activation
+    private double spiralAngle; // For spiral bullets
+    private double explosionTimer; // Time until explosion for bombs
+    private static final double EXPLOSION_TIME = 120; // Frames until explosion
+    private static final double FLICKER_START = 30; // Start flickering 30 frames before explosion
+    private int spriteVariant; // Which variant (0-2) for bombs/grenades
+    private int bounceCount; // Number of times bounced
+    private boolean hasGrazed; // Track if bullet has been grazed by player
+    private static final int MAX_BOUNCES = 1; // Max bounces for bouncing bullets
+    private static final double HOMING_LIFETIME = 480; // 8 seconds lifetime for homing bullets
+    private double fadeOutTimer = -1; // Timer for fade out effect (-1 = not fading)
+    private static final double FADE_OUT_DURATION = 30; // 0.5 seconds to fade out
+    private boolean markedForFadeOut = false; // Whether bullet should start fading
+    
+    // Temporary speed multiplier (resets each frame, used for Time Slow effect)
+    private double frameSpeedMultiplier = 1.0;
+    
+    // Frost Beam freeze timer (counts down, when > 0 bullet is frozen)
+    private int freezeTimer = 0;
+    
+    // Flare targeting fields
+    private double flareTargetX, flareTargetY;
+    private boolean targetingFlare = false;
+    
+    public enum BulletType {
+        NORMAL,      // Standard bullet
+        FAST,        // Faster, smaller bullet
+        LARGE,       // Slower, larger bullet
+        HOMING,      // Slightly tracks player
+        BOUNCING,    // Bounces off walls
+        SPIRAL,      // Spirals as it moves
+        ACCELERATING,// Speeds up over time
+        WAVE,        // Moves in a wave pattern
+        BOMB,        // Slows down then explodes into fragments
+        GRENADE,     // Arcs then explodes into fragments
+        NUKE,        // Large explosive that slows then detonates
+        FRAGMENT     // Small fragment from explosion
+    }
+    
+    public Bullet(double x, double y, double vx, double vy) {
+        this(x, y, vx, vy, BulletType.NORMAL);
+    }
+    
+    public Bullet(double x, double y, double vx, double vy, BulletType type) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.type = type;
+        this.warningTime = WARNING_DURATION;
+        this.age = 0;
+        this.spiralAngle = 0;
+        this.explosionTimer = EXPLOSION_TIME;
+        this.spriteVariant = (int)(Math.random() * 3); // Random variant 0-2
+        this.bounceCount = 0;
+        this.hasGrazed = false;
+        this.fadeOutTimer = -1;
+        this.markedForFadeOut = false;
+        loadSprites(null);
+    }
+    
+    public static void setBulletSizeMultiplier(double multiplier) {
+        bulletSizeMultiplier = Math.max(0.75, multiplier);
+    }
+    
+    // Maximum rendered size for any bullet sprite (SIZE * 7 = 42 for nuke)
+    private static final int SPRITE_PRESCALE_SIZE = SIZE * 7;
+
+    /**
+     * Preload all bullet sprites (called from background loading thread).
+     */
+    public static void preloadSprites() {
+        preloadSprites(null);
+    }
+    
+    public static void preloadSprites(java.util.function.IntConsumer progressCallback) {
+        loadSprites(progressCallback);
+    }
+
+
+    private static void loadSprites(java.util.function.IntConsumer progressCallback) {
+        if (spritesLoaded) return;
+        try {
+            int totalAssets = 16;
+            int[] loaded = {0};
+            // Load all bullet sprites
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 1 Purple.png", 1);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj 2 Purple.png", 4);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 1.png", 2);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 2.png", 3);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Blue 3.png", 5);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 1.png", 0);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Orange 2.png", 6);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Proj Red 1.png", 7);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            
+            // Load explosive projectiles (bombs, grenades, nuke)
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Bomb 1.png", 8);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Bomb 2.png", 9);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 1.png", 10);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 2.png", 11);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Grenade 3.png", 12);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Mini Nuke.png", 13);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 1.png", 14);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            loadSpriteWithPath("sprites/Missle Man Assets/Projectiles/Fragment Proj 2.png", 15);
+            loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
+            
+            spritesLoaded = true;
+        } catch (IOException e) {
+            System.err.println("Failed to load bullet sprites: " + e.getMessage());
+            spritesLoaded = false;
+        }
+    }
+    
+    private static void loadSpriteWithPath(String path, int index) throws IOException {
+        try {
+            bulletSprites[index] = AssetLoader.prescaleImage(
+                AssetLoader.loadImage(path), SPRITE_PRESCALE_SIZE);
+        } catch (IOException e) {
+            System.err.println("Could not load bullet sprite: " + path);
+            throw e;
+        }
+    }
+    
+    // Reset bullet for pooling
+    public void reset(double x, double y, double vx, double vy, BulletType type) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.type = type;
+        this.warningTime = WARNING_DURATION;
+        this.age = 0;
+        this.spiralAngle = 0;
+        this.explosionTimer = EXPLOSION_TIME;
+        this.spriteVariant = (int)(Math.random() * 3);
+        this.bounceCount = 0;
+        this.hasGrazed = false; // Must reset for pool reuse
+        this.fadeOutTimer = -1;
+        this.markedForFadeOut = false;
+        this.freezeTimer = 0;
+        this.frameSpeedMultiplier = 1.0;
+        this.targetingFlare = false;
+        this.flareTargetX = 0;
+        this.flareTargetY = 0;
+    }
+    
+    public void update() {
+        update(null, 0, 0, 1.0);
+    }
+    
+    public void update(Player player, int screenWidth, int screenHeight) {
+        update(player, screenWidth, screenHeight, 1.0);
+    }
+    
+    public void update(Player player, int screenWidth, int screenHeight, double deltaTime) {
+        if (warningTime > 0) {
+            warningTime -= deltaTime;
+            return;
+        }
+        
+        age += deltaTime;
+        
+        // Handle freeze timer from Frost Beam FIRST - skip all behaviors when frozen
+        if (freezeTimer > 0) {
+            freezeTimer--;
+            if (freezeTimer <= 0) {
+                // Unfreeze - restore normal speed
+                frameSpeedMultiplier = 1.0;
+            }
+            // Skip ALL movement and behavior when frozen
+            return;
+        }
+        
+        // Type-specific behavior (only when not frozen)
+        switch (type) {
+            case FAST:
+                // Already faster from initial velocity
+                break;
+            case HOMING:
+                if (player != null) {
+                    // Determine homing target: flare or player
+                    double targetX, targetY;
+                    double turnRate;
+                    if (targetingFlare) {
+                        targetX = flareTargetX;
+                        targetY = flareTargetY;
+                        turnRate = 0.035; // Faster turn rate when targeting flare
+                    } else {
+                        targetX = player.getX();
+                        targetY = player.getY();
+                        turnRate = 0.02;
+                    }
+                    double angleToPlayer = Math.atan2(targetY - y, targetX - x);
+                    double currentAngle = Math.atan2(vy, vx);
+                    double angleDiff = angleToPlayer - currentAngle;
+                    // Normalize angle (optimized)
+                    if (angleDiff > Math.PI) angleDiff -= TWO_PI;
+                    else if (angleDiff < -Math.PI) angleDiff += TWO_PI;
+                    // Turn towards target (scaled by delta time)
+                    currentAngle += angleDiff * turnRate * deltaTime;
+                    // Cache and reuse speed calculation
+                    if (speedCacheAge > 10 || cachedSpeed == 0) {
+                        cachedSpeed = Math.sqrt(vx * vx + vy * vy);
+                        speedCacheAge = 0;
+                    } else {
+                        speedCacheAge++;
+                    }
+                    vx = Math.cos(currentAngle) * cachedSpeed;
+                    vy = Math.sin(currentAngle) * cachedSpeed;
+                }
+                // Start fading near end of lifetime
+                if (age > HOMING_LIFETIME - FADE_OUT_DURATION && fadeOutTimer < 0) {
+                    fadeOutTimer = FADE_OUT_DURATION;
+                }
+                break;
+            case BOUNCING:
+                // Bounce off walls (only once)
+                if (bounceCount < MAX_BOUNCES) {
+                    if (x < 10 || x > screenWidth - 10) {
+                        vx *= -1;
+                        bounceCount++;
+                    }
+                    if (y < 10 || y > screenHeight - 10) {
+                        vy *= -1;
+                        bounceCount++;
+                    }
+                } else if (fadeOutTimer < 0 && !markedForFadeOut) {
+                    // Start fading after reaching max bounces
+                    markedForFadeOut = true;
+                    fadeOutTimer = FADE_OUT_DURATION * 2; // Longer fade for bouncing
+                }
+                break;
+            case SPIRAL:
+                // Rotate velocity vector to create spiral motion
+                spiralAngle += 0.08;
+                // Cache speed and angle calculations
+                if (speedCacheAge > 10 || cachedSpeed == 0) {
+                    cachedSpeed = Math.sqrt(vx * vx + vy * vy);
+                    speedCacheAge = 0;
+                } else {
+                    speedCacheAge++;
+                }
+                double baseAngle = Math.atan2(vy, vx);
+                double spiralOffset = Math.sin(spiralAngle) * 0.5;
+                double newAngle = baseAngle + spiralOffset;
+                vx = Math.cos(newAngle) * cachedSpeed;
+                vy = Math.sin(newAngle) * cachedSpeed;
+                break;
+            case ACCELERATING:
+                // Speed up over time
+                double accelFactor = 1 + (age * 0.01);
+                vx *= Math.min(accelFactor, 1.05);
+                vy *= Math.min(accelFactor, 1.05);
+                break;
+            case WAVE:
+                // Move in sine wave pattern
+                double perpAngle = Math.atan2(vy, vx) + HALF_PI;
+                double waveOffset = Math.sin(age * 0.2) * 2 * deltaTime;
+                x += Math.cos(perpAngle) * waveOffset;
+                y += Math.sin(perpAngle) * waveOffset;
+                break;
+            case BOMB:
+            case GRENADE:
+            case NUKE:
+                // Slow down over time (deltaTime is always 1.0 fixed timestep)
+                double slowFactor = (deltaTime == 1.0) ? 0.99 : Math.pow(0.99, deltaTime);
+                vx *= slowFactor;
+                vy *= slowFactor;
+                
+                // Count down to explosion
+                explosionTimer -= deltaTime;
+                break;
+            case FRAGMENT:
+                // Fragments just fly straight
+                break;
+            default:
+                break;
+        }
+        
+        // Move bullet (scaled by delta time and frame speed multiplier for time slow effects)
+        x += vx * deltaTime * frameSpeedMultiplier;
+        y += vy * deltaTime * frameSpeedMultiplier;
+        
+        // Update fade out timer
+        if (fadeOutTimer > 0) {
+            fadeOutTimer -= deltaTime;
+        }
+        
+        // Start fading when outside player bounds (not at screen edge)
+        // Player is constrained to stay 50px inside screen edges, so fade bullets
+        // when they go 50px OUTSIDE the screen so they remain dangerous in the playable area
+        if (fadeOutTimer < 0 && type != BulletType.BOMB && type != BulletType.GRENADE && type != BulletType.NUKE) {
+            int fadeMargin = -50; // Negative margin = fade outside screen bounds
+            if (x < fadeMargin || x > screenWidth - fadeMargin || 
+                y < fadeMargin || y > screenHeight - fadeMargin) {
+                fadeOutTimer = FADE_OUT_DURATION;
+            }
+        }
+    }
+    
+    public void applySlow(double factor) {
+        // Apply temporary slow multiplier (doesn't permanently change velocity)
+        frameSpeedMultiplier *= factor;
+    }
+    
+    /**
+     * Apply speed-based slow: faster bullets get slowed more, slower bullets less.
+     * Uses a reference speed of 3.0 as "normal" bullet speed.
+     * Speed ratio is clamped between 0.5x and 2.0x effect.
+     */
+    public void applySpeedBasedSlow(double baseFactor) {
+        double speed = Math.sqrt(vx * vx + vy * vy);
+        double referenceSpeed = 3.0;
+        double speedRatio = Math.max(0.5, Math.min(2.0, speed / referenceSpeed));
+        double slowAmount = (1.0 - baseFactor) * speedRatio;
+        double adjustedFactor = Math.max(0.1, 1.0 - slowAmount);
+        frameSpeedMultiplier *= adjustedFactor;
+    }
+    
+    // Set the frame speed multiplier directly (used for Frost Beam freeze)
+    public void setFrameSpeedMultiplier(double multiplier) {
+        frameSpeedMultiplier = multiplier;
+    }
+    
+    // Set the freeze timer (Frost Beam effect)
+    public void setFreezeTimer(int frames) {
+        freezeTimer = frames;
+    }
+    
+    // Check if bullet is frozen by Frost Beam
+    public boolean isFrozen() {
+        return freezeTimer > 0;
+    }
+    
+    // Reset the frame speed multiplier (call at start of each update cycle)
+    // BUT don't reset if frozen by Frost Beam
+    public void resetFrameSpeedMultiplier() {
+        if (freezeTimer <= 0) {
+            frameSpeedMultiplier = 1.0;
+        }
+    }
+    
+    public boolean shouldSpawnTrail() {
+        // Fast and accelerating bullets spawn trails when active
+        return warningTime <= 0 && (type == BulletType.FAST || type == BulletType.ACCELERATING);
+    }
+    
+    public Color getTrailColor() {
+        // Return appropriate trail color based on bullet type
+        if (type == BulletType.FAST) {
+            return TRAIL_YELLOW;
+        } else if (type == BulletType.ACCELERATING) {
+            return TRAIL_PURPLE;
+        }
+        return Color.WHITE;
+    }
+    
+    public boolean shouldExplode() {
+        return (type == BulletType.BOMB || type == BulletType.GRENADE || type == BulletType.NUKE) 
+               && explosionTimer <= 0;
+    }
+    
+    public java.util.List<Particle> createExplosionParticles() {
+        java.util.List<Particle> explosionParticles = new java.util.ArrayList<>();
+        
+        // Number of particles and rings based on type
+        int particleCount = 15;
+        int rings = 2;
+        if (type == BulletType.NUKE) {
+            particleCount = 40;
+            rings = 4;
+        } else if (type == BulletType.GRENADE) {
+            particleCount = 25;
+            rings = 3;
+        }
+        
+        // Fire particles
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * TWO_PI;
+            double speed = 1 + Math.random() * 4;
+            Color fireColor;
+            double rand = Math.random();
+            if (rand < 0.4) {
+                fireColor = FIRE_ORANGE;
+            } else if (rand < 0.7) {
+                fireColor = FIRE_YELLOW;
+            } else {
+                fireColor = FIRE_RED;
+            }
+            explosionParticles.add(new Particle(
+                x, y,
+                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                fireColor, 30, 5,
+                Particle.ParticleType.SPARK
+            ));
+        }
+        
+        // Shockwave rings
+        for (int i = 0; i < rings; i++) {
+            int baseSize = (type == BulletType.NUKE) ? 60 : (type == BulletType.GRENADE) ? 40 : 30;
+            explosionParticles.add(new Particle(
+                x, y, 0, 0,
+                new Color(255, 150 - i * 30, 0, 200 - i * 50), 
+                35 + i * 10, 
+                baseSize + i * 20,
+                Particle.ParticleType.EXPLOSION
+            ));
+        }
+        
+        return explosionParticles;
+    }
+    
+    public java.util.List<Bullet> createFragments() {
+        java.util.List<Bullet> fragments = new java.util.ArrayList<>();
+        
+        // Number of fragments based on type
+        int fragmentCount = 8;
+        if (type == BulletType.NUKE) fragmentCount = 16;
+        if (type == BulletType.GRENADE) fragmentCount = 5;
+        
+        // Create fragments in all directions
+        for (int i = 0; i < fragmentCount; i++) {
+            double angle = (TWO_PI * i) / fragmentCount;
+            double speed = 2.0 + Math.random() * 1.5;
+            int fragmentSprite = (i % 2 == 0) ? 14 : 15; // Alternate between Fragment Proj 1 & 2
+            Bullet fragment = new Bullet(x, y, 
+                Math.cos(angle) * speed, 
+                Math.sin(angle) * speed, 
+                BulletType.FRAGMENT);
+            fragment.spriteVariant = fragmentSprite - 14; // 0 or 1
+            fragment.warningTime = 0; // Fragments spawn instantly with no delay
+            fragments.add(fragment);
+        }
+        
+        return fragments;
+    }
+    
+    public void draw(Graphics2D g) {
+        // Draw warning indicator during warning phase
+        if (warningTime > 0) {
+            // Rapid flicker when about to activate (last 25% of warning)
+            double flickerThreshold = WARNING_DURATION * 0.25;
+            boolean rapidFlicker = warningTime < flickerThreshold;
+            float alpha;
+            if (rapidFlicker) {
+                double flickerSpeed = 8.0 + (flickerThreshold - warningTime) * 0.8;
+                float flick = (float)(0.5 + 0.5 * Math.sin(warningTime * flickerSpeed));
+                alpha = 0.3f + 0.7f * flick;
+            } else {
+                alpha = Math.min(0.5f, (float)(warningTime % 20) / 20.0f + 0.2f);
+            }
+            
+            int baseAlpha = rapidFlicker ? 255 : 180;
+            // Use cached color + AlphaComposite instead of new Color per frame per bullet
+            Composite savedComp = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(alpha * baseAlpha / 255.0f));
+            g.setColor(rapidFlicker ? WARNING_COLOR_RAPID : WARNING_COLOR_NORMAL);
+            int warningSize = (int)(8 + (WARNING_DURATION - warningTime) / 6);
+            
+            // Draw crosshair warning
+            g.setStroke(RenderCache.getStroke(rapidFlicker ? 3f : 2f));
+            g.drawLine((int)x - warningSize, (int)y, (int)x + warningSize, (int)y);
+            g.drawLine((int)x, (int)y - warningSize, (int)x, (int)y + warningSize);
+            
+            // Draw warning circle
+            g.setStroke(RenderCache.getStroke(rapidFlicker ? 2f : 1.5f));
+            g.drawOval((int)x - warningSize/2, (int)y - warningSize/2, warningSize, warningSize);
+            g.setComposite(savedComp); // Restore composite after warning draw
+            return;
+        }
+        
+        // Get sprite index and size based on type
+        int spriteIndex = 0;
+        int spriteSize = SIZE * 4;
+        
+        switch (type) {
+            case NORMAL:
+                spriteIndex = 0;
+                spriteSize = SIZE * 4;
+                break;
+            case FAST:
+                spriteIndex = 1;
+                spriteSize = SIZE * 3;
+                break;
+            case LARGE:
+                spriteIndex = 2;
+                spriteSize = SIZE * 5;
+                break;
+            case HOMING:
+                spriteIndex = 3;
+                spriteSize = SIZE * 4;
+                break;
+            case BOUNCING:
+                spriteIndex = 4;
+                spriteSize = (int)(SIZE * 2.5); // Smaller bouncing bullets
+                break;
+            case SPIRAL:
+                spriteIndex = 5;
+                spriteSize = SIZE * 4;
+                break;
+            case ACCELERATING:
+                spriteIndex = 7;
+                spriteSize = SIZE * 4;
+                break;
+            case WAVE:
+                spriteIndex = 1; // Proj 1 Purple
+                spriteSize = SIZE * 4;
+                break;
+            case BOMB:
+                spriteIndex = 8 + (spriteVariant % 2); // Bomb 1 or Bomb 2
+                spriteSize = SIZE * 6;
+                break;
+            case GRENADE:
+                spriteIndex = 10 + (spriteVariant % 3); // Grenade 1, 2, or 3
+                spriteSize = SIZE * 5;
+                break;
+            case NUKE:
+                spriteIndex = 13; // Mini Nuke
+                spriteSize = SIZE * 7;
+                break;
+            case FRAGMENT:
+                spriteIndex = 14 + spriteVariant; // Fragment Proj 1 or 2
+                spriteSize = SIZE * 3;
+                break;
+        }
+        
+        // Apply bullet size multiplier from passive upgrades
+        spriteSize = (int)(spriteSize * bulletSizeMultiplier);
+        
+        // Flickering effect for explosives about to detonate
+        boolean shouldFlicker = (type == BulletType.BOMB || type == BulletType.GRENADE || type == BulletType.NUKE)
+                                && explosionTimer > 0 && explosionTimer < FLICKER_START;
+        float flickerAlpha = 1.0f;
+        if (shouldFlicker) {
+            // Fast flicker effect
+            int flickerFrame = (int)(explosionTimer / 2);
+            flickerAlpha = (flickerFrame % 2 == 0) ? 1.0f : 0.3f;
+        }
+        
+        // Calculate fade out alpha
+        float fadeAlpha = 1.0f;
+        if (fadeOutTimer > 0) {
+            fadeAlpha = (float)(fadeOutTimer / FADE_OUT_DURATION);
+            fadeAlpha = Math.max(0.0f, Math.min(1.0f, fadeAlpha));
+        } else if (fadeOutTimer == 0) {
+            fadeAlpha = 0.0f;
+        }
+        
+        // Combine flicker and fade alpha
+        float finalAlpha = flickerAlpha * fadeAlpha;
+        
+        // Draw sprite if loaded, otherwise fallback to orb
+        if (spritesLoaded && bulletSprites[spriteIndex] != null) {
+            // Manual translate/rotate undo instead of getTransform() save/restore
+            // — eliminates 1 AffineTransform allocation per bullet per frame
+            Composite savedComp = g.getComposite();
+            
+            // Calculate rotation angle based on velocity
+            double angle = Math.atan2(vy, vx);
+            double rotation = angle + HALF_PI;
+            
+            g.translate(x, y);
+            g.rotate(rotation);
+            
+            // Draw shadow using ShadowCache (generated from the bullet sprite)
+            // Gradual alpha fade as bullet count increases for smooth performance scaling
+            if (Game.enableShadows) {
+                BufferedImage shadowImg = ShadowCache.getShadow(bulletSprites[spriteIndex]);
+                int pad = ShadowCache.getPadding();
+                
+                // Compute draw size for shadow
+                int nativeBulletW = bulletSprites[spriteIndex].getWidth();
+                int nativeBulletH = bulletSprites[spriteIndex].getHeight();
+                double bulletBaseScale = (double)spriteSize / Math.max(nativeBulletW, nativeBulletH);
+                int bulletDrawW = (int)(nativeBulletW * bulletBaseScale);
+                int bulletDrawH = (int)(nativeBulletH * bulletBaseScale);
+                
+                // Already rotated by `rotation` (== angle + HALF_PI)
+                
+                // Quality-based alpha (40% more transparent than original)
+                float baseAlpha = Game.shadowQuality == 1 ? 0.24f : Game.shadowQuality == 2 ? 0.33f : 0.45f;
+                // Gradual fade as bullet count increases — never fully disappears
+                int fadeStart = Game.shadowQuality == 1 ? 80 : Game.shadowQuality == 2 ? 150 : 350;
+                int fadeEnd = fadeStart * 2;
+                float shadowAlpha;
+                if (activeBulletCount <= fadeStart) {
+                    shadowAlpha = baseAlpha;
+                } else if (activeBulletCount >= fadeEnd) {
+                    shadowAlpha = baseAlpha * 0.35f;
+                } else {
+                    float t = (float)(activeBulletCount - fadeStart) / (fadeEnd - fadeStart);
+                    shadowAlpha = baseAlpha * (1.0f - t * 0.65f);
+                }
+                shadowAlpha = Math.max(0.03f, shadowAlpha);
+                g.setComposite(RenderCache.getAlpha(shadowAlpha * finalAlpha));
+                g.drawImage(shadowImg,
+                    -bulletDrawW / 2 - pad, -bulletDrawH / 2 - pad + (int)SHADOW_GLOW_OFFSET_Y,
+                    bulletDrawW + pad * 2, bulletDrawH + pad * 2, null);
+            }
+            
+            // Sprite composite — same rotation already applied
+            g.setComposite(RenderCache.getAlpha(finalAlpha));
+            
+            // Get native sprite dimensions and scale proportionally
+            int nativeWidth = bulletSprites[spriteIndex].getWidth();
+            int nativeHeight = bulletSprites[spriteIndex].getHeight();
+            double scale = (double)spriteSize / Math.max(nativeWidth, nativeHeight);
+            int drawWidth = (int)(nativeWidth * scale);
+            int drawHeight = (int)(nativeHeight * scale);
+            
+            // Draw sprite centered with proportional dimensions
+            g.drawImage(bulletSprites[spriteIndex], 
+                -drawWidth/2, -drawHeight/2, 
+                drawWidth, drawHeight, null);
+            
+            // Draw frost overlay if bullet is frozen
+            if (freezeTimer > 0) {
+                // Ice blue tint overlay
+                g.setComposite(RenderCache.ALPHA_HALF);
+                g.setColor(RenderCache.ICE_BLUE);
+                g.fillOval(-drawWidth/2, -drawHeight/2, drawWidth, drawHeight);
+                
+                // Sparkle effect for frost
+                g.setComposite(RenderCache.getAlpha(0.8f));
+                g.setColor(RenderCache.ICY_WHITE);
+                int sparkleSize = Math.max(4, drawWidth / 4);
+                g.fillOval(-sparkleSize/2, -sparkleSize/2, sparkleSize, sparkleSize);
+            }
+            
+            // Manual undo (no AffineTransform allocation)
+            g.rotate(-rotation);
+            g.translate(-x, -y);
+            g.setComposite(savedComp);
+        } else {
+            // Fallback: draw colored orb
+            int size = SIZE;
+            Color color;
+            
+            switch (type) {
+                case FAST:
+                    size = SIZE - 2;
+                    color = RenderCache.BULLET_YELLOW;
+                    break;
+                case LARGE:
+                    size = SIZE + 4;
+                    color = RenderCache.BULLET_BLUE;
+                    break;
+                case HOMING:
+                    color = RenderCache.BULLET_PINK;
+                    break;
+                case BOUNCING:
+                    color = RenderCache.BULLET_GREEN;
+                    break;
+                case SPIRAL:
+                    color = RenderCache.BULLET_CYAN;
+                    break;
+                case ACCELERATING:
+                    color = RenderCache.BULLET_PURPLE;
+                    break;
+                case WAVE:
+                    color = RenderCache.BULLET_WAVE_PURPLE;
+                    break;
+                default:
+                    color = RenderCache.BULLET_RED;
+                    break;
+            }
+            
+            // Draw vibrant orb with glow effect (apply fade alpha)
+            // Outer glow
+            g.setComposite(RenderCache.getAlpha(0.3f * fadeAlpha));
+            g.setColor(color);
+            g.fillOval((int)(x - size), (int)(y - size), size * 2, size * 2);
+            
+            // Main orb
+            g.setComposite(RenderCache.getAlpha(fadeAlpha));
+            g.setColor(color);
+            g.fillOval((int)(x - size/2), (int)(y - size/2), size, size);
+            
+            // Bright highlight for depth
+            g.setComposite(RenderCache.getAlpha(fadeAlpha * 0.78f));
+            g.setColor(Color.WHITE);
+            g.fillOval((int)(x - size/4), (int)(y - size/3), size/2, size/2);
+            
+            // Inner core (brighter) — use white with composite instead of new Color
+            g.setComposite(RenderCache.getAlpha(fadeAlpha * 0.6f));
+            g.setColor(Color.WHITE);
+            g.fillOval((int)(x - size/6), (int)(y - size/6), size/3, size/3);
+            
+            // Reset composite
+            g.setComposite(RenderCache.ALPHA_FULL);
+        }
+    }
+    
+    public boolean isOffScreen(int width, int height) {
+        // Check if bullet is completely off screen with generous margin
+        int margin = 100;
+        // Homing bullets expire after lifetime
+        if (type == BulletType.HOMING && age > HOMING_LIFETIME) {
+            return true;
+        }
+        // Bullets that have fully faded out should be removed
+        if (fadeOutTimer == 0 || fadeOutTimer < -0.5) {
+            // fadeOutTimer goes from FADE_OUT_DURATION down to 0, then stays at 0
+            // Check if it was actively fading and finished
+            if (markedForFadeOut || (type == BulletType.HOMING && age > HOMING_LIFETIME - FADE_OUT_DURATION)) {
+                return true;
+            }
+        }
+        return x < -margin || x > width + margin || y < -margin || y > height + margin;
+    }
+    
+    public boolean collidesWith(Player player) {
+        if (warningTime > 0) return false; // Can't hit during warning
+        // Faded bullets can't collide
+        if (fadeOutTimer >= 0 && fadeOutTimer < FADE_OUT_DURATION * 0.3) return false;
+        double dx = x - player.getX();
+        double dy = y - player.getY();
+        double distanceSquared = dx * dx + dy * dy;
+        // Smaller hitbox (30% of sprite size) - use squared distance to avoid sqrt
+        // Apply bullet size multiplier to hitbox as well
+        int actualSize = (type == BulletType.LARGE) ? SIZE + 4 : (type == BulletType.FAST) ? SIZE - 2 : SIZE;
+        actualSize = (int)(actualSize * bulletSizeMultiplier);
+        double threshold = (actualSize * 0.5) + (player.getSize() * 0.3);
+        return distanceSquared < threshold * threshold;
+    }
+    
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public double getVX() { return vx; }
+    public double getVY() { return vy; }
+    public BulletType getType() { return type; }
+    public double getAge() { return age; }
+    public double getWarningTime() { return warningTime; }
+    
+    public void setAge(double age) { this.age = age; }
+    public void setWarningTime(double time) { this.warningTime = time; }
+    public int getSpriteVariant() { return spriteVariant; }
+    public void setSpriteVariant(int variant) { this.spriteVariant = variant; }
+    
+    public void multiplySpeed(double factor) {
+        vx *= factor;
+        vy *= factor;
+    }
+    
+    public boolean hasGrazed() { return hasGrazed; }
+    public void setGrazed(boolean grazed) { this.hasGrazed = grazed; }
+    
+    public boolean isActive() {
+        return warningTime <= 0;
+    }
+    
+    // Apply force to bullet (used by active items like SHOCKWAVE, MAGNET)
+    public void applyForce(double fx, double fy) {
+        vx += fx;
+        vy += fy;
+        // Invalidate speed cache so spiral/homing bullets pick up the new velocity
+        speedCacheAge = 999;
+        cachedSpeed = 0;
+    }
+    
+    // Flare targeting methods
+    public void setFlareTarget(double x, double y) {
+        this.flareTargetX = x;
+        this.flareTargetY = y;
+        this.targetingFlare = true;
+    }
+    
+    public void clearFlareTarget() {
+        this.targetingFlare = false;
+    }
+    
+    public boolean isTargetingFlare() {
+        return targetingFlare;
+    }
+}

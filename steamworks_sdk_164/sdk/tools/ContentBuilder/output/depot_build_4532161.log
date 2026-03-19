@@ -1,0 +1,19 @@
+[2026-03-18 16:15:11]: Starting build for depot 4532161, content path is "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo_2", build flags 0x0
+[2026-03-18 16:15:11]: Building file listing for depot 4532161 ...
+[2026-03-18 16:15:11]: Found 2446 files for mapping: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo_2 * -> .
+[2026-03-18 16:15:12]: Found 2446 files (966 MB) for depot 4532161
+[2026-03-18 16:15:13]: Building depot 4532161, baseline manifest 268856076046366232 (2446 files)
+[2026-03-18 16:15:16]: Found 2811 new chunks ( 2811 used previously ) for depot 4532161, took 0 minutes, 2 seconds
+[2026-03-18 16:15:16]: Changes to baseline manifest 268856076046366232 :
+[2026-03-18 16:15:16]: Changed: "app\classes\Game$5.class" 4 KB size, 4 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\classes\Game.class" 199 KB size, 199 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\classes\Renderer$1.class" 3 KB size, 3 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\classes\Renderer.class" 160 KB size, 160 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\MissileMan_Demo.jar" 381 KB size, 381 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\src\Game.java" 620 KB size, 620 KB changed 
+[2026-03-18 16:15:16]: Changed: "app\src\Renderer.java" 420 KB size, 420 KB changed 
+[2026-03-18 16:15:16]: Changed: "saves\global.dat" 1 KB size, 1 KB changed 
+[2026-03-18 16:15:16]: Summary: 0 files added (0 bytes), 8 files changed (1.74 MB), 0 files removed (0 bytes)
+[2026-03-18 16:15:16]: Uploading new manifest to depot_ingest.discovery.steamserver.net (handle 1528006950776106667, 404562 bytes).
+[2026-03-18 16:15:17]: Uploading 8 out of 8 missing chunks.
+[2026-03-18 16:15:20]: Success! New manifestID 8729210213560010054 created and 8 new chunks uploaded.

@@ -1,0 +1,546 @@
+public class GameData {
+    // Game constants
+    public static final int WIDTH = 1200;
+    public static final int HEIGHT = 800;
+    
+    // Upgrade caps
+    public static final int MAX_SPEED_LEVEL = 10;
+    public static final int MAX_BULLET_SLOW_LEVEL = 50;
+    public static final int MAX_LUCKY_DODGE_LEVEL = 12;
+    public static final int MAX_ATTACK_WINDOW_LEVEL = 10;
+    
+    // Score and money
+    private int score;
+    private int totalMoney;
+    private int runMoney;
+    private int survivalTime;
+    
+    // Level progression
+    private int currentLevel;
+    private int maxUnlockedLevel;
+    private boolean[] defeatedBosses;
+    
+    // Upgrades (persistent)
+    private int speedUpgradeLevel;
+    private int bulletSlowUpgradeLevel;
+    private int luckyDodgeUpgradeLevel;
+    private int attackWindowUpgradeLevel;
+    
+    // Active upgrades (allocated from purchased upgrades)
+    private int activeSpeedLevel;
+    private int activeBulletSlowLevel;
+    private int activeLuckyDodgeLevel;
+    private int activeAttackWindowLevel;
+    
+    // Active Items system
+    private java.util.List<ActiveItem.ItemType> unlockedItems;
+    private ActiveItem equippedItem;
+    private int equippedItemIndex; // Index in unlocked items list
+    
+    // Risk Contracts system (permanent unlock)
+    private boolean contractsUnlocked;
+    private boolean seenContractUnlock; // Track if unlock animation has been shown
+    
+    // Roguelike run tracking
+    private int runHighestLevel;      // Highest level reached this run
+    private int totalRunsCompleted;   // Total number of runs (deaths)
+    private int bestRunLevel;         // Best level ever reached in a single run
+    private int totalBossesDefeated;  // Lifetime boss kills
+    
+    // Missiles (lives) system
+    private int missiles;             // Number of missiles (lives) available
+    private int baseMissiles;         // Starting missiles for this run (3 base + purchased)
+    
+    // Level select navigation (separate from currentLevel for viewing)
+    private int selectedLevelView;    // Which level is currently selected for viewing in map
+    private int[] levelCompletionTimes; // Best completion time for each level (in frames)
+    private LevelStats[] levelStats; // Detailed stats for each level
+    private LevelStats currentLevelStats; // Stats being tracked for current run
+    private LevelStats cumulativeRunStats; // Combined stats for the entire run
+    
+    // Audio settings
+    private float masterVolume = 0.7f;
+    private float sfxVolume = 0.8f;
+    private float uiVolume = 0.8f;
+    private float musicVolume = 0.5f;
+    private boolean soundEnabled = true;
+    private boolean spatialAudioEnabled = true; // Spatial/surround sound panning
+    
+    // Gameplay settings
+    private int countdownMode = 1; // 0 = None, 1 = Resume Only, 2 = Always
+    
+    // Game mode (Easy/Hard/Master) - set when save is created, locked for lifetime
+    private GameMode gameMode = GameMode.MASTER;
+    
+    // Creation timestamp - when the save was originally created
+    private long creationTimestamp = 0;
+    
+    // Attack introductions that have been seen
+    private java.util.List<String> seenAttackIntros;
+    
+    // Passive upgrade unlock introductions that have been seen
+    private java.util.List<String> seenPassiveUnlocks;
+    
+    // Custom save name (set when player names their save)
+    private String customSaveName = null;
+    
+    // Tutorial completion tracking
+    private boolean tutorialCompleted = false;
+
+    public GameData() {
+        score = 0;
+        totalMoney = 1000;
+        runMoney = 0;
+        survivalTime = 0;
+        defeatedBosses = new boolean[100];
+        currentLevel = 1;
+        maxUnlockedLevel = 1;
+        speedUpgradeLevel = 0;
+        bulletSlowUpgradeLevel = 0;
+        luckyDodgeUpgradeLevel = 0;
+        attackWindowUpgradeLevel = 0;
+        activeSpeedLevel = 0;
+        activeBulletSlowLevel = 0;
+        activeLuckyDodgeLevel = 0;
+        activeAttackWindowLevel = 0;
+        
+        // Initialize active items
+        unlockedItems = new java.util.ArrayList<>();
+        equippedItem = null;
+        equippedItemIndex = -1;
+        
+        // Risk contracts start locked
+        contractsUnlocked = false;
+        
+        // Roguelike run tracking
+        runHighestLevel = 1;
+        totalRunsCompleted = 0;
+        bestRunLevel = 1;
+        totalBossesDefeated = 0;
+        
+        // Missiles (lives)
+        missiles = 2;
+        baseMissiles = 2;
+        
+        // Level select navigation
+        selectedLevelView = 1;
+        levelCompletionTimes = new int[100];
+        levelStats = new LevelStats[100];
+        for (int i = 0; i < levelStats.length; i++) {
+            levelStats[i] = new LevelStats();
+        }
+        currentLevelStats = new LevelStats();
+        cumulativeRunStats = new LevelStats();
+        
+        // Initialize seen attack intros
+        seenAttackIntros = new java.util.ArrayList<>();
+        
+        // Initialize seen passive unlocks
+        seenPassiveUnlocks = new java.util.ArrayList<>();
+    }
+    
+    // Getters and setters
+    public int getScore() { return score; }
+    public void setScore(int score) { this.score = score; }
+    public void addScore(int points) { this.score += points; }
+    
+    public int getTotalMoney() { return totalMoney; }
+    public void setTotalMoney(int totalMoney) { this.totalMoney = totalMoney; }
+    public void addTotalMoney(int amount) { this.totalMoney += amount; }
+    
+    public int getRunMoney() { return runMoney; }
+    public void setRunMoney(int runMoney) { this.runMoney = runMoney; }
+    public void addRunMoney(int amount) { this.runMoney += amount; }
+    
+    public int getSurvivalTime() { return survivalTime; }
+    public void setSurvivalTime(int survivalTime) { this.survivalTime = survivalTime; }
+    public void incrementSurvivalTime() { this.survivalTime++; }
+    
+    public int getCurrentLevel() { return currentLevel; }
+    public void setCurrentLevel(int currentLevel) { this.currentLevel = currentLevel; }
+    
+    public int getMaxUnlockedLevel() { return maxUnlockedLevel; }
+    public void setMaxUnlockedLevel(int maxUnlockedLevel) { this.maxUnlockedLevel = maxUnlockedLevel; }
+    
+    public boolean[] getDefeatedBosses() { return defeatedBosses; }
+    public void setBossDefeated(int level, boolean defeated) { 
+        if (level >= 0 && level < defeatedBosses.length) {
+            defeatedBosses[level] = defeated;
+        }
+    }
+    
+    public int getSpeedUpgradeLevel() { return speedUpgradeLevel; }
+    public void setSpeedUpgradeLevel(int level) { this.speedUpgradeLevel = level; }
+    public void incrementSpeedUpgrade() { 
+        if (this.speedUpgradeLevel < MAX_SPEED_LEVEL) {
+            this.speedUpgradeLevel++;
+        }
+    }
+    
+    public int getBulletSlowUpgradeLevel() { return bulletSlowUpgradeLevel; }
+    public void setBulletSlowUpgradeLevel(int level) { this.bulletSlowUpgradeLevel = level; }
+    public void incrementBulletSlowUpgrade() { 
+        if (this.bulletSlowUpgradeLevel < MAX_BULLET_SLOW_LEVEL) {
+            this.bulletSlowUpgradeLevel++;
+        }
+    }
+    
+    public int getLuckyDodgeUpgradeLevel() { return luckyDodgeUpgradeLevel; }
+    public void setLuckyDodgeUpgradeLevel(int level) { this.luckyDodgeUpgradeLevel = level; }
+    public void incrementLuckyDodgeUpgrade() { 
+        if (this.luckyDodgeUpgradeLevel < MAX_LUCKY_DODGE_LEVEL) {
+            this.luckyDodgeUpgradeLevel++;
+        }
+    }
+    
+    public int getAttackWindowUpgradeLevel() { return attackWindowUpgradeLevel; }
+    public void setAttackWindowUpgradeLevel(int level) { this.attackWindowUpgradeLevel = level; }
+    public void incrementAttackWindowUpgrade() { 
+        if (this.attackWindowUpgradeLevel < MAX_ATTACK_WINDOW_LEVEL) {
+            this.attackWindowUpgradeLevel++;
+        }
+    }
+    
+    public int getActiveSpeedLevel() { return activeSpeedLevel; }
+    public void setActiveSpeedLevel(int level) { this.activeSpeedLevel = Math.max(0, Math.min(speedUpgradeLevel, level)); }
+    
+    public int getActiveBulletSlowLevel() { return activeBulletSlowLevel; }
+    public void setActiveBulletSlowLevel(int level) { this.activeBulletSlowLevel = Math.max(0, Math.min(bulletSlowUpgradeLevel, level)); }
+    
+    public int getActiveLuckyDodgeLevel() { return activeLuckyDodgeLevel; }
+    public void setActiveLuckyDodgeLevel(int level) { this.activeLuckyDodgeLevel = Math.max(0, Math.min(luckyDodgeUpgradeLevel, level)); }
+    
+    public int getActiveAttackWindowLevel() { return activeAttackWindowLevel; }
+    public void setActiveAttackWindowLevel(int level) { this.activeAttackWindowLevel = Math.max(0, Math.min(attackWindowUpgradeLevel, level)); }
+    
+    public void adjustUpgrade(int upgradeIndex, int delta) {
+        switch (upgradeIndex) {
+            case 0: // Speed
+                activeSpeedLevel = Math.max(0, Math.min(speedUpgradeLevel, activeSpeedLevel + delta));
+                break;
+            case 1: // Bullet Slow
+                activeBulletSlowLevel = Math.max(0, Math.min(bulletSlowUpgradeLevel, activeBulletSlowLevel + delta));
+                break;
+            case 2: // Lucky Dodge
+                activeLuckyDodgeLevel = Math.max(0, Math.min(luckyDodgeUpgradeLevel, activeLuckyDodgeLevel + delta));
+                break;
+            case 3: // Attack Window
+                activeAttackWindowLevel = Math.max(0, Math.min(attackWindowUpgradeLevel, activeAttackWindowLevel + delta));
+                break;
+        }
+    }
+    
+    // Cheat/Debug methods
+    public void unlockAllLevels() {
+        maxUnlockedLevel = 28;
+        for (int i = 0; i < defeatedBosses.length; i++) {
+            defeatedBosses[i] = true;
+        }
+    }
+    
+    public void giveCheatMoney(int amount) {
+        totalMoney += amount;
+    }
+    
+    public void maxAllUpgrades() {
+        speedUpgradeLevel = 10;
+        bulletSlowUpgradeLevel = 50;
+        luckyDodgeUpgradeLevel = 12;
+    }
+    
+    // Active Items methods
+    public void unlockNextItem() {
+        ActiveItem.ItemType[] allItems = ActiveItem.ItemType.values();
+        if (unlockedItems.size() < allItems.length) {
+            unlockedItems.add(allItems[unlockedItems.size()]);
+        }
+    }
+    
+    public void unlockAllItems() {
+        unlockedItems.clear();
+        for (ActiveItem.ItemType type : ActiveItem.ItemType.values()) {
+            unlockedItems.add(type);
+        }
+        if (!unlockedItems.isEmpty() && equippedItem == null) {
+            equipItem(0);
+        }
+    }
+    
+    public void equipItem(int index) {
+        if (index >= 0 && index < unlockedItems.size()) {
+            equippedItemIndex = index;
+            equippedItem = new ActiveItem(unlockedItems.get(index));
+        }
+    }
+    
+    public void clearEquippedItem() {
+        equippedItem = null;
+        equippedItemIndex = -1;
+    }
+    
+    public void equipNextItem() {
+        if (!unlockedItems.isEmpty()) {
+            equippedItemIndex = (equippedItemIndex + 1) % unlockedItems.size();
+            equippedItem = new ActiveItem(unlockedItems.get(equippedItemIndex));
+        }
+    }
+    
+    public void equipPreviousItem() {
+        if (!unlockedItems.isEmpty()) {
+            equippedItemIndex--;
+            if (equippedItemIndex < 0) equippedItemIndex = unlockedItems.size() - 1;
+            equippedItem = new ActiveItem(unlockedItems.get(equippedItemIndex));
+        }
+    }
+    
+    /**
+     * Equip a specific item type directly (for debug showcase mode).
+     * Creates the item even if not normally unlocked.
+     */
+    public void equipItemByType(ActiveItem.ItemType type) {
+        equippedItem = new ActiveItem(type);
+    }
+    
+    /**
+     * Restore a previously saved equipped item (for exiting showcase mode).
+     * Pass null to clear equipped item.
+     */
+    public void restoreEquippedItem(ActiveItem item) {
+        equippedItem = item;
+    }
+    
+    public ActiveItem getEquippedItem() { return equippedItem; }
+    public java.util.List<ActiveItem.ItemType> getUnlockedItems() { return unlockedItems; }
+    public int getEquippedItemIndex() { return equippedItemIndex; }
+    public boolean hasActiveItems() { return !unlockedItems.isEmpty(); }
+    
+    // Risk Contracts methods
+    public boolean areContractsUnlocked() { return contractsUnlocked; }
+    public void unlockContracts() { contractsUnlocked = true; }
+    public void setContractsUnlocked(boolean unlocked) { contractsUnlocked = unlocked; }
+    public boolean hasSeenContractUnlock() { return seenContractUnlock; }
+    public void setSeenContractUnlock(boolean seen) { seenContractUnlock = seen; }
+    
+    // Roguelike run methods
+    public void startNewRun() {
+        // Update stats before resetting
+        if (runHighestLevel > bestRunLevel) {
+            bestRunLevel = runHighestLevel;
+        }
+        totalRunsCompleted++;
+        
+        // Always reset run-specific data
+        score = 0;
+        runMoney = 0;
+        survivalTime = 0;
+        
+        // Only Master mode resets level progression and missiles on death
+        if (gameMode.resetsOnDeath()) {
+            currentLevel = 1;
+            runHighestLevel = 1;
+            maxUnlockedLevel = 1; // Reset level progression on death
+            missiles = 2; // Reset missiles to base amount each run
+            baseMissiles = 2; // Reset base count each run
+        }
+        
+        // Keep: totalMoney, upgrades, active items, unlocked items, contracts, defeated bosses tracking
+    }
+    
+    public void onBossDefeated() {
+        totalBossesDefeated++;
+        if (currentLevel > runHighestLevel) {
+            runHighestLevel = currentLevel;
+        }
+        // Update bestRunLevel immediately so unlocks are available right away
+        if (currentLevel > bestRunLevel) {
+            bestRunLevel = currentLevel;
+        }
+    }
+    
+    public int getRunHighestLevel() { return runHighestLevel; }
+    public void setRunHighestLevel(int level) { this.runHighestLevel = level; }
+    
+    public int getTotalRunsCompleted() { return totalRunsCompleted; }
+    public void setTotalRunsCompleted(int runs) { this.totalRunsCompleted = runs; }
+    
+    public int getBestRunLevel() { return bestRunLevel; }
+    public void setBestRunLevel(int level) { this.bestRunLevel = level; }
+    
+    public int getTotalBossesDefeated() { return totalBossesDefeated; }
+    public void setTotalBossesDefeated(int bosses) { this.totalBossesDefeated = bosses; }
+    
+    // Missiles (lives) methods
+    public int getMissiles() { return missiles; }
+    public void setMissiles(int count) { this.missiles = Math.max(0, Math.min(5, count)); }
+    public void addMissile() { 
+        if (this.missiles < 5) {
+            this.missiles++;
+        }
+    }
+    public boolean useMissile() {
+        if (missiles > 0) {
+            missiles--;
+            return true;
+        }
+        return false;
+    }
+    
+    // Base missiles tracking (for distinguishing base vs purchased)
+    public int getBaseMissiles() { return baseMissiles; }
+    public void setBaseMissiles(int count) { this.baseMissiles = Math.max(0, Math.min(5, count)); }
+    
+    /**
+     * Returns true if the missile just used was an "extra" (purchased) missile.
+     * Call AFTER useMissile() - checks if remaining missiles are still >= base count.
+     * If missiles >= baseMissiles, the used one was extra. Otherwise it was a base missile.
+     */
+    public boolean isExtraMissile() {
+        return missiles >= baseMissiles;
+    }
+    
+    // Level select navigation methods
+    public int getSelectedLevelView() { return selectedLevelView; }
+    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(28, level)); }
+    
+    public int getLevelCompletionTime(int level) {
+        if (level >= 1 && level <= levelCompletionTimes.length) {
+            return levelCompletionTimes[level - 1];
+        }
+        return 0;
+    }
+    
+    public void setLevelCompletionTime(int level, int timeInFrames) {
+        if (level >= 1 && level <= levelCompletionTimes.length) {
+            // Only save if it's a new record (or first completion)
+            if (levelCompletionTimes[level - 1] == 0 || timeInFrames < levelCompletionTimes[level - 1]) {
+                levelCompletionTimes[level - 1] = timeInFrames;
+            }
+        }
+    }
+    
+    // Level stats methods
+    public LevelStats getCurrentLevelStats() { return currentLevelStats; }
+    
+    public LevelStats getCumulativeRunStats() { return cumulativeRunStats; }
+    
+    public void resetCumulativeRunStats() {
+        cumulativeRunStats.reset();
+    }
+    
+    public void resetCurrentLevelStats() {
+        currentLevelStats.reset();
+    }
+    
+    public LevelStats getLevelStats(int level) {
+        if (level >= 1 && level <= levelStats.length) {
+            return levelStats[level - 1];
+        }
+        return new LevelStats(); // Return empty stats if out of bounds
+    }
+    
+    public void saveLevelStats(int level) {
+        if (level >= 1 && level <= levelStats.length) {
+            // Save individual level stats
+            levelStats[level - 1] = currentLevelStats.copy();
+            // Add to cumulative run stats
+            cumulativeRunStats.addStats(currentLevelStats);
+        }
+    }
+    
+    // Boss name generator - matches actual aircraft names from Boss.java
+    public static String getBossName(int level) {
+        if (level <= 0) return "Unknown";
+        
+        if (level % 2 == 1) {
+            // Odd levels: Fighter planes
+            switch ((level - 1) / 2 % 10) {
+                case 0: return "SKY VIPER";
+                case 1: return "CRIMSON PHANTOM";
+                case 2: return "STORM HAWK";
+                case 3: return "THUNDER FALCON";
+                case 4: return "NIGHT RAPTOR";
+                case 5: return "STEEL EAGLE";
+                case 6: return "DELTA STRIKER";
+                case 7: return "IRON PHOENIX";
+                case 8: return "LIGHTNING FURY";
+                default: return "SHADOW TALON";
+            }
+        } else {
+            // Even levels: Helicopters
+            switch ((level / 2 - 1) % 10) {
+                case 0: return "ROTOR BEAST";
+                case 1: return "BLADE HUNTER";
+                case 2: return "IRON HORNET";
+                case 3: return "SKY TITAN";
+                case 4: return "VENOM BLADE";
+                case 5: return "COBRA WING";
+                case 6: return "GATOR CHOPPER";
+                case 7: return "DARK EAGLE";
+                case 8: return "HALO DESTROYER";
+                default: return "GUARDIAN PRIME";
+            }
+        }
+    }
+    
+    // Audio settings methods
+    public float getMasterVolume() { return masterVolume; }
+    public void setMasterVolume(float volume) { this.masterVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getSfxVolume() { return sfxVolume; }
+    public void setSfxVolume(float volume) { this.sfxVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getUiVolume() { return uiVolume; }
+    public void setUiVolume(float volume) { this.uiVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public float getMusicVolume() { return musicVolume; }
+    public void setMusicVolume(float volume) { this.musicVolume = Math.max(0, Math.min(1, volume)); }
+    
+    public boolean isSoundEnabled() { return soundEnabled; }
+    public void setSoundEnabled(boolean enabled) { this.soundEnabled = enabled; }
+    
+    public boolean isSpatialAudioEnabled() { return spatialAudioEnabled; }
+    public void setSpatialAudioEnabled(boolean enabled) { this.spatialAudioEnabled = enabled; }
+    
+    // Gameplay settings methods
+    public int getCountdownMode() { return countdownMode; }
+    public void setCountdownMode(int mode) { this.countdownMode = Math.max(0, Math.min(2, mode)); }
+    
+    // Game mode methods
+    public GameMode getGameMode() { return gameMode; }
+    public void setGameMode(GameMode mode) { this.gameMode = (mode != null) ? mode : GameMode.MASTER; }
+    
+    // Creation timestamp methods
+    public long getCreationTimestamp() { return creationTimestamp; }
+    public void setCreationTimestamp(long timestamp) { this.creationTimestamp = timestamp; }
+    
+    // Seen attack introductions methods
+    public java.util.List<String> getSeenAttackIntros() { return seenAttackIntros; }
+    public boolean hasSeenAttackIntro(String attackId) { return seenAttackIntros.contains(attackId); }
+    public void markAttackIntroSeen(String attackId) { 
+        if (!seenAttackIntros.contains(attackId)) {
+            seenAttackIntros.add(attackId);
+        }
+    }
+    
+    // Seen passive unlock methods
+    public java.util.List<String> getSeenPassiveUnlocks() { return seenPassiveUnlocks; }
+    public void setSeenPassiveUnlocks(java.util.List<String> seen) { this.seenPassiveUnlocks = seen; }
+    public boolean hasSeenPassiveUnlock(String upgradeId) { return seenPassiveUnlocks != null && seenPassiveUnlocks.contains(upgradeId); }
+    public void markPassiveUnlockSeen(String upgradeId) {
+        if (seenPassiveUnlocks == null) seenPassiveUnlocks = new java.util.ArrayList<>();
+        if (!seenPassiveUnlocks.contains(upgradeId)) {
+            seenPassiveUnlocks.add(upgradeId);
+        }
+    }
+    public void clearSeenPassiveUnlocks() {
+        if (seenPassiveUnlocks != null) seenPassiveUnlocks.clear();
+    }
+    
+    // Custom save name accessors
+    public String getCustomSaveName() { return customSaveName; }
+    public void setCustomSaveName(String name) { this.customSaveName = name; }
+    
+    // Tutorial completion accessors
+    public boolean isTutorialCompleted() { return tutorialCompleted; }
+    public void setTutorialCompleted(boolean completed) { this.tutorialCompleted = completed; }
+}

@@ -1,0 +1,65 @@
+
+
+[2026-03-16 21:22:15] Client version: 1773426366
+[2026-03-16 21:22:15] Failed to get ParentalSettings\Settings from config file for account ID 782965706
+[2026-03-16 21:22:15] Got parental settings for account ID 782965706
+
+
+[2026-03-16 21:23:08] Client version: 1773426366
+[2026-03-16 21:23:08] Validating parental settings
+[2026-03-16 21:23:08] Settings dump:
+[2026-03-16 21:23:08] 	Account ID: 782965706
+[2026-03-16 21:23:08] 	Enabled: false
+[2026-03-16 21:23:08] 	Base list: 0 ()
+[2026-03-16 21:23:08] 	No custom list
+[2026-03-16 21:23:08] 	No enabled features
+
+
+[2026-03-16 21:25:06] Client version: 1773426366
+[2026-03-16 21:25:06] Validating parental settings
+[2026-03-16 21:25:06] Settings dump:
+[2026-03-16 21:25:06] 	Account ID: 782965706
+[2026-03-16 21:25:06] 	Enabled: false
+[2026-03-16 21:25:06] 	Base list: 0 ()
+[2026-03-16 21:25:06] 	No custom list
+[2026-03-16 21:25:06] 	No enabled features
+
+
+[2026-03-16 21:26:26] Client version: 1773426366
+[2026-03-16 21:26:26] Validating parental settings
+[2026-03-16 21:26:26] Settings dump:
+[2026-03-16 21:26:26] 	Account ID: 782965706
+[2026-03-16 21:26:26] 	Enabled: false
+[2026-03-16 21:26:26] 	Base list: 0 ()
+[2026-03-16 21:26:26] 	No custom list
+[2026-03-16 21:26:26] 	No enabled features
+
+
+[2026-03-16 21:34:02] Client version: 1773426366
+[2026-03-16 21:34:02] Validating parental settings
+[2026-03-16 21:34:02] Settings dump:
+[2026-03-16 21:34:02] 	Account ID: 782965706
+[2026-03-16 21:34:02] 	Enabled: false
+[2026-03-16 21:34:02] 	Base list: 0 ()
+[2026-03-16 21:34:02] 	No custom list
+[2026-03-16 21:34:02] 	No enabled features
+
+
+[2026-03-18 16:03:31] Client version: 1773426366
+[2026-03-18 16:03:31] Validating parental settings
+[2026-03-18 16:03:31] Settings dump:
+[2026-03-18 16:03:31] 	Account ID: 782965706
+[2026-03-18 16:03:31] 	Enabled: false
+[2026-03-18 16:03:31] 	Base list: 0 ()
+[2026-03-18 16:03:31] 	No custom list
+[2026-03-18 16:03:31] 	No enabled features
+
+
+[2026-03-18 16:15:10] Client version: 1773426366
+[2026-03-18 16:15:10] Validating parental settings
+[2026-03-18 16:15:10] Settings dump:
+[2026-03-18 16:15:10] 	Account ID: 782965706
+[2026-03-18 16:15:10] 	Enabled: false
+[2026-03-18 16:15:10] 	Base list: 0 ()
+[2026-03-18 16:15:10] 	No custom list
+[2026-03-18 16:15:10] 	No enabled features

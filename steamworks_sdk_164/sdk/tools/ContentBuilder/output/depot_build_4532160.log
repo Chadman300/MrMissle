@@ -1,0 +1,1011 @@
+[2026-03-16 21:34:03]: Starting build for depot 4532160, content path is "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo", build flags 0x0
+[2026-03-16 21:34:03]: Building file listing for depot 4532160 ...
+[2026-03-16 21:34:03]: Found 2446 files for mapping: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo * -> .
+[2026-03-16 21:34:03]: Found 2446 files (966 MB) for depot 4532160
+[2026-03-16 21:34:03]: Building depot 4532160, no baseline manifest
+[2026-03-16 21:34:08]: Found 2811 new chunks ( 0 used previously ) for depot 4532160, took 0 minutes, 4 seconds
+[2026-03-16 21:34:08]: Changes to baseline manifest 0 :
+[2026-03-16 21:34:08]: Added  : "app" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\.jpackage.xml" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\classes\Achievement$AchievementType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Achievement.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\AchievementManager.class" 7 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ActiveItem$ItemType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ActiveItem.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\App$1.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\App$2.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\App.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\AssetLoader.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\BeamAttack$BeamType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\BeamAttack.class" 7 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Boss$BulletFactory.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Boss.class" 41 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Bullet$BulletType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Bullet.class" 16 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ComboSystem.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\classes\config\ColorPalette.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\FontPalette.class" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\GameConfig.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\HUDLayout$AnchorPoint.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\HUDLayout$HUDElement.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\HUDLayout$HUDElementConfig.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\HUDLayout.class" 6 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\UIScale.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\config\UITheme.class" 22 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ControllerManager$1.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ControllerManager.class" 12 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\DamageNumber.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Flare.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game$1.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game$2.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game$3.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game$4.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game$5.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Game.class" 199 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\GameData.class" 14 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\GameMode.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\GameState.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\GlobalSaveData.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\HUDLayoutEditor$1.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\HUDLayoutEditor.class" 24 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\interfaces" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\classes\interfaces\Collidable.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\interfaces\Positionable.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\interfaces\Renderable.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\interfaces\Updatable.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\KeyBindManager$Action.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\KeyBindManager$ControllerButton.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\KeyBindManager$InputMode.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\KeyBindManager$Preset.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\KeyBindManager.class" 12 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\LevelStats.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Particle$ParticleType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Particle.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\PassiveUpgrade$UpgradeType.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\PassiveUpgrade.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\PassiveUpgradeManager.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Player$1.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Player.class" 10 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\RenderCache.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Renderer$1.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Renderer$ColoredText.class" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\Renderer.class" 160 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ResumeState.class" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SaveData$LevelStatsData.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SaveData.class" 14 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SaveManager$SaveMetadata.class" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SaveManager.class" 11 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ShadowCache.class" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\ShopManager.class" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SoundManager$Sound.class" 14 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\SoundManager.class" 15 KB 
+[2026-03-16 21:34:08]: Added  : "app\classes\UIButton.class" 10 KB 
+[2026-03-16 21:34:08]: Added  : "app\input-lib" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\input-lib\jinput.jar" 201 KB 
+[2026-03-16 21:34:08]: Added  : "app\MissileMan Demo.cfg" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\MissileMan_Demo.jar" 381 KB 
+[2026-03-16 21:34:08]: Added  : "app\sources.txt" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\src" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\src\Achievement.java" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\AchievementManager.java" 9 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ActiveItem.java" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\App.java" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\AssetLoader.java" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\BeamAttack.java" 13 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Boss.java" 104 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Bullet.java" 37 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ComboSystem.java" 7 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\src\config\BG_UPDATE_INTERVAL_NANOS" 0 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\ColorPalette.java" 12 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\FontPalette.java" 15 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\GameConfig.java" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\HUDLayout.java" 15 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\UIScale.java" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\config\UITheme.java" 52 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ControllerManager.java" 21 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\DamageNumber.java" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Flare.java" 4 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Game.java" 620 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\GameData.java" 22 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\GameMode.java" 5 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\GameState.java" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\GlobalSaveData.java" 3 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\HUDLayoutEditor.java" 48 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\interfaces" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "app\src\interfaces\Collidable.java" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\interfaces\Positionable.java" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\interfaces\Renderable.java" 2 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\interfaces\Updatable.java" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\KeyBindManager.java" 23 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\LevelStats.java" 6 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Notes.txt" 1 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Particle.java" 9 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\PassiveUpgrade.java" 6 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\PassiveUpgradeManager.java" 7 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Player.java" 19 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\RenderCache.java" 8 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\Renderer.java" 420 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ResumeState.java" 6 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\SaveData.java" 29 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\SaveManager.java" 15 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ShadowCache.java" 6 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\ShopManager.java" 10 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\SoundManager.java" 37 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\sources.txt" 0 KB 
+[2026-03-16 21:34:08]: Added  : "app\src\UIButton.java" 16 KB 
+[2026-03-16 21:34:08]: Added  : "config" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "config\gpu.properties" 1 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "Fonts\Arial Black.ttf" 117 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\arial.ttf" 894 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\Arialn.ttf" 59 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\ArialTh.ttf" 41 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\ARIBL0.ttf" 57 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\GEO_AI__.TTF" 59 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\G_ari_bd.TTF" 131 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\G_ari_i.TTF" 141 KB 
+[2026-03-16 21:34:08]: Added  : "Fonts\Inlanders Demo.otf" 29 KB 
+[2026-03-16 21:34:08]: Added  : "jinput-dx8_64.dll" 139 KB 
+[2026-03-16 21:34:08]: Added  : "jinput-raw_64.dll" 138 KB 
+[2026-03-16 21:34:08]: Added  : "jinput-wintab.dll" 163 KB 
+[2026-03-16 21:34:08]: Added  : "MissileMan Demo.exe" 495 KB 
+[2026-03-16 21:34:08]: Added  : "runtime" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\bin" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-console-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-console-l1-2-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-datetime-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-debug-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-errorhandling-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-fibers-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-fibers-l1-1-1.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-file-l1-1-0.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-file-l1-2-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-file-l2-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-handle-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-heap-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-interlocked-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-kernel32-legacy-l1-1-1.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-libraryloader-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-localization-l1-2-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-memory-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-namedpipe-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-processenvironment-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-processthreads-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-processthreads-l1-1-1.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-profile-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-rtlsupport-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-string-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-synch-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-synch-l1-2-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-sysinfo-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-sysinfo-l1-2-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-timezone-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-core-util-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-conio-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-convert-l1-1-0.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-environment-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-filesystem-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-heap-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-locale-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-math-l1-1-0.dll" 30 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-multibyte-l1-1-0.dll" 30 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-private-l1-1-0.dll" 74 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-process-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-runtime-l1-1-0.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-stdio-l1-1-0.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-string-l1-1-0.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-time-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\api-ms-win-crt-utility-l1-1-0.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\attach.dll" 30 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\awt.dll" 1387 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\dt_shmem.dll" 37 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\dt_socket.dll" 37 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\extnet.dll" 25 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\fontmanager.dll" 942 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\freetype.dll" 535 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\instrument.dll" 52 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\j2gss.dll" 52 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\j2pcsc.dll" 27 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jaas.dll" 29 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\java.dll" 115 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\javaaccessbridge.dll" 303 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\javajpeg.dll" 179 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jawt.dll" 22 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jdwp.dll" 235 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jimage.dll" 34 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jli.dll" 83 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jsound.dll" 60 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\jsvml.dll" 850 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\lcms.dll" 254 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\management.dll" 30 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\management_agent.dll" 25 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\management_ext.dll" 36 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\mlib_image.dll" 510 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\msvcp140.dll" 562 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\net.dll" 60 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\nio.dll" 80 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\prefs.dll" 26 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\rmi.dll" 21 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\server" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\bin\server\jvm.dll" 15062 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\splashscreen.dll" 209 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\sspi_bridge.dll" 45 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\syslookup.dll" 29 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\ucrtbase.dll" 1330 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\vcruntime140.dll" 118 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\vcruntime140_1.dll" 49 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\verify.dll" 54 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\w2k_lsa_auth.dll" 32 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\windowsaccessbridge-64.dll" 71 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\bin\zip.dll" 83 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\jaxp-strict.properties.template" 5 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\jaxp.properties" 9 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\logging.properties" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\management" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\management\jmxremote.access" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\management\jmxremote.password.template" 6 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\management\management.properties" 15 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\net.properties" 8 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\java.security" 70 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\limited" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\limited\default_local.policy" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\limited\default_US_export.policy" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\limited\exempt_local.policy" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\README.txt" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\unlimited" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\unlimited\default_local.policy" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\security\policy\unlimited\default_US_export.policy" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\conf\sound.properties" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\ADDITIONAL_LICENSE_INFO" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\aes.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\ASSEMBLY_EXCEPTION" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\c-libutl.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\cldr.md" 9 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\icu.md" 5 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\LICENSE" 19 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\public_suffix.md" 18 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\siphash.md" 9 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\unicode.md" 15 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\wepoll.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.base\zlib.md" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.compiler" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.compiler\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.compiler\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.compiler\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.datatransfer" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.datatransfer\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.datatransfer\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.datatransfer\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\colorimaging.md" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\freetype.md" 30 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\giflib.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\harfbuzz.md" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\jpeg.md" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\lcms.md" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\libpng.md" 8 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.desktop\mesa3d.md" 6 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.instrument" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.instrument\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.instrument\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.instrument\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.logging" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.logging\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.logging\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.logging\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management.rmi" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management.rmi\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management.rmi\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management.rmi\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.management\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.naming" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.naming\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.naming\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.naming\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.net.http" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.net.http\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.net.http\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.net.http\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.prefs" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.prefs\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.prefs\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.prefs\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.rmi" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.rmi\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.rmi\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.rmi\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.scripting" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.scripting\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.scripting\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.scripting\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.jgss" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.jgss\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.jgss\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.jgss\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.sasl" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.sasl\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.sasl\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.security.sasl\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.smartcardio" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.smartcardio\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.smartcardio\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.smartcardio\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql.rowset" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql.rowset\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql.rowset\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql.rowset\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.sql\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.transaction.xa" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.transaction.xa\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.transaction.xa\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.transaction.xa\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml.crypto" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml.crypto\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml.crypto\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml.crypto\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml.crypto\santuario.md" 12 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\bcel.md" 11 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\dom.md" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\jcup.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\schema10part1.md" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\schema10part2.md" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xalan.md" 14 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xerces.md" 12 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xhtml10.md" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xhtml10schema.md" 8 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xhtml11.md" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xhtml11schema.md" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xmlspec.md" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\java.xml\xmlxsd.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.accessibility" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.accessibility\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.accessibility\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.accessibility\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.attach" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.attach\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.attach\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.attach\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.compiler" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.compiler\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.compiler\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.compiler\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.dynalink" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.dynalink\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.dynalink\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.dynalink\dynalink.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.dynalink\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.httpserver" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.httpserver\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.httpserver\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.httpserver\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.incubator.vector" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.incubator.vector\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.incubator.vector\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.incubator.vector\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.ed" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.ed\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.ed\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.ed\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.jvmstat" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.jvmstat\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.jvmstat\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.jvmstat\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.le" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.le\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.le\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.le\jline.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.le\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.md" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.md\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.md\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.md\commonmark.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.md\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.opt" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.opt\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.opt\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.opt\jopt-simple.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.internal.opt\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jartool" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jartool\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jartool\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jartool\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\dejavufonts.md" 9 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\highlightjs.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\jquery.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\jqueryUI.md" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.javadoc\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jconsole" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jconsole\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jconsole\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jconsole\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdi" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdi\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdi\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdi\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdwp.agent" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdwp.agent\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdwp.agent\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jdwp.agent\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jfr" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jfr\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jfr\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jfr\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jshell" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jshell\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jshell\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jshell\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jsobject" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jsobject\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jsobject\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.jsobject\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.agent" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.agent\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.agent\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.agent\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.jfr" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.jfr\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.jfr\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management.jfr\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.management\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.net" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.net\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.net\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.net\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.nio.mapmode" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.nio.mapmode\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.nio.mapmode\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.nio.mapmode\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.sctp" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.sctp\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.sctp\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.sctp\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.auth" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.auth\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.auth\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.auth\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.jgss" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.jgss\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.jgss\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.security.jgss\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported.desktop" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported.desktop\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported.desktop\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported.desktop\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.unsupported\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.xml.dom" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.xml.dom\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.xml.dom\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.xml.dom\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.zipfs" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.zipfs\ADDITIONAL_LICENSE_INFO" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.zipfs\ASSEMBLY_EXCEPTION" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\legal\jdk.zipfs\LICENSE" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\lib\classlist" 85 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\ct.sym" 10617 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\fontconfig.bfc" 5 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\fontconfig.properties.src" 13 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jawt.lib" 2 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jfr" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jfr\default.jfc" 40 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jfr\profile.jfc" 40 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jrt-fs.jar" 108 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jvm.cfg" 1 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\jvm.lib" 1185 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\modules" 87109 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\psfont.properties.ja" 4 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\psfontj2d.properties" 12 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\security" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "runtime\lib\security\blocked.certs" 3 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\security\cacerts" 184 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\security\public_suffix_list.dat" 224 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\tzdb.dat" 101 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\lib\tzmappings" 16 KB 
+[2026-03-16 21:34:08]: Added  : "runtime\release" 1 KB 
+[2026-03-16 21:34:08]: Added  : "saves" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "saves\global.dat" 1 KB 
+[2026-03-16 21:34:08]: Added  : "SFX" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_00.wav" 241 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_01.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_02.wav" 241 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_03.wav" 241 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_04.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_05.wav" 238 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_06.wav" 317 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_07.wav" 323 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_08.wav" 322 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_09.wav" 319 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_10.wav" 318 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_11.wav" 320 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_12.wav" 291 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_13.wav" 290 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_14.wav" 293 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_15.wav" 290 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_16.wav" 294 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_17.wav" 292 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_18.wav" 169 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_19.wav" 171 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_20.wav" 167 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_21.wav" 168 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_22.wav" 168 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_23.wav" 167 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_24.wav" 238 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_25.wav" 240 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_26.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_27.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_28.wav" 243 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Long\8bit_expl_long_29.wav" 243 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_00.wav" 116 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_01.wav" 110 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_02.wav" 111 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_03.wav" 112 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_04.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_05.wav" 111 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_06.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_07.wav" 100 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_08.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_09.wav" 103 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_10.wav" 103 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_11.wav" 103 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_12.wav" 102 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_13.wav" 103 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_14.wav" 102 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_15.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_16.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_17.wav" 100 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_18.wav" 135 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_19.wav" 133 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_20.wav" 132 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_21.wav" 135 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_22.wav" 133 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_23.wav" 134 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_24.wav" 100 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_25.wav" 97 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_26.wav" 100 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_27.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_28.wav" 97 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Medium\8bit_expl_medium_29.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_00.wav" 77 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_01.wav" 80 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_02.wav" 81 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_03.wav" 81 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_04.wav" 80 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_05.wav" 79 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_06.wav" 62 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_07.wav" 58 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_08.wav" 59 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_09.wav" 57 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_10.wav" 58 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_11.wav" 61 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_12.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_13.wav" 106 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_14.wav" 110 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_15.wav" 106 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_16.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_17.wav" 106 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_18.wav" 104 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_19.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_20.wav" 106 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_21.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_22.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_23.wav" 109 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_24.wav" 72 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_25.wav" 70 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_26.wav" 74 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_27.wav" 72 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_28.wav" 72 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Explosions SFX\Short\8bit_expl_short_29.wav" 72 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Burning Grounds.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Chilling Outside.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Conflict.wav" 18378 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Fantasy Rock Night.wav" 27565 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Heavy Rock Menu Theme.wav" 5337 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Hell and Demons.wav" 12865 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Made to Build.wav" 11507 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Music Sortings.txt" 2 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Planet Hell.wav" 13784 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Prepare to Fight.wav" 15928 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Rock Battle Menu.wav" 8271 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Rock Battle Theme.wav" 16540 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Rock Combat Theme.wav" 14703 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Rock Factory.wav" 11579 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Rock Synth.wav" 5839 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Synthwave Metal.wav" 11028 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Time to Fight.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Main\Under Attack.wav" 14473 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Burning Grounds No Melody.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Chilling Outside No Melody.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Hell and Demons No Melody.wav" 12865 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Made to Build No Melody.wav" 11507 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Planet Hell No Melody.wav" 13784 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Prepare to Fight No Melody.wav" 15928 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Rock Battle Menu No Melody.wav" 8271 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Rock Battle Menu Simple.wav" 4964 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Rock Factory No Melody.wav" 11579 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Synthwave Metal No Melody.wav" 11028 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\No Melody\Time to Fight No Melody.wav" 10338 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Boss Fight Theme (1).wav" 31807 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Boss Fight Theme (5).wav" 17357 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Boss Fight Theme (6).wav" 12362 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Boss Fight Theme (7).wav" 11876 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Boss Fight Theme (8).wav" 13172 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Old\Main menu theme.wav" 14846 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Short" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Short\Burning Grounds Short Speed Increase.wav" 2851 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Music Tracks\Short\Chilling Outside Short Speed Increase.wav" 2890 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Alarm 02.wav" 465 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Alarm Long 02.wav" 4917 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Alarmed 06.wav" 168 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Alarmed 10.wav" 151 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Alarmed StereoUP 03.wav" 126 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Beeep 06.wav" 14 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Beeep 20.wav" 17 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Blip 07.wav" 255 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Blip 15.wav" 210 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Alarms Blip Beeps\Retro Ring 01.wav" 123 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience\Retro Ambience 02.wav" 10692 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience\Retro Ambience 11.wav" 12417 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience\Retro Ambience Acute 01.wav" 18027 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience\Retro Ambience Short 09.wav" 4689 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ambience\Retro Ambience Stretch Large 01.wav" 6689 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects\Retro Birds 07.wav" 584 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects\Retro Crow 01.wav" 723 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects\Retro Fly 01.wav" 756 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects\Retro Owl 01.wav" 563 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Animal Insects\Retro Wolf B 02.wav" 689 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ascending" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ascending\Retro Ascending Long 06.wav" 879 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Ascending\Retro Ascending Short 20.wav" 339 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops\Retro Blop 07.wav" 63 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops\Retro Blop 18.wav" 105 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops\Retro Blop 22.wav" 212 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops\Retro Blop StereoUP 04.wav" 143 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Blops\Retro Blop StereoUP 09.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump 01.wav" 394 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump Classic 08.wav" 22 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump Simple A 01.wav" 198 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump Simple B 05.wav" 239 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump Simple C2 02.wav" 125 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump StereoUP Simple 01.wav" 208 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Bounce Jump\Retro Jump StereoUP Simple 05.wav" 198 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge 07.wav" 669 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge 13.wav" 708 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Electric Off 07.wav" 490 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Electric Off StereoUP 03.wav" 625 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Magic 11.wav" 221 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Off 11.wav" 572 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Off StereoUP 02.wav" 503 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge Off StereoUP 05.wav" 453 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge StereoUP 01.wav" 385 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Charge\Retro Charge StereoUP 12.wav" 246 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Drums 01.wav" 508 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Long 04.wav" 931 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Long 05.wav" 795 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Long 31.wav" 1387 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Short 02.wav" 449 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Short 07.wav" 433 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Cinematic\Retro Cinematic Wind 02.wav" 687 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Descending" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Descending\Retro Descending Long 04.wav" 373 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Descending\Retro Descending Short 14.wav" 333 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Descending\Retro Descending Short 20.wav" 436 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric 02.wav" 625 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric 21.wav" 490 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric 32.wav" 907 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric LoFi 01.wav" 623 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric Long 09.wav" 1579 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric Short 03.wav" 98 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric Short 17.wav" 134 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric Sparks 01.wav" 323 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electric\Retro Electric Sparks 22.wav" 626 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electronic Burst" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electronic Burst\Retro Electronic Burst 05.wav" 441 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Electronic Burst\Retro Electronic Burst StereoUP 04.wav" 422 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative\Retro Negative Long 01.wav" 474 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative\Retro Negative Long 12.wav" 402 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative\Retro Negative Short 07.wav" 131 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative\Retro Negative Short 21.wav" 251 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Negative\Retro Negative Short 23.wav" 58 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event 19.wav" 157 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event 49.wav" 304 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event Acute 08.wav" 273 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event Acute 11.wav" 209 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event Complex 03.wav" 258 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event Echo 12.wav" 209 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event StereoUP 02.wav" 321 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event UI 01.wav" 321 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event UI 13.wav" 140 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event UI 15.wav" 128 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Retro Event UI StereoUP 01.wav" 150 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Wrong" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Wrong\Retro Event Wrong Echo 03.wav" 242 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Wrong\Retro Event Wrong Simple 03.wav" 59 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Events\Wrong\Retro Event Wrong Simple 07.wav" 173 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Explosion" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Explosion\Retro Explosion Long 02.wav" 820 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Explosion\Retro Explosion Short 01.wav" 161 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Explosion\Retro Explosion Short 15.wav" 158 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Explosion\Retro Explosion Swoshes 04.wav" 511 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep 03.wav" 20 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep Grass 01.wav" 38 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep Gravel 01.wav" 367 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep Krushed Landing 01.wav" 25 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep Metal 01.wav" 327 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\FootStep\Retro FootStep Mud 01.wav" 244 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\HiTech" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\HiTech\Retro HiTech 08.wav" 887 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\HiTech\Retro HiTech 16.wav" 703 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\HiTech\Retro HiTech Long 02.wav" 2001 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact 20.wav" 382 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact LoFi 09.wav" 305 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact Metal 05.wav" 433 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact Metal 36.wav" 216 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact Punch 07.wav" 50 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact Punch Hurt 01.wav" 30 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Impact\Retro Impact Water 03.wav" 461 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Interferences" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Interferences\Retro Interferences 02.wav" 446 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Interferences\Retro Interferences Long 08.wav" 761 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic 06.wav" 190 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic 11.wav" 288 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic 34.wav" 507 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic 54.wav" 684 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic Electric 03.wav" 297 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic Protection 01.wav" 198 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Magic\Retro Magic Protection 25.wav" 233 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\ChipWave" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\ChipWave\Retro Music - ABMU - ChipWave 01.wav" 27968 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Events" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Events\Retro Music - WolfSynth - Tempo Normal - 02.wav" 2660 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Negative" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Negative\Retro Negative Melody 01 - aCustom1.wav" 235 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Negative\Retro Negative Melody 02 - space voice pad.wav" 235 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Nes Style" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Nes Style\Retro Music Loop - PV8 - NES Style 01.wav" 1353 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Success" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Success\desktop.ini" 1 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Success\Retro Success Melody 01 - sawtooth lead 1.wav" 160 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Success\Retro Success Melody 02 - choir soprano.wav" 160 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Music\Success\Retro Success Melody 04 - electric piano 2.wav" 160 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp\Retro PickUp 10.wav" 311 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp\Retro PickUp 18.wav" 70 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp\Retro PickUp Coin 04.wav" 50 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp\Retro PickUp Coin 07.wav" 83 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PickUp\Retro PickUp Coin StereoUP 04.wav" 77 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PowerUp" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PowerUp\Retro PowerUP 09.wav" 173 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PowerUp\Retro PowerUP 23.wav" 362 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\PowerUp\Retro PowerUP StereoUP 05.wav" 172 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Roar" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Roar\Retro Roar 02.wav" 302 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Roar\Retro Roar Krushed 01.wav" 360 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Roar\Retro Roar LoFi 01.wav" 321 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Roar\Retro Roar LoFi 08.wav" 662 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Swoosh" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Swoosh\Retro Swooosh 02.wav" 98 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Swoosh\Retro Swooosh 07.wav" 209 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Swoosh\Retro Swooosh 16.wav" 401 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles\Retro Passing Airplane 01.wav" 1726 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles\Retro Vehicle Car 03.wav" 514 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles\Retro Vehicle Motor 02.wav" 1017 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles\Retro Vehicle SciFi 01.wav" 830 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Vehicles\Retro Vehicle Sirens 03.wav" 701 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Water" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Water\Retro Descending Water 01.wav" 1194 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Water\Retro Falling Water 07.wav" 1024 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Water\Retro Water Drop 01.wav" 64 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\laser" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\laser\Retro Gun Laser SingleShot 01.wav" 208 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\laser\Retro Weapon Laser 03.wav" 247 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\laser\Retro Weapon Laser 25.wav" 235 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\laser\Retro Weapon Laser 36.wav" 246 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\reload" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\reload\Retro Weapon Reload 03.wav" 237 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\reload\Retro Weapon Reload Best A 03.wav" 103 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\reload\Retro Weapon Reload Best Multi A 03.wav" 449 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\reload\Retro Weapon Reload Plasma 06.wav" 128 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\Retro Gun Multishots 6 Delay9 03.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\Retro Gun SingleShot 04.wav" 198 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\Retro Weapon Gun LoFi 03.wav" 140 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Granade Launcher 03.wav" 96 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Missile Launcher 01.wav" 271 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Weapon Arrow 02.wav" 96 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Weapon Bomb 06.wav" 553 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Weapon Electric 05.wav" 171 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Weapon Electric 18.wav" 317 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weapon\various\Retro Weapon Plasma Type B 03.wav" 116 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird 07.wav" 249 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird 15.wav" 471 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird Psych 18.wav" 196 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird Psych Long 11.wav" 682 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird Psych Long 16.wav" 892 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\Weird\Retro Weird Saturated 05.wav" 876 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Alien Transmission 02.wav" 230 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Computer 02.wav" 622 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Musicaly 03 nananana.wav" 605 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Ring 04.wav" 198 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Scream 01.wav" 636 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Turn Off 12.wav" 1047 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\GameSFX\z_Various\Retro Weird Psych 05.wav" 180 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C00.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C01.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C02.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C03.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C04.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C05.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C06.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C07.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C08.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C09.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C10.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C11.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - choir bass - C12.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C00.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C01.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C02.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C03.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C04.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C05.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C06.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C07.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C08.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C09.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C10.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C11.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - crystal - C12.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C01.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C02.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C03.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C04.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C05.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C06.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C07.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C08.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C09.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C10.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C11.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Instruments\Retro Instrument - drumset - C12.wav" 276 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Deactivated.wav" 37 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Game Over.wav" 26 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Last Lap.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Level Completed.wav" 316 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Malfunction.wav" 130 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Mission Completed.wav" 324 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Nightmare Mode.wav" 33 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\Time Out.wav" 26 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\Retro Game SFX\Voices\You Win.wav" 107 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cancel - 1.m4a" 13 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cancel - 2.m4a" 23 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cursor - 1.m4a" 8 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cursor - 2.m4a" 5 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cursor - 3.m4a" 4 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cursor - 4.m4a" 5 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Cursor - 5.m4a" 7 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Error - 1.m4a" 13 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Popup Close - 1.m4a" 10 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Popup Open - 1.m4a" 10 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Select - 1.m4a" 12 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Select - 2.m4a" 13 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Swipe - 1.m4a" 11 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\m4a\JDSherbert - Ultimate UI SFX Pack - Swipe - 2.m4a" 9 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cancel - 1.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cancel - 2.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cursor - 1.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cursor - 2.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cursor - 3.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cursor - 4.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Cursor - 5.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Error - 1.mp3" 20 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Popup Close - 1.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Popup Open - 1.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Select - 1.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Select - 2.mp3" 49 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Swipe - 1.mp3" 20 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\mp3\JDSherbert - Ultimate UI SFX Pack - Swipe - 2.mp3" 18 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cancel - 1.ogg" 18 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cancel - 2.ogg" 32 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cursor - 1.ogg" 12 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cursor - 2.ogg" 8 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cursor - 3.ogg" 8 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cursor - 4.ogg" 8 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Cursor - 5.ogg" 11 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Error - 1.ogg" 16 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Popup Close - 1.ogg" 12 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Popup Open - 1.ogg" 16 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Select - 1.ogg" 16 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Select - 2.ogg" 17 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Swipe - 1.ogg" 16 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\ogg\JDSherbert - Ultimate UI SFX Pack - Swipe - 2.ogg" 15 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cancel - 1.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cancel - 2.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 1.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 2.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 3.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 4.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 5.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Error - 1.wav" 113 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Popup Close - 1.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Popup Open - 1.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Select - 1.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Select - 2.wav" 283 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Swipe - 1.wav" 110 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (HD)\JDSherbert - Ultimate UI SFX Pack - Swipe - 2.wav" 101 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)" 0 KB ,Flags: 64
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cancel - 1.wav" 189 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cancel - 2.wav" 189 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 1.wav" 189 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 2.wav" 189 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 3.wav" 189 KB 
+[2026-03-16 21:34:08]: Added  : "SFX\UI SFX\Mono\wav (SD)\JDSherbert - Ultimate UI SFX Pack - Cursor - 4.wav" 189 KB 
+[2026-03-16 21:34:08]: ... not all added files listed above (1000/2446)
+[2026-03-16 21:34:08]: Summary: 2446 files added (966.16 MB), 0 files changed (0 bytes), 0 files removed (0 bytes)
+[2026-03-16 21:34:08]: Uploading new manifest to depot_ingest.discovery.steamserver.net (handle 4604206450238456128, 404532 bytes).
+[2026-03-16 21:34:10]: Success! New manifestID 289899771347400881 created and 0 new chunks uploaded.

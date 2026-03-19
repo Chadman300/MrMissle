@@ -1,0 +1,5 @@
+[2026-03-16 21:23:08]: Starting build for depot 373579, content path is "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo", build flags 0x0
+[2026-03-16 21:23:08]: Building file listing for depot 373579 ...
+[2026-03-16 21:23:09]: Found 2445 files for mapping: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo * -> .
+[2026-03-16 21:23:09]: Found 2445 files (966 MB) for depot 373579
+[2026-03-16 21:23:09]: ERROR! Failed to initialize build on server (Invalid Parameter) 

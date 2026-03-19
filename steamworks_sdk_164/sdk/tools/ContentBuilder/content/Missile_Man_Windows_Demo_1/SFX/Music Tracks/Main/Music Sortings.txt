@@ -1,0 +1,42 @@
+Heavy:
+-Burning Grounds (Increased speed Version)
+-Chilling Outside (Increased speed Version)
+-Heavy Rock Menu Theme
+-Conflict:
+-Fantasy Rock Night (beginning is slow but good song after)
+-Hell and Demons (beginning is bad but gets better)
+-Rock Battle Menu (More Intense menu music)
+-Rock Battle Theme
+-Rock Combat Theme (really no melody)
+-Rock Factory (really no melody simular to Rock Combat Theme)
+-Rock Synth
+-Synthwave Metal
+-Time to Fight
+-Under Attack
+
+Chill:
+-Burning Grounds (Normal Speed)
+-Chilling Outside (Normal Speed)
+-Made to build
+-Planet Hell
+-Prepare to Fight
+
+Boss Worthy:
+-Burning Grounds (Increased speed Version)
+-Chilling Outside (Increased speed Version)
+-Heavy Rock Menu Theme
+-Rock Battle Theme
+-Conflict:
+-Fantasy Rock Night (beginning is slow but good song after)
+-Hell and Demons (beginning is bad but gets better)
+-Rock Synth
+-Synthwave Metal
+-Time to Fight
+-Under Attack
+
+Menu:
+-Planet Hell
+-Prepare to Fight
+-Rock Battle Menu (More Intense menu music)
+-Rock Factory (More Intense menu music)
+-Rock Combat Theme (More Intense menu music)

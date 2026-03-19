@@ -3,8 +3,11 @@ CameComp.jar
 
 # Build outputs
 bin/
-build/output/
+build/
 %DEST%/
+
+# Demo build (Steam-ready, large with bundled JRE)
+demo/
 
 # IDE files
 .vscode/

@@ -1,0 +1,45 @@
+
+
+[2026-03-16 21:22:14] Client version: 1773426366
+[2026-03-16 21:22:14] Load failed: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf.
+[2026-03-16 21:22:14] Load failed: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\config\libraryfolders.vdf.
+[2026-03-16 21:22:14] Steam library folders configuration will be reset.
+[2026-03-16 21:22:14] No install folder configuration files found.
+[2026-03-16 21:22:14] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-16 21:22:14] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-16 21:23:01] Client version: 1773426366
+[2026-03-16 21:23:01] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-16 21:23:01] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-16 21:23:01] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-16 21:24:54] Client version: 1773426366
+[2026-03-16 21:24:54] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-16 21:24:54] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-16 21:24:54] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-16 21:26:15] Client version: 1773426366
+[2026-03-16 21:26:15] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-16 21:26:15] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-16 21:26:15] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-16 21:33:45] Client version: 1773426366
+[2026-03-16 21:33:45] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-16 21:33:45] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-16 21:33:45] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-18 16:03:19] Client version: 1773426366
+[2026-03-18 16:03:19] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-18 16:03:19] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-18 16:03:19] Triggered async write of Steam library folders configuration (1 libraries).
+
+
+[2026-03-18 16:15:03] Client version: 1773426366
+[2026-03-18 16:15:03] Loaded Steam library folders configuration: C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\libraryfolders.vdf
+[2026-03-18 16:15:03] Loaded 0 apps from install folder "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\builder\steamapps\appmanifest_*.acf".
+[2026-03-18 16:15:03] Triggered async write of Steam library folders configuration (1 libraries).

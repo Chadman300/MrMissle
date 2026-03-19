@@ -1,0 +1,12 @@
+"DepotBuildConfig"
+{
+	"DepotID" "4532161"
+	"contentroot" "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\content\Missile_Man_Windows_Demo_2"
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"recursive" "1"
+	}
+	"FileExclusion" "*.pdb"
+}

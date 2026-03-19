@@ -42,6 +42,7 @@ public class Game extends JPanel implements Runnable {
     private GameState gameState;
     private int selectedStatItem;
     private int selectedMenuItem; // For main menu navigation
+    private int demoOverSelection; // 0 = Play Again, 1 = Quit (demo over screen)
     private int mouseX, mouseY; // Mouse position for UI navigation
     private int lastMouseX = -1, lastMouseY = -1; // Previous mouse position for dead-zone threshold
     private static final int MOUSE_MOVE_THRESHOLD = 8; // Minimum pixels mouse must move to update UI selection
@@ -403,6 +404,10 @@ public class Game extends JPanel implements Runnable {
     
     // Game version
     public static final String GAME_VERSION = "v0.9.0";
+
+    // Demo mode — set to true when building the public demo
+    public static final boolean DEMO_MODE = false;
+    public static final int DEMO_MAX_LEVEL = 3;
     
     // Attack Introduction System
     // Each attack intro has: ID, Level it appears, Name, Description, Category
@@ -1177,6 +1182,71 @@ public class Game extends JPanel implements Runnable {
                 mouseX = (int) (e.getX() / scaleX);
                 mouseY = (int) (e.getY() / scaleY);
 
+                // Tutorial popup dismiss — any mouse click dismisses the popup
+                if (tutorialMode && tutorialPopupActive) {
+                    if (tutorialPopupInputDelay > 0) return; // 2-second buffer
+                    tutorialPopupActive = false;
+                    renderer.tutorialPopupActive = false;
+                    soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                    screenShakeIntensity = 2;
+
+                    if (gameState == GameState.PLAYING) {
+                        // Reset per-step tracking for the next step
+                        tutorialPlayerMoveDistance = 0;
+                        tutorialGrazeCount = 0;
+                        tutorialPlayerDied = false;
+                        tutorialItemUsed = false;
+                        tutorialShieldBlockCount = 0;
+                        tutorialShopPurchased = false;
+                        tutorialShopVisited = false;
+                        if (player != null) {
+                            tutorialPrevPlayerX = player.getX();
+                            tutorialPrevPlayerY = player.getY();
+                        }
+
+                        // For popup-only steps (Welcome, Complete), advance immediately
+                        if (tutorialStep == 0 || tutorialStep == 7) {
+                            advanceTutorialStep();
+                        }
+
+                        // Resume normal speed
+                        tutorialSlowdownPhase = 3; // SLOWING_OUT
+                        tutorialSlowdownTimer = 30;
+                    }
+                    return;
+                }
+
+                // Tutorial complete screen — handle LEAVE / REPLAY button clicks
+                if (tutorialMode && tutorialCompleteScreen && e.getButton() == java.awt.event.MouseEvent.BUTTON1) {
+                    int panelW = config.UIScale.px(520);
+                    int panelH = config.UIScale.px(320);
+                    int panelX = (WIDTH - panelW) / 2;
+                    int panelY = (HEIGHT - panelH) / 2;
+                    int btnW = config.UIScale.px(140);
+                    int btnH = config.UIScale.px(45);
+                    int btnY = panelY + config.UIScale.px(220);
+                    int btnGap = config.UIScale.px(30);
+                    int leaveX = panelX + (panelW / 2) - btnW - btnGap / 2;
+                    int againX = panelX + (panelW / 2) + btnGap / 2;
+
+                    if (mouseX >= leaveX && mouseX <= leaveX + btnW &&
+                        mouseY >= btnY && mouseY <= btnY + btnH) {
+                        // LEAVE
+                        completeTutorial();
+                        screenShakeIntensity = 5;
+                        return;
+                    } else if (mouseX >= againX && mouseX <= againX + btnW &&
+                               mouseY >= btnY && mouseY <= btnY + btnH) {
+                        // REPLAY
+                        completeTutorial();
+                        startTutorial();
+                        screenShakeIntensity = 5;
+                        return;
+                    }
+                    // Clicked outside buttons — just ignore
+                    return;
+                }
+
                 // Dismiss attack intro on any mouse button
                 if (gameState == GameState.ATTACK_INTRO) {
                     dismissAttackIntro();
@@ -1457,7 +1527,8 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    selectedMenuItem = Math.min(6, selectedMenuItem + 1); // Updated to 6 for new menu item
+                    int maxItem = DEMO_MODE ? 5 : 6; // Hide Save Files in demo
+                    selectedMenuItem = Math.min(maxItem, selectedMenuItem + 1);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
                 }
@@ -1472,7 +1543,7 @@ public class Game extends JPanel implements Runnable {
                         case 3: transitionToState(GameState.ACHIEVEMENTS); break;
                         case 4: transitionToState(GameState.INFO); break;
                         case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
-                        case 6: transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
+                        case 6: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -2325,6 +2396,27 @@ public class Game extends JPanel implements Runnable {
                     transitionToState(GameState.MENU);
                 }
                 break;
+
+            case DEMO_OVER:
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    demoOverSelection = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    demoOverSelection = 1;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                } else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                    if (demoOverSelection == 0) {
+                        // Play Again — reset to fresh demo state
+                        resetDemoState();
+                        transitionToState(GameState.MENU);
+                    } else {
+                        // Quit
+                        System.exit(0);
+                    }
+                }
+                break;
                 
             case WIN:
                 // Handle equip prompt input FIRST (before SPACE check)
@@ -2410,7 +2502,9 @@ public class Game extends JPanel implements Runnable {
                     
                     // Unlock next level
                     int currentLevel = gameData.getCurrentLevel();
-                    gameData.setMaxUnlockedLevel(Math.max(gameData.getMaxUnlockedLevel(), currentLevel + 1));
+                    int nextLevel = currentLevel + 1;
+                    if (DEMO_MODE) nextLevel = Math.min(nextLevel, DEMO_MAX_LEVEL);
+                    gameData.setMaxUnlockedLevel(Math.max(gameData.getMaxUnlockedLevel(), nextLevel));
                     
                     // Award money
                     int bossReward = 50 + (currentLevel * 10);
@@ -2427,8 +2521,14 @@ public class Game extends JPanel implements Runnable {
                     System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
                     
                     gameData.setCurrentLevel(currentLevel + 1);
-                    shopEnteredFrom = GameState.PLAYING; // Came from beating a boss
-                    transitionToState(GameState.SHOP);
+                    // Demo mode: show "Demo Over" after the final demo level
+                    if (DEMO_MODE && currentLevel >= DEMO_MAX_LEVEL) {
+                        demoOverSelection = 0;
+                        transitionToState(GameState.DEMO_OVER);
+                    } else {
+                        shopEnteredFrom = GameState.PLAYING; // Came from beating a boss
+                        transitionToState(GameState.SHOP);
+                    }
                 }
                 break;
                 
@@ -2582,8 +2682,9 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void navigateLevelMap(int direction) {
+        int maxLevel = DEMO_MODE ? DEMO_MAX_LEVEL : 28;
         int newLevel = gameData.getSelectedLevelView() + direction;
-        if (newLevel >= 1 && newLevel <= 28) {
+        if (newLevel >= 1 && newLevel <= maxLevel) {
             gameData.setSelectedLevelView(newLevel);
             // Set target scroll position (will animate smoothly)
             levelSelectScroll = newLevel;
@@ -3375,6 +3476,8 @@ public class Game extends JPanel implements Runnable {
                 }
             }
         } else if (gameState == GameState.SHOP) {
+            // Block shop clicks while tutorial popup is showing
+            if (tutorialMode && tutorialPopupActive) return;
             // Check if clicking on shop items
             UIButton[] buttons = renderer.getShopButtons();
             for (int i = 0; i < buttons.length; i++) {
@@ -3383,10 +3486,21 @@ public class Game extends JPanel implements Runnable {
                     
                     // Perform the purchase/continue action (same as SPACE key)
                     if (i == 0) {
-                        // Continue button - go to level select
-                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
-                        transitionToState(GameState.LEVEL_SELECT);
-                        screenShakeIntensity = 5;
+                        // Continue button
+                        if (tutorialMode && !tutorialShopPurchased) {
+                            // Must buy something first in tutorial
+                            soundManager.playSound(SoundManager.Sound.PURCHASE_FAIL);
+                            screenShakeIntensity = 2;
+                        } else {
+                            soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            if (tutorialMode) {
+                                advanceTutorialStep();
+                                transitionToState(GameState.PLAYING);
+                            } else {
+                                transitionToState(GameState.LEVEL_SELECT);
+                            }
+                            screenShakeIntensity = 5;
+                        }
                     } else {
                         // Try to purchase item
                         boolean purchased = shopManager.purchaseItem(i);
@@ -3834,7 +3948,7 @@ public class Game extends JPanel implements Runnable {
             case 3: transitionToState(GameState.ACHIEVEMENTS); break;
             case 4: transitionToState(GameState.INFO); break;
             case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
-            case 6: transitionToState(GameState.SAVE_SELECT); break; // Save Files
+            case 6: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // Save Files
         }
     }
     
@@ -4469,6 +4583,7 @@ public class Game extends JPanel implements Runnable {
      * Auto-save the current game state to the active save slot
      */
     private void performAutoSave() {
+        if (DEMO_MODE) return; // No saving in demo mode
         if (tutorialMode) return; // Don't auto-save during tutorial
         if (saveManager.getCurrentSaveSlot() == -1) {
             // No active save slot
@@ -4505,6 +4620,29 @@ public class Game extends JPanel implements Runnable {
     private void refreshSaveMetadata() {
         saveMetadataCache = saveManager.getAllSaveMetadata();
     }
+
+    /**
+     * Reset demo state to a fresh start (used by "Play Again" on the demo over screen).
+     */
+    private void resetDemoState() {
+        setupDemoSave();
+        soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
+        screenShakeIntensity = 5;
+    }
+
+    /**
+     * Set up a fresh in-memory demo save (no disk writes). Called on launch and "Play Again".
+     */
+    private void setupDemoSave() {
+        SaveData demoSave = new SaveData();
+        demoSave.saveName = "Demo";
+        demoSave.gameMode = GameMode.HARD;
+        demoSave.loadIntoGameData(gameData, achievementManager, passiveUpgradeManager);
+        gameData.setCustomSaveName("Demo");
+        hasSavedGame = false;
+        savedLevel = 1;
+        savedResumeState = null;
+    }
     
     /**
      * Ensure the selected save slot is visible by adjusting scroll.
@@ -4531,6 +4669,11 @@ public class Game extends JPanel implements Runnable {
      * Called when the game window is closing - save the current state
      */
     public void saveOnExit() {
+        if (DEMO_MODE) {
+            System.out.println("Demo mode - skipping save on exit.");
+            if (updateThreadPool != null) updateThreadPool.shutdownNow();
+            return;
+        }
         System.out.println("Game closing - performing auto-save...");
         performAutoSave();
         // Shut down thread pool cleanly
@@ -8716,6 +8859,9 @@ public class Game extends JPanel implements Runnable {
             case GAME_OVER:
                 renderer.drawGameOver(g2d, WIDTH, HEIGHT, gradientTime);
                 break;
+            case DEMO_OVER:
+                renderer.drawDemoOver(g2d, WIDTH, HEIGHT, gradientTime, demoOverSelection);
+                break;
             case WIN:
                 renderer.drawWin(g2d, WIDTH, HEIGHT, gradientTime, bossKillTime);
                 // Draw item unlock animation if active
@@ -9961,6 +10107,16 @@ public class Game extends JPanel implements Runnable {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ESCAPE, ' '));
                 }
                 break;
+
+            case DEMO_OVER:
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_UP, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_DOWN)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_DOWN, ' '));
+                } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                }
+                break;
                 
             case WIN:
                 if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
@@ -10302,14 +10458,24 @@ public class Game extends JPanel implements Runnable {
 
                 Thread.sleep(300);
                 loadingComplete = true;
-                transitionToState(GameState.SAVE_SELECT);
+                if (DEMO_MODE) {
+                    setupDemoSave();
+                    transitionToState(GameState.MENU);
+                } else {
+                    transitionToState(GameState.SAVE_SELECT);
+                }
                 repaint();
 
             } catch (Exception e) {
                 e.printStackTrace();
                 // On error, still go to save selection
                 loadingComplete = true;
-                transitionToState(GameState.SAVE_SELECT);
+                if (DEMO_MODE) {
+                    setupDemoSave();
+                    transitionToState(GameState.MENU);
+                } else {
+                    transitionToState(GameState.SAVE_SELECT);
+                }
                 repaint();
             }
         });

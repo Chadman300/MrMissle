@@ -1006,7 +1006,8 @@ public class Renderer {
         // Draw buttons — mission briefing clipboard stack
         int buttonY = 240;
         int buttonSpacing = 75;
-        for (int i = 0; i < menuButtons.length; i++) {
+        int buttonCount = Game.DEMO_MODE ? menuButtons.length - 1 : menuButtons.length; // Hide Save Files in demo
+        for (int i = 0; i < buttonCount; i++) {
             menuButtons[i].setPosition((width - 300) / 2, buttonY + i * buttonSpacing);
             menuButtons[i].update(i == selectedMenuItem, time);
             menuButtons[i].draw(g, time);
@@ -1018,11 +1019,11 @@ public class Renderer {
         // Version and save slot info (bottom right)
         g.setFont(FontPalette.TINY);
         g.setColor(ColorPalette.TEXT_DIM);
-        String versionText = Game.GAME_VERSION;
+        String versionText = Game.DEMO_MODE ? Game.GAME_VERSION + " DEMO" : Game.GAME_VERSION;
         FontMetrics fmVer = g.getFontMetrics();
         g.drawString(versionText, width - fmVer.stringWidth(versionText) - UIScale.px(20), height - UIScale.px(70));
 
-        if (currentSaveSlot > 0) {
+        if (!Game.DEMO_MODE && currentSaveSlot > 0) {
             String saveText = "Save Slot " + currentSaveSlot;
             g.drawString(saveText, width - fmVer.stringWidth(saveText) - UIScale.px(20), height - UIScale.px(50));
         }
@@ -2718,7 +2719,7 @@ public class Renderer {
         g.setColor(new Color(180, 190, 210, (int)(120 + 135 * pulse)));
         g.setFont(FONT_EXTRA_SMALL_16);
         FontMetrics fmHint = g.getFontMetrics();
-        String hint = "[ Press any key to continue ]";
+        String hint = "[ Press any key or click to continue ]";
         g.drawString(hint, panelX + (panelW - fmHint.stringWidth(hint)) / 2, panelY + panelH - UIScale.px(22));
     }
     
@@ -4501,7 +4502,7 @@ public class Renderer {
 
         int dotSpacing = UIScale.px(20);
 
-        int totalDots = 28;
+        int totalDots = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
 
         int dotsStartX = (width - (totalDots - 1) * dotSpacing) / 2;
 
@@ -4581,7 +4582,8 @@ public class Renderer {
 
         }
 
-        if (selectedLevel < 28) {
+        int maxSelectLevel = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
+        if (selectedLevel < maxSelectLevel) {
 
             // Right arrow
 
@@ -4614,8 +4616,9 @@ public class Renderer {
         for (int i = -2; i <= 2; i++) {
 
             int level = selectedLevel + i;
+            int maxCarouselLevel = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
 
-            if (level < 1 || level > 28) continue;
+            if (level < 1 || level > maxCarouselLevel) continue;
 
             
 
@@ -9857,6 +9860,148 @@ public class Renderer {
         fm = g.getFontMetrics();
 
         g.drawString(keep, (width - fm.stringWidth(keep)) / 2, statsY);
+
+    }
+
+    
+
+    public void drawDemoOver(Graphics2D g, int width, int height, double time, int selectedOption) {
+
+        // Military themed background
+
+        UITheme.drawScreenBackground(g, width, height, time);
+
+        
+
+        // Orange overlay pulse
+
+        float pulse = (float)(0.05 + 0.03 * Math.sin(time * 2));
+
+        g.setColor(new Color(235, 160, 50, (int)(255 * pulse)));
+
+        g.fillRect(0, 0, width, height);
+
+        
+
+        // Title — DEMO OVER
+
+        UITheme.drawTitle(g, "DEMO OVER", width, height / 2 - UIScale.px(160),
+
+            ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED, time);
+
+        
+
+        // Thank you message
+
+        g.setFont(FONT_LARGE_32);
+
+        g.setColor(ColorPalette.TEXT_PRIMARY);
+
+        FontMetrics fm;
+
+        String thanks = "Thanks for playing the demo!";
+
+        fm = g.getFontMetrics();
+
+        g.drawString(thanks, (width - fm.stringWidth(thanks)) / 2, height / 2 - UIScale.px(60));
+
+        
+
+        // Stats summary
+
+        g.setFont(FONT_MEDIUM);
+
+        g.setColor(ColorPalette.TEXT_DIM);
+
+        String levels = "Levels Completed: " + Game.DEMO_MAX_LEVEL;
+
+        fm = g.getFontMetrics();
+
+        g.drawString(levels, (width - fm.stringWidth(levels)) / 2, height / 2 - UIScale.px(20));
+
+        
+
+        String score = "Final Score: " + gameData.getScore();
+
+        fm = g.getFontMetrics();
+
+        g.drawString(score, (width - fm.stringWidth(score)) / 2, height / 2 + UIScale.px(10));
+
+        
+
+        // Full game tease
+
+        g.setFont(FontPalette.get(Font.ITALIC, 20));
+
+        g.setColor(ColorPalette.TEXT_GOLD);
+
+        String tease = "The full game has " + 28 + " levels, upgrades, items & more!";
+
+        fm = g.getFontMetrics();
+
+        g.drawString(tease, (width - fm.stringWidth(tease)) / 2, height / 2 + UIScale.px(60));
+
+        
+
+        // Buttons
+
+        int btnY = height / 2 + UIScale.px(110);
+
+        int btnSpacing = UIScale.px(50);
+
+        String[] options = {"Play Again", "Quit"};
+
+        for (int i = 0; i < options.length; i++) {
+
+            g.setFont(FONT_MEDIUM_BOLD);
+
+            fm = g.getFontMetrics();
+
+            int textW = fm.stringWidth(options[i]);
+
+            int bx = (width - textW) / 2;
+
+            int by = btnY + i * btnSpacing;
+
+            
+
+            if (i == selectedOption) {
+
+                // Selected highlight
+
+                g.setColor(ColorPalette.ACCENT_ORANGE);
+
+                g.fillRoundRect(bx - UIScale.px(20), by - fm.getAscent() - UIScale.px(5),
+
+                    textW + UIScale.px(40), fm.getHeight() + UIScale.px(10),
+
+                    UIScale.px(8), UIScale.px(8));
+
+                g.setColor(Color.BLACK);
+
+            } else {
+
+                g.setColor(ColorPalette.TEXT_DIM);
+
+            }
+
+            g.drawString(options[i], bx, by);
+
+        }
+
+        
+
+        // Controls hint
+
+        g.setFont(FONT_SMALL);
+
+        g.setColor(ColorPalette.TEXT_DIM);
+
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(40),
+
+            KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN,
+
+            " to select  |  ", KeyBindManager.Action.CONFIRM, " to confirm");
 
     }
 

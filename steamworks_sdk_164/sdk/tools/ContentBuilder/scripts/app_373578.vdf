@@ -1,0 +1,14 @@
+"appbuild"
+{
+	"appid" "373578"
+	"desc" "Missile_Man_Windows"
+	"buildoutput" "C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\output"
+	"contentroot" ""
+	"setlive" ""
+	"preview" "0"
+	"local"	""
+	"depots"
+	{
+		"373578"	"C:\Users\Pain in the Arse\Downloads\CameComp1\CameComp1\steamworks_sdk_164\sdk\tools\ContentBuilder\scripts\depot_373578.vdf"
+	}
+}
