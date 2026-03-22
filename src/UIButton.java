@@ -299,6 +299,33 @@ public class UIButton {
                 g.fillOval(x - 2, y - 2, 4, 4);
                 break;
                 
+            case "leaderboard": // Trophy/podium icon
+                g.setStroke(new BasicStroke(2, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                // Podium base
+                g.setColor(shadow);
+                g.fillRect(x - halfSize + 2, y + halfSize / 2 + 2, size, 4);
+                g.setColor(color);
+                g.fillRect(x - halfSize, y + halfSize / 2, size, 4);
+                // Center pillar (1st place - tallest)
+                g.setColor(shadow);
+                g.fillRect(x - 3 + 2, y - halfSize / 2 + 2, 6, halfSize + 2);
+                g.setColor(color);
+                g.fillRect(x - 3, y - halfSize / 2, 6, halfSize + 2);
+                // Left pillar (2nd place - medium)
+                g.setColor(shadow);
+                g.fillRect(x - halfSize + 2, y + 2, 6, halfSize / 2 + 2);
+                g.setColor(color);
+                g.fillRect(x - halfSize, y, 6, halfSize / 2 + 2);
+                // Right pillar (3rd place - shortest)
+                g.setColor(shadow);
+                g.fillRect(x + halfSize - 6 + 2, y + halfSize / 4 + 2, 6, halfSize / 4 + 2);
+                g.setColor(color);
+                g.fillRect(x + halfSize - 6, y + halfSize / 4, 6, halfSize / 4 + 2);
+                // Star on top of 1st place
+                g.setColor(isSelected ? ColorPalette.ACCENT_YELLOW : new Color(200, 180, 100));
+                drawStar(g, x, y - halfSize / 2 - 3, size / 4, 5);
+                break;
+                
             case "achievements": // Medal icon
                 g.setColor(shadow);
                 g.fillOval(x - halfSize + 2, y - halfSize / 2 + 2, size - 2, size - 2);

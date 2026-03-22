@@ -113,6 +113,10 @@ public class ColorPalette {
     public static final Color BTN_ACHIEVE = new Color(200, 170, 50);
     public static final Color BTN_ACHIEVE_SEL = new Color(240, 210, 70);
     
+    /** Leaderboard button — platinum silver */
+    public static final Color BTN_LEADERBOARD = new Color(160, 170, 190);
+    public static final Color BTN_LEADERBOARD_SEL = new Color(200, 210, 230);
+    
     /** Info button — steel teal */
     public static final Color BTN_INFO = new Color(70, 160, 160);
     public static final Color BTN_INFO_SEL = new Color(90, 200, 200);

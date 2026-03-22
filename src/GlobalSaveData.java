@@ -21,6 +21,10 @@ public class GlobalSaveData implements Serializable {
     // Global achievements (independent of per-save achievements)
     public List<String> globalUnlockedAchievements;
 
+    // All-time leaderboard records: [difficulty ordinal][level index 0-27]
+    // Persists across ALL save slots and survives save deletion — truly all-time records
+    public LeaderboardRecord[][] leaderboardRecords;
+
     public long saveTimestamp;
 
     public GlobalSaveData() {
@@ -61,6 +65,10 @@ public class GlobalSaveData implements Serializable {
         in.defaultReadObject();
         if (globalUnlockedAchievements == null) {
             globalUnlockedAchievements = new ArrayList<>();
+        }
+        // Backwards compatibility: old saves without leaderboard data
+        if (leaderboardRecords == null) {
+            leaderboardRecords = new LeaderboardRecord[LeaderboardManager.DIFFICULTY_COUNT][LeaderboardManager.LEVEL_COUNT];
         }
     }
 }

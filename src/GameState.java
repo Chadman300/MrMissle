@@ -82,5 +82,11 @@ public enum GameState {
     ATTACK_SHOWCASE,
 
     /** Demo over screen - shown after completing the final demo level */
-    DEMO_OVER
+    DEMO_OVER,
+
+    /** Leaderboard screen - shown after victory, displays best times with animation */
+    LEADERBOARD,
+
+    /** Leaderboard view screen - accessible from main menu, shows all records */
+    LEADERBOARD_VIEW
 }

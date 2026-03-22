@@ -69,6 +69,9 @@ public class Game extends JPanel implements Runnable {
     private double scrollCooldown; // Cooldown timer to prevent mouse selection while scrolling
     private double achievementsScroll; // Target scroll position for achievements
     private double achievementsScrollAnimated; // Animated (smooth) scroll position
+    private double leaderboardViewScroll; // Target scroll position for leaderboard view
+    private double leaderboardViewScrollAnimated; // Animated (smooth) scroll position
+    private int selectedLeaderboardDifficulty; // 0=Easy, 1=Hard, 2=Master for leaderboard view tabs
     private GameState shopEnteredFrom; // Track where player came from when entering shop
     private GameState settingsEnteredFrom; // Track where settings was accessed from (MENU or PLAYING when paused)
     
@@ -81,6 +84,7 @@ public class Game extends JPanel implements Runnable {
     private ComboSystem comboSystem;
     private SaveManager saveManager;
     private GlobalSaveData globalSaveData;
+    private LeaderboardManager leaderboardManager;
     
     // Keybind & controller systems
     public static KeyBindManager keyBindManager;
@@ -110,7 +114,7 @@ public class Game extends JPanel implements Runnable {
     private static final Color FLARE_YELLOW = new Color(255, 200, 60);
     
     // Particle limits for performance
-    private static final int MAX_PARTICLES = 200; // Reduced for better performance
+    private static final int MAX_PARTICLES = 500; // Allow room for bomb detonation + impact particles
     private static final int MAX_BULLETS = 500; // Cap bullets for performance
     private static final int BULLET_POOL_PREWARM = 300; // Pre-allocate this many bullets to avoid mid-game lag
     private static final int PARTICLE_POOL_PREWARM = 150; // Pre-allocate this many particles
@@ -527,8 +531,9 @@ public class Game extends JPanel implements Runnable {
     
     // Debug menu navigation
     private int selectedDebugOption = 0;
-    private static final int DEBUG_OPTION_COUNT = 13; // Total number of debug menu options
+    private static final int DEBUG_OPTION_COUNT = 15; // Total number of debug menu options
     private int debugSetLevelValue = 1; // Value for "Set Unlocked Level" cheat (1-28)
+    private int debugLeaderboardLevel = 1; // Value for "Test Leaderboard" level picker (1-28)
     private java.util.Queue<ActiveItem.ItemType> debugItemPopupQueue; // Queue for debug item popup preview
     private boolean debugShowContractAfterItems = false; // Show contract popup after all item popups
     
@@ -809,6 +814,17 @@ public class Game extends JPanel implements Runnable {
     private long lastFPSTime;
     private int frameCount;
     private double bossKillTime; // Time when boss was killed
+
+    // Leaderboard screen state
+    private int leaderboardScreenTimer; // Frame counter for animation phases
+    private boolean leaderboardAnimSkipped; // True when player presses key to skip animation
+    private boolean leaderboardReadyToExit; // True when animation is done and waiting for key to exit
+    private int leaderboardCompletedLevel; // The level that was just completed (1-indexed)
+    private GameMode leaderboardCompletedDifficulty; // The difficulty of the completed level
+    private boolean debugSkipUsed; // True if level was skipped via debug T key
+    private boolean lbSfxTimeReveal; // Phase A: time reveal sound played
+    private boolean lbSfxPanelSlide; // Phase B: panel slide sound played
+    private boolean lbSfxResult;     // Phase B: new record / first clear fanfare played
     
     // Loading progress
     private volatile int loadingProgress = 0;
@@ -958,6 +974,7 @@ public class Game extends JPanel implements Runnable {
         shopManager.setPassiveUpgradeManager(passiveUpgradeManager); // Connect passive upgrades to shop
         comboSystem = new ComboSystem();
         saveManager = new SaveManager(); // Initialize save manager
+        leaderboardManager = new LeaderboardManager(); // Initialize leaderboard system
         
         // Load or create global save data
         globalSaveData = saveManager.loadGlobal();
@@ -969,6 +986,9 @@ public class Game extends JPanel implements Runnable {
             gpuPipelineType = globalSaveData.gpuPipelineType;
             bufferStrategyMode = globalSaveData.bufferStrategyMode;
         }
+        
+        // Load leaderboard records from global save
+        leaderboardManager.loadFromGlobal(globalSaveData);
         
         pendingAchievements = new ArrayList<>(8);
         damageNumbers = new ArrayList<>(64);
@@ -1545,7 +1565,7 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    int maxItem = DEMO_MODE ? 5 : 6; // Hide Save Files in demo
+                    int maxItem = DEMO_MODE ? 6 : 7; // Hide Save Files in demo
                     selectedMenuItem = Math.min(maxItem, selectedMenuItem + 1);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 2;
@@ -1553,15 +1573,16 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
                     soundManager.playSound(SoundManager.Sound.UI_SELECT_ALT);
                     screenShakeIntensity = 5;
-                    // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
+                    // New order: Select Level, Shop, Stats, Achievements, Leaderboard, Game Info, Settings, Save Files
                     switch (selectedMenuItem) {
                         case 0: transitionToState(GameState.LEVEL_SELECT); break;
                         case 1: shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); break;
                         case 2: transitionToState(GameState.STATS); break;
                         case 3: transitionToState(GameState.ACHIEVEMENTS); break;
-                        case 4: transitionToState(GameState.INFO); break;
-                        case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
-                        case 6: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
+                        case 4: transitionToState(GameState.LEADERBOARD_VIEW); break;
+                        case 5: transitionToState(GameState.INFO); break;
+                        case 6: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
+                        case 7: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // New: Save Files
                     }
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
@@ -1881,6 +1902,35 @@ public class Game extends JPanel implements Runnable {
                     achievementsScroll = Math.min(maxScroll, achievementsScroll + 100);
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
+                break;
+                
+            case LEADERBOARD_VIEW:
+                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    leaderboardViewScroll = Math.max(0, leaderboardViewScroll - 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
+                    int maxScroll = Math.max(0, (28 * 50) - 500); // 50px per row, 500 visible area
+                    leaderboardViewScroll = Math.min(maxScroll, leaderboardViewScroll + 100);
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+                else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
+                    selectedLeaderboardDifficulty = Math.max(0, selectedLeaderboardDifficulty - 1);
+                    leaderboardViewScroll = 0;
+                    leaderboardViewScrollAnimated = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
+                }
+                else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
+                    selectedLeaderboardDifficulty = Math.min(GameMode.values().length - 1, selectedLeaderboardDifficulty + 1);
+                    leaderboardViewScroll = 0;
+                    leaderboardViewScrollAnimated = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_ESCAPE) transitionToState(GameState.MENU);
                 break;
@@ -2248,6 +2298,7 @@ public class Game extends JPanel implements Runnable {
                         }
                     } else if (key == KeyEvent.VK_T) {
                         // Debug: Skip level instantly
+                        debugSkipUsed = true;
                         if (currentBoss != null && !bossDeathAnimation) {
                             // Force boss to die properly
                             soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
@@ -2266,6 +2317,81 @@ public class Game extends JPanel implements Runnable {
                             if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
                             screenShakeIntensity = 15;
                             System.out.println("DEBUG: Level skipped via T key - direct to WIN");
+                        }
+                    } else if (key == KeyEvent.VK_QUOTE) {
+                        // Debug: Spawn boss hit particles at player position
+                        if (player != null && enableParticles) {
+                            double debugX = player.getX();
+                            double debugY = player.getY();
+                            System.out.println("DEBUG ' KEY: spawning particles at playerX=" + (int)debugX 
+                                + " playerY=" + (int)debugY + " cameraX=" + (int)cameraX + " cameraY=" + (int)cameraY
+                                + " screenX=" + (int)(debugX - cameraX) + " screenY=" + (int)(debugY - cameraY));
+                            // Bright white/yellow impact flash
+                            for (int i = 0; i < 30; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 2 + Math.random() * 6;
+                                Color impactColor = Math.random() < 0.5 ? IMPACT_WHITE : IMPACT_YELLOW;
+                                addParticle(debugX, debugY, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    impactColor, 20, 8, Particle.ParticleType.SPARK);
+                            }
+                            // Smoke
+                            for (int i = 0; i < 8; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 0.3 + Math.random() * 1.2;
+                                addParticle(debugX + (Math.random() - 0.5) * 30, debugY + (Math.random() - 0.5) * 20,
+                                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    SMOKE_GRAY, 50 + (int)(Math.random() * 20), 12 + Math.random() * 8, Particle.ParticleType.SMOKE);
+                            }
+                            // Fire
+                            for (int i = 0; i < 15 && particles.size() < MAX_PARTICLES; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 1 + Math.random() * 4;
+                                Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
+                                addParticle(debugX, debugY, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    fireColor, 30, 5, Particle.ParticleType.SPARK);
+                            }
+                            // Explosion rings
+                            for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
+                                addParticle(debugX, debugY, 0, 0, FIRE_ORANGE, 40 + i * 10, 40 + i * 25,
+                                    Particle.ParticleType.EXPLOSION);
+                            }
+                        }
+                    } else if (key == KeyEvent.VK_SEMICOLON) {
+                        // Debug: Spawn boss hit explosion at BOSS position (not player)
+                        if (currentBoss != null && enableParticles) {
+                            double debugX = currentBoss.getX();
+                            double debugY = currentBoss.getY();
+                            System.out.println("DEBUG ; KEY: spawning at BOSS pos bossX=" + (int)debugX 
+                                + " bossY=" + (int)debugY + " cameraX=" + (int)cameraX + " cameraY=" + (int)cameraY
+                                + " screenX=" + (int)(debugX - cameraX) + " screenY=" + (int)(debugY - cameraY)
+                                + " bossSize=" + currentBoss.getSize());
+                            // Same particles as the real boss hit explosion
+                            for (int i = 0; i < 30; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 2 + Math.random() * 6;
+                                Color impactColor = Math.random() < 0.5 ? IMPACT_WHITE : IMPACT_YELLOW;
+                                addParticle(debugX, debugY, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    impactColor, 20, 8, Particle.ParticleType.SPARK);
+                            }
+                            for (int i = 0; i < 8; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 0.3 + Math.random() * 1.2;
+                                addParticle(debugX + (Math.random() - 0.5) * 30, debugY + (Math.random() - 0.5) * 20,
+                                    Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    SMOKE_GRAY, 50 + (int)(Math.random() * 20), 12 + Math.random() * 8, Particle.ParticleType.SMOKE);
+                            }
+                            for (int i = 0; i < 15 && particles.size() < MAX_PARTICLES; i++) {
+                                double angle = Math.random() * TWO_PI;
+                                double speed = 1 + Math.random() * 4;
+                                Color fireColor = Math.random() < 0.5 ? BOSS_FIRE : BOSS_FIRE_BRIGHT;
+                                addParticle(debugX, debugY, Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                    fireColor, 30, 5, Particle.ParticleType.SPARK);
+                            }
+                            for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
+                                addParticle(debugX, debugY, 0, 0, FIRE_ORANGE, 40 + i * 10, 40 + i * 25,
+                                    Particle.ParticleType.EXPLOSION);
+                            }
+                            screenShakeIntensity = 10;
                         }
                     } else if ((key == KeyEvent.VK_N || key == KeyEvent.VK_ESCAPE) && debugShowcaseMode) {
                         // Debug showcase: Return to selection screen - restore the real game level
@@ -2538,10 +2664,27 @@ public class Game extends JPanel implements Runnable {
                     if (DEMO_MODE && gameData.getCurrentLevel() > DEMO_MAX_LEVEL) {
                         demoOverSelection = 0;
                         transitionToState(GameState.DEMO_OVER);
+                    } else if (leaderboardManager.getRecentResult() != null && !gameData.isInEndlessMode()) {
+                        // Show leaderboard screen for campaign levels
+                        transitionToState(GameState.LEADERBOARD);
                     } else {
                         shopEnteredFrom = GameState.PLAYING;
                         transitionToState(GameState.SHOP);
                     }
+                }
+                break;
+            
+            case LEADERBOARD:
+                // Any key skips animation or exits the leaderboard screen
+                if (!leaderboardReadyToExit) {
+                    // Skip animation — snap to final state
+                    leaderboardAnimSkipped = true;
+                    leaderboardScreenTimer = 300; // Jump past all animation phases
+                } else {
+                    // Animation done — proceed to shop
+                    leaderboardManager.clearRecentResult();
+                    shopEnteredFrom = GameState.PLAYING;
+                    transitionToState(GameState.SHOP);
                 }
                 break;
                 
@@ -2630,11 +2773,19 @@ public class Game extends JPanel implements Runnable {
                         debugSetLevelValue = Math.max(1, debugSetLevelValue - 1);
                         soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         screenShakeIntensity = 1;
+                    } else if (selectedDebugOption == 14) { // Test Leaderboard - decrease level
+                        debugLeaderboardLevel = Math.max(1, debugLeaderboardLevel - 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
                     }
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
                     if (selectedDebugOption == 11) { // Set Unlocked Level - increase
                         debugSetLevelValue = Math.min(28, debugSetLevelValue + 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else if (selectedDebugOption == 14) { // Test Leaderboard - increase level
+                        debugLeaderboardLevel = Math.min(28, debugLeaderboardLevel + 1);
                         soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         screenShakeIntensity = 1;
                     }
@@ -4111,15 +4262,16 @@ public class Game extends JPanel implements Runnable {
     private void activateMenuItem(int index) {
         soundManager.playSound(SoundManager.Sound.MENU_OPEN);
         screenShakeIntensity = 5;
-        // New order: Select Level, Shop, Stats, Achievements, Game Info, Settings, Save Files
+        // New order: Select Level, Shop, Stats, Achievements, Leaderboard, Game Info, Settings, Save Files
         switch (index) {
             case 0: transitionToState(GameState.LEVEL_SELECT); break;
             case 1: shopEnteredFrom = GameState.MENU; transitionToState(GameState.SHOP); break;
             case 2: transitionToState(GameState.STATS); break;
             case 3: transitionToState(GameState.ACHIEVEMENTS); break;
-            case 4: transitionToState(GameState.INFO); break;
-            case 5: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
-            case 6: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // Save Files
+            case 4: transitionToState(GameState.LEADERBOARD_VIEW); break;
+            case 5: transitionToState(GameState.INFO); break;
+            case 6: settingsEnteredFrom = GameState.MENU; snapshotSettings(); transitionToState(GameState.SETTINGS); break;
+            case 7: if (!DEMO_MODE) transitionToState(GameState.SAVE_SELECT); break; // Save Files
         }
     }
     
@@ -5724,6 +5876,7 @@ public class Game extends JPanel implements Runnable {
         deathSequenceActive = false;
         playerHidden = false;
         respawnBlinkTimer = 0;
+        bossHitCameraHoldTimer = 0;
         
         // Ensure missiles are at least the base count (fixes old saves with incorrect values)
         if (gameData.getMissiles() < gameData.getBaseMissiles()) {
@@ -5768,6 +5921,7 @@ public class Game extends JPanel implements Runnable {
         // Initialize timer and FPS tracking
         gameStartTime = System.currentTimeMillis();
         gameTimeSeconds = 0;
+        debugSkipUsed = false;
         currentFPS = 0;
         frameCount = 0;
         lastFPSTime = System.currentTimeMillis();
@@ -6110,6 +6264,48 @@ public class Game extends JPanel implements Runnable {
             if (itemUnlockTimer < 0) itemUnlockTimer = 0; // Clamp so == 0 checks work reliably
         }
         
+        // Update leaderboard screen animation timer
+        if (gameState == GameState.LEADERBOARD) {
+            int prevTimer = leaderboardScreenTimer;
+            leaderboardScreenTimer += (int) deltaTime;
+            // Phase A: countdown reveal (0-90 frames / 1.5s)
+            // Phase B: rank placement (90-180 frames / 1.5s)  
+            // Phase C: hold (180+ frames)
+            if (leaderboardAnimSkipped || leaderboardScreenTimer >= 180) {
+                leaderboardReadyToExit = true;
+            }
+            
+            // SFX triggers at animation milestones (one-shot)
+            if (!leaderboardAnimSkipped) {
+                // Countdown ticks during scramble phase (every 15 frames)
+                if (leaderboardScreenTimer < 72 && prevTimer / 15 != leaderboardScreenTimer / 15) {
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_TICK, 0.5f);
+                }
+                // Time reveal at frame 72 (phase A resolves at 0.8 * 90)
+                if (!lbSfxTimeReveal && leaderboardScreenTimer >= 72) {
+                    lbSfxTimeReveal = true;
+                    soundManager.playSound(SoundManager.Sound.COUNTDOWN_GO);
+                }
+                // Panel slides in at frame 90
+                if (!lbSfxPanelSlide && leaderboardScreenTimer >= 90) {
+                    lbSfxPanelSlide = true;
+                    soundManager.playSound(SoundManager.Sound.UI_SWIPE);
+                }
+                // Result fanfare at frame 135 (halfway through panel animation)
+                if (!lbSfxResult && leaderboardScreenTimer >= 135) {
+                    lbSfxResult = true;
+                    LeaderboardManager.LeaderboardResult res = leaderboardManager.getRecentResult();
+                    if (res == LeaderboardManager.LeaderboardResult.FIRST_COMPLETION) {
+                        soundManager.playSound(SoundManager.Sound.ACHIEVEMENT_UNLOCK);
+                    } else if (res == LeaderboardManager.LeaderboardResult.NEW_RECORD) {
+                        soundManager.playSound(SoundManager.Sound.RANK_UP);
+                    } else {
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT, 0.6f);
+                    }
+                }
+            }
+        }
+        
         // Update dismiss animation
         if (itemUnlockDismissing) {
             itemUnlockDismissTimer -= deltaTime;
@@ -6324,6 +6520,15 @@ public class Game extends JPanel implements Runnable {
             achievementsScrollAnimated += achievementsScrollDiff * 0.15 * deltaTime; // Smooth interpolation
             if (Math.abs(achievementsScrollDiff) < 0.01) {
                 achievementsScrollAnimated = achievementsScroll;
+            }
+        }
+        
+        // Smooth scroll animation for leaderboard view screen
+        if (gameState == GameState.LEADERBOARD_VIEW) {
+            double lbViewScrollDiff = leaderboardViewScroll - leaderboardViewScrollAnimated;
+            leaderboardViewScrollAnimated += lbViewScrollDiff * 0.15 * deltaTime;
+            if (Math.abs(lbViewScrollDiff) < 0.01) {
+                leaderboardViewScrollAnimated = leaderboardViewScroll;
             }
         }
         
@@ -7026,6 +7231,9 @@ public class Game extends JPanel implements Runnable {
                         transitionToState(GameState.MENU);
                     }
                 }
+            } else if (bossHitCameraHoldTimer > 0) {
+                // Hold camera at collision area so boss hit explosion is clearly visible
+                bossHitCameraHoldTimer -= deltaTime;
             } else if (player != null && !deathSequenceActive) {
                 // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
                 // Base offset centers the world in the viewport
@@ -7081,8 +7289,8 @@ public class Game extends JPanel implements Runnable {
                 }
             }
             
-            // Spawn fire trail behind player (skip during death sequence)
-            if (player != null && Game.enableParticles && !playerHidden && !deathSequenceActive) {
+            // Spawn fire trail behind player (skip during death sequence and boss hit camera hold)
+            if (player != null && Game.enableParticles && !playerHidden && !deathSequenceActive && bossHitCameraHoldTimer <= 0) {
                 trailSpawnTimer += deltaTime;
                 if (trailSpawnTimer >= 2) { // Every 2 frames worth of time
                     trailSpawnTimer = 0;
@@ -7346,10 +7554,18 @@ public class Game extends JPanel implements Runnable {
                 // Progressive damage effects - more smoke and fire with each hit
                 int particleMultiplier = bossHitCount; // 1x, 2x, 3x particles
                 
+                // Save collision point BEFORE player teleport (used later for bomb detonation)
+                double collisionX = (player.getX() + currentBoss.getX()) / 2;
+                double collisionY = (player.getY() + currentBoss.getY()) / 2;
+                
                 // Create impact particles at collision point (between player and boss)
                 if (enableParticles) {
-                    double impactX = (player.getX() + currentBoss.getX()) / 2;
-                    double impactY = (player.getY() + currentBoss.getY()) / 2;
+                    double impactX = collisionX;
+                    double impactY = collisionY;
+                    
+                    System.out.println("DEBUG BOSS HIT #" + bossHitCount + ": playerY=" + (int)player.getY() 
+                        + " bossY=" + (int)currentBoss.getY() + " impactY=" + (int)impactY 
+                        + " cameraY=" + (int)cameraY + " screenImpactY=" + (int)(impactY - cameraY));
                     
                     // Bright white/yellow impact flash (scales with hit count)
                     for (int i = 0; i < 30 * particleMultiplier; i++) {
@@ -7427,6 +7643,71 @@ public class Game extends JPanel implements Runnable {
                             40 + i * 25 + (particleMultiplier * 10),
                             Particle.ParticleType.EXPLOSION
                         );
+                    }
+                }
+                
+                // === BOMB DETONATION EXPLOSION (every hit) ===
+                if (enableParticles) {
+                    // EXHAUST fireball bloom (60 pieces — white-hot core to deep red)
+                    for (int i = 0; i < 60; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 1 + Math.random() * 7;
+                        Color fireColor;
+                        double r = Math.random();
+                        if (r < 0.2) fireColor = new Color(255, 255, 230);
+                        else if (r < 0.45) fireColor = new Color(255, 220, 60);
+                        else if (r < 0.7) fireColor = FIRE_ORANGE;
+                        else fireColor = FIRE_RED;
+                        addParticle(collisionX, collisionY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            fireColor, 45 + (int)(Math.random() * 25), 10 + Math.random() * 6,
+                            Particle.ParticleType.EXHAUST);
+                    }
+                    
+                    // SMOKE cloud (25 pieces)
+                    for (int i = 0; i < 25; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 0.2 + Math.random() * 2.0;
+                        int gray = 40 + (int)(Math.random() * 50);
+                        addParticle(
+                            collisionX + (Math.random() - 0.5) * 25, collisionY + (Math.random() - 0.5) * 25,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            new Color(gray, gray, gray, 190), 70 + (int)(Math.random() * 25), 14 + Math.random() * 8,
+                            Particle.ParticleType.SMOKE);
+                    }
+                    
+                    // EXPLOSION shockwave rings (8 expanding rings)
+                    for (int i = 0; i < 8; i++) {
+                        addParticle(collisionX, collisionY, 0, 0,
+                            new Color(255, Math.max(0, 240 - i * 30), Math.max(0, 80 - i * 10), Math.max(50, 240 - i * 25)),
+                            30 + i * 7, 50 + i * 30,
+                            Particle.ParticleType.EXPLOSION);
+                    }
+                    
+                    // SPARK streaks (35 fast radiating sparks)
+                    for (int i = 0; i < 35; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 5 + Math.random() * 9;
+                        Color sparkColor;
+                        double r = Math.random();
+                        if (r < 0.4) sparkColor = new Color(255, 255, 200);
+                        else if (r < 0.7) sparkColor = new Color(255, 200, 80);
+                        else sparkColor = FIRE_ORANGE;
+                        addParticle(collisionX, collisionY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            sparkColor, 20, 2 + Math.random() * 3,
+                            Particle.ParticleType.SPARK);
+                    }
+                    
+                    // DEBRIS fragments (20 spinning missile body pieces)
+                    for (int i = 0; i < 20; i++) {
+                        double angle = Math.random() * TWO_PI;
+                        double speed = 1.5 + Math.random() * 5;
+                        Color debrisColor = Math.random() < 0.5 ? METAL_DEBRIS : PLAYER_DEATH_RED;
+                        addParticle(collisionX, collisionY,
+                            Math.cos(angle) * speed, Math.sin(angle) * speed,
+                            debrisColor, 65, 5 + Math.random() * 7,
+                            Particle.ParticleType.DEBRIS);
                     }
                 }
                 
@@ -7577,6 +7858,18 @@ public class Game extends JPanel implements Runnable {
                         achievementManager.clearRecentlyUnlocked();
                     }
                     
+                    // Submit to leaderboard (campaign mode only, not endless, not debug skipped)
+                    if (!debugSkipUsed && !gameData.isInEndlessMode() && gameData.getCurrentLevel() >= 1 && gameData.getCurrentLevel() <= Game.CAMPAIGN_LEVELS) {
+                        String saveName = gameData.getCustomSaveName() != null ?
+                            gameData.getCustomSaveName() : "Save " + saveManager.getCurrentSaveSlot();
+                        leaderboardCompletedLevel = gameData.getCurrentLevel();
+                        leaderboardCompletedDifficulty = gameData.getGameMode();
+                        leaderboardManager.submitTime(gameData.getGameMode(), gameData.getCurrentLevel(), levelTimeInFrames, saveName);
+                        // Save updated leaderboard to global
+                        leaderboardManager.saveToGlobal(globalSaveData);
+                        saveManager.saveGlobal(globalSaveData);
+                    }
+                    
                     // Start boss death animation
                     soundManager.playSound(SoundManager.Sound.BOSS_DEATH);
                     bossDeathAnimation = true;
@@ -7659,79 +7952,14 @@ public class Game extends JPanel implements Runnable {
                 }
                 } else {
                     // Non-fatal hit - delay respawn and show bomb detonation
-                    double hitX = (player.getX() + currentBoss.getX()) / 2;
-                    double hitY = (player.getY() + currentBoss.getY()) / 2;
+                    double hitX = collisionX;
+                    double hitY = collisionY;
                     player = null; // Remove player temporarily
                     waitingForRespawn = true;
                     respawnDelayTimer = RESPAWN_DELAY;
                     
                     // Massive screen shake for bomb detonation
                     screenShakeIntensity = 25 + (bossHitCount * 8);
-                    
-                    // === BOMB DETONATION EXPLOSION ===
-                    if (enableParticles) {
-                        // EXHAUST fireball bloom (60 pieces — white-hot core to deep red)
-                        for (int i = 0; i < 60; i++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 1 + Math.random() * 7;
-                            Color fireColor;
-                            double r = Math.random();
-                            if (r < 0.2) fireColor = new Color(255, 255, 230);      // White-hot core
-                            else if (r < 0.45) fireColor = new Color(255, 220, 60); // Bright yellow
-                            else if (r < 0.7) fireColor = FIRE_ORANGE;              // Orange
-                            else fireColor = FIRE_RED;                               // Deep red
-                            addParticle(hitX, hitY,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                fireColor, 45 + (int)(Math.random() * 25), 10 + Math.random() * 6,
-                                Particle.ParticleType.EXHAUST);
-                        }
-                        
-                        // SMOKE cloud (25 pieces — thick dark billowing smoke)
-                        for (int i = 0; i < 25; i++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 0.2 + Math.random() * 2.0;
-                            int gray = 40 + (int)(Math.random() * 50);
-                            addParticle(
-                                hitX + (Math.random() - 0.5) * 25, hitY + (Math.random() - 0.5) * 25,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                new Color(gray, gray, gray, 190), 70 + (int)(Math.random() * 25), 14 + Math.random() * 8,
-                                Particle.ParticleType.SMOKE);
-                        }
-                        
-                        // EXPLOSION shockwave rings (8 expanding rings)
-                        for (int i = 0; i < 8; i++) {
-                            addParticle(hitX, hitY, 0, 0,
-                                new Color(255, Math.max(0, 240 - i * 30), Math.max(0, 80 - i * 10), Math.max(50, 240 - i * 25)),
-                                30 + i * 7, 50 + i * 30,
-                                Particle.ParticleType.EXPLOSION);
-                        }
-                        
-                        // SPARK streaks (35 fast radiating sparks)
-                        for (int i = 0; i < 35; i++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 5 + Math.random() * 9;
-                            Color sparkColor;
-                            double r = Math.random();
-                            if (r < 0.4) sparkColor = new Color(255, 255, 200);
-                            else if (r < 0.7) sparkColor = new Color(255, 200, 80);
-                            else sparkColor = FIRE_ORANGE;
-                            addParticle(hitX, hitY,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                sparkColor, 20, 2 + Math.random() * 3,
-                                Particle.ParticleType.SPARK);
-                        }
-                        
-                        // DEBRIS fragments (20 spinning missile body pieces)
-                        for (int i = 0; i < 20; i++) {
-                            double angle = Math.random() * TWO_PI;
-                            double speed = 1.5 + Math.random() * 5;
-                            Color debrisColor = Math.random() < 0.5 ? METAL_DEBRIS : PLAYER_DEATH_RED;
-                            addParticle(hitX, hitY,
-                                Math.cos(angle) * speed, Math.sin(angle) * speed,
-                                debrisColor, 65, 5 + Math.random() * 7,
-                                Particle.ParticleType.DEBRIS);
-                        }
-                    }
                     
                     // === BLAST RADIUS — destroy nearby bullets in the bomb explosion ===
                     // Large blast radius so it visibly clears bullets around the detonation
@@ -8002,7 +8230,7 @@ public class Game extends JPanel implements Runnable {
         if (equippedForBoss != null && equippedForBoss.isActive() && equippedForBoss.getType() == ActiveItem.ItemType.TIME_SLOW) {
             bossDt *= 0.15; // 15% speed (85% slow) — same factor as bullets/beams
         }
-        if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned) {
+        if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned && bossHitCameraHoldTimer <= 0) {
             int bulletCountBefore = bullets.size();
             currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, bossDt, particles);
             beamAttacks = currentBoss.getBeamAttacks();
@@ -8102,6 +8330,9 @@ public class Game extends JPanel implements Runnable {
                     );
                 }
             }
+        } else if (currentBoss != null && bossHitCameraHoldTimer > 0) {
+            // Boss frozen during camera hold, but keep visual animations (helicopter blades)
+            currentBoss.updateAnimations(deltaTime);
         }
         
         // Handle respawn delay after non-fatal boss hit
@@ -9194,6 +9425,16 @@ public class Game extends JPanel implements Runnable {
                     drawEndlessUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
                 break;
+            case LEADERBOARD:
+                renderer.drawLeaderboard(g2d, WIDTH, HEIGHT, gradientTime,
+                    leaderboardManager, leaderboardScreenTimer, leaderboardAnimSkipped,
+                    leaderboardReadyToExit, leaderboardCompletedLevel, leaderboardCompletedDifficulty,
+                    bossKillTime);
+                break;
+            case LEADERBOARD_VIEW:
+                renderer.drawLeaderboardView(g2d, WIDTH, HEIGHT, gradientTime,
+                    leaderboardManager, selectedLeaderboardDifficulty, leaderboardViewScrollAnimated);
+                break;
             case SHOP:
                 renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
                 // Draw passive upgrade unlock animation if active (overlay on top of shop)
@@ -9206,7 +9447,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 break;
             case DEBUG:
-                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption, debugSetLevelValue);
+                renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption, debugSetLevelValue, debugLeaderboardLevel);
                 // Draw item/contract/endless unlock animations if active (debug preview)
                 if (itemUnlockAnimation) {
                     drawItemUnlockAnimation(g2d, WIDTH, HEIGHT);
@@ -9301,7 +9542,8 @@ public class Game extends JPanel implements Runnable {
                state == GameState.SHOP || state == GameState.STATS ||
                state == GameState.ACHIEVEMENTS || state == GameState.INFO ||
                state == GameState.SETTINGS || state == GameState.SAVE_SELECT ||
-               state == GameState.MODE_SELECT ||
+               state == GameState.MODE_SELECT || state == GameState.LEADERBOARD ||
+               state == GameState.LEADERBOARD_VIEW ||
                state == GameState.DEBUG || state == GameState.LEVEL_CONFIRM ||
                state == GameState.ATTACK_SHOWCASE || state == GameState.ATTACK_INTRO;
     }
@@ -9309,8 +9551,8 @@ public class Game extends JPanel implements Runnable {
     // Helper method to transition to a new state
     private void transitionToState(GameState newState) {
         if (gameState != newState) {
-            // Handle music transitions
-            if (isMenuState(newState)) {
+            // Handle music transitions (leaderboard has its own music, skip generic menu logic)
+            if (newState != GameState.LEADERBOARD && isMenuState(newState)) {
                 // Start menu music if not playing, or switch pools if progression crossed the threshold
                 String currentTrack = soundManager.getCurrentMusic();
                 boolean shouldBeHeavy = gameData.getMaxUnlockedLevel() > 14;
@@ -9330,6 +9572,34 @@ public class Game extends JPanel implements Runnable {
                 gameData.setSelectedLevelView(selectedLevel);
                 levelSelectScroll = selectedLevel;
                 levelSelectScrollAnimated = selectedLevel;
+            }
+            
+            // Initialize leaderboard screen animation state
+            if (newState == GameState.LEADERBOARD) {
+                leaderboardScreenTimer = 0;
+                leaderboardAnimSkipped = false;
+                leaderboardReadyToExit = false;
+                lbSfxTimeReveal = false;
+                lbSfxPanelSlide = false;
+                lbSfxResult = false;
+                if (renderer != null) renderer.setScreenEnteredTime(gradientTime);
+                // Play a mellow victory track distinct from battle/menu music
+                String[] victoryTracks = {
+                    "SFX/Music Tracks/No Melody/Chilling Outside No Melody.wav",
+                    "SFX/Music Tracks/No Melody/Made to Build No Melody.wav",
+                    "SFX/Music Tracks/No Melody/Burning Grounds No Melody.wav"
+                };
+                soundManager.playMusic(victoryTracks[(int)(Math.random() * victoryTracks.length)]);
+            }
+            
+            // Initialize leaderboard view screen
+            if (newState == GameState.LEADERBOARD_VIEW) {
+                leaderboardViewScroll = 0;
+                leaderboardViewScrollAnimated = 0;
+                // Default to current game mode's difficulty tab
+                if (gameData != null && gameData.getGameMode() != null) {
+                    selectedLeaderboardDifficulty = gameData.getGameMode().ordinal();
+                }
             }
             
             // Reset shop scroll when entering shop
@@ -10506,6 +10776,14 @@ public class Game extends JPanel implements Runnable {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
                 }
                 break;
+            
+            case LEADERBOARD:
+                // Any controller button skips animation or exits
+                if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM) ||
+                    controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
+                    handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_SPACE, ' '));
+                }
+                break;
                 
             case SHOP:
                 if (controllerManager.isActionJustPressed(KeyBindManager.Action.MOVE_UP)) {
@@ -10831,6 +11109,7 @@ public class Game extends JPanel implements Runnable {
                     repaint();
                 });
                 renderer.hudLayout = hudLayout;
+                renderer.setLeaderboardManager(leaderboardManager);
                 targetLoadingProgress = 90;
                 repaint();
 
@@ -12846,6 +13125,28 @@ public class Game extends JPanel implements Runnable {
                 gameData.setSeenEndlessUnlock(true);
                 screenShakeIntensity = 5;
                 System.out.println("DEBUG: Endless mode unlocked!");
+                break;
+            case 13: // Reset all leaderboard times
+                leaderboardManager.clearAll();
+                leaderboardManager.saveToGlobal(globalSaveData);
+                saveManager.saveGlobal(globalSaveData);
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: All leaderboard times reset!");
+                break;
+            case 14: // Test leaderboard animation for a specific level
+                int fakeTimeFrames = 600 + (int)(Math.random() * 3000); // Random 10s-60s
+                String fakeSaveName = "Debug Test";
+                GameMode debugMode = gameData.getGameMode();
+                leaderboardManager.submitTime(debugMode, debugLeaderboardLevel, fakeTimeFrames, fakeSaveName);
+                leaderboardManager.saveToGlobal(globalSaveData);
+                saveManager.saveGlobal(globalSaveData);
+                leaderboardCompletedLevel = debugLeaderboardLevel;
+                leaderboardCompletedDifficulty = debugMode;
+                // Use fake bossKillTime matching the submitted frames
+                bossKillTime = fakeTimeFrames / 60.0;
+                transitionToState(GameState.LEADERBOARD);
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: Submitted time " + fakeTimeFrames + " frames for level " + debugLeaderboardLevel + " (" + debugMode + ")");
                 break;
         }
     }

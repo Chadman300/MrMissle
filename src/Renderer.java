@@ -19,6 +19,8 @@ public class Renderer {
 
     private PassiveUpgradeManager passiveUpgradeManager;
 
+    private LeaderboardManager leaderboardManager;
+
     
 
     // Menu buttons
@@ -409,6 +411,11 @@ public class Renderer {
         this.badgeRotation = (screenRng.nextDouble() - 0.5) * 0.25; // -0.125 to +0.125 radians
     }
 
+    /** Set the leaderboard manager reference for best-time display on victory screen. */
+    public void setLeaderboardManager(LeaderboardManager lbManager) {
+        this.leaderboardManager = lbManager;
+    }
+
     
 
     public Renderer(GameData gameData, ShopManager shopManager, PassiveUpgradeManager passiveUpgradeManager, java.util.function.IntConsumer bgProgressCallback) {
@@ -436,14 +443,15 @@ public class Renderer {
         
 
         // Initialize menu buttons â€” military/rock themed colors
-        menuButtons = new UIButton[7];
+        menuButtons = new UIButton[8];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
         menuButtons[1] = new UIButton("Shop", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
         menuButtons[2] = new UIButton("Loadout", "stats", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_STATS, ColorPalette.BTN_STATS_SEL);
         menuButtons[3] = new UIButton("Achievements", "achievements", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_ACHIEVE, ColorPalette.BTN_ACHIEVE_SEL);
-        menuButtons[4] = new UIButton("Help & Tutorial", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
-        menuButtons[5] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
-        menuButtons[6] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
+        menuButtons[4] = new UIButton("Leaderboard", "leaderboard", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEADERBOARD, ColorPalette.BTN_LEADERBOARD_SEL);
+        menuButtons[5] = new UIButton("Help & Tutorial", "info", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_INFO, ColorPalette.BTN_INFO_SEL);
+        menuButtons[6] = new UIButton("Settings", "settings", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SETTINGS, ColorPalette.BTN_SETTINGS_SEL);
+        menuButtons[7] = new UIButton("[SAVE] Save Files", "save", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SAVE, ColorPalette.BTN_SAVE_SEL);
 
         
 
@@ -6989,7 +6997,7 @@ public class Renderer {
         double viewBottom = cameraY - breathY + height + 80;
         
         int particleCount = particles.size();
-        for (int pi = 0; pi < particleCount; pi++) {
+        for (int pi = 0; pi < particleCount && pi < particles.size(); pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() != Particle.ParticleType.MONEY_SIGN) {
                 double px = particle.getX();
@@ -10452,7 +10460,28 @@ public class Renderer {
 
         g.drawString(timeStr, (width - fm.stringWidth(timeStr)) / 2, height / 2 - UIScale.px(10));
 
-        
+        // Display all-time best time from leaderboard
+        if (leaderboardManager != null && !gameData.isInEndlessMode()) {
+            LeaderboardRecord bestRecord = leaderboardManager.getRecord(
+                gameData.getGameMode(), gameData.getCurrentLevel());
+            LeaderboardManager.LeaderboardResult recentResult = leaderboardManager.getRecentResult();
+            boolean isNewRecord = recentResult == LeaderboardManager.LeaderboardResult.NEW_RECORD
+                || recentResult == LeaderboardManager.LeaderboardResult.FIRST_COMPLETION;
+
+            if (isNewRecord) {
+                g.setFont(FONT_SMALL);
+                String newRecStr = "NEW RECORD!";
+                FontMetrics nrFm = g.getFontMetrics();
+                g.setColor(new Color(255, 215, 0));
+                g.drawString(newRecStr, (width - nrFm.stringWidth(newRecStr)) / 2, height / 2 + UIScale.px(10));
+            } else if (bestRecord != null) {
+                g.setFont(FONT_SMALL);
+                String bestStr = "Best: " + bestRecord.formatTime();
+                FontMetrics bFm = g.getFontMetrics();
+                g.setColor(ColorPalette.TEXT_DIM);
+                g.drawString(bestStr, (width - bFm.stringWidth(bestStr)) / 2, height / 2 + UIScale.px(10));
+            }
+        }
 
         // Display level stats (only non-zero stats)
 
@@ -10462,7 +10491,7 @@ public class Renderer {
 
         g.setColor(ColorPalette.TEXT_DIM);
 
-        int statsY = height / 2 + UIScale.px(20);
+        int statsY = height / 2 + UIScale.px(40);
 
         
 
@@ -10751,6 +10780,522 @@ public class Renderer {
     }
 
     
+    /**
+     * Draw the leaderboard screen shown after victory.
+     * Combined animation: countdown reveal → rank placement → hold.
+     * Skippable with any key press.
+     */
+    public void drawLeaderboard(Graphics2D g, int width, int height, double time,
+            LeaderboardManager lbManager, int animTimer, boolean animSkipped,
+            boolean readyToExit, int completedLevel, GameMode completedDifficulty,
+            double bossKillTime) {
+        
+        // Military themed background
+        UITheme.drawScreenBackground(g, width, height, time);
+        
+        // Get leaderboard data
+        LeaderboardManager.LeaderboardResult result = lbManager.getRecentResult();
+        LeaderboardRecord bestRecord = lbManager.getRecentRecord();
+        LeaderboardRecord previousRecord = lbManager.getRecentPreviousRecord();
+        int playerTime = lbManager.getRecentTimeInFrames();
+        boolean isFirstClear = result == LeaderboardManager.LeaderboardResult.FIRST_COMPLETION;
+        boolean isNewRecord = result == LeaderboardManager.LeaderboardResult.NEW_RECORD || isFirstClear;
+        // For comparison: use previous best if we just set a new record, otherwise use current best
+        LeaderboardRecord compareRecord = (result == LeaderboardManager.LeaderboardResult.NEW_RECORD && previousRecord != null) 
+            ? previousRecord : bestRecord;
+        
+        // Animation phase calculations
+        int effectiveTimer = animSkipped ? 300 : animTimer;
+        float phaseA = Math.min(1.0f, effectiveTimer / 90.0f);
+        float phaseB = Math.min(1.0f, Math.max(0, effectiveTimer - 90) / 90.0f);
+        float phaseC = Math.max(0, effectiveTimer - 180) / 60.0f;
+        
+        int centerX = width / 2;
+        
+        // --- Layout anchors (spaced to avoid overlap) ---
+        int titleY = height / 2 - UIScale.px(290);
+        int subtitleY = titleY + UIScale.px(50);
+        int yourTimeLabelY = subtitleY + UIScale.px(70);
+        int yourTimeValueY = yourTimeLabelY + UIScale.px(65);
+        int panelTopY = yourTimeValueY + UIScale.px(55);
+        int panelW = UIScale.px(500);
+        int panelH = isFirstClear ? UIScale.px(160) : UIScale.px(260);
+        int panelX = centerX - panelW / 2;
+        
+        // Title (Inlanders for text)
+        UITheme.drawTitle(g, "LEADERBOARD", width, titleY, 
+            ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
+        // Subtitle with level number in Arial Black (Inlanders doesn't support digits)
+        String subtitleText = "LEVEL " + completedLevel + " \u2014 " + 
+            (completedDifficulty != null ? completedDifficulty.getDisplayName().replace(" Mode", "").toUpperCase() : "UNKNOWN");
+        g.setFont(FontPalette.get(java.awt.Font.BOLD, 28));
+        FontMetrics stFm = g.getFontMetrics();
+        int stW = stFm.stringWidth(subtitleText);
+        g.setColor(ColorPalette.TEXT_DIM);
+        g.drawString(subtitleText, centerX - stW / 2, subtitleY);
+        
+        // === Phase A: Countdown Reveal — Your time scrambles then resolves ===
+        {
+            g.setFont(FONT_TITLE_MEDIUM);
+            FontMetrics fm = g.getFontMetrics();
+            String label = "YOUR TIME";
+            int labelW = fm.stringWidth(label);
+            
+            float labelAlpha = Math.min(1.0f, phaseA * 3.0f);
+            Composite saved = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(labelAlpha));
+            g.setColor(ColorPalette.TEXT_DIM);
+            g.drawString(label, centerX - labelW / 2, yourTimeLabelY);
+            g.setComposite(saved);
+            
+            // Scrambled -> real time display (Arial Black for digits)
+            Font timeFont = FontPalette.get(java.awt.Font.BOLD, 72);
+            g.setFont(timeFont);
+            fm = g.getFontMetrics();
+            
+            String displayTime;
+            if (phaseA < 0.8f) {
+                double scrambleFactor = 1.0 - (phaseA / 0.8);
+                double noise = (Math.sin(effectiveTimer * 7.3) * 0.5 + Math.cos(effectiveTimer * 11.7) * 0.3) * scrambleFactor;
+                double fakeTime = bossKillTime * (1.0 + noise * 0.8);
+                fakeTime = Math.max(0.01, fakeTime);
+                int mins = (int)(fakeTime / 60);
+                int secs = (int)(fakeTime % 60);
+                int centis = (int)((fakeTime % 1) * 100);
+                displayTime = String.format("%d:%02d.%02d", mins, secs, centis);
+            } else {
+                int mins = (int)(bossKillTime / 60);
+                int secs = (int)(bossKillTime % 60);
+                int centis = (int)((bossKillTime % 1) * 100);
+                displayTime = String.format("%d:%02d.%02d", mins, secs, centis);
+            }
+            
+            float scale = 1.0f;
+            if (phaseA >= 0.8f && phaseA < 1.0f) {
+                float t = (phaseA - 0.8f) / 0.2f;
+                scale = 1.0f + 0.4f * (1.0f - easeOutBack(t));
+            }
+            
+            int timeW = fm.stringWidth(displayTime);
+            saved = g.getComposite();
+            float timeAlpha = Math.min(1.0f, phaseA * 2.0f);
+            g.setComposite(RenderCache.getAlpha(timeAlpha));
+            
+            if (scale != 1.0f) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setComposite(RenderCache.getAlpha(timeAlpha));
+                g2.translate(centerX, yourTimeValueY);
+                g2.scale(scale, scale);
+                g2.setFont(timeFont);
+                g2.setColor(ColorPalette.VICTORY_GOLD);
+                g2.drawString(displayTime, -timeW / 2, 0);
+                g2.dispose();
+            } else {
+                g.setColor(ColorPalette.VICTORY_GOLD);
+                g.drawString(displayTime, centerX - timeW / 2, yourTimeValueY);
+            }
+            g.setComposite(saved);
+        }
+        
+        // === Phase B: Leaderboard Panel Slides In ===
+        {
+            float slideProgress = easeOutBack(phaseB);
+            int slideOffset = (int)((1.0f - slideProgress) * UIScale.px(200));
+            float panelAlpha = Math.min(1.0f, phaseB * 2.0f);
+            
+            if (phaseB > 0) {
+                Composite saved = g.getComposite();
+                g.setComposite(RenderCache.getAlpha(panelAlpha));
+                
+                int drawY = panelTopY + slideOffset;
+                
+                // Panel background
+                g.setColor(new Color(20, 25, 35, 220));
+                g.fillRoundRect(panelX, drawY, panelW, panelH, UIScale.px(12), UIScale.px(12));
+                
+                // Panel border
+                g.setColor(new Color(80, 90, 110));
+                g.setStroke(STROKE_2);
+                g.drawRoundRect(panelX, drawY, panelW, panelH, UIScale.px(12), UIScale.px(12));
+                
+                int infoY = drawY + UIScale.px(40);
+                
+                if (isFirstClear) {
+                    // First clear — simple centered message, no comparison
+                    g.setFont(FONT_SUBTITLE);
+                    FontMetrics fm = g.getFontMetrics();
+                    String firstMsg = "FIRST CLEAR!";
+                    g.setColor(ColorPalette.VICTORY_GOLD);
+                    g.drawString(firstMsg, centerX - fm.stringWidth(firstMsg) / 2, infoY);
+                    infoY += UIScale.px(40);
+                    
+                    g.setFont(FONT_MEDIUM);
+                    fm = g.getFontMetrics();
+                    String recorded = "Time recorded as your best!";
+                    g.setColor(ColorPalette.TEXT_DIM);
+                    g.drawString(recorded, centerX - fm.stringWidth(recorded) / 2, infoY);
+                } else if (compareRecord != null) {
+                    // Header
+                    g.setFont(FONT_MEDIUM_BOLD);
+                    FontMetrics fm = g.getFontMetrics();
+                    String header = "PREVIOUS BEST";
+                    g.setColor(ColorPalette.TEXT_PRIMARY);
+                    g.drawString(header, centerX - fm.stringWidth(header) / 2, infoY);
+                    
+                    // Divider line
+                    g.setColor(new Color(60, 65, 80));
+                    g.drawLine(panelX + UIScale.px(20), infoY + UIScale.px(12), 
+                               panelX + panelW - UIScale.px(20), infoY + UIScale.px(12));
+                    infoY += UIScale.px(40);
+                    
+                    // Previous best time
+                    g.setFont(FONT_LARGE);
+                    fm = g.getFontMetrics();
+                    String bestTimeStr = compareRecord.formatTime();
+                    g.setColor(ColorPalette.MEDAL_GOLD);
+                    g.drawString(bestTimeStr, centerX - fm.stringWidth(bestTimeStr) / 2, infoY);
+                    infoY += UIScale.px(30);
+                    
+                    // Set by
+                    g.setFont(FONT_MEDIUM);
+                    fm = g.getFontMetrics();
+                    String setBy = "Set by: " + compareRecord.getSaveName();
+                    g.setColor(ColorPalette.TEXT_DIM);
+                    g.drawString(setBy, centerX - fm.stringWidth(setBy) / 2, infoY);
+                    infoY += UIScale.px(25);
+                    
+                    // Date
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MMM dd, yyyy");
+                    String dateStr = "Date: " + sdf.format(new java.util.Date(compareRecord.getTimestamp()));
+                    g.drawString(dateStr, centerX - fm.stringWidth(dateStr) / 2, infoY);
+                    infoY += UIScale.px(35);
+                    
+                    // Difference vs previous best
+                    g.setFont(FONT_MEDIUM_BOLD);
+                    fm = g.getFontMetrics();
+                    int diff = playerTime - compareRecord.getTimeInFrames();
+                    double diffSec = Math.abs(diff) / 60.0;
+                    int dMins = (int)(diffSec / 60);
+                    int dSecs = (int)(diffSec % 60);
+                    int dCentis = (int)((diffSec % 1) * 100);
+                    String diffStr;
+                    if (diff <= 0) {
+                        diffStr = dMins > 0 ? String.format("-%d:%02d.%02d faster!", dMins, dSecs, dCentis) :
+                                              String.format("-0:%02d.%02d faster!", dSecs, dCentis);
+                        g.setColor(ColorPalette.SUCCESS_GREEN);
+                    } else {
+                        diffStr = dMins > 0 ? String.format("+%d:%02d.%02d slower", dMins, dSecs, dCentis) :
+                                              String.format("+0:%02d.%02d slower", dSecs, dCentis);
+                        g.setColor(new Color(200, 100, 100));
+                    }
+                    g.drawString(diffStr, centerX - fm.stringWidth(diffStr) / 2, infoY);
+                } else {
+                    // No previous record (shouldn't normally happen since FIRST_COMPLETION is handled above)
+                    g.setFont(FONT_LARGE);
+                    FontMetrics fm = g.getFontMetrics();
+                    String noRecord = "No Record";
+                    g.setColor(ColorPalette.TEXT_DIM);
+                    g.drawString(noRecord, centerX - fm.stringWidth(noRecord) / 2, infoY);
+                }
+                
+                g.setComposite(saved);
+            }
+        }
+        
+        // === NEW RECORD banner (only for beating a previous record, not first clear) ===
+        if (result == LeaderboardManager.LeaderboardResult.NEW_RECORD && phaseB > 0.5f) {
+            float bannerAlpha = Math.min(1.0f, (phaseB - 0.5f) * 4.0f);
+            Composite saved = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(bannerAlpha));
+            
+            g.setFont(FONT_TITLE);
+            FontMetrics fm = g.getFontMetrics();
+            String newRecordText = "NEW RECORD!";
+            int nrW = fm.stringWidth(newRecordText);
+            
+            float pulse = 1.0f + 0.05f * (float)Math.sin(time * 4.0);
+            int bannerY = panelTopY + panelH + UIScale.px(40);
+            
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setComposite(RenderCache.getAlpha(bannerAlpha));
+            g2.translate(centerX, bannerY);
+            g2.scale(pulse, pulse);
+            
+            g2.setColor(new Color(255, 210, 80, 60));
+            g2.setFont(FONT_TITLE);
+            g2.drawString(newRecordText, -nrW / 2 - 2, 2);
+            g2.drawString(newRecordText, -nrW / 2 + 2, -2);
+            
+            g2.setColor(ColorPalette.VICTORY_GOLD);
+            g2.drawString(newRecordText, -nrW / 2, 0);
+            g2.dispose();
+            
+            g.setComposite(saved);
+        }
+        
+        // Victory confetti for any new record or first clear
+        if (isNewRecord && phaseB > 0.5f) {
+            UITheme.drawConfetti(g, width, height, time);
+        }
+        
+        // === Phase C: "Press any key" prompt ===
+        if (readyToExit) {
+            float promptAlpha = 0.5f + 0.3f * (float)Math.sin(time * 3.0);
+            Composite saved = g.getComposite();
+            g.setComposite(RenderCache.getAlpha(promptAlpha));
+            g.setFont(FONT_MEDIUM);
+            FontMetrics fm = g.getFontMetrics();
+            String prompt = "Press any key to continue";
+            int promptW = fm.stringWidth(prompt);
+            g.setColor(ColorPalette.TEXT_DIM);
+            g.drawString(prompt, centerX - promptW / 2, height - UIScale.px(50));
+            g.setComposite(saved);
+        }
+    }
+
+    /**
+     * Draws the leaderboard view screen accessible from the main menu.
+     * Shows best times for all 28 levels across difficulty tabs.
+     */
+    public void drawLeaderboardView(Graphics2D g, int width, int height, double time,
+            LeaderboardManager lbManager, int selectedDifficulty, double scrollOffset) {
+        
+        // Military themed background
+        UITheme.drawScreenBackground(g, width, height, time);
+        
+        // Title
+        UITheme.drawTitle(g, "LEADERBOARD", width, UIScale.px(55),
+            ColorPalette.ACCENT_CYAN, new Color(180, 200, 220), time, FONT_TITLE_MEDIUM);
+        
+        // Difficulty tabs
+        GameMode[] modes = GameMode.values();
+        int tabWidth = UIScale.px(180);
+        int tabHeight = UIScale.px(38);
+        int tabGap = UIScale.px(12);
+        int totalTabsWidth = modes.length * tabWidth + (modes.length - 1) * tabGap;
+        int tabStartX = (width - totalTabsWidth) / 2;
+        int tabY = UIScale.px(100);
+        
+        Font tabFont = FontPalette.get(java.awt.Font.BOLD, 16);
+        g.setFont(tabFont);
+        
+        for (int i = 0; i < modes.length; i++) {
+            int tx = tabStartX + i * (tabWidth + tabGap);
+            boolean selected = (i == selectedDifficulty);
+            
+            // Tab background
+            if (selected) {
+                // Active tab — filled with mode color
+                g.setColor(ColorPalette.withAlpha(modes[i].getColor(), 180));
+                g.fillRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
+                // Glow border
+                g.setStroke(RenderCache.getStroke(2));
+                g.setColor(modes[i].getColor());
+                g.drawRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
+            } else {
+                // Inactive tab — dark, dimmed
+                g.setColor(new Color(30, 35, 50, 200));
+                g.fillRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
+                g.setStroke(RenderCache.getStroke(1));
+                g.setColor(ColorPalette.withAlpha(modes[i].getColor(), 80));
+                g.drawRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
+            }
+            
+            // Tab text
+            FontMetrics tfm = g.getFontMetrics();
+            String tabLabel = modes[i].getDisplayName().replace(" Mode", "").toUpperCase();
+            int textW = tfm.stringWidth(tabLabel);
+            g.setColor(selected ? Color.WHITE : ColorPalette.TEXT_DIM);
+            g.drawString(tabLabel, tx + (tabWidth - textW) / 2, tabY + tabHeight / 2 + tfm.getAscent() / 2 - 1);
+        }
+        
+        // Arrow hints on tabs — show key/controller icons
+        int arrowIconY = tabY + tabHeight / 2;
+        if (selectedDifficulty > 0) {
+            drawSingleActionIcon(g, tabStartX - UIScale.px(18), arrowIconY, KeyBindManager.Action.MOVE_LEFT);
+        }
+        if (selectedDifficulty < modes.length - 1) {
+            drawSingleActionIcon(g, tabStartX + totalTabsWidth + UIScale.px(22), arrowIconY, KeyBindManager.Action.MOVE_RIGHT);
+        }
+        
+        // Completion count — styled as a pill badge below the tabs
+        GameMode selectedMode = modes[selectedDifficulty];
+        int completedCount = 0;
+        for (int lvl = 1; lvl <= LeaderboardManager.LEVEL_COUNT; lvl++) {
+            if (lbManager.hasRecord(selectedMode, lvl)) completedCount++;
+        }
+        
+        boolean allCompleted = (completedCount == LeaderboardManager.LEVEL_COUNT);
+        Font countFont = FontPalette.get(java.awt.Font.BOLD, 13);
+        g.setFont(countFont);
+        FontMetrics countFm = g.getFontMetrics();
+        String countText = completedCount + " / " + LeaderboardManager.LEVEL_COUNT + " Completed";
+        int pillW = countFm.stringWidth(countText) + UIScale.px(24);
+        int pillH = UIScale.px(24);
+        int pillX = (width - pillW) / 2;
+        int pillY = tabY + tabHeight + UIScale.px(10);
+        
+        // Pill background
+        Color pillColor = allCompleted ? ColorPalette.TEXT_GOLD : selectedMode.getColor();
+        g.setColor(ColorPalette.withAlpha(pillColor, 40));
+        g.fillRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
+        g.setStroke(RenderCache.getStroke(1));
+        g.setColor(ColorPalette.withAlpha(pillColor, 100));
+        g.drawRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
+        
+        // Pill text
+        g.setColor(allCompleted ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
+        g.drawString(countText, pillX + UIScale.px(12), pillY + pillH / 2 + countFm.getAscent() / 2 - 1);
+        
+        // Level records list — scrollable area
+        int listTop = pillY + pillH + UIScale.px(12);
+        int listBottom = height - UIScale.px(50);
+        int rowHeight = UIScale.px(42);
+        int rowGap = UIScale.px(6);
+        int listWidth = UIScale.px(700);
+        int listX = (width - listWidth) / 2;
+        
+        // Clipping region for scroll
+        java.awt.Shape oldClip = g.getClip();
+        g.setClip(0, listTop, width, listBottom - listTop);
+        
+        // Column widths
+        int colLevel = UIScale.px(70);     // "Level XX"
+        int colTime = UIScale.px(140);     // "M:SS.cc"
+        int colSave = UIScale.px(180);     // Save name
+        int colDate = UIScale.px(180);     // Date
+        
+        // Header row (fixed, drawn above clip for visual, but inside clip for simplicity)
+        int headerY = listTop - (int)scrollOffset;
+        
+        // Draw header background
+        g.setColor(new Color(25, 30, 45, 220));
+        g.fillRoundRect(listX, headerY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+        g.setStroke(RenderCache.getStroke(1));
+        g.setColor(ColorPalette.BORDER_STEEL);
+        g.drawRoundRect(listX, headerY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+        
+        Font headerFont = FontPalette.get(java.awt.Font.BOLD, 14);
+        g.setFont(headerFont);
+        g.setColor(ColorPalette.TEXT_DIM);
+        FontMetrics hfm = g.getFontMetrics();
+        int hTextY = headerY + rowHeight / 2 + hfm.getAscent() / 2 - 1;
+        
+        int cx = listX + UIScale.px(15);
+        g.drawString("LEVEL", cx, hTextY);
+        cx += colLevel;
+        g.drawString("BEST TIME", cx, hTextY);
+        cx += colTime;
+        g.drawString("SAVE", cx, hTextY);
+        cx += colSave;
+        g.drawString("DATE", cx, hTextY);
+        
+        // Data rows
+        Font rowFont = FontPalette.get(java.awt.Font.PLAIN, 15);
+        Font timeFont = FontPalette.get(java.awt.Font.BOLD, 16);
+        java.text.SimpleDateFormat dateFmt = new java.text.SimpleDateFormat("MMM dd, yyyy");
+        
+        for (int lvl = 1; lvl <= LeaderboardManager.LEVEL_COUNT; lvl++) {
+            int rowY = headerY + (rowHeight + rowGap) * lvl;
+            
+            // Skip if not visible
+            if (rowY + rowHeight < listTop || rowY > listBottom) continue;
+            
+            LeaderboardRecord record = lbManager.getRecord(selectedMode, lvl);
+            boolean hasRecord = (record != null);
+            
+            // Row background — alternating with subtle mode color tint
+            if (hasRecord) {
+                g.setColor(ColorPalette.withAlpha(selectedMode.getColor(), lvl % 2 == 0 ? 20 : 30));
+            } else {
+                g.setColor(new Color(20, 22, 32, lvl % 2 == 0 ? 160 : 180));
+            }
+            g.fillRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+            
+            // Subtle border for records
+            if (hasRecord) {
+                g.setStroke(RenderCache.getStroke(1));
+                g.setColor(ColorPalette.withAlpha(selectedMode.getColor(), 60));
+                g.drawRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+            }
+            
+            int textY = rowY + rowHeight / 2;
+            cx = listX + UIScale.px(15);
+            
+            // Level number
+            g.setFont(rowFont);
+            FontMetrics rfm = g.getFontMetrics();
+            int rTextY = textY + rfm.getAscent() / 2 - 1;
+            g.setColor(hasRecord ? ColorPalette.TEXT_PRIMARY : ColorPalette.TEXT_DIM);
+            g.drawString("Level " + lvl, cx, rTextY);
+            cx += colLevel;
+            
+            if (hasRecord) {
+                // Best time
+                g.setFont(timeFont);
+                FontMetrics timeFm = g.getFontMetrics();
+                int tTextY = textY + timeFm.getAscent() / 2 - 1;
+                g.setColor(ColorPalette.TEXT_GOLD);
+                g.drawString(record.formatTime(), cx, tTextY);
+                cx += colTime;
+                
+                // Save name
+                g.setFont(rowFont);
+                rfm = g.getFontMetrics();
+                rTextY = textY + rfm.getAscent() / 2 - 1;
+                g.setColor(ColorPalette.TEXT_PRIMARY);
+                String saveName = record.getSaveName();
+                if (saveName != null && saveName.length() > 16) saveName = saveName.substring(0, 15) + "\u2026";
+                g.drawString(saveName != null ? saveName : "???", cx, rTextY);
+                cx += colSave;
+                
+                // Date
+                g.setColor(ColorPalette.TEXT_DIM);
+                String dateStr = dateFmt.format(new java.util.Date(record.getTimestamp()));
+                g.drawString(dateStr, cx, rTextY);
+            } else {
+                // No record placeholders
+                g.setFont(rowFont);
+                FontMetrics rfm2 = g.getFontMetrics();
+                int rTextY2 = textY + rfm2.getAscent() / 2 - 1;
+                g.setColor(new Color(60, 65, 80));
+                g.drawString("--:--.--", cx, rTextY2);
+                cx += colTime;
+                g.drawString("-", cx, rTextY2);
+                cx += colSave;
+                g.drawString("-", cx, rTextY2);
+            }
+        }
+        
+        g.setClip(oldClip);
+        
+        // Scroll indicators (fade edges)
+        if (scrollOffset > 0) {
+            java.awt.GradientPaint fadeTop = new java.awt.GradientPaint(
+                0, listTop, new Color(10, 10, 20, 200),
+                0, listTop + UIScale.px(30), new Color(10, 10, 20, 0));
+            g.setPaint(fadeTop);
+            g.fillRect(0, listTop, width, UIScale.px(30));
+        }
+        int maxScroll = Math.max(0, (LeaderboardManager.LEVEL_COUNT + 1) * (rowHeight + rowGap) - (listBottom - listTop));
+        if (scrollOffset < maxScroll - 1) {
+            java.awt.GradientPaint fadeBottom = new java.awt.GradientPaint(
+                0, listBottom - UIScale.px(30), new Color(10, 10, 20, 0),
+                0, listBottom, new Color(10, 10, 20, 200));
+            g.setPaint(fadeBottom);
+            g.fillRect(0, listBottom - UIScale.px(30), width, UIScale.px(30));
+        }
+        
+        // Footer hint with key/controller icons
+        g.setFont(FONT_SMALL);
+        g.setColor(ColorPalette.TEXT_DIM);
+        drawPromptWithIcons(g, width / 2, height - UIScale.px(20),
+            "", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT,
+            " Switch Difficulty   ",
+            KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN,
+            " Scroll   ",
+            KeyBindManager.Action.BACK, " Back");
+    }
 
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {
 
@@ -12514,7 +13059,7 @@ public class Renderer {
 
     
 
-    public void drawDebug(Graphics2D g, int width, int height, double time, int selectedOption, int debugSetLevelValue) {
+    public void drawDebug(Graphics2D g, int width, int height, double time, int selectedOption, int debugSetLevelValue, int debugLeaderboardLevel) {
 
         // Military themed background
 
@@ -12567,7 +13112,9 @@ public class Renderer {
             "Preview Passive Upgrade Popups",
 
             "Set Unlocked Level: \u25C0 " + debugSetLevelValue + " \u25B6",
-            "Unlock Endless Mode"
+            "Unlock Endless Mode",
+            "Reset Leaderboard Times",
+            "Test Leaderboard: Level \u25C0 " + debugLeaderboardLevel + " \u25B6"
 
         };
 
@@ -12598,7 +13145,9 @@ public class Renderer {
             new Color(200, 150, 255),    // Lavender for passive preview
 
             new Color(255, 140, 0),      // Dark orange for set level
-            new Color(160, 100, 255)     // Purple for endless mode
+            new Color(160, 100, 255),    // Purple for endless mode
+            new Color(255, 80, 80),       // Red for leaderboard reset
+            new Color(100, 255, 200)     // Teal for test leaderboard
 
         };
 
@@ -13579,6 +14128,25 @@ public class Renderer {
         int textW = fm.stringWidth(keyLabel);
         int pad = 8;
         return textW + pad * 2 + 4; // text + padding + border spacing
+    }
+
+    /** Draw a single action icon (key sprite or controller button) centered at (x, centerY). */
+    private void drawSingleActionIcon(Graphics2D g, int x, int centerY, KeyBindManager.Action action) {
+        if (Game.keyBindManager == null) return;
+        java.awt.image.BufferedImage icon = Game.keyBindManager.getActionIcon(action);
+        if (icon != null) {
+            int iconH = UIScale.px(22);
+            int iconW = iconH * icon.getWidth() / icon.getHeight();
+            g.drawImage(icon, x - iconW / 2, centerY - iconH / 2, iconW, iconH, null);
+        } else {
+            // Fallback: draw keycap text
+            Font savedFont = g.getFont();
+            g.setFont(FONT_SMALL);
+            FontMetrics fm = g.getFontMetrics();
+            String label = keyText(action);
+            drawKeyCap(g, fm, label, x - measureKeyCap(fm, label) / 2, centerY + fm.getAscent() / 2);
+            g.setFont(savedFont);
+        }
     }
 
     /** Draw a styled keycap box at (x, y) and return its width. y is the text baseline. */
