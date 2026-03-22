@@ -75,8 +75,8 @@ public class Particle {
         x += vx * deltaTime;
         y += vy * deltaTime;
         
-        // Apply gravity for certain types
-        if (type == ParticleType.SPARK || type == ParticleType.EXPLOSION || type == ParticleType.DEBRIS) {
+        // Apply gravity for certain types (not EXPLOSION — shockwave rings should expand in place)
+        if (type == ParticleType.SPARK || type == ParticleType.DEBRIS) {
             vy += 0.2 * deltaTime;
         }
         

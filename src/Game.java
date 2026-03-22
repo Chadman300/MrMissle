@@ -564,6 +564,7 @@ public class Game extends JPanel implements Runnable {
     
     // Game feel effects
     private double hitFreezeFrames = 0; // Freeze frames on boss damage
+    private double bossHitCameraHoldTimer = 0; // Hold camera at collision point after boss hit
     private double slowMotionFactor = 1.0; // Slow-motion multiplier (1.0 = normal)
     private double slowMotionTimer = 0; // Timer for slow-motion effect
     private double comboPulseScale = 1.0; // Scale pulse on combo increase
@@ -1076,6 +1077,7 @@ public class Game extends JPanel implements Runnable {
         
         // Initialize game feel effects
         hitFreezeFrames = 0;
+        bossHitCameraHoldTimer = 0;
         slowMotionFactor = 1.0;
         slowMotionTimer = 0;
         comboPulseScale = 1.0;
@@ -5740,9 +5742,6 @@ public class Game extends JPanel implements Runnable {
         if (currentBoss.isMegaBoss()) {
             bossIntroText += " [MEGA]";
         }
-        if (gameData.isInEndlessMode()) {
-            bossIntroText += " [ENDLESS " + gameData.getEndlessCurrentLevel() + "/28]";
-        }
         soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
         // Start intro sequence with boss entrance
@@ -7434,6 +7433,10 @@ public class Game extends JPanel implements Runnable {
                 // Hit-pause: freeze frames on boss damage (more frames for more hits)
                 hitFreezeFrames = 3 + bossHitCount * 2;
                 
+                // Hold camera at collision point so explosion is clearly visible
+                // (camera stays locked during freeze + this hold before following player)
+                bossHitCameraHoldTimer = 25;
+                
                 // Reset vulnerability
                 bossVulnerable = false;
                 invulnerabilityTimer = 300; // 5 seconds of invulnerability
@@ -7960,9 +7963,6 @@ public class Game extends JPanel implements Runnable {
                     System.out.println("DEBUG ENDLESS WIN: level " + endlessLevel + " beaten, next=" + gameData.getEndlessCurrentLevel());
                 }
                 
-                // Auto-save on level completion (after progression is recorded)
-                performAutoSave();
-                
                 // If level 7 was defeated and contracts were unlocked, trigger animation (only once)
                 if (currentLevel == 6 && gameData.areContractsUnlocked() && !itemUnlockAnimation && !gameData.hasSeenContractUnlock()) {
                     soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
@@ -7978,6 +7978,9 @@ public class Game extends JPanel implements Runnable {
                     endlessUnlockTimer = ENDLESS_UNLOCK_DURATION;
                     gameData.setSeenEndlessUnlock(true);
                 }
+                
+                // Auto-save after all flags are set so popup states persist
+                performAutoSave();
                 
                 return;
             }
@@ -11480,7 +11483,12 @@ public class Game extends JPanel implements Runnable {
         // Level indicator in corner
         g.setFont(FontPalette.get(Font.BOLD, 14));
         g.setColor(ColorPalette.TEXT_DIM);
-        String levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
+        String levelText;
+        if (gameData != null && gameData.isInEndlessMode()) {
+            levelText = "Endless Mode Prestige " + gameData.getEndlessPrestige() + " Level " + gameData.getEndlessCurrentLevel();
+        } else {
+            levelText = "Level " + (gameData != null ? gameData.getCurrentLevel() : "?");
+        }
         g.drawString(levelText, boxX + 15, boxY + boxHeight - 10);
     }
     

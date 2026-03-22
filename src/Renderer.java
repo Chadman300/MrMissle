@@ -5291,6 +5291,22 @@ public class Renderer {
                 
                 // Create a gray-filled silhouette: draw sprite into temp image, then SRC_IN fill with gray
                 BufferedImage rotatedSprite = getCachedPlaneSprite(planeSprite, spriteIndex, spriteWidth, spriteHeight);
+                
+                // Build outline silhouette (draw shifted copies, then SRC_IN fill)
+                int pad = 4;
+                BufferedImage outline = Game.createOptimalImage(spriteWidth + pad * 2, spriteHeight + pad * 2, true);
+                Graphics2D og = outline.createGraphics();
+                for (int dy = -pad; dy <= pad; dy++) {
+                    for (int dx = -pad; dx <= pad; dx++) {
+                        if (dx == 0 && dy == 0) continue;
+                        og.drawImage(rotatedSprite, pad + dx, pad + dy, null);
+                    }
+                }
+                og.setComposite(AlphaComposite.SrcIn);
+                og.setColor(new Color(80, 80, 100));
+                og.fillRect(0, 0, spriteWidth + pad * 2, spriteHeight + pad * 2);
+                og.dispose();
+                
                 BufferedImage silhouette = Game.createOptimalImage(spriteWidth, spriteHeight, true);
                 Graphics2D sg = silhouette.createGraphics();
                 sg.drawImage(rotatedSprite, 0, 0, null);
@@ -5306,6 +5322,9 @@ public class Renderer {
                 double scaleX = zRotation;
                 g.scale(scaleX, 1.0);
                 
+                // Draw outline behind, then silhouette on top
+                g.setComposite(RenderCache.getAlpha(0.7f * alpha));
+                g.drawImage(outline, -spriteWidth / 2 - pad, -spriteHeight / 2 - pad, null);
                 g.setComposite(RenderCache.getAlpha(0.6f * alpha));
                 g.drawImage(silhouette, -spriteWidth / 2, -spriteHeight / 2, null);
                 
@@ -6077,9 +6096,45 @@ public class Renderer {
 
         // Title
 
-        String title = isResume ? "RESUME LEVEL " + level + "?" : "START LEVEL " + level + "?";
+        String title;
+
+        if (gameData != null && gameData.isInEndlessMode()) {
+
+            title = (isResume ? "RESUME" : "START") + " ENDLESS MODE?";
+
+        } else {
+
+            title = isResume ? "RESUME LEVEL " + level + "?" : "START LEVEL " + level + "?";
+
+        }
 
         UITheme.drawTitle(g, title, width, height / 2 - UIScale.px(50), ColorPalette.TEXT_GOLD, ColorPalette.ACCENT_ORANGE, time, FontPalette.get(Font.BOLD, 56));
+
+        
+
+        // Endless mode subtitle (Prestige # - Level #)
+
+        if (gameData != null && gameData.isInEndlessMode()) {
+
+            String subText = "Prestige " + gameData.getEndlessPrestige() + " \u2022 Level " + gameData.getEndlessCurrentLevel();
+
+            g.setFont(FontPalette.get(Font.BOLD, 28));
+
+            FontMetrics sfm = g.getFontMetrics();
+
+            int subX = (width - sfm.stringWidth(subText)) / 2;
+
+            int subY = height / 2 - UIScale.px(50) + 38;
+
+            g.setColor(new Color(0, 0, 0, 150));
+
+            g.drawString(subText, subX + 2, subY + 2);
+
+            g.setColor(new Color(180, 130, 255));
+
+            g.drawString(subText, subX, subY);
+
+        }
 
         
 
@@ -7585,7 +7640,7 @@ public class Renderer {
         
 
         // Draw MONEY_SIGN particles ON TOP of player and bullets â€” with viewport culling
-        for (int pi = 0; pi < particleCount; pi++) {
+        for (int pi = 0; pi < particles.size(); pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
                 double px = particle.getX();
@@ -8398,8 +8453,20 @@ public class Renderer {
             g.fillRect(0, height / 2 + 50 + shakeY, width, stripeH);
 
             // === Banner panel with shake ===
-            int panelW = Math.min(width - 60, 500);
-            int panelH = 90;
+            // Measure boss name first to scale panel width
+            int nameFs = bossIntroText.length() > 14 ? 28 : bossIntroText.length() > 10 ? 34 : 40;
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, nameFs));
+            int measuredNameW = g.getFontMetrics().stringWidth(bossIntroText);
+            
+            // Build subtext for endless mode
+            String introSubText = null;
+            if (gameData != null && gameData.isInEndlessMode()) {
+                introSubText = "Prestige " + gameData.getEndlessPrestige() + " \u2022 Level " + gameData.getEndlessCurrentLevel();
+            }
+            
+            int minPanelW = measuredNameW + 80; // padding around boss name
+            int panelW = Math.max(Math.min(width - 60, 500), minPanelW);
+            int panelH = introSubText != null ? 110 : 90;
             int panelX = (width - panelW) / 2 + shakeX;
             int panelY = height / 2 - panelH / 2 - 3 + shakeY;
 
@@ -8446,7 +8513,7 @@ public class Renderer {
             g.drawString(warningText, warnX, warnY);
 
             // === Boss name in large bold font ===
-            int fontSize = bossIntroText.length() > 14 ? 28 : bossIntroText.length() > 10 ? 34 : 40;
+            int fontSize = nameFs;
             g.setFont(FontPalette.get(java.awt.Font.BOLD, fontSize));
             FontMetrics nfm = g.getFontMetrics();
             int nameW = nfm.stringWidth(bossIntroText);
@@ -8469,6 +8536,23 @@ public class Renderer {
             // Main name text
             g.setColor(boss.isMegaBoss() ? INTRO_NAME_MEGA : Color.WHITE);
             g.drawString(bossIntroText, nameX, nameY);
+            
+            // === Endless mode subtext (Prestige # - Level #) ===
+            if (introSubText != null) {
+                g.setFont(FontPalette.get(java.awt.Font.BOLD, 16));
+                FontMetrics sfm = g.getFontMetrics();
+                int subW = sfm.stringWidth(introSubText);
+                int subX = panelX + panelW / 2 - subW / 2;
+                int subY = nameY + 22;
+                g.setComposite(RenderCache.getAlpha(0.5f));
+                g.setColor(Color.BLACK);
+                g.drawString(introSubText, subX + 1, subY + 1);
+                float subPulse = (float)(0.6 + 0.4 * Math.sin(time * 5.0));
+                g.setComposite(RenderCache.getAlpha(subPulse));
+                g.setColor(new Color(180, 130, 255));
+                g.drawString(introSubText, subX, subY);
+                g.setComposite(AlphaComposite.SrcOver);
+            }
 
             // === Small decorative dashes by the name ===
             g.setComposite(RenderCache.getAlpha(0.5f));
@@ -8759,14 +8843,38 @@ public class Renderer {
             }
             int infoX = (int)(infoCfg.xPercent * width);
             int infoY = (int)(infoCfg.yPercent * height);
+            
+            // Determine if endless mode adds an extra line
+            boolean endlessHud = gameData != null && gameData.isInEndlessMode() && !tutorialMode;
+            int extraShift = endlessHud ? UIScale.px(17) : 0;
+            
             g.setColor(RenderCache.BLACK_150);
-            g.fillRoundRect(infoX, infoY, UIScale.px(280), UIScale.px(140), UIScale.px(10), UIScale.px(10));
+            g.fillRoundRect(infoX, infoY, UIScale.px(280), UIScale.px(140) + extraShift, UIScale.px(10), UIScale.px(10));
 
             g.setColor(Color.WHITE);
             g.setFont(FONT_MEDIUM_BOLD);
-            g.drawString(tutorialMode ? "Tutorial" : "Level: " + level, infoX + UIScale.px(10), infoY + UIScale.px(25));
-            g.drawString("Score: " + (int)displayedScore, infoX + UIScale.px(10), infoY + UIScale.px(55));
-            g.drawString("Money: $" + (int)displayedMoney, infoX + UIScale.px(10), infoY + UIScale.px(85));
+            String levelLabel;
+            if (tutorialMode) {
+                levelLabel = "Tutorial";
+            } else if (endlessHud) {
+                levelLabel = "Endless Mode";
+            } else {
+                levelLabel = "Level: " + level;
+            }
+            g.drawString(levelLabel, infoX + UIScale.px(10), infoY + UIScale.px(25));
+            
+            // Endless subtext (prestige & level) on second line
+            if (endlessHud) {
+                g.setFont(FONT_INFO);
+                g.setColor(new Color(180, 130, 255));
+                String endlessSub = "P" + gameData.getEndlessPrestige() + " \u2022 Lv " + gameData.getEndlessCurrentLevel();
+                g.drawString(endlessSub, infoX + UIScale.px(10), infoY + UIScale.px(42));
+                g.setColor(Color.WHITE);
+                g.setFont(FONT_MEDIUM_BOLD);
+            }
+            
+            g.drawString("Score: " + (int)displayedScore, infoX + UIScale.px(10), infoY + UIScale.px(55) + extraShift);
+            g.drawString("Money: $" + (int)displayedMoney, infoX + UIScale.px(10), infoY + UIScale.px(85) + extraShift);
 
             // Display timer and FPS
             g.setFont(FONT_INFO);
@@ -8774,8 +8882,8 @@ public class Renderer {
             int seconds = (int)(gameTime % 60);
             int milliseconds = (int)((gameTime % 1) * 100);
             String timeStr = String.format("Time: %d:%02d.%02d", minutes, seconds, milliseconds);
-            g.drawString(timeStr, infoX + UIScale.px(10), infoY + UIScale.px(110));
-            g.drawString("FPS: " + fps, infoX + UIScale.px(10), infoY + UIScale.px(135));
+            g.drawString(timeStr, infoX + UIScale.px(10), infoY + UIScale.px(110) + extraShift);
+            g.drawString("FPS: " + fps, infoX + UIScale.px(10), infoY + UIScale.px(135) + extraShift);
             g.setComposite(originalComposite);
         }
 
@@ -9930,7 +10038,17 @@ public class Renderer {
 
         // Level reached this run
 
-        String level = "Level Reached: " + gameData.getCurrentLevel();
+        String level;
+
+        if (gameData.isInEndlessMode()) {
+
+            level = "Endless Mode Prestige " + gameData.getEndlessPrestige() + " Level " + gameData.getEndlessCurrentLevel();
+
+        } else {
+
+            level = "Level Reached: " + gameData.getCurrentLevel();
+
+        }
 
         fm = g.getFontMetrics();
 
