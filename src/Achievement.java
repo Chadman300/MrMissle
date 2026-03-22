@@ -71,7 +71,8 @@ public class Achievement {
         NO_UPGRADES,     // Complete levels without purchasing any upgrades
         SPEED_RUN,       // Complete a level within X seconds
         CLUTCH_SURVIVAL, // Use 5 missiles and survive on the last one
-        TUTORIAL_COMPLETE // Complete the tutorial
+        TUTORIAL_COMPLETE, // Complete the tutorial
+        ENDLESS_LEVELS   // Beat X levels in endless mode (total across all prestiges)
     }
     
     public Achievement(String id, String name, String description, AchievementType type, int target) {

@@ -86,6 +86,14 @@ public class GameData {
     
     // Tutorial completion tracking
     private boolean tutorialCompleted = false;
+    
+    // Endless mode progression
+    private boolean inEndlessMode = false;       // Currently playing endless mode
+    private int endlessPrestige = 0;              // Number of completed 28-level endless cycles
+    private int endlessCurrentLevel = 1;          // Current level within the endless 1-28 cycle
+    private int endlessHighestLevel = 0;          // Highest endless level ever reached (total, not per-cycle)
+    private boolean endlessUnlocked = false;      // Whether endless mode slot is visible (all 28 bosses beaten)
+    private boolean seenEndlessUnlock = false;      // Whether the endless unlock animation has been shown
 
     public GameData() {
         score = 0;
@@ -137,6 +145,13 @@ public class GameData {
         
         // Initialize seen passive unlocks
         seenPassiveUnlocks = new java.util.ArrayList<>();
+        
+        // Endless mode defaults
+        inEndlessMode = false;
+        endlessPrestige = 0;
+        endlessCurrentLevel = 1;
+        endlessHighestLevel = 0;
+        endlessUnlocked = false;
     }
     
     // Getters and setters
@@ -236,6 +251,7 @@ public class GameData {
         for (int i = 0; i < defeatedBosses.length; i++) {
             defeatedBosses[i] = true;
         }
+        endlessUnlocked = true;
     }
     
     public void giveCheatMoney(int amount) {
@@ -400,7 +416,7 @@ public class GameData {
     
     // Level select navigation methods
     public int getSelectedLevelView() { return selectedLevelView; }
-    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(28, level)); }
+    public void setSelectedLevelView(int level) { this.selectedLevelView = Math.max(1, Math.min(29, level)); }
     
     public int getLevelCompletionTime(int level) {
         if (level >= 1 && level <= levelCompletionTimes.length) {
@@ -543,4 +559,59 @@ public class GameData {
     // Tutorial completion accessors
     public boolean isTutorialCompleted() { return tutorialCompleted; }
     public void setTutorialCompleted(boolean completed) { this.tutorialCompleted = completed; }
+    
+    // Endless mode accessors
+    public boolean isInEndlessMode() { return inEndlessMode; }
+    public void setInEndlessMode(boolean endless) { this.inEndlessMode = endless; }
+    
+    public int getEndlessPrestige() { return endlessPrestige; }
+    public void setEndlessPrestige(int prestige) { this.endlessPrestige = prestige; }
+    public void incrementEndlessPrestige() { this.endlessPrestige++; }
+    
+    public int getEndlessCurrentLevel() { return endlessCurrentLevel; }
+    public void setEndlessCurrentLevel(int level) { this.endlessCurrentLevel = Math.max(1, Math.min(28, level)); }
+    
+    public int getEndlessHighestLevel() { return endlessHighestLevel; }
+    public void setEndlessHighestLevel(int level) { this.endlessHighestLevel = level; }
+    
+    public boolean isEndlessUnlocked() { return endlessUnlocked || hasCompletedCampaign(); }
+    public void setEndlessUnlocked(boolean unlocked) { this.endlessUnlocked = unlocked; }
+    
+    public boolean hasSeenEndlessUnlock() { return seenEndlessUnlock; }
+    public void setSeenEndlessUnlock(boolean seen) { this.seenEndlessUnlock = seen; }
+    
+    /** Check if all 28 campaign bosses have been defeated (enables endless mode). */
+    public boolean hasCompletedCampaign() {
+        for (int i = 0; i < 28; i++) {
+            if (!defeatedBosses[i]) return false;
+        }
+        return true;
+    }
+    
+    /** Get the effective difficulty level for endless mode.
+     *  Starts at level 28 and increases at half the campaign rate. */
+    public int getEndlessEffectiveLevel() {
+        // Total endless levels beaten = (prestige * 28) + (endlessCurrentLevel - 1)
+        int totalEndlessLevels = endlessPrestige * 28 + (endlessCurrentLevel - 1);
+        // Start at 28 difficulty, increase by 0.5 per level (half rate of campaign)
+        return 28 + (int)(totalEndlessLevels * 0.5);
+    }
+    
+    /** Get the total number of endless levels beaten across all prestiges. */
+    public int getTotalEndlessLevelsBeaten() {
+        return endlessPrestige * 28 + (endlessCurrentLevel - 1);
+    }
+    
+    /** Reset endless run on death (prestige checkpoint or full reset). */
+    public void resetEndlessRun(boolean fullReset) {
+        if (fullReset) {
+            // Master mode: full reset
+            endlessCurrentLevel = 1;
+            endlessPrestige = 0;
+        } else {
+            // Normal modes: reset to last prestige checkpoint
+            endlessCurrentLevel = 1;
+            // Keep endlessPrestige - this is the checkpoint
+        }
+    }
 }

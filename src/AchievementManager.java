@@ -66,6 +66,13 @@ public class AchievementManager {
         
         // Tutorial
         addAchievement("training_thrusters", "Training Thrusters", "Complete the tutorial", Achievement.AchievementType.TUTORIAL_COMPLETE, 1);
+        
+        // Endless mode
+        addAchievement("endless_rookie", "Into the Unknown", "Play endless mode for the first time", Achievement.AchievementType.ENDLESS_LEVELS, 1);
+        addAchievement("endless_10", "Endless Warrior", "Beat 10 levels in endless mode", Achievement.AchievementType.ENDLESS_LEVELS, 10);
+        addAchievement("endless_28", "Full Circle", "Complete a full prestige cycle in endless mode", Achievement.AchievementType.ENDLESS_LEVELS, 28);
+        addAchievement("endless_56", "Double Down", "Beat 56 levels in endless mode (2 prestiges)", Achievement.AchievementType.ENDLESS_LEVELS, 56);
+        addAchievement("endless_100", "Centurion", "Beat 100 levels in endless mode", Achievement.AchievementType.ENDLESS_LEVELS, 100);
     }
     
     private void addAchievement(String id, String name, String description, Achievement.AchievementType type, int target) {

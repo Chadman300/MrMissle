@@ -99,12 +99,12 @@ public class Renderer {
 
     private double[] layerScrollOffsets = new double[6]; // Scroll offset for each layer
 
-    // Parallax speeds for each layer (furthest to closest) — static to avoid per-frame allocation
+    // Parallax speeds for each layer (furthest to closest) â€” static to avoid per-frame allocation
     private static final double[] PARALLAX_SPEEDS = {0.1, 0.2, 0.35, 0.5, 0.7, 1.0};
 
     
 
-    // Async background rendering — renders parallax on worker thread while game thread sleeps
+    // Async background rendering â€” renders parallax on worker thread while game thread sleeps
     private BufferedImage bgBuffer;               // Off-screen buffer for background
     private volatile boolean bgBufferReady;        // True when bgBuffer has valid content
     private volatile int bgBufferLevel = -1;       // Level the buffer was rendered for
@@ -120,10 +120,10 @@ public class Renderer {
 
 
     // Pre-cached rotated+scaled plane sprites for level select (avoids per-frame AffineTransform rotation)
-    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180°-rotated & scaled BufferedImage
+    // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180Â°-rotated & scaled BufferedImage
     private static final java.util.HashMap<Long, BufferedImage> planeSpriteCache = new java.util.HashMap<>();
 
-    /** Get a pre-rotated (180°) and scaled plane sprite for the level select screen. */
+    /** Get a pre-rotated (180Â°) and scaled plane sprite for the level select screen. */
     private static BufferedImage getCachedPlaneSprite(BufferedImage source, int level, int targetW, int targetH) {
         long key = ((long)level << 32) | ((long)targetW << 16) | (targetH & 0xFFFFL);
         BufferedImage cached = planeSpriteCache.get(key);
@@ -131,7 +131,7 @@ public class Renderer {
             cached = Game.createOptimalImage(targetW, targetH, true);
             Graphics2D cg = cached.createGraphics();
             cg.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            // Rotate 180° around center, then draw scaled
+            // Rotate 180Â° around center, then draw scaled
             cg.translate(targetW / 2.0, targetH / 2.0);
             cg.rotate(Math.PI);
             cg.drawImage(source, -targetW / 2, -targetH / 2, targetW, targetH, null);
@@ -171,17 +171,17 @@ public class Renderer {
     private static final BasicStroke ROUND_STROKE_6 = new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_3_5 = new BasicStroke(3.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final BasicStroke ROUND_STROKE_2_5 = new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-    // Shockwave arc strokes (cached — was 5 new BasicStroke per frame in loop)
+    // Shockwave arc strokes (cached â€” was 5 new BasicStroke per frame in loop)
     private static final BasicStroke SHOCKWAVE_STROKE_0 = new BasicStroke(12f);
     private static final BasicStroke SHOCKWAVE_STROKE_1 = new BasicStroke(10.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_2 = new BasicStroke(9f);
     private static final BasicStroke SHOCKWAVE_STROKE_3 = new BasicStroke(7.5f);
     private static final BasicStroke SHOCKWAVE_STROKE_4 = new BasicStroke(6f);
     private static final BasicStroke[] SHOCKWAVE_STROKES = { SHOCKWAVE_STROKE_0, SHOCKWAVE_STROKE_1, SHOCKWAVE_STROKE_2, SHOCKWAVE_STROKE_3, SHOCKWAVE_STROKE_4 };
-    // Cached identity transform — avoids new AffineTransform() every frame
+    // Cached identity transform â€” avoids new AffineTransform() every frame
     private static final AffineTransform IDENTITY_TRANSFORM = new AffineTransform();
 
-    // ── Cached Colors for journey map & UI menus (avoid per-frame new Color()) ──
+    // â”€â”€ Cached Colors for journey map & UI menus (avoid per-frame new Color()) â”€â”€
     private static final Color NODE_COMPLETED_GOLD = new Color(220, 180, 50);
     private static final Color NODE_CURRENT_BLUE = RenderCache.BLUE_100_200_255;
     private static final Color NODE_LOCKED_GRAY = new Color(60, 60, 70);
@@ -223,8 +223,15 @@ public class Renderer {
     private static final Color PANEL_STATS_TEXT = new Color(160, 170, 180);
     private static final Color PANEL_LOCK_TEXT = new Color(120, 120, 130);
     private static final Color PANEL_NAV_HINT = new Color(100, 110, 130);
+    // Endless mode colors
+    private static final Color ENDLESS_NODE_BG = new Color(40, 35, 55);
+    private static final Color ENDLESS_NODE_BORDER = new Color(120, 80, 180);
+    private static final Color ENDLESS_GLOW = new Color(160, 100, 255);
+    private static final Color ENDLESS_GRAY_TINT = new Color(100, 100, 120);
+    private static final Color ENDLESS_QUESTION_MARK = new Color(200, 180, 255);
+    private static final Color ENDLESS_ORBIT_PARTICLE = new Color(180, 150, 255);
 
-    // â"€â"€ Cached Colors for in-level drawGame (avoid per-frame new Color()) â"€â"€
+    // Ã¢"â‚¬Ã¢"â‚¬ Cached Colors for in-level drawGame (avoid per-frame new Color()) Ã¢"â‚¬Ã¢"â‚¬
     // Player shield arcs (6 per shield segment, per-frame)
     private static final Color SHIELD_ARC_OUTER = new Color(60, 180, 255, 50);
     private static final Color SHIELD_ARC_MID = new Color(80, 200, 255, 90);
@@ -240,7 +247,7 @@ public class Renderer {
     private static final Color BOSS_COOL_BLOOM = new Color(100, 150, 200);
     private static final Color BOSS_CALM_GLOW = new Color(80, 150, 255);
     private static final Color WORLD_EDGE_80 = new Color(0, 0, 0, 80);
-    // Baked level bounds images (rendered once — eliminates 8 gradient fills per frame)
+    // Baked level bounds images (rendered once â€” eliminates 8 gradient fills per frame)
     private static BufferedImage bakedEdgeTop, bakedEdgeBottom, bakedEdgeLeft, bakedEdgeRight;
     private static BufferedImage bakedCornerTL, bakedCornerTR, bakedCornerBL, bakedCornerBR;
     private static boolean levelBoundsBaked = false;
@@ -299,7 +306,7 @@ public class Renderer {
     private static final Color ANNOUNCE_GREEN = new Color(100, 255, 100);
     private static final Color ANNOUNCE_GRAY = new Color(150, 150, 150);
     private static final Color ANNOUNCE_RED_PINK = new Color(191, 97, 106);
-    // ── Cached Colors for boss intro banner (avoid ~15 new Color() per frame) ──
+    // â”€â”€ Cached Colors for boss intro banner (avoid ~15 new Color() per frame) â”€â”€
     private static final Color INTRO_SCAN_RED = new Color(255, 30, 30);
     private static final Color INTRO_STRIPE_RED = new Color(200, 30, 30);
     private static final Color INTRO_GLOW_RED = new Color(180, 20, 20);
@@ -325,7 +332,7 @@ public class Renderer {
 
     
 
-    // Cached Font objects — all derived from FontPalette (custom font with fallback)
+    // Cached Font objects â€” all derived from FontPalette (custom font with fallback)
     // FontPalette.init() must be called before first use (done in AssetLoader.initAll())
     private static Font FONT_TITLE_LARGE;
     private static Font FONT_TITLE;
@@ -428,7 +435,7 @@ public class Renderer {
 
         
 
-        // Initialize menu buttons — military/rock themed colors
+        // Initialize menu buttons â€” military/rock themed colors
         menuButtons = new UIButton[7];
         menuButtons[0] = new UIButton("Select Level", "level", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_LEVEL, ColorPalette.BTN_LEVEL_SEL);
         menuButtons[1] = new UIButton("Shop", "shop", 0, 0, UIScale.px(300), UIScale.px(55), ColorPalette.BTN_SHOP, ColorPalette.BTN_SHOP_SEL);
@@ -459,9 +466,9 @@ public class Renderer {
 
         
 
-        // Initialize settings buttons (16 options)
-        settingsButtons = new UIButton[16];
-        for (int i = 0; i < 16; i++) {
+        // Initialize settings buttons (22 options)
+        settingsButtons = new UIButton[22];
+        for (int i = 0; i < 22; i++) {
             settingsButtons[i] = new UIButton("", 0, 0, UIScale.px(900), UIScale.px(50), ColorPalette.BUTTON_BASE, ColorPalette.ACCENT_ORANGE);
         }
 
@@ -735,7 +742,7 @@ public class Renderer {
 
             
 
-            // Draw tiled layers with wrapping (no scaling — simple blit)
+            // Draw tiled layers with wrapping (no scaling â€” simple blit)
 
             int x = (int)(-offset);
 
@@ -823,7 +830,7 @@ public class Renderer {
         try {
             bgRenderFuture.get(8, java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-            // Timed out or failed — fall back to synchronous render
+            // Timed out or failed â€” fall back to synchronous render
         }
         bgRenderFuture = null;
         return bgBufferReady;
@@ -911,7 +918,7 @@ public class Renderer {
         // Military themed background
         UITheme.drawScreenBackground(g, width, height, time);
 
-        // Title — stencil-style with ember particles
+        // Title â€” stencil-style with ember particles
         UITheme.drawTitle(g, "MISSILE MAN", width, height / 2 - UIScale.px(100),
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE_LARGE);
@@ -953,7 +960,7 @@ public class Renderer {
             g.fillRect(0, 0, width, height);
         }
 
-        // Title — stencil-style with embers
+        // Title â€” stencil-style with embers
         UITheme.drawTitle(g, "MISSILE MAN", width, 150,
             ColorPalette.ACCENT_ORANGE, ColorPalette.ACCENT_RED,
             time, FontPalette.TITLE);
@@ -1003,7 +1010,7 @@ public class Renderer {
             g2.dispose();
         }
 
-        // Draw buttons — mission briefing clipboard stack
+        // Draw buttons â€” mission briefing clipboard stack
         int buttonY = 240;
         int buttonSpacing = 75;
         int buttonCount = Game.DEMO_MODE ? menuButtons.length - 1 : menuButtons.length; // Hide Save Files in demo
@@ -1123,7 +1130,7 @@ public class Renderer {
 
                 
 
-                // Main slot background — chamfered military card
+                // Main slot background â€” chamfered military card
 
                 Color slotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1417,7 +1424,7 @@ public class Renderer {
 
             } else {
 
-                // "New Save" button — dashed military card
+                // "New Save" button â€” dashed military card
 
                 Color newSlotColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -1720,7 +1727,7 @@ public class Renderer {
 
             
 
-            // Card background — chamfered military card
+            // Card background â€” chamfered military card
 
             Color bgColor = isSelected ? ColorPalette.BG_CARD_SELECTED : ColorPalette.BG_CARD;
 
@@ -2027,7 +2034,7 @@ public class Renderer {
 
     private void drawFloatingShapes(Graphics2D g, int width, int height, double time) {
 
-        // Draw floating hexagons and triangles — save/restore transform instead of 12 g.create()/dispose() per frame
+        // Draw floating hexagons and triangles â€” save/restore transform instead of 12 g.create()/dispose() per frame
 
         int numShapes = 12;
 
@@ -2491,7 +2498,7 @@ public class Renderer {
 
         
 
-        // LEFT COLUMN — Core Mechanics
+        // LEFT COLUMN â€” Core Mechanics
 
         int y = UIScale.px(105);
 
@@ -2513,25 +2520,25 @@ public class Renderer {
 
         String[] mechanics = {
 
-            "• Boss is invulnerable for 20s — watch for GOLDEN GLOW!",
+            "â€¢ Boss is invulnerable for 20s â€” watch for GOLDEN GLOW!",
 
-            "• Attack Window: Hit the boss 3 times to win",
+            "â€¢ Attack Window: Hit the boss 3 times to win",
 
-            "• Graze bullets for score & combo bonuses",
+            "â€¢ Graze bullets for score & combo bonuses",
 
-            "• Perfect Dodge (8px) grants invincibility frames",
+            "â€¢ Perfect Dodge (8px) grants invincibility frames",
 
-            "• Chain grazes within 3s to build combos",
+            "â€¢ Chain grazes within 3s to build combos",
 
             "",
 
-            "• One hit = death (Lucky Dodge can save you)",
+            "â€¢ One hit = death (Lucky Dodge can save you)",
 
-            "• Extra missiles grant second chances",
+            "â€¢ Extra missiles grant second chances",
 
-            "• Upgrades: Speed, Bullet Slow, Lucky Dodge, Attack Window",
+            "â€¢ Upgrades: Speed, Bullet Slow, Lucky Dodge, Attack Window",
 
-            "• Risk Contracts (Lv 6+): Higher risk = higher reward"
+            "â€¢ Risk Contracts (Lv 6+): Higher risk = higher reward"
 
         };
 
@@ -2547,7 +2554,7 @@ public class Renderer {
 
         
 
-        // RIGHT COLUMN — Active Items summary
+        // RIGHT COLUMN â€” Active Items summary
 
         y = UIScale.px(105);
 
@@ -2569,23 +2576,23 @@ public class Renderer {
 
         String[] items = {
 
-            "Pool of Loot (Lv 3) — Spawn money circle",
+            "Pool of Loot (Lv 3) â€” Spawn money circle",
 
-            "Shield (Lv 6) — Tank 3 hits",
+            "Shield (Lv 6) â€” Tank 3 hits",
 
-            "Bombs (Lv 7) — Explosive barrage",
+            "Bombs (Lv 7) â€” Explosive barrage",
 
-            "Stun (Lv 9) — Freeze boss 3 seconds",
+            "Stun (Lv 9) â€” Freeze boss 3 seconds",
 
-            "Chromatic Purge (Lv 12) — Erase bullet type",
+            "Chromatic Purge (Lv 12) â€” Erase bullet type",
 
-            "Time Slow (Lv 15) — Slow everything 85%",
+            "Time Slow (Lv 15) â€” Slow everything 85%",
 
-            "Dash (Lv 18) — Quick dash + i-frames",
+            "Dash (Lv 18) â€” Quick dash + i-frames",
 
-            "Impulse (Lv 21) — Push all bullets away",
+            "Impulse (Lv 21) â€” Push all bullets away",
 
-            "Frost Beam (Lv 24) — Freeze bullets in beam"
+            "Frost Beam (Lv 24) â€” Freeze bullets in beam"
 
         };
 
@@ -2666,12 +2673,12 @@ public class Renderer {
      * Draw the tutorial popup overlay (semi-transparent backdrop + centered panel).
      * Called from Game's render when tutorialPopupActive is true during PLAYING state.
      */
-    public void drawTutorialPopup(Graphics2D g, int width, int height, String title, String[] body, double time) {
+    public void drawTutorialPopup(Graphics2D g, int width, int height, String title, String[] body, double time, int inputDelay) {
         // Dark overlay
         g.setColor(new Color(0, 0, 0, 180));
         g.fillRect(0, 0, width, height);
         
-        // Panel dimensions — larger for readability
+        // Panel dimensions â€” larger for readability
         int panelW = UIScale.px(700);
         int lineCount = body.length + 2; // title + body lines + continue prompt
         int panelH = UIScale.px(110 + lineCount * 38);
@@ -2692,7 +2699,7 @@ public class Renderer {
         g.setStroke(RenderCache.getStroke(2f));
         g.drawRoundRect(panelX, panelY, panelW, panelH, 20, 20);
         
-        // Title — large and bold
+        // Title â€” large and bold
         g.setFont(FONT_LARGE_32);
         g.setColor(ColorPalette.ACCENT_CYAN);
         FontMetrics fmTitle = g.getFontMetrics();
@@ -2704,7 +2711,7 @@ public class Renderer {
         g.setStroke(RenderCache.getStroke(1f));
         g.drawLine(panelX + UIScale.px(30), divY, panelX + panelW - UIScale.px(30), divY);
         
-        // Body text — parse {MOVE}, {USE_ITEM}, {PAUSE} and {C:COLOR}...{/C} tokens
+        // Body text â€” parse {MOVE}, {USE_ITEM}, {PAUSE} and {C:COLOR}...{/C} tokens
         g.setFont(FONT_SMALL);
         int bodyY = panelY + UIScale.px(90);
         int panelCenterX = panelX + panelW / 2;
@@ -2714,13 +2721,31 @@ public class Renderer {
             bodyY += UIScale.px(34);
         }
         
-        // Continue prompt (pulsing)
-        double pulse = 0.5 + 0.5 * Math.sin(time * 4);
-        g.setColor(new Color(180, 190, 210, (int)(120 + 135 * pulse)));
-        g.setFont(FONT_EXTRA_SMALL_16);
-        FontMetrics fmHint = g.getFontMetrics();
-        String hint = "[ Press any key or click to continue ]";
-        g.drawString(hint, panelX + (panelW - fmHint.stringWidth(hint)) / 2, panelY + panelH - UIScale.px(22));
+        // Continue prompt â€” progress bar while locked, pulsing text when ready
+        if (inputDelay > 0) {
+            // Small progress bar filling from left to right
+            int barW = UIScale.px(200);
+            int barH = UIScale.px(6);
+            int barX = panelX + (panelW - barW) / 2;
+            int barY = panelY + panelH - UIScale.px(25);
+            // Background track
+            g.setColor(new Color(40, 50, 70, 180));
+            g.fillRoundRect(barX, barY, barW, barH, barH, barH);
+            // Fill â€” progress from 0 to 1 as delay counts down from 60 to 0
+            double progress = 1.0 - (inputDelay / 60.0);
+            int fillW = (int)(barW * progress);
+            if (fillW > 0) {
+                g.setColor(new Color(80, 200, 240, 200));
+                g.fillRoundRect(barX, barY, fillW, barH, barH, barH);
+            }
+        } else {
+            double pulse = 0.5 + 0.5 * Math.sin(time * 4);
+            g.setColor(new Color(180, 190, 210, (int)(120 + 135 * pulse)));
+            g.setFont(FONT_EXTRA_SMALL_16);
+            FontMetrics fmHint = g.getFontMetrics();
+            String hint = "[ Press any key or click to continue ]";
+            g.drawString(hint, panelX + (panelW - fmHint.stringWidth(hint)) / 2, panelY + panelH - UIScale.px(22));
+        }
     }
     
     /** Simple wrapper to carry a colored text segment in tutorial lines. */
@@ -2745,9 +2770,9 @@ public class Renderer {
     
     /**
      * Parse tutorial text tokens into mixed segments for rendering.
-     * Supports: {MOVE}, {USE_ITEM}, {PAUSE} → KeyBindManager.Action
-     *           {C:COLOR}text{/C} → ColoredText
-     *           Plain text → String
+     * Supports: {MOVE}, {USE_ITEM}, {PAUSE} â†’ KeyBindManager.Action
+     *           {C:COLOR}text{/C} â†’ ColoredText
+     *           Plain text â†’ String
      */
     private Object[] parseTutorialTokens(String text) {
         java.util.List<Object> segments = new java.util.ArrayList<>();
@@ -2780,7 +2805,7 @@ public class Renderer {
                     segments.add(new ColoredText(coloredContent, color));
                     i = closeIdx + 4; // skip past {/C}
                 } else {
-                    // No closing tag — treat as literal
+                    // No closing tag â€” treat as literal
                     segments.add(text.substring(braceStart, braceEnd + 1));
                     i = braceEnd + 1;
                 }
@@ -2878,7 +2903,7 @@ public class Renderer {
     }
     
     /**
-     * Draw tutorial highlight effect — dims everything except the newly introduced HUD element
+     * Draw tutorial highlight effect â€” dims everything except the newly introduced HUD element
      * and draws a pulsing glow around it. Called from within drawGame so transform matches HUD.
      */
     public void drawTutorialHighlight(Graphics2D g, int width, int height, double time) {
@@ -2891,7 +2916,7 @@ public class Renderer {
         // Fade alpha based on timer (fade out in last 30 frames)
         float alpha = tutorialHighlightTimer < 30 ? tutorialHighlightTimer / 30f : 1f;
         
-        // Dark overlay with cutout — oversized rect covers screen at any zoom level
+        // Dark overlay with cutout â€” oversized rect covers screen at any zoom level
         java.awt.geom.Area overlay = new java.awt.geom.Area(new java.awt.Rectangle(-width, -height, width * 3, height * 3));
         overlay.subtract(new java.awt.geom.Area(new java.awt.Rectangle(ex - pad, ey - pad, ew + pad * 2, eh + pad * 2)));
         Composite origComp = g.getComposite();
@@ -2923,7 +2948,7 @@ public class Renderer {
                                 String taskText, double taskProgress, boolean taskHasBar) {
         // Centered at top of screen, large and prominent
         String label = "TUTORIAL";
-        String progress = "Step " + (currentStep + 1) + "/" + totalSteps + " — " + stepName;
+        String progress = "Step " + (currentStep + 1) + "/" + totalSteps + " â€” " + stepName;
         
         g.setFont(FONT_MEDIUM);
         FontMetrics fmLabel = g.getFontMetrics();
@@ -2964,17 +2989,17 @@ public class Renderer {
         g.setStroke(RenderCache.getStroke(2f));
         g.drawRoundRect(pillX, pillY, pillW, pillH, 16, 16);
         
-        // "TUTORIAL" label — large, centered
+        // "TUTORIAL" label â€” large, centered
         g.setFont(FONT_MEDIUM);
         g.setColor(ColorPalette.ACCENT_CYAN);
         g.drawString(label, (width - labelW) / 2, pillY + UIScale.px(24));
         
-        // Step progress — centered below
+        // Step progress â€” centered below
         g.setFont(FONT_SMALL);
         g.setColor(new Color(200, 210, 230));
         g.drawString(progress, (width - progW) / 2, pillY + UIScale.px(48));
         
-        // Task bar — below step progress
+        // Task bar â€” below step progress
         if (taskText != null && !taskText.isEmpty()) {
             int taskY = pillY + UIScale.px(60);
             
@@ -3547,7 +3572,7 @@ public class Renderer {
 
     
 
-    public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset, boolean loadoutLocked) {
+    public void drawStatsUpgrades(Graphics2D g, int width, int selectedStatItem, PassiveUpgradeManager passiveManager, double scrollOffset, boolean loadoutLocked, int bestLevel) {
 
         int baseY = loadoutLocked ? 220 : 180;
 
@@ -4119,11 +4144,15 @@ public class Renderer {
 
             
 
-            // Draw all adjustable upgrades (all except Extra Missiles which is last)
+            // Draw only unlocked adjustable upgrades (all except Extra Missiles which is last)
 
             for (int i = 0; i < upgrades.size() - 1; i++) {
 
                 PassiveUpgrade upgrade = upgrades.get(i);
+
+                // Skip locked upgrades - don't draw, don't advance y or index
+
+                if (upgrade.getUnlockLevel() > 0 && upgrade.getUnlockLevel() > bestLevel) continue;
 
                 isSelected = currentIndex == selectedStatItem;
 
@@ -4503,6 +4532,12 @@ public class Renderer {
         int dotSpacing = UIScale.px(20);
 
         int totalDots = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
+        
+        // Add endless dot if unlocked
+        boolean endlessUnlocked = gameData.isEndlessUnlocked();
+        if (!Game.DEMO_MODE && endlessUnlocked) {
+            totalDots = 29;
+        }
 
         int dotsStartX = (width - (totalDots - 1) * dotSpacing) / 2;
 
@@ -4515,8 +4550,11 @@ public class Renderer {
             int dotSize = (i == selectedLevel) ? UIScale.px(10) : UIScale.px(6);
 
             
-
-            if (i < currentLevel) {
+            if (i == 29) {
+                // Endless mode dot - purple pulsing
+                float pulse = (float)(0.5 + 0.5 * Math.sin(time * 3));
+                g.setColor(new Color(160, 100, 255, (int)(150 + 105 * pulse)));
+            } else if (i < currentLevel) {
 
                 g.setColor(NODE_COMPLETED_GOLD); // Completed - gold
 
@@ -4583,6 +4621,7 @@ public class Renderer {
         }
 
         int maxSelectLevel = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
+        if (!Game.DEMO_MODE && endlessUnlocked) maxSelectLevel = 29;
         if (selectedLevel < maxSelectLevel) {
 
             // Right arrow
@@ -4617,6 +4656,7 @@ public class Renderer {
 
             int level = selectedLevel + i;
             int maxCarouselLevel = Game.DEMO_MODE ? Game.DEMO_MAX_LEVEL : 28;
+            if (!Game.DEMO_MODE && endlessUnlocked) maxCarouselLevel = 29;
 
             if (level < 1 || level > maxCarouselLevel) continue;
 
@@ -4661,6 +4701,13 @@ public class Renderer {
             boolean isMegaBoss = (level % 3 == 0);
 
             boolean isSelected = level == selectedLevel;
+            
+            // === ENDLESS MODE SLOT (level 29) - Special rendering ===
+            if (level == 29) {
+                drawEndlessSlot(g, x, centerY, nodeRadius, alpha, scale, isSelected, distFromCenter, time, width, height, planeTakeoffAnimation, planeTakeoffTimer);
+                g.setComposite(RenderCache.getAlpha(1.0f));
+                continue;
+            }
 
             
 
@@ -4864,7 +4911,7 @@ public class Renderer {
 
                     
 
-                    // Use pre-cached 180°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
+                    // Use pre-cached 180Â°-rotated+scaled sprite (eliminates per-frame bilinear rotation)
 
                     AffineTransform oldTransform = g.getTransform();
 
@@ -5157,6 +5204,173 @@ public class Renderer {
         drawLevelInfoPanel(g, width, height, selectedLevel, currentLevel, time);
 
     }
+    
+    /**
+     * Draw the endless mode slot in the journey map carousel.
+     * Features: grayed-out rotating plane sprites with "?" overlay, orbiting "?" particles.
+     */
+    private void drawEndlessSlot(Graphics2D g, int x, int centerY, int nodeRadius, float alpha, double scale,
+                                  boolean isSelected, double distFromCenter, double time,
+                                  int width, int height, boolean planeTakeoffAnimation, double planeTakeoffTimer) {
+        g.setComposite(RenderCache.getAlpha(alpha));
+        
+        // Selection glow - purple for endless
+        if (isSelected && distFromCenter < 0.3) {
+            float glowPulse = (float)(0.3 + 0.2 * Math.sin(time * 4));
+            g.setComposite(RenderCache.getAlpha(glowPulse * alpha));
+            g.setColor(ENDLESS_GLOW);
+            g.fillOval(x - nodeRadius - UIScale.px(25), centerY - nodeRadius - UIScale.px(25),
+                       (nodeRadius + UIScale.px(25)) * 2, (nodeRadius + UIScale.px(25)) * 2);
+            g.setComposite(RenderCache.getAlpha(alpha));
+        }
+        
+        // Node shadow
+        g.setColor(NODE_SHADOW);
+        g.fillOval(x - nodeRadius + UIScale.px(5), centerY - nodeRadius + UIScale.px(5),
+                   nodeRadius * 2, nodeRadius * 2);
+        
+        // Node fill - dark purple
+        g.setColor(ENDLESS_NODE_BG);
+        g.fillOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
+        
+        // Pulsing border
+        float borderPulse = (float)(0.5 + 0.5 * Math.sin(time * 2));
+        g.setColor(new Color(ENDLESS_NODE_BORDER.getRed(), ENDLESS_NODE_BORDER.getGreen(),
+                             ENDLESS_NODE_BORDER.getBlue(), (int)(150 + 105 * borderPulse)));
+        g.setStroke(isSelected && distFromCenter < 0.3 ? RenderCache.getStroke(5) : RenderCache.getStroke(3));
+        g.drawOval(x - nodeRadius, centerY - nodeRadius, nodeRadius * 2, nodeRadius * 2);
+        
+        // Draw grayed-out plane sprite with "?" - cycles randomly on Z-rotation thinnest point
+        try {
+            // Pick a plane sprite based on time - switches at the thinnest point of rotation
+            double zRotation = Math.sin(time * 2 + 29 * 0.5);
+            // Switch sprite at zero-crossing of Z-rotation (when plane is edge-on)
+            int halfCycle = (int)((time * 2 + 29 * 0.5) / Math.PI);
+            int spriteIndex = (Math.abs(halfCycle) % 28) + 1; // Cycle through 1-28
+            BufferedImage planeSprite = Boss.getSpriteForLevel(spriteIndex);
+            
+            if (planeSprite != null) {
+                int spriteWidth = (int)(planeSprite.getWidth() * scale);
+                int spriteHeight = (int)(planeSprite.getHeight() * scale);
+                
+                // Bounce animation
+                float bounceOffset = 0;
+                if (isSelected && distFromCenter < 0.3 && !planeTakeoffAnimation) {
+                    bounceOffset = (float)(Math.sin(time * 5) * 8);
+                }
+                
+                // Takeoff animation
+                int takeoffOffset = 0;
+                if (planeTakeoffAnimation && isSelected && distFromCenter < 0.3) {
+                    float progress = (float)(planeTakeoffTimer / 60.0);
+                    float easedProgress = progress * progress;
+                    takeoffOffset = (int)(easedProgress * height * 1.5);
+                }
+                
+                int spriteY = centerY - nodeRadius - spriteHeight - UIScale.px(110) - (int)bounceOffset - takeoffOffset;
+                
+                // Glow effect - purple for endless
+                float glowIntensity = (float)(0.5 + 0.3 * Math.sin(time * 0.8));
+                BufferedImage glowImg = UITheme.getCachedGlow(ENDLESS_GLOW);
+                int fixedGlowY = centerY - nodeRadius - spriteHeight - UIScale.px(110);
+                float glowRadius = Math.max(spriteWidth, spriteHeight) * 0.7f;
+                int glowDiameter = (int)(glowRadius * 2);
+                Composite prevGlowComp = g.getComposite();
+                g.setComposite(RenderCache.getAlpha(Math.min(1.0f, glowIntensity * alpha)));
+                g.drawImage(glowImg, x - (int)glowRadius, fixedGlowY + spriteHeight / 2 - (int)glowRadius,
+                           glowDiameter, glowDiameter, null);
+                g.setComposite(prevGlowComp);
+                
+                // Draw solid gray silhouette of the plane sprite
+                Object oldInterp = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+                Object oldAA = g.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                if (Game.enableAntiAliasing) {
+                    g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                }
+                
+                // Create a gray-filled silhouette: draw sprite into temp image, then SRC_IN fill with gray
+                BufferedImage rotatedSprite = getCachedPlaneSprite(planeSprite, spriteIndex, spriteWidth, spriteHeight);
+                BufferedImage silhouette = Game.createOptimalImage(spriteWidth, spriteHeight, true);
+                Graphics2D sg = silhouette.createGraphics();
+                sg.drawImage(rotatedSprite, 0, 0, null);
+                sg.setComposite(AlphaComposite.SrcIn);
+                sg.setColor(ENDLESS_GRAY_TINT);
+                sg.fillRect(0, 0, spriteWidth, spriteHeight);
+                sg.dispose();
+                
+                AffineTransform oldTransform = g.getTransform();
+                g.translate(x, spriteY + spriteHeight / 2);
+                
+                // Z-axis rotation (same as campaign planes)
+                double scaleX = zRotation;
+                g.scale(scaleX, 1.0);
+                
+                g.setComposite(RenderCache.getAlpha(0.6f * alpha));
+                g.drawImage(silhouette, -spriteWidth / 2, -spriteHeight / 2, null);
+                
+                g.setTransform(oldTransform);
+                
+                // Draw "?" over the plane sprite
+                g.setComposite(RenderCache.getAlpha(0.9f * alpha));
+                int qFontSize = (int)(60 * scale);
+                g.setFont(FontPalette.get(Font.BOLD, qFontSize));
+                g.setColor(ENDLESS_QUESTION_MARK);
+                FontMetrics qfm = g.getFontMetrics();
+                String qMark = "?";
+                g.drawString(qMark, x - qfm.stringWidth(qMark) / 2,
+                           spriteY + spriteHeight / 2 + qfm.getAscent() / 2);
+                
+                // Restore rendering hints
+                if (oldInterp != null) g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, oldInterp);
+                if (oldAA != null) g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAA);
+            }
+        } catch (Exception e) {
+            // Skip sprite if loading fails
+        }
+        
+        // Orbiting "?" particles around the node
+        g.setComposite(RenderCache.getAlpha(alpha));
+        int numOrbitParticles = 5;
+        for (int p = 0; p < numOrbitParticles; p++) {
+            double orbitAngle = time * 1.5 + p * (2 * Math.PI / numOrbitParticles);
+            double orbitRadius = nodeRadius + UIScale.px(20);
+            int px = x + (int)(Math.cos(orbitAngle) * orbitRadius);
+            int py = centerY + (int)(Math.sin(orbitAngle) * orbitRadius);
+            
+            // Smooth transparency cycling
+            float particleAlpha = (float)(0.3 + 0.7 * Math.abs(Math.sin(time * 2 + p * 1.2)));
+            g.setComposite(RenderCache.getAlpha(particleAlpha * alpha));
+            g.setColor(ENDLESS_ORBIT_PARTICLE);
+            int pSize = (int)(14 * scale);
+            g.setFont(FontPalette.get(Font.BOLD, pSize));
+            g.drawString("?", px - pSize / 4, py + pSize / 4);
+        }
+        
+        g.setComposite(RenderCache.getAlpha(alpha));
+        
+        // "ENDLESS" text on the node instead of a number
+        int fontSize = (int)(28 * scale);
+        g.setFont(FontPalette.get(Font.BOLD, fontSize));
+        g.setColor(ENDLESS_QUESTION_MARK);
+        String endlessText = "\u221E"; // Infinity symbol
+        FontMetrics fm = g.getFontMetrics();
+        int textX = x - fm.stringWidth(endlessText) / 2;
+        int textY = centerY + fm.getAscent() / 2 - 2;
+        g.drawString(endlessText, textX, textY);
+        
+        // Prestige indicator below node
+        int prestige = gameData.getEndlessPrestige();
+        if (prestige > 0) {
+            int labelSize = (int)(14 * scale);
+            g.setFont(FontPalette.get(Font.BOLD, labelSize));
+            g.setColor(new Color(200, 160, 255, (int)(220 * alpha)));
+            String prestigeText = "PRESTIGE " + prestige;
+            fm = g.getFontMetrics();
+            g.drawString(prestigeText, x - fm.stringWidth(prestigeText) / 2,
+                        centerY + nodeRadius + labelSize + UIScale.px(5));
+        }
+    }
 
     
 
@@ -5177,6 +5391,57 @@ public class Renderer {
         g.setColor(PANEL_BG);
 
         g.fillRoundRect(panelX, panelY, panelWidth, panelHeight, UIScale.px(25), UIScale.px(25));
+        
+        // === ENDLESS MODE INFO PANEL ===
+        if (selectedLevel == 29) {
+            // Purple border
+            g.setColor(ENDLESS_NODE_BORDER);
+            g.setStroke(RenderCache.getStroke(3));
+            g.drawRoundRect(panelX, panelY, panelWidth, panelHeight, UIScale.px(25), UIScale.px(25));
+            
+            // Title
+            g.setFont(FONT_LARGE_32);
+            g.setColor(ENDLESS_QUESTION_MARK);
+            String title = "ENDLESS MODE";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(title, panelX + (panelWidth - fm.stringWidth(title)) / 2, panelY + UIScale.px(45));
+            
+            // Description
+            g.setFont(FONT_EXTRA_SMALL_16);
+            g.setColor(PANEL_DIM_LABEL);
+            String desc = "Fight through all 28 bosses in an endless loop with increasing difficulty";
+            fm = g.getFontMetrics();
+            g.drawString(desc, panelX + (panelWidth - fm.stringWidth(desc)) / 2, panelY + UIScale.px(70));
+            
+            // Stats
+            int infoY = panelY + UIScale.px(100);
+            g.setFont(FONT_EXTRA_SMALL_16);
+            
+            int prestige = gameData.getEndlessPrestige();
+            int endlessLevel = gameData.getEndlessCurrentLevel();
+            int highestLevel = gameData.getEndlessHighestLevel();
+            
+            if (prestige > 0 || endlessLevel > 1) {
+                g.setColor(new Color(200, 160, 255));
+                String progressText = "Prestige: " + prestige + "  |  Endless Level: " + endlessLevel + "/28  |  Highest: " + highestLevel;
+                fm = g.getFontMetrics();
+                g.drawString(progressText, panelX + (panelWidth - fm.stringWidth(progressText)) / 2, infoY);
+                infoY += UIScale.px(25);
+            }
+            
+            // Start prompt
+            float pulse = (float)(0.7 + 0.3 * Math.sin(time * 5));
+            g.setColor(new Color((int)(100 * pulse + 60), (int)(80 * pulse + 60), (int)(200 * pulse + 55)));
+            drawPromptWithIcons(g, panelX + panelWidth / 2, infoY,
+                "> PRESS ", KeyBindManager.Action.CONFIRM, " TO ENTER ENDLESS <");
+            
+            // Navigation hints
+            g.setFont(FontPalette.get(Font.PLAIN, 14));
+            g.setColor(PANEL_NAV_HINT);
+            drawPromptWithIcons(g, panelX + panelWidth / 2, panelY + panelHeight - UIScale.px(15),
+                "", KeyBindManager.Action.MOVE_LEFT, " ", KeyBindManager.Action.MOVE_RIGHT, " or CLICK  Navigate    ", KeyBindManager.Action.CONFIRM, " or CLICK  Start    ", KeyBindManager.Action.BACK, "  Back");
+            return;
+        }
 
         
 
@@ -5470,7 +5735,7 @@ public class Renderer {
 
         // Title
 
-        UITheme.drawTitle(g, "RISK CONTRACT", width, UIScale.px(80), ColorPalette.ACCENT_RED_BRIGHT, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 48));
+        UITheme.drawTitle(g, "RISK CONTRACT", width, UIScale.px(80), ColorPalette.ACCENT_RED_BRIGHT, ColorPalette.ACCENT_ORANGE, time, FontPalette.getDisplay(Font.BOLD, 26));
 
         
 
@@ -5664,7 +5929,7 @@ public class Renderer {
 
             // Contract name
 
-            g.setFont(FONT_MEDIUM_BOLD);
+            g.setFont(FontPalette.get(Font.BOLD, 17));
 
             FontMetrics nameFm = g.getFontMetrics();
 
@@ -5678,7 +5943,7 @@ public class Renderer {
 
             // Multiplier
 
-            g.setFont(FontPalette.get(Font.BOLD, 36));
+            g.setFont(FontPalette.get(Font.BOLD, 24));
 
             String multiplier = i == 0 ? "--" : String.format("%.2fx", contractMultipliers[i]);
 
@@ -5688,7 +5953,7 @@ public class Renderer {
 
             g.drawString(multiplier, cardX + offsetX + (scaledWidth - multFm.stringWidth(multiplier)) / 2, 
 
-                        cardY + offsetY + 170);
+                        cardY + offsetY + UIScale.px(155));
 
             
 
@@ -6008,7 +6273,7 @@ public class Renderer {
 
         } else if (Game.backgroundMode == 1 && backgroundsLoaded) {
 
-            // Parallax mode — use async pre-rendered buffer if available
+            // Parallax mode â€” use async pre-rendered buffer if available
 
             waitForBackground();
 
@@ -6440,7 +6705,7 @@ public class Renderer {
 
             
 
-            // Outer glow circle — use base color + AlphaComposite instead of new Color(r,g,b,a)
+            // Outer glow circle â€” use base color + AlphaComposite instead of new Color(r,g,b,a)
 
             g.setComposite(RenderCache.getAlpha((float)(80 * circleProgress) / 255f));
 
@@ -6999,7 +7264,7 @@ public class Renderer {
 
                 } else {
 
-                    // Subtle cool bloom when invulnerable — 1 layer instead of 3
+                    // Subtle cool bloom when invulnerable â€” 1 layer instead of 3
 
                     bloomColor = BOSS_COOL_BLOOM;
 
@@ -7101,7 +7366,7 @@ public class Renderer {
 
                 double bossArcSpan = 45; // Wider arcs with fewer segments
 
-                int numArcs = 5; // Reduced from 8 — saves ~30 draw calls/frame
+                int numArcs = 5; // Reduced from 8 â€” saves ~30 draw calls/frame
 
                 double bossShieldAngle = time * 0.12;
 
@@ -7165,14 +7430,14 @@ public class Renderer {
             boss.draw(g);
 
             
-            // Boss accumulated damage overlay — smoke wisps & fire glow
+            // Boss accumulated damage overlay â€” smoke wisps & fire glow
             float bossHpPct = boss.getHealthPercent(); // 1.0 = full, 0.0 = dead
             if (bossHpPct < 0.7f) {
                 Composite _damSave = g.getComposite();
                 int bSize = boss.getSize();
                 int bCx = (int) boss.getX();
                 int bCy = (int) boss.getY();
-                float dmgRatio = 1.0f - bossHpPct; // 0→1 as more damaged
+                float dmgRatio = 1.0f - bossHpPct; // 0â†’1 as more damaged
                 float overlayAlpha = Math.min(dmgRatio * 0.7f, 0.55f);
 
                 // Dark smoke haze across body
@@ -7197,7 +7462,7 @@ public class Renderer {
             // Draw shockwave during recovery phase (circular arc directed at player)
 
             if (boss.isShockwaveActive()) {
-                // Save/restore instead of g.create() — avoids Graphics2D clone
+                // Save/restore instead of g.create() â€” avoids Graphics2D clone
                 Composite shockSavedComp = g.getComposite();
                 Stroke shockSavedStroke = g.getStroke();
 
@@ -7300,7 +7565,7 @@ public class Renderer {
 
         
 
-        // Draw bullets (including warnings for inactive bullets) — with viewport culling
+        // Draw bullets (including warnings for inactive bullets) â€” with viewport culling
         Bullet.activeBulletCount = bullets.size(); // Set for dynamic shadow reduction
         for (int i = 0; i < bullets.size(); i++) {
 
@@ -7319,7 +7584,7 @@ public class Renderer {
 
         
 
-        // Draw MONEY_SIGN particles ON TOP of player and bullets — with viewport culling
+        // Draw MONEY_SIGN particles ON TOP of player and bullets â€” with viewport culling
         for (int pi = 0; pi < particleCount; pi++) {
             Particle particle = particles.get(pi);
             if (particle != null && particle.isAlive() && particle.getType() == Particle.ParticleType.MONEY_SIGN) {
@@ -7389,11 +7654,11 @@ public class Renderer {
 
             
 
-            // Boss hitbox (red circle) - uses size * 0.6 radius for collision
+            // Boss hitbox (red circle) - uses size * 0.85 radius for collision
 
             if (boss != null) {
 
-                int bossHitRadius = (int)(boss.getSize() * 0.6);
+                int bossHitRadius = (int)(boss.getSize() * 0.85);
 
                 g2d.setColor(new Color(255, 0, 0, 150));
 
@@ -7938,7 +8203,7 @@ public class Renderer {
 
             
 
-            // Gentle sway rotation (like hanging text) — reduced for boss HP
+            // Gentle sway rotation (like hanging text) â€” reduced for boss HP
 
             float swayAngle = (float)(Math.sin(lifeProgress * Math.PI * 6) * Math.PI / (isBossHP ? 48 : 24));
 
@@ -7948,7 +8213,7 @@ public class Renderer {
 
             
 
-            // Smooth float upward with easing — less float for boss HP
+            // Smooth float upward with easing â€” less float for boss HP
 
             float floatUp = easeOutQuad(lifeProgress) * (isBossHP ? 40 : 80);
 
@@ -8102,7 +8367,7 @@ public class Renderer {
             g.setComposite(RenderCache.getAlpha(0.45f));
             g.setColor(Color.BLACK);
             g.fillRect(0, 0, width, height);
-            // Vignette — darker edges
+            // Vignette â€” darker edges
             for (int v = 0; v < 40; v++) {
                 float vAlpha = 0.015f * (40 - v);
                 g.setComposite(RenderCache.getAlpha(vAlpha));
@@ -8174,7 +8439,7 @@ public class Renderer {
             // Shadow
             g.setColor(INTRO_SHADOW_200);
             g.drawString(warningText, warnX + 1, warnY + 1);
-            // Pulsing red glow text — use AlphaComposite with base color
+            // Pulsing red glow text â€” use AlphaComposite with base color
             float pulse = (float)(0.7 + 0.3 * Math.sin(time * 8.0));
             g.setComposite(RenderCache.getAlpha(pulse));
             g.setColor(INTRO_WARN_BASE);
@@ -9140,7 +9405,7 @@ public class Renderer {
 
         
 
-        // Boss hit flash effect (orange/amber flash — distinct from red death flash)
+        // Boss hit flash effect (orange/amber flash â€” distinct from red death flash)
 
         if (bossHitFlashTimer > 0) {
 
@@ -9585,13 +9850,13 @@ public class Renderer {
 
         
 
-        // Title — MISSION FAILED stamp
+        // Title â€” MISSION FAILED stamp
 
         UITheme.drawTitle(g, "MISSION FAILED", width, height / 2 - UIScale.px(140), ColorPalette.ACCENT_RED, ColorPalette.ACCENT_RED_BRIGHT, time);
 
         
 
-        // Stencil stamp overlay — slam animation (randomized position/rotation)
+        // Stencil stamp overlay â€” slam animation (randomized position/rotation)
 
         double elapsed = (screenEnteredTime >= 0) ? time - screenEnteredTime : 10;
 
@@ -9883,7 +10148,7 @@ public class Renderer {
 
         
 
-        // Title — DEMO OVER
+        // Title â€” DEMO OVER
 
         UITheme.drawTitle(g, "DEMO OVER", width, height / 2 - UIScale.px(160),
 
@@ -10021,7 +10286,7 @@ public class Renderer {
 
         
 
-        // Title — MISSION COMPLETE
+        // Title â€” MISSION COMPLETE
 
         UITheme.drawTitle(g, "MISSION COMPLETE", width, height / 2 - UIScale.px(180), ColorPalette.VICTORY_GOLD, ColorPalette.SUCCESS_GREEN, time);
 
@@ -10263,7 +10528,7 @@ public class Renderer {
 
         
 
-        // Rank badge — slam animation (drawn last so it renders on top of all text)
+        // Rank badge â€” slam animation (drawn last so it renders on top of all text)
 
         int scoreForRank = gameData.getScore();
 
@@ -10505,7 +10770,7 @@ public class Renderer {
             drawControlsSettings(g, width, height, selectedItem, time, scrollOffset);
 
         } else if (selectedCategory == 5) {
-            // HUD Layout Editor — renders its own mock screen + side panel
+            // HUD Layout Editor â€” renders its own mock screen + side panel
             if (Game.hudLayout != null) {
                 hudLayoutEditor.render(g, 50, 200, width - 100, height - 270, Game.hudLayout, time);
             }
@@ -10713,7 +10978,7 @@ public class Renderer {
 
     private void drawGraphicsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
 
-        // Dynamic GPU settings offset — GPU section only appears when GPU is detected
+        // Dynamic GPU settings offset â€” GPU section only appears when GPU is detected
 
         int offset = Game.getGPUSettingsOffset();
 
@@ -10751,7 +11016,7 @@ public class Renderer {
 
                 valuesList.add(Game.gpuPipelineType == 0 ? "Auto" : Game.gpuPipelineType == 1 ? "OpenGL" : "Direct3D");
 
-                descList.add("GPU rendering backend — Auto lets Java choose the best (restart required)");
+                descList.add("GPU rendering backend â€” Auto lets Java choose the best (restart required)");
 
                 
 
@@ -10835,7 +11100,7 @@ public class Renderer {
 
             "UI elements shift slightly with camera movement for depth effect",
 
-            "Scale all UI elements — menus, buttons, HUD, shop, popups (Small / Medium / Large)"
+            "Scale all UI elements â€” menus, buttons, HUD, shop, popups (Small / Medium / Large)"
 
         };
 
@@ -10859,7 +11124,7 @@ public class Renderer {
 
         
 
-        // Camera Zoom slider — shifted by offset
+        // Camera Zoom slider â€” shifted by offset
 
         float[][] sliders = new float[settingNames.length][4];
 
@@ -10877,7 +11142,7 @@ public class Renderer {
 
             toggles[0] = Game.enableGPUAcceleration;
 
-            // indices 1,2 when expanded are pills, not toggles — leave false
+            // indices 1,2 when expanded are pills, not toggles â€” leave false
 
         }
 
@@ -11074,321 +11339,255 @@ public class Renderer {
     
 
     private void drawControlsSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset) {
-
         KeyBindManager kbm = Game.keyBindManager;
-
         if (kbm == null) return;
-
         
-
         KeyBindManager.Action[] actions = KeyBindManager.Action.values();
-
-        // 11 items: Preset, Input Device, then 9 actions
-
-        String[] settingNames = new String[11];
-
-        String[] settingValues = new String[11];
-
-        String[] descriptions = new String[11];
-
+        // 22 items: Preset(0), InputDevice(1), KeyboardHeader(2), 9 keyboard actions(3-11), ControllerHeader(12), 9 controller actions(13-21)
+        int totalItems = 22;
+        String[] settingNames = new String[totalItems];
+        String[] settingValues = new String[totalItems];
+        String[] descriptions = new String[totalItems];
         
-
         // Item 0: Preset
-
         settingNames[0] = "Preset";
-
         settingValues[0] = "< " + kbm.getCurrentPreset().name().replace("_", " ") + " >";
-
         descriptions[0] = "Choose a keybinding preset (use arrows to change)";
-
         
-
         // Item 1: Input Device (read-only)
-
         settingNames[1] = "Input Device";
-
         settingValues[1] = kbm.getInputMode() == KeyBindManager.InputMode.CONTROLLER ? "Controller" : "Keyboard";
-
         descriptions[1] = "Current input device (auto-detected when controller is connected)";
-
         
-
-        // Items 2-10: Actions
-
+        // Item 2: Keyboard section header
+        settingNames[2] = "KEYBOARD";
+        settingValues[2] = Game.controlsKeyboardExpanded ? "\u25BC" : "\u25CF";
+        descriptions[2] = "Click or press Enter to expand/collapse keyboard keybinds";
+        
+        // Items 3-11: Keyboard keybinds
         for (int i = 0; i < actions.length; i++) {
-
             KeyBindManager.Action action = actions[i];
-
-            settingNames[i + 2] = action.name().replace("_", " ");
-
+            settingNames[i + 3] = action.name().replace("_", " ");
             
-
-            // Check if this action is currently being rebound
-
-            if (Game.waitingForKeyBind && Game.rebindingActionIndex == i + 1) {
-
-                if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
-
-                    settingValues[i + 2] = ">> Press a button <<";
-
-                } else {
-
-                    settingValues[i + 2] = ">> Press a key <<";
-
-                }
-
+            if (Game.waitingForKeyBind && !Game.rebindingController && Game.rebindingActionIndex == i + 1) {
+                settingValues[i + 3] = ">> Press a key <<";
             } else {
-
-                settingValues[i + 2] = kbm.getKeyDisplayText(action);
-
+                settingValues[i + 3] = KeyBindManager.getKeyName(kbm.getKey(action));
             }
-
-            if (Game.keyBindManager != null && Game.keyBindManager.isControllerMode()) {
-                descriptions[i + 2] = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to rebind | " + keyText(KeyBindManager.Action.BACK) + " to cancel";
-            } else {
-                descriptions[i + 2] = "Press SPACE or ENTER to rebind | ESC to cancel";
-            }
-
+            descriptions[i + 3] = "Press SPACE or ENTER to rebind | ESC to cancel";
         }
-
         
-
-        // Custom rendering for controls (key display boxes instead of toggles/sliders)
-
+        // Item 12: Controller section header
+        settingNames[12] = "CONTROLLER";
+        settingValues[12] = Game.controlsControllerExpanded ? "\u25BC" : "\u25CF";
+        descriptions[12] = "Click or press Enter to expand/collapse controller bindings";
+        
+        // Items 13-21: Controller bindings
+        for (int i = 0; i < actions.length; i++) {
+            KeyBindManager.Action action = actions[i];
+            settingNames[i + 13] = action.name().replace("_", " ");
+            
+            if (Game.waitingForKeyBind && Game.rebindingController && Game.rebindingActionIndex == i + 1) {
+                settingValues[i + 13] = ">> Press a button <<";
+            } else {
+                settingValues[i + 13] = kbm.getControllerButton(action).getDisplayName();
+            }
+            descriptions[i + 13] = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to rebind | " + keyText(KeyBindManager.Action.BACK) + " to cancel";
+        }
+        
+        // Custom rendering for controls with collapsible sections
         int y = UIScale.px(230) - (int)scrollOffset;
-
         FontMetrics fm;
-
         
-
-        for (int i = 0; i < settingNames.length; i++) {
-
+        for (int i = 0; i < totalItems; i++) {
+            // Skip collapsed items
+            if (!Game.controlsKeyboardExpanded && i >= 3 && i <= 11) continue;
+            if (!Game.controlsControllerExpanded && i >= 13 && i <= 21) continue;
+            
             boolean isSelected = i == selectedItem;
-
+            boolean isHeader = (i == 2 || i == 12);
             
-
             int boxWidth = width - UIScale.px(200);
-
             int boxX = (width - boxWidth) / 2;
-
             int boxY = y - UIScale.px(10);
-
             int boxHeight = UIScale.px(50);
-
             
-
             // Update settings button position for click detection
-
             if (i < settingsButtons.length && settingsButtons[i] != null) {
-
                 settingsButtons[i].setPosition(boxX, boxY);
-
                 settingsButtons[i].setSize(boxWidth, boxHeight);
-
             }
-
             
-
             // Skip rendering if outside visible area
-
             if (y < UIScale.px(170) || y > height - UIScale.px(80)) {
-
                 y += UIScale.px(78);
-
                 continue;
-
             }
-
             
-
-            if (isSelected) {
-
-                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 200));
-
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
-
-                
-
-                // Special border for rebinding
-
-                if (Game.waitingForKeyBind && Game.rebindingActionIndex == i - 1) {
-
-                    g.setColor(ColorPalette.ACCENT_RED); // Red border when rebinding
-
-                } else {
-
-                    g.setColor(ColorPalette.TEXT_GOLD);
-
-                }
-
-                g.setStroke(RenderCache.getStroke(2));
-
-                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
-
-            } else {
-
-                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
-
-                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
-
-            }
-
-            
-
-            // Setting name
-
-            g.setFont(FontPalette.get(Font.BOLD, 17));
-
-            g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
-
-            g.drawString(settingNames[i], boxX + UIScale.px(16), boxY + boxHeight / 2 + UIScale.px(6));
-
-            
-
-            // Value rendering
-
-            if (i == 0) {
-
-                // Preset - draw with arrows
-
-                g.setFont(FontPalette.get(Font.BOLD, 17));
-
-                fm = g.getFontMetrics();
-
-                g.setColor(ColorPalette.SUCCESS_GREEN);
-
-                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
-
-            } else if (i == 1) {
-
-                // Input device - draw with icon
-
-                g.setFont(FontPalette.get(Font.BOLD, 17));
-
-                fm = g.getFontMetrics();
-
-                g.setColor(ColorPalette.ACCENT_CYAN);
-
-                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
-
-            } else {
-
-                // Action keybind - draw key in a styled box
-
-                boolean isRebinding = Game.waitingForKeyBind && Game.rebindingActionIndex == i - 1;
-
-                
-
-                // Check if we should show a button/key sprite
-
-                KeyBindManager.Action action = KeyBindManager.Action.values()[i - 2];
-
-                java.awt.image.BufferedImage btnSprite = null;
-
-                if (Game.keyBindManager != null && !isRebinding) {
-
-                    btnSprite = Game.keyBindManager.getActionIcon(action);
-
-                }
-
-                
-
-                String keyText = settingValues[i];
-
-                g.setFont(FontPalette.get(Font.BOLD, 15));
-
-                fm = g.getFontMetrics();
-
-                int keyBoxWidth = Math.max(UIScale.px(70), fm.stringWidth(keyText) + UIScale.px(24));
-
-                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, UIScale.px(76));
-
-                int keyBoxX = boxX + boxWidth - keyBoxWidth - UIScale.px(16);
-
-                int keyBoxY = boxY + UIScale.px(4);
-
-                int keyBoxHeight = boxHeight - UIScale.px(8);
-
-                
-
-                if (isRebinding) {
-
-                    // Flashing background for rebinding
-
-                    float alpha = (float)(0.5 + 0.5 * Math.sin(time * 6));
-
-                    g.setColor(new Color(191, 97, 106, (int)(150 * alpha)));
-
-                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
-
-                    g.setColor(ColorPalette.ACCENT_RED);
-
+            if (isHeader) {
+                // Section header styling
+                if (isSelected) {
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 40));
+                    g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+                    g.setColor(ColorPalette.ACCENT_CYAN);
                     g.setStroke(RenderCache.getStroke(2));
-
-                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
-
-                    g.setColor(ColorPalette.TEXT_GOLD);
-
+                    g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
                 } else {
-
-                    // Normal key box
-
-                    g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
-
-                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
-
-                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
-
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 120));
+                    g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 80));
                     g.setStroke(RenderCache.getStroke(1));
-
-                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
-
-                    g.setColor(ColorPalette.TEXT_PRIMARY);
-
+                    g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
                 }
-
                 
-
-                // Draw button/key sprite or key text
-
-                if (btnSprite != null) {
-
-                    int spriteH = UIScale.px(30); int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
-
-                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteW) / 2, keyBoxY + (keyBoxHeight - spriteH) / 2, spriteW, spriteH, null);
-
+                // Header icon + name
+                g.setFont(FontPalette.get(Font.BOLD, 17));
+                g.setColor(isSelected ? ColorPalette.ACCENT_CYAN : ColorPalette.TEXT_PRIMARY);
+                String headerLabel = settingValues[i] + "  " + settingNames[i];
+                g.drawString(headerLabel, boxX + UIScale.px(16), boxY + boxHeight / 2 + UIScale.px(6));
+                
+            } else if (isSelected) {
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_DIM, 200));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+                
+                // Special border for rebinding (keyboard items 3-11 or controller items 13-21)
+                boolean isKeyboardRebinding = i >= 3 && i <= 11 && Game.waitingForKeyBind && !Game.rebindingController && Game.rebindingActionIndex == i - 2;
+                boolean isControllerRebinding = i >= 13 && i <= 21 && Game.waitingForKeyBind && Game.rebindingController && Game.rebindingActionIndex == i - 12;
+                if (isKeyboardRebinding || isControllerRebinding) {
+                    g.setColor(ColorPalette.ACCENT_RED);
                 } else {
-
-                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + UIScale.px(6));
-
+                    g.setColor(ColorPalette.TEXT_GOLD);
                 }
-
+                g.setStroke(RenderCache.getStroke(2));
+                g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
+            } else {
+                g.setColor(ColorPalette.withAlpha(ColorPalette.BG_LIGHT, 150));
+                g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 8, 8);
             }
-
             
-
-            // Draw description below if selected
-
-            if (isSelected) {
-
-                g.setFont(FontPalette.get(Font.ITALIC, 13));
-
-                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
-
+            if (!isHeader) {
+                // Setting name
+                g.setFont(FontPalette.get(Font.BOLD, 17));
+                g.setColor(isSelected ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
+                g.drawString(settingNames[i], boxX + UIScale.px(16), boxY + boxHeight / 2 + UIScale.px(6));
+            }
+            
+            // Value rendering
+            if (i == 0) {
+                // Preset - draw with arrows
+                g.setFont(FontPalette.get(Font.BOLD, 17));
                 fm = g.getFontMetrics();
-
-                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
-
-                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
-
+                g.setColor(ColorPalette.SUCCESS_GREEN);
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
+            } else if (i == 1) {
+                // Input device - draw with icon
+                g.setFont(FontPalette.get(Font.BOLD, 17));
+                fm = g.getFontMetrics();
+                g.setColor(ColorPalette.ACCENT_CYAN);
+                g.drawString(settingValues[i], boxX + boxWidth - fm.stringWidth(settingValues[i]) - 16, boxY + boxHeight / 2 + 6);
+            } else if (i >= 3 && i <= 11) {
+                // Keyboard keybind - draw key in a styled box
+                boolean isRebinding = Game.waitingForKeyBind && !Game.rebindingController && Game.rebindingActionIndex == i - 2;
+                
+                KeyBindManager.Action action = KeyBindManager.Action.values()[i - 3];
+                java.awt.image.BufferedImage btnSprite = null;
+                if (Game.keyBindManager != null && !isRebinding) {
+                    btnSprite = Game.keyBindManager.getKeySprite(kbm.getKey(action));
+                }
+                
+                String keyText = settingValues[i];
+                g.setFont(FontPalette.get(Font.BOLD, 15));
+                fm = g.getFontMetrics();
+                int keyBoxWidth = Math.max(UIScale.px(70), fm.stringWidth(keyText) + UIScale.px(24));
+                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, UIScale.px(76));
+                int keyBoxX = boxX + boxWidth - keyBoxWidth - UIScale.px(16);
+                int keyBoxY = boxY + UIScale.px(4);
+                int keyBoxHeight = boxHeight - UIScale.px(8);
+                
+                if (isRebinding) {
+                    float alpha = (float)(0.5 + 0.5 * Math.sin(time * 6));
+                    g.setColor(new Color(191, 97, 106, (int)(150 * alpha)));
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.ACCENT_RED);
+                    g.setStroke(RenderCache.getStroke(2));
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.TEXT_GOLD);
+                } else {
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
+                    g.setStroke(RenderCache.getStroke(1));
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.TEXT_PRIMARY);
+                }
+                
+                if (btnSprite != null) {
+                    int spriteH = UIScale.px(30); int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
+                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteW) / 2, keyBoxY + (keyBoxHeight - spriteH) / 2, spriteW, spriteH, null);
+                } else {
+                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + UIScale.px(6));
+                }
+            } else if (i >= 13 && i <= 21) {
+                // Controller binding - draw button in a styled box
+                boolean isRebinding = Game.waitingForKeyBind && Game.rebindingController && Game.rebindingActionIndex == i - 12;
+                
+                KeyBindManager.Action action = KeyBindManager.Action.values()[i - 13];
+                java.awt.image.BufferedImage btnSprite = null;
+                if (Game.keyBindManager != null && !isRebinding) {
+                    btnSprite = Game.keyBindManager.getButtonSprite(kbm.getControllerButton(action));
+                }
+                
+                String keyText = settingValues[i];
+                g.setFont(FontPalette.get(Font.BOLD, 15));
+                fm = g.getFontMetrics();
+                int keyBoxWidth = Math.max(UIScale.px(70), fm.stringWidth(keyText) + UIScale.px(24));
+                if (btnSprite != null) keyBoxWidth = Math.max(keyBoxWidth, UIScale.px(76));
+                int keyBoxX = boxX + boxWidth - keyBoxWidth - UIScale.px(16);
+                int keyBoxY = boxY + UIScale.px(4);
+                int keyBoxHeight = boxHeight - UIScale.px(8);
+                
+                if (isRebinding) {
+                    float alpha = (float)(0.5 + 0.5 * Math.sin(time * 6));
+                    g.setColor(new Color(191, 97, 106, (int)(150 * alpha)));
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.ACCENT_RED);
+                    g.setStroke(RenderCache.getStroke(2));
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.TEXT_GOLD);
+                } else {
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.BG_MID, 200));
+                    g.fillRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
+                    g.setStroke(RenderCache.getStroke(1));
+                    g.drawRoundRect(keyBoxX, keyBoxY, keyBoxWidth, keyBoxHeight, UIScale.px(8), UIScale.px(8));
+                    g.setColor(ColorPalette.TEXT_PRIMARY);
+                }
+                
+                if (btnSprite != null) {
+                    int spriteH = UIScale.px(30); int spriteW = spriteH * btnSprite.getWidth() / btnSprite.getHeight();
+                    g.drawImage(btnSprite, keyBoxX + (keyBoxWidth - spriteW) / 2, keyBoxY + (keyBoxHeight - spriteH) / 2, spriteW, spriteH, null);
+                } else {
+                    g.drawString(keyText, keyBoxX + (keyBoxWidth - fm.stringWidth(keyText)) / 2, keyBoxY + keyBoxHeight / 2 + UIScale.px(6));
+                }
             }
-
             
-
+            // Draw description below if selected
+            if (isSelected && !isHeader) {
+                g.setFont(FontPalette.get(Font.ITALIC, 13));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.TEXT_PRIMARY, 180));
+                fm = g.getFontMetrics();
+                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
+                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
+            } else if (isSelected && isHeader) {
+                g.setFont(FontPalette.get(Font.ITALIC, 13));
+                g.setColor(ColorPalette.withAlpha(ColorPalette.ACCENT_CYAN, 150));
+                fm = g.getFontMetrics();
+                int descX = Math.max(UIScale.px(10), (width - fm.stringWidth(descriptions[i])) / 2);
+                g.drawString(descriptions[i], descX, boxY + boxHeight + UIScale.px(16));
+            }
+            
             y += UIScale.px(78);
-
         }
-
     }
 
     
@@ -12249,7 +12448,8 @@ public class Renderer {
 
             "Preview Passive Upgrade Popups",
 
-            "Set Unlocked Level: \u25C0 " + debugSetLevelValue + " \u25B6"
+            "Set Unlocked Level: \u25C0 " + debugSetLevelValue + " \u25B6",
+            "Unlock Endless Mode"
 
         };
 
@@ -12279,7 +12479,8 @@ public class Renderer {
 
             new Color(200, 150, 255),    // Lavender for passive preview
 
-            new Color(255, 140, 0)       // Dark orange for set level
+            new Color(255, 140, 0),      // Dark orange for set level
+            new Color(160, 100, 255)     // Purple for endless mode
 
         };
 
@@ -12709,7 +12910,7 @@ public class Renderer {
 
         
 
-        // Glow around bright particles — CAPPED for performance
+        // Glow around bright particles â€” CAPPED for performance
         // Skip particle bloom entirely when too many (saves 200-400 fillOval/frame)
         int particleCount = particles.size();
         if (particleCount <= 80) {
@@ -12920,7 +13121,7 @@ public class Renderer {
 
         if (cachedVignette == null || cachedVignetteWidth != width || cachedVignetteHeight != height) {
 
-            // Cache at full resolution — eliminates per-frame scaling blit overhead
+            // Cache at full resolution â€” eliminates per-frame scaling blit overhead
             // (profiling showed 14.5s / 3% CPU on the upscale drawImage path)
             if (cachedVignette != null) cachedVignette.flush();
             cachedVignette = Game.createOptimalImage(width, height, true);
@@ -12983,7 +13184,7 @@ public class Renderer {
 
         
 
-        // 1:1 blit — no scaling overhead (was drawImage with upscale, 14.5s CPU)
+        // 1:1 blit â€” no scaling overhead (was drawImage with upscale, 14.5s CPU)
 
         g.drawImage(cachedVignette, 0, 0, null);
 
@@ -12999,28 +13200,28 @@ public class Renderer {
         int stripW = worldW + go * 2 - gs * 2; // width of top/bottom strips
         int stripH = worldH + go * 2 - gs * 2; // height of left/right strips
 
-        // Top strip: vertical gradient sb(top) → tr(bottom)
+        // Top strip: vertical gradient sb(top) â†’ tr(bottom)
         bakedEdgeTop = Game.createOptimalImage(stripW, gs, true);
         Graphics2D gt = bakedEdgeTop.createGraphics();
         gt.setPaint(new GradientPaint(0, 0, sb, 0, gs, tr));
         gt.fillRect(0, 0, stripW, gs);
         gt.dispose();
 
-        // Bottom strip: vertical gradient tr(top) → sb(bottom)
+        // Bottom strip: vertical gradient tr(top) â†’ sb(bottom)
         bakedEdgeBottom = Game.createOptimalImage(stripW, gs, true);
         Graphics2D gb = bakedEdgeBottom.createGraphics();
         gb.setPaint(new GradientPaint(0, 0, tr, 0, gs, sb));
         gb.fillRect(0, 0, stripW, gs);
         gb.dispose();
 
-        // Left strip: horizontal gradient sb(left) → tr(right)
+        // Left strip: horizontal gradient sb(left) â†’ tr(right)
         bakedEdgeLeft = Game.createOptimalImage(gs, stripH, true);
         Graphics2D gl = bakedEdgeLeft.createGraphics();
         gl.setPaint(new GradientPaint(0, 0, sb, gs, 0, tr));
         gl.fillRect(0, 0, gs, stripH);
         gl.dispose();
 
-        // Right strip: horizontal gradient tr(left) → sb(right)
+        // Right strip: horizontal gradient tr(left) â†’ sb(right)
         bakedEdgeRight = Game.createOptimalImage(gs, stripH, true);
         Graphics2D gr2 = bakedEdgeRight.createGraphics();
         gr2.setPaint(new GradientPaint(0, 0, tr, gs, 0, sb));
@@ -13099,7 +13300,7 @@ public class Renderer {
         // Draw the cached gradient image (one drawImage instead of up to 3 GradientPaint fills)
         g.drawImage(cachedBgGradient, 0, 0, null);
 
-        // Optional grain effect (drawn live — only 40 tiny rects)
+        // Optional grain effect (drawn live â€” only 40 tiny rects)
         if (Game.enableGrainEffect) {
             g.setComposite(RenderCache.getAlpha(0.03f));
             for (int i = 0; i < 40; i++) {
@@ -13334,7 +13535,7 @@ public class Renderer {
                     }
                 }
             } else if (seg instanceof Integer) {
-                // Raw VK key code — render as keyboard sprite or keycap
+                // Raw VK key code â€” render as keyboard sprite or keycap
                 int vkCode = (Integer) seg;
                 java.awt.image.BufferedImage icon = (Game.keyBindManager != null) ? Game.keyBindManager.getKeySprite(vkCode) : null;
                 if (icon != null) {
@@ -13506,7 +13707,7 @@ public class Renderer {
 
             } else if (seg instanceof Integer) {
 
-                // Raw VK key code — render as keyboard sprite or keycap
+                // Raw VK key code â€” render as keyboard sprite or keycap
 
                 int vkCode = (Integer) seg;
 
@@ -13681,7 +13882,7 @@ public class Renderer {
         if (sliderTrackStartX[settingIndex] < 0) return -1;
         int by = sliderBtnYPos[settingIndex];
         int bs = sliderBtnSize;
-        // Use button Y range for vertical hit (generous — covers the slider area)
+        // Use button Y range for vertical hit (generous â€” covers the slider area)
         if (mouseY >= by && mouseY <= by + bs) {
             int sx = sliderTrackStartX[settingIndex];
             int ex = sliderTrackEndX[settingIndex];

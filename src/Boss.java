@@ -279,14 +279,14 @@ public class Boss {
         this.maxPatterns = Math.min(2 + level, 15); // All patterns unlocked by level 13
         
         this.shootTimer = 0;
-        this.shootInterval = Math.max(45, 75 + level * 2); // Slightly faster but more consistent
+        this.shootInterval = Math.max(45, 70 + level * 2); // Slightly faster base firing
         // Normal bosses fire slightly less, mega bosses fire slightly more
         if (isMegaBoss) {
             this.shootInterval = (int)(this.shootInterval * 0.85); // 15% faster firing for mega bosses
         } else {
             // Normal bosses progressively close the fire-rate gap at higher levels
-            // Level 1-4: 1.05x slower, Level 10: ~1.0x (same), Level 16+: ~0.95x (slightly faster)
-            double normalFireScale = Math.max(0.95, 1.05 - level * 0.006);
+            // Level 1-3: 1.02x slower, Level 8: ~1.0x (same), Level 16+: ~0.95x (slightly faster)
+            double normalFireScale = Math.max(0.95, 1.02 - level * 0.003);
             this.shootInterval = (int)(this.shootInterval * normalFireScale);
         }
         // Start with random pattern from available pool
@@ -312,11 +312,11 @@ public class Boss {
         this.attackPhaseTimer = 0;
         // Assault gets longer and recovery gets shorter at higher levels (slower scaling)
         this.assaultPhaseDuration = 300 + level * 8; // 5-6.3 seconds (reduced from *15)
-        this.recoveryPhaseDuration = Math.max(150, 210 - level * 4); // 3.5-2.5 seconds (reduced from *8)
+        this.recoveryPhaseDuration = Math.max(150, 195 - level * 3); // 3.25-2.5 seconds
         // Normal bosses scale up aggression at higher levels
         if (!isMegaBoss) {
-            // Level 1: 1.5x, gradually up to 1.8x at level 15+
-            this.assaultSpeedMultiplier = Math.min(1.8, 1.5 + level * 0.02);
+            // Level 1: 1.6x, gradually up to 1.8x at level 15+
+            this.assaultSpeedMultiplier = Math.min(1.8, 1.6 + level * 0.015);
             // At higher levels, normal bosses also get slightly longer assault phases
             if (level >= 7) {
                 this.assaultPhaseDuration += (level - 7) * 5; // +5 frames per level past 7
@@ -361,12 +361,12 @@ public class Boss {
     
     /** Get the speed multiplier for bullets, adjusted by effective level and game mode. */
     private double getScaledSpeedMultiplier() {
-        return Math.min(1.3, 0.4 + (effectiveLevel * 0.15)) * gameMode.getBulletSpeedScale();
+        return Math.min(1.3, 0.55 + (effectiveLevel * 0.125)) * gameMode.getBulletSpeedScale();
     }
     
     /** Variant with custom cap for mega hex pattern. */
     private double getScaledSpeedMultiplierHex() {
-        return Math.min(1.0, 0.4 + (effectiveLevel * 0.12)) * gameMode.getBulletSpeedScale();
+        return Math.min(1.0, 0.5 + (effectiveLevel * 0.10)) * gameMode.getBulletSpeedScale();
     }
     
     /** Scale beam width by game mode. */
@@ -529,21 +529,50 @@ public class Boss {
                 awayFromPlayerY /= distFromPlayer;
             }
             
-            // Pick a target that's away from the player
+            // Pick a target that's away from the player AND away from own bullets
             double centerX = screenWidth / 2.0;
-            double centerY = screenHeight / 3.0; // Lowered from /4.0 to /3.0
-            double radius = Math.min(screenWidth, screenHeight) / 2.0; // Increased from /3.0 to /2.0 for larger circles
+            double centerY = screenHeight / 3.0;
+            double movRadius = Math.min(screenWidth, screenHeight) / 2.0;
             
             // Bias the angle to point away from player
             double angleToPlayer = Math.atan2(playerY - y, playerX - x);
-            double avoidAngle = angleToPlayer + Math.PI + (Math.random() - 0.5) * Math.PI / 2; // Opposite direction ± 45°
+            double baseAvoidAngle = angleToPlayer + Math.PI; // Directly away from player
             
-            targetX = centerX + Math.cos(avoidAngle) * radius;
-            targetY = centerY + Math.sin(avoidAngle) * radius;
+            // Evaluate 7 candidate positions spread ±90° around the away-from-player direction
+            // Pick the one with fewest nearby bullets (clearest area)
+            double bestX = centerX + Math.cos(baseAvoidAngle) * movRadius;
+            double bestY = centerY + Math.sin(baseAvoidAngle) * movRadius;
+            int bestBulletCount = Integer.MAX_VALUE;
+            double bulletScanRadius = 150.0;
+            
+            for (int ci = 0; ci < 7; ci++) {
+                // Spread candidates from -90° to +90° around the away-from-player direction
+                double offset = ((ci / 6.0) - 0.5) * Math.PI; // -PI/2 to +PI/2
+                double candidateAngle = baseAvoidAngle + offset;
+                double cx = centerX + Math.cos(candidateAngle) * movRadius;
+                double cy = centerY + Math.sin(candidateAngle) * movRadius;
+                
+                // Clamp candidate to screen bounds
+                cx = Math.max(size, Math.min(screenWidth - size, cx));
+                cy = Math.max(size, Math.min(screenHeight / 1.8 - size, cy));
+                
+                // Count bullets near this candidate position
+                int nearbyBullets = countBulletsNear(cx, cy, bullets, bulletScanRadius);
+                
+                // Prefer positions with fewer bullets; on tie, prefer closer to direct-away angle
+                if (nearbyBullets < bestBulletCount) {
+                    bestBulletCount = nearbyBullets;
+                    bestX = cx;
+                    bestY = cy;
+                }
+            }
+            
+            targetX = bestX;
+            targetY = bestY;
             
             // Clamp to screen bounds
             targetX = Math.max(size, Math.min(screenWidth - size, targetX));
-            targetY = Math.max(size, Math.min(screenHeight / 1.8 - size, targetY)); // Lowered from /2.5 to /1.8
+            targetY = Math.max(size, Math.min(screenHeight / 1.8 - size, targetY));
         }
         
         // Calculate direction to target
@@ -2019,7 +2048,22 @@ public class Boss {
         this.y = y; 
     }
     public int getSize() { return size; }
-    public double getHitboxRadius() { return size * 0.6; } // 60% of sprite size for fitting hitbox
+    public double getHitboxRadius() { return size * 0.85; } // 85% of sprite size for accurate hitbox
+    
+    // Count how many bullets are within a given radius of a point
+    private int countBulletsNear(double tx, double ty, List<Bullet> bullets, double radius) {
+        int count = 0;
+        double radiusSq = radius * radius;
+        for (int i = 0, n = bullets.size(); i < n; i++) {
+            Bullet b = bullets.get(i);
+            double bdx = b.getX() - tx;
+            double bdy = b.getY() - ty;
+            if (bdx * bdx + bdy * bdy < radiusSq) {
+                count++;
+            }
+        }
+        return count;
+    }
     public boolean isMegaBoss() { return isMegaBoss; }
     public String getVehicleName() { return getVehicleName(level); }
     
@@ -2148,4 +2192,7 @@ public class Boss {
     public void setVelocity(double vx, double vy) { this.vx = vx; this.vy = vy; }
     public void setShootTimer(double timer) { this.shootTimer = timer; }
     public void setSpiralRotation(double rotation) { this.spiralRotation = rotation; }
+    
+    /** Override the effective level for endless mode difficulty scaling. */
+    public void setEffectiveLevel(int level) { this.effectiveLevel = Math.max(1, level); }
 }

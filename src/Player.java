@@ -315,8 +315,8 @@ public class Player {
         double dx = x - boss.getX();
         double dy = y - boss.getY();
         double distanceSquared = dx * dx + dy * dy;
-        // Smaller hitbox for boss collision (40% of sprite size)
-        double threshold = (SIZE * 0.4) + (boss.getSize() * 0.6);
+        // Player hitbox + boss hitbox matching visual size
+        double threshold = (SIZE * 0.4) + (boss.getSize() * 0.85);
         return distanceSquared < threshold * threshold;
     }
     

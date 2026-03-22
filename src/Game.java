@@ -87,6 +87,7 @@ public class Game extends JPanel implements Runnable {
     private ControllerManager controllerManager;
     public static boolean waitingForKeyBind = false;
     public static int rebindingActionIndex = -1; // Index into controls settings list
+    public static boolean rebindingController = false; // True when rebinding a controller button (vs keyboard key)
     
     // Game objects
     private Player player;
@@ -233,6 +234,14 @@ public class Game extends JPanel implements Runnable {
     private double contractUnlockDismissTimer;
     private static final int CONTRACT_UNLOCK_DURATION = 360; // 6 seconds (smooth reveal with more info)
     private static final int CONTRACT_DISMISS_DURATION = 30;
+    
+    // Endless mode unlock animation
+    private boolean endlessUnlockAnimation;
+    private boolean endlessUnlockDismissing;
+    private double endlessUnlockTimer;
+    private double endlessUnlockDismissTimer;
+    private static final int ENDLESS_UNLOCK_DURATION = 360;
+    private static final int ENDLESS_DISMISS_DURATION = 30;
     
     // Passive upgrade unlock animation
     private boolean passiveUnlockAnimation;
@@ -409,6 +418,10 @@ public class Game extends JPanel implements Runnable {
     public static final boolean DEMO_MODE = false;
     public static final int DEMO_MAX_LEVEL = 3;
     
+    // Campaign and endless mode constants
+    public static final int CAMPAIGN_LEVELS = 28;
+    public static final int ENDLESS_SLOT = 29; // Journey map slot for endless mode
+    
     // Attack Introduction System
     // Each attack intro has: ID, Level it appears, Name, Description, Category
     // Attacks unlock on 1st and 3rd levels (regular + mega boss) of each set
@@ -514,7 +527,7 @@ public class Game extends JPanel implements Runnable {
     
     // Debug menu navigation
     private int selectedDebugOption = 0;
-    private static final int DEBUG_OPTION_COUNT = 12; // Total number of debug menu options
+    private static final int DEBUG_OPTION_COUNT = 13; // Total number of debug menu options
     private int debugSetLevelValue = 1; // Value for "Set Unlocked Level" cheat (1-28)
     private java.util.Queue<ActiveItem.ItemType> debugItemPopupQueue; // Queue for debug item popup preview
     private boolean debugShowContractAfterItems = false; // Show contract popup after all item popups
@@ -744,6 +757,8 @@ public class Game extends JPanel implements Runnable {
     public static boolean settingsNeedsRestart = false; // True if a change requires window restart (pipeline, resolution)
     public static boolean showSettingsWarning = false; // True when showing unsaved-changes warning dialog
     public static int settingsWarningSelection = 0; // 0=Apply & Exit, 1=Discard & Exit, 2=Cancel
+    public static boolean controlsKeyboardExpanded = true; // Controls tab: keyboard keybinds section expanded
+    public static boolean controlsControllerExpanded = true; // Controls tab: controller keybinds section expanded
     // --- Snapshot fields (saved when entering Settings) ---
     private static int snap_resolutionPreset;
     private static boolean snap_enableVSync;
@@ -1333,11 +1348,11 @@ public class Game extends JPanel implements Runnable {
                 // Cancel rebinding
                 waitingForKeyBind = false;
                 rebindingActionIndex = -1;
+                rebindingController = false;
                 soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-            } else if (!KeyBindManager.isReservedKey(key)) {
-                // Bind the key to the action
-                // rebindingActionIndex 1-7 maps to Action values 0-6 (index 0 is preset selector, index 8 is input device)
-                int actionIndex = rebindingActionIndex - 1; // Subtract 1 for preset row
+            } else if (!rebindingController && !KeyBindManager.isReservedKey(key)) {
+                // Bind the key to the action (keyboard section only)
+                int actionIndex = rebindingActionIndex - 1;
                 KeyBindManager.Action[] actions = KeyBindManager.Action.values();
                 if (actionIndex >= 0 && actionIndex < actions.length) {
                     keyBindManager.setKey(actions[actionIndex], key);
@@ -1346,6 +1361,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 waitingForKeyBind = false;
                 rebindingActionIndex = -1;
+                rebindingController = false;
             }
             return; // Consume the key event
         }
@@ -1570,8 +1586,10 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case STATS:
-                // All upgrades now come from PassiveUpgradeManager (1 active item + upgrades)
-                int maxStatItems = 1 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0);
+                // Only show unlocked upgrades (excluding Extra Missiles which is always last)
+                java.util.List<PassiveUpgrade> visibleUpgrades = getVisibleShopUpgrades();
+                // Total items: Active Item(0) + visible upgrades(1..N) + Extra Missiles(N+1)
+                int maxStatItems = 1 + visibleUpgrades.size() + 1;
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) { 
                     selectedStatItem = Math.max(0, selectedStatItem - 1);
                     updateStatsScroll();
@@ -1585,77 +1603,58 @@ public class Game extends JPanel implements Runnable {
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
                     if (selectedStatItem == 0) {
                         if (hasSavedGame) {
-                            // Locked - level in progress
                             soundManager.playSound(SoundManager.Sound.UI_ERROR);
                             screenShakeIntensity = 3;
                         } else {
-                            // Browse active items (all 9 including locked)
                             int idx = renderer.getStatsActiveItemDisplayIndex();
                             if (idx > 0) {
                                 idx--;
                                 renderer.setStatsActiveItemDisplayIndex(idx);
-                                // Auto-equip if unlocked
                                 autoEquipStatsItem(idx);
                             }
                             screenShakeIntensity = 2;
                         }
-                    } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
+                    } else if (selectedStatItem >= 1 && selectedStatItem <= visibleUpgrades.size()) {
                         if (hasSavedGame) {
-                            // Locked - level in progress
                             soundManager.playSound(SoundManager.Sound.UI_ERROR);
                             screenShakeIntensity = 3;
                         } else {
-                            // All upgrades are now in PassiveUpgradeManager (index 1+)
-                            int upgradeIndex = selectedStatItem - 1;
-                            int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                            // Skip Extra Missiles (last item) - it's read-only
-                            if (upgradeIndex < numUpgrades - 1) {
-                                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                                if (upgrade.getActiveLevel() > 0) {
-                                    upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
-                                    screenShakeIntensity = 2;
-                                }
+                            PassiveUpgrade upgrade = visibleUpgrades.get(selectedStatItem - 1);
+                            if (upgrade.getActiveLevel() > 0) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
+                                screenShakeIntensity = 2;
                             }
                         }
                     }
+                    // Extra Missiles (last item) is read-only
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
                     if (selectedStatItem == 0) {
                         if (hasSavedGame) {
-                            // Locked - level in progress
                             soundManager.playSound(SoundManager.Sound.UI_ERROR);
                             screenShakeIntensity = 3;
                         } else {
-                            // Browse active items (all 9 including locked)
                             int idx = renderer.getStatsActiveItemDisplayIndex();
                             if (idx < 8) {
                                 idx++;
                                 renderer.setStatsActiveItemDisplayIndex(idx);
-                                // Auto-equip if unlocked
                                 autoEquipStatsItem(idx);
                             }
                             screenShakeIntensity = 2;
                         }
-                    } else if (selectedStatItem >= 1 && passiveUpgradeManager != null) {
+                    } else if (selectedStatItem >= 1 && selectedStatItem <= visibleUpgrades.size()) {
                         if (hasSavedGame) {
-                            // Locked - level in progress
                             soundManager.playSound(SoundManager.Sound.UI_ERROR);
                             screenShakeIntensity = 3;
                         } else {
-                            // All upgrades are now in PassiveUpgradeManager (index 1+)
-                            int upgradeIndex = selectedStatItem - 1;
-                            int numUpgrades = passiveUpgradeManager.getAllUpgrades().size();
-                            // Skip Extra Missiles (last item) - it's read-only
-                            if (upgradeIndex < numUpgrades - 1) {
-                                PassiveUpgrade upgrade = passiveUpgradeManager.getAllUpgrades().get(upgradeIndex);
-                                // Only allow increasing up to purchased level (not maxLevel)
-                                if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                    upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
-                                    screenShakeIntensity = 2;
-                                }
+                            PassiveUpgrade upgrade = visibleUpgrades.get(selectedStatItem - 1);
+                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
+                                screenShakeIntensity = 2;
                             }
                         }
                     }
+                    // Extra Missiles (last item) is read-only
                 }
                 else if (key == KeyEvent.VK_ESCAPE) { transitionToState(GameState.MENU); screenShakeIntensity = 3; }
                 break;
@@ -1694,6 +1693,7 @@ public class Game extends JPanel implements Runnable {
                         screenShakeIntensity = 1;
                     } else if (selectedSettingsItem > 0) {
                         selectedSettingsItem = Math.max(0, selectedSettingsItem - 1); 
+                        skipCollapsedControlsItems(-1);
                         ensureSettingsItemVisible();
                         soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         screenShakeIntensity = 1;
@@ -1708,6 +1708,7 @@ public class Game extends JPanel implements Runnable {
                     } else {
                         int maxItems = getMaxSettingsItems();
                         selectedSettingsItem = Math.min(maxItems, selectedSettingsItem + 1);
+                        skipCollapsedControlsItems(1);
                         ensureSettingsItemVisible();
                         soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                         screenShakeIntensity = 1;
@@ -1717,6 +1718,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
                         selectedSettingsCategory = (selectedSettingsCategory + 5) % 6;
+                        settingsScroll = 0;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1733,6 +1735,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
                         selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
+                        settingsScroll = 0;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1749,6 +1752,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to previous tab
                         selectedSettingsCategory = (selectedSettingsCategory + 5) % 6;
+                        settingsScroll = 0;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1765,6 +1769,7 @@ public class Game extends JPanel implements Runnable {
                     if (selectedSettingsItem == -1) {
                         // Tabs selected - switch to next tab
                         selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
+                        settingsScroll = 0;
                         clampSettingsItem();
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
                         screenShakeIntensity = 2;
@@ -1792,6 +1797,7 @@ public class Game extends JPanel implements Runnable {
                     }
                     // Switch category and move to tabs
                     selectedSettingsCategory = (selectedSettingsCategory + 1) % 6;
+                    settingsScroll = 0;
                     clampSettingsItem();
                     selectedSettingsItem = -1;
                     soundManager.playSound(SoundManager.Sound.UI_SWIPE);
@@ -2382,6 +2388,12 @@ public class Game extends JPanel implements Runnable {
                 
             case GAME_OVER:
                 if (key == KeyEvent.VK_SPACE) {
+                    if (gameData.isInEndlessMode()) {
+                        // Endless mode death: reset to prestige checkpoint
+                        boolean fullReset = gameData.getGameMode().resetsOnDeath();
+                        gameData.resetEndlessRun(fullReset);
+                        gameData.setInEndlessMode(false); // Return to level select
+                    }
                     // Roguelike: Player died - no money earned (only earn on level completion)
                     gameData.startNewRun(); // Resets to level 1, keeps upgrades/items
                     passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
@@ -2389,6 +2401,11 @@ public class Game extends JPanel implements Runnable {
                     // Force players to go through level select again
                     transitionToState(GameState.LEVEL_SELECT);
                 } else if (key == KeyEvent.VK_ESCAPE) {
+                    if (gameData.isInEndlessMode()) {
+                        boolean fullReset = gameData.getGameMode().resetsOnDeath();
+                        gameData.resetEndlessRun(fullReset);
+                        gameData.setInEndlessMode(false);
+                    }
                     // Go to menu - no money earned (only earn on level completion)
                     gameData.startNewRun();
                     passiveUpgradeManager.resetMissilesPrice(); // Reset extra missiles price for new run
@@ -2462,6 +2479,20 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 if (key == KeyEvent.VK_SPACE) {
+                    // If endless unlock animation is playing, skip to reveal or start dismiss
+                    if (endlessUnlockAnimation && !endlessUnlockDismissing) {
+                        if (endlessUnlockTimer > 0) {
+                            endlessUnlockTimer = 0;
+                            return;
+                        }
+                        endlessUnlockDismissing = true;
+                        endlessUnlockDismissTimer = ENDLESS_DISMISS_DURATION;
+                        return;
+                    }
+                    if (endlessUnlockDismissing) {
+                        return;
+                    }
+                    
                     // If contract animation is playing, skip to reveal or start dismiss
                     if (contractUnlockAnimation && !contractUnlockDismissing) {
                         // If still in animation phase, skip to reveal
@@ -2500,33 +2531,13 @@ public class Game extends JPanel implements Runnable {
                         return;
                     }
                     
-                    // Unlock next level
-                    int currentLevel = gameData.getCurrentLevel();
-                    int nextLevel = currentLevel + 1;
-                    if (DEMO_MODE) nextLevel = Math.min(nextLevel, DEMO_MAX_LEVEL);
-                    gameData.setMaxUnlockedLevel(Math.max(gameData.getMaxUnlockedLevel(), nextLevel));
-                    
-                    // Award money
-                    int bossReward = 50 + (currentLevel * 10);
-                    if (!gameData.getDefeatedBosses()[currentLevel - 1]) {
-                        gameData.setBossDefeated(currentLevel - 1, true);
-                        bossReward += 100;
-                    }
-                    
-                    System.out.println("DEBUG WIN: Level " + currentLevel + " completed, money before: " + gameData.getTotalMoney() + ", reward: " + bossReward);
-                    // Add boss completion bonus to run money, then transfer all to wallet
-                    gameData.addRunMoney(bossReward);
-                    gameData.addTotalMoney(gameData.getRunMoney());
-                    gameData.setRunMoney(0); // Reset run money after transfer to wallet
-                    System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
-                    
-                    gameData.setCurrentLevel(currentLevel + 1);
-                    // Demo mode: show "Demo Over" after the final demo level
-                    if (DEMO_MODE && currentLevel >= DEMO_MAX_LEVEL) {
+                    // Progression (money, level unlock, boss defeat) already handled in boss death handler.
+                    // Just transition to the next screen.
+                    if (DEMO_MODE && gameData.getCurrentLevel() > DEMO_MAX_LEVEL) {
                         demoOverSelection = 0;
                         transitionToState(GameState.DEMO_OVER);
                     } else {
-                        shopEnteredFrom = GameState.PLAYING; // Came from beating a boss
+                        shopEnteredFrom = GameState.PLAYING;
                         transitionToState(GameState.SHOP);
                     }
                 }
@@ -2579,6 +2590,27 @@ public class Game extends JPanel implements Runnable {
                         }
                     }
                     break; // Block all other input during animation
+                }
+                if (endlessUnlockAnimation) {
+                    if (key == KeyEvent.VK_ESCAPE) {
+                        endlessUnlockAnimation = false;
+                        endlessUnlockDismissing = false;
+                        soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                        break;
+                    }
+                    if (key == KeyEvent.VK_SPACE || key == KeyEvent.VK_ENTER) {
+                        if (!endlessUnlockDismissing) {
+                            if (endlessUnlockTimer > 0) {
+                                endlessUnlockTimer = 0;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            } else {
+                                endlessUnlockDismissing = true;
+                                endlessUnlockDismissTimer = ENDLESS_DISMISS_DURATION;
+                                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+                            }
+                        }
+                    }
+                    break;
                 }
                 
                 if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
@@ -2669,6 +2701,21 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // Controls tab: calculate visible position accounting for collapsed sections
+        if (selectedSettingsCategory == 4) {
+            int visibleCount = 0;
+            for (int i = 0; i < selectedSettingsItem; i++) {
+                if (isControlsItemVisible(i)) visibleCount++;
+            }
+            int itemY = 200 + visibleCount * 78 - (int)settingsScroll;
+            if (itemY < 180) {
+                settingsScroll = Math.max(0, 200 + visibleCount * 78 - 180);
+            } else if (itemY > HEIGHT - 250) {
+                settingsScroll = 200 + visibleCount * 78 - (HEIGHT - 400);
+            }
+            return;
+        }
+        
         int itemY = 200 + selectedSettingsItem * 78 + headerOffset - (int)settingsScroll;
         
         // If item is above visible area, scroll up
@@ -2681,8 +2728,19 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    /** Check if a controls tab item is visible (not in a collapsed section). */
+    private boolean isControlsItemVisible(int index) {
+        if (!controlsKeyboardExpanded && index >= 3 && index <= 11) return false;
+        if (!controlsControllerExpanded && index >= 13 && index <= 21) return false;
+        return true;
+    }
+    
     private void navigateLevelMap(int direction) {
-        int maxLevel = DEMO_MODE ? DEMO_MAX_LEVEL : 28;
+        int maxLevel = DEMO_MODE ? DEMO_MAX_LEVEL : CAMPAIGN_LEVELS;
+        // Allow navigating to endless slot (29) if endless mode is unlocked
+        if (!DEMO_MODE && gameData.isEndlessUnlocked()) {
+            maxLevel = ENDLESS_SLOT;
+        }
         int newLevel = gameData.getSelectedLevelView() + direction;
         if (newLevel >= 1 && newLevel <= maxLevel) {
             gameData.setSelectedLevelView(newLevel);
@@ -2694,6 +2752,23 @@ public class Game extends JPanel implements Runnable {
     
     private void tryStartLevel() {
         int selectedLevel = gameData.getSelectedLevelView();
+        
+        // Endless mode slot
+        if (selectedLevel == ENDLESS_SLOT) {
+            if (gameData.isEndlessUnlocked()) {
+                // Enter endless mode - set the internal level to endless current
+                gameData.setInEndlessMode(true);
+                selectedLevelToStart = selectedLevel;
+                selectedConfirmItem = 0;
+                isConfirmingResume = false;
+                transitionToState(GameState.LEVEL_CONFIRM);
+                soundManager.playSound(SoundManager.Sound.UI_SELECT);
+            } else {
+                soundManager.playSound(SoundManager.Sound.UI_ERROR);
+            }
+            return;
+        }
+        
         int currentLevel = gameData.getCurrentLevel();
         int maxUnlocked = gameData.getMaxUnlockedLevel();
         
@@ -2706,6 +2781,7 @@ public class Game extends JPanel implements Runnable {
         // Can start any unlocked level (for debug or level select)
         if (selectedLevel <= maxUnlocked) {
             // Show confirmation dialog before starting level
+            gameData.setInEndlessMode(false); // Ensure we're in campaign mode
             selectedLevelToStart = selectedLevel;
             selectedConfirmItem = 0;
             isConfirmingResume = false; // This is a new game start
@@ -2733,6 +2809,16 @@ public class Game extends JPanel implements Runnable {
     private void startSelectedLevel() {
         // Roguelike: Always start at current level (can't replay old levels)
         soundManager.playSound(SoundManager.Sound.LEVEL_START);
+        
+        // Endless mode: skip risk contracts, skip attack intros (player has seen them all)
+        if (gameData.isInEndlessMode()) {
+            riskContractType = 0;
+            riskContractActive = false;
+            riskContractMultiplier = 1.0;
+            startGame();
+            return;
+        }
+        
         // Only show risk contract screen if contracts are unlocked
         if (gameData.areContractsUnlocked()) {
             selectedRiskContract = 0;
@@ -2968,6 +3054,33 @@ public class Game extends JPanel implements Runnable {
         if (scrollCooldown > 0) return;
         
         if (gameState == GameState.MENU) {
+            // Tutorial prompt hover - update button selection
+            if (showTutorialPrompt) {
+                int panelW = config.UIScale.px(460);
+                int panelH = config.UIScale.px(220);
+                int panelX = (WIDTH - panelW) / 2;
+                int panelY = (HEIGHT - panelH) / 2;
+                int btnW = config.UIScale.px(120);
+                int btnH = config.UIScale.px(45);
+                int btnY = panelY + config.UIScale.px(145);
+                int btnGap = config.UIScale.px(30);
+                int yesX = panelX + (panelW / 2) - btnW - btnGap / 2;
+                int noX = panelX + (panelW / 2) + btnGap / 2;
+                if (mouseX >= yesX && mouseX <= yesX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                    if (tutorialPromptSelection != 0) {
+                        tutorialPromptSelection = 0;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
+                } else if (mouseX >= noX && mouseX <= noX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                    if (tutorialPromptSelection != 1) {
+                        tutorialPromptSelection = 1;
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
+                }
+                return;
+            }
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
                 if (buttons[i].contains(mouseX, mouseY)) {
@@ -3028,6 +3141,7 @@ public class Game extends JPanel implements Runnable {
                 
                 boolean foundHover = false;
                 for (int i = 0; i <= maxItems; i++) {
+                    if (selectedSettingsCategory == 4 && !isControlsItemVisible(i)) continue;
                     if (i < buttons.length && buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                         if (selectedSettingsItem != i) {
                             selectedSettingsItem = i;
@@ -3119,6 +3233,31 @@ public class Game extends JPanel implements Runnable {
                         }
                         return;
                     }
+                }
+            }
+        } else if (gameState == GameState.PLAYING && tutorialMode && tutorialCompleteScreen) {
+            // Tutorial complete screen hover - update button selection
+            int panelW = config.UIScale.px(520);
+            int panelH = config.UIScale.px(320);
+            int panelX = (WIDTH - panelW) / 2;
+            int panelY = (HEIGHT - panelH) / 2;
+            int btnW = config.UIScale.px(140);
+            int btnH = config.UIScale.px(45);
+            int btnY = panelY + config.UIScale.px(220);
+            int btnGap = config.UIScale.px(30);
+            int leaveX = panelX + (panelW / 2) - btnW - btnGap / 2;
+            int againX = panelX + (panelW / 2) + btnGap / 2;
+            if (mouseX >= leaveX && mouseX <= leaveX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                if (tutorialCompleteSelection != 0) {
+                    tutorialCompleteSelection = 0;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
+                }
+            } else if (mouseX >= againX && mouseX <= againX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                if (tutorialCompleteSelection != 1) {
+                    tutorialCompleteSelection = 1;
+                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                    screenShakeIntensity = 1;
                 }
             }
         } else if (gameState == GameState.PLAYING && isPaused) {
@@ -3353,6 +3492,33 @@ public class Game extends JPanel implements Runnable {
                 screenShakeIntensity = 5;
             }
         } else if (gameState == GameState.MENU) {
+            // Tutorial prompt button clicks
+            if (showTutorialPrompt) {
+                int panelW = config.UIScale.px(460);
+                int panelH = config.UIScale.px(220);
+                int panelX = (WIDTH - panelW) / 2;
+                int panelY = (HEIGHT - panelH) / 2;
+                int btnW = config.UIScale.px(120);
+                int btnH = config.UIScale.px(45);
+                int btnY = panelY + config.UIScale.px(145);
+                int btnGap = config.UIScale.px(30);
+                int yesX = panelX + (panelW / 2) - btnW - btnGap / 2;
+                int noX = panelX + (panelW / 2) + btnGap / 2;
+                if (mouseX >= yesX && mouseX <= yesX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                    showTutorialPrompt = false;
+                    tutorialPromptSelection = 0;
+                    startTutorial();
+                    screenShakeIntensity = 3;
+                    return;
+                } else if (mouseX >= noX && mouseX <= noX + btnW && mouseY >= btnY && mouseY <= btnY + btnH) {
+                    showTutorialPrompt = false;
+                    tutorialPromptSelection = 1;
+                    soundManager.playSound(SoundManager.Sound.UI_CANCEL);
+                    screenShakeIntensity = 2;
+                    return;
+                }
+                return; // Block clicks behind the prompt
+            }
             UIButton[] buttons = renderer.getMenuButtons();
             for (int i = 0; i < buttons.length; i++) {
                 if (buttons[i].contains(mouseX, mouseY)) {
@@ -3389,6 +3555,7 @@ public class Game extends JPanel implements Runnable {
                     mouseY >= tabY && mouseY <= tabY + tabHeight) {
                     if (selectedSettingsCategory != i) {
                         selectedSettingsCategory = i;
+                        settingsScroll = 0;
                         clampSettingsItem();
                         selectedSettingsItem = -1; // Select tabs when switching
                         soundManager.playSound(SoundManager.Sound.UI_SWIPE);
@@ -3456,6 +3623,7 @@ public class Game extends JPanel implements Runnable {
                 
                 UIButton[] buttons = renderer.getSettingsButtons();
                 for (int i = 0; i < buttons.length; i++) {
+                    if (selectedSettingsCategory == 4 && !isControlsItemVisible(i)) continue;
                     if (buttons[i] != null && buttons[i].contains(mouseX, mouseY)) {
                         selectedSettingsItem = i;
                         toggleSetting(i);
@@ -3536,7 +3704,6 @@ public class Game extends JPanel implements Runnable {
                 
                 // Left half = previous item, right half = next item
                 if (hasSavedGame) {
-                    // Locked - level in progress
                     soundManager.playSound(SoundManager.Sound.UI_ERROR);
                     screenShakeIntensity = 3;
                 } else if (gameData.hasActiveItems()) {
@@ -3557,56 +3724,50 @@ public class Game extends JPanel implements Runnable {
             y += activeItemHeight + cardSpacing + 50; // +50 for next section header
             currentIndex++;
             
-            // Check Upgrade cards
-            if (passiveUpgradeManager != null) {
-                java.util.List<PassiveUpgrade> upgrades = passiveUpgradeManager.getAllUpgrades();
-                
-                // All upgrades except Extra Missiles (last one is read-only)
-                for (int i = 0; i < upgrades.size() - 1; i++) {
-                    if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
-                        mouseY >= y && mouseY <= y + cardHeight) {
-                        selectedStatItem = currentIndex;
-                        updateStatsScroll();
-                        
-                        // Left side = decrease, right side = increase
-                        if (hasSavedGame) {
-                            // Locked - level in progress
-                            soundManager.playSound(SoundManager.Sound.UI_ERROR);
-                            screenShakeIntensity = 3;
-                        } else {
-                            PassiveUpgrade upgrade = upgrades.get(i);
-                            if (mouseX < WIDTH / 2) {
-                                // Decrease active level
-                                if (upgrade.getActiveLevel() > 0) {
-                                    upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
-                                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                                    screenShakeIntensity = 2;
-                                }
-                            } else {
-                                // Increase active level (up to purchased level)
-                                if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
-                                    upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
-                                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                                    screenShakeIntensity = 2;
-                                }
-                            }
-                        }
-                        return;
-                    }
-                    y += cardHeight + cardSpacing;
-                    currentIndex++;
-                }
-                
-                // Extra Missiles card (read-only, just select it)
-                y += 50; // section header offset
-                if (upgrades.size() > 0 && mouseX >= itemX && mouseX <= itemX + cardWidth &&
+            // Check visible Upgrade cards (only unlocked, excluding Extra Missiles)
+            java.util.List<PassiveUpgrade> visibleClickUpgrades = getVisibleShopUpgrades();
+            for (int i = 0; i < visibleClickUpgrades.size(); i++) {
+                if (mouseX >= itemX && mouseX <= itemX + cardWidth &&
                     mouseY >= y && mouseY <= y + cardHeight) {
                     selectedStatItem = currentIndex;
                     updateStatsScroll();
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1;
+                    
+                    if (hasSavedGame) {
+                        soundManager.playSound(SoundManager.Sound.UI_ERROR);
+                        screenShakeIntensity = 3;
+                    } else {
+                        PassiveUpgrade upgrade = visibleClickUpgrades.get(i);
+                        if (mouseX < WIDTH / 2) {
+                            // Decrease active level
+                            if (upgrade.getActiveLevel() > 0) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() - 1);
+                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                screenShakeIntensity = 2;
+                            }
+                        } else {
+                            // Increase active level (up to purchased level)
+                            if (upgrade.getActiveLevel() < upgrade.getCurrentLevel()) {
+                                upgrade.setActiveLevel(upgrade.getActiveLevel() + 1);
+                                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                                screenShakeIntensity = 2;
+                            }
+                        }
+                    }
                     return;
                 }
+                y += cardHeight + cardSpacing;
+                currentIndex++;
+            }
+            
+            // Extra Missiles card (read-only, just select it)
+            y += 50; // section header offset
+            if (passiveUpgradeManager != null && mouseX >= itemX && mouseX <= itemX + cardWidth &&
+                mouseY >= y && mouseY <= y + cardHeight) {
+                selectedStatItem = currentIndex;
+                updateStatsScroll();
+                soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                screenShakeIntensity = 1;
+                return;
             }
         } else if (gameState == GameState.RISK_CONTRACT) {
             // Check if clicking on risk contract cards
@@ -3891,10 +4052,10 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case STATS:
-                int maxStatItems = 1 + 4 + (passiveUpgradeManager != null ? passiveUpgradeManager.getAllUpgrades().size() : 0);
+                int maxStatItemsScroll = 1 + getVisibleShopUpgrades().size() + 1;
                 if (rotation > 0) {
                     // Scroll down - select next item
-                    selectedStatItem = Math.min(maxStatItems - 1, selectedStatItem + 1);
+                    selectedStatItem = Math.min(maxStatItemsScroll - 1, selectedStatItem + 1);
                     updateStatsScroll();
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
                     screenShakeIntensity = 1;
@@ -3917,6 +4078,14 @@ public class Game extends JPanel implements Runnable {
                     for (int h : hdrIdx) {
                         if (maxSettingsItems >= h) settingsHeaderOffset += 24;
                     }
+                }
+                // Controls tab: count only visible items
+                if (selectedSettingsCategory == 4) {
+                    int visibleCount = 0;
+                    for (int ci = 0; ci <= maxSettingsItems; ci++) {
+                        if (isControlsItemVisible(ci)) visibleCount++;
+                    }
+                    settingsTotalItems = visibleCount;
                 }
                 int settingsContentHeight = 200 + settingsTotalItems * 78 + settingsHeaderOffset;
                 int maxSettingsScroll = Math.max(0, settingsContentHeight - HEIGHT + 250);
@@ -4055,6 +4224,21 @@ public class Game extends JPanel implements Runnable {
             }
         }
         return 0;
+    }
+    
+    /** Get the list of shop upgrades visible in the loadout screen (unlocked, excluding Extra Missiles). */
+    private java.util.List<PassiveUpgrade> getVisibleShopUpgrades() {
+        if (passiveUpgradeManager == null) return java.util.Collections.emptyList();
+        java.util.List<PassiveUpgrade> all = passiveUpgradeManager.getAllUpgrades();
+        int bestLevel = gameData.getBestRunLevel();
+        java.util.List<PassiveUpgrade> visible = new java.util.ArrayList<>();
+        for (int i = 0; i < all.size() - 1; i++) { // Exclude last (Extra Missiles)
+            PassiveUpgrade u = all.get(i);
+            if (u.getUnlockLevel() == 0 || u.getUnlockLevel() <= bestLevel) {
+                visible.add(u);
+            }
+        }
+        return visible;
     }
     
     // Handle player death - check for missiles first
@@ -4832,7 +5016,7 @@ public class Game extends JPanel implements Runnable {
         if (step >= 0 && step < TUTORIAL_STEPS.length) {
             tutorialPopupActive = true;
             renderer.tutorialPopupActive = true;
-            tutorialPopupInputDelay = 120; // 2 seconds at 60fps before dismiss allowed
+            tutorialPopupInputDelay = 60; // 1 second at 60fps before dismiss allowed
             tutorialPopupTitle = TUTORIAL_STEPS[step][0];
             // Body is everything after the title
             tutorialPopupBody = new String[TUTORIAL_STEPS[step].length - 1];
@@ -5473,9 +5657,25 @@ public class Game extends JPanel implements Runnable {
         // Top off object pools between levels to prevent allocation spikes
         prewarmPools();
         
-        currentBoss = new Boss(WORLD_WIDTH / 2, 100, gameData.getCurrentLevel(), soundManager, gameData.getGameMode()); // Normal position, will move during intro
+        // Determine the boss level: in endless mode, use the endless cycle level for boss type
+        // but pass a higher effective level for difficulty scaling
+        int bossLevel;
+        if (gameData.isInEndlessMode()) {
+            bossLevel = gameData.getEndlessCurrentLevel(); // 1-28 cycle for boss type/sprite
+        } else {
+            bossLevel = gameData.getCurrentLevel();
+        }
+        
+        currentBoss = new Boss(WORLD_WIDTH / 2, 100, bossLevel, soundManager, gameData.getGameMode()); // Normal position, will move during intro
+        
+        // In endless mode, apply additional difficulty scaling
+        if (gameData.isInEndlessMode()) {
+            int effectiveLevel = gameData.getEndlessEffectiveLevel();
+            currentBoss.setEffectiveLevel(effectiveLevel);
+        }
+        
         setupBossFactory(currentBoss);
-        currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(gameData.getCurrentLevel())); // Sync attacks with ATTACK_INTROS
+        currentBoss.setAllowedPatterns(getAllowedPatternsForLevel(bossLevel)); // Sync attacks with ATTACK_INTROS
         gameData.setSurvivalTime(0);
         dodgeCombo = 0;
         stoppedMovingTimer = 0; // Reset Can't Stop timer
@@ -5490,8 +5690,8 @@ public class Game extends JPanel implements Runnable {
         spawnProtectionX = WORLD_WIDTH / 2;
         spawnProtectionY = WORLD_HEIGHT - 200;
         
-        // Reset cumulative run stats if starting from level 1
-        if (gameData.getCurrentLevel() == 1) {
+        // Reset cumulative run stats if starting from level 1 (or endless level 1)
+        if (gameData.getCurrentLevel() == 1 || (gameData.isInEndlessMode() && gameData.getEndlessCurrentLevel() == 1)) {
             gameData.resetCumulativeRunStats();
         }
         
@@ -5539,6 +5739,9 @@ public class Game extends JPanel implements Runnable {
         bossIntroText = currentBoss.getVehicleName();
         if (currentBoss.isMegaBoss()) {
             bossIntroText += " [MEGA]";
+        }
+        if (gameData.isInEndlessMode()) {
+            bossIntroText += " [ENDLESS " + gameData.getEndlessCurrentLevel() + "/28]";
         }
         soundManager.playSound(SoundManager.Sound.BOSS_INTRO);
         
@@ -5737,8 +5940,10 @@ public class Game extends JPanel implements Runnable {
                 if (controllerManager.isJustPressed(KeyBindManager.ControllerButton.B)) {
                     waitingForKeyBind = false;
                     rebindingActionIndex = -1;
+                    rebindingController = false;
                     soundManager.playSound(SoundManager.Sound.UI_CANCEL);
-                } else {
+                } else if (rebindingController) {
+                    // Controller section rebinding - accept controller button
                     KeyBindManager.ControllerButton pressed = controllerManager.getFirstJustPressedButton();
                     if (pressed != null) {
                         int actionIndex = rebindingActionIndex - 1;
@@ -5750,6 +5955,7 @@ public class Game extends JPanel implements Runnable {
                         }
                         waitingForKeyBind = false;
                         rebindingActionIndex = -1;
+                        rebindingController = false;
                     }
                 }
             } else {
@@ -5923,6 +6129,14 @@ public class Game extends JPanel implements Runnable {
                     contractUnlockAnimation = true;
                     contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
                 }
+                // After item animation ends, check if endless unlock should show
+                else if (gameData.hasCompletedCampaign() && !gameData.hasSeenEndlessUnlock() && !endlessUnlockAnimation) {
+                    gameData.setEndlessUnlocked(true);
+                    soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                    endlessUnlockAnimation = true;
+                    endlessUnlockTimer = ENDLESS_UNLOCK_DURATION;
+                    gameData.setSeenEndlessUnlock(true);
+                }
                 // Or if debug contract should show after all debug items
                 else if (debugShowContractAfterItems) {
                     startNextDebugItemPopup(); // Will trigger contract since queue is empty
@@ -5941,6 +6155,28 @@ public class Game extends JPanel implements Runnable {
             if (contractUnlockDismissTimer <= 0) {
                 contractUnlockAnimation = false;
                 contractUnlockDismissing = false;
+                // After contract dismiss, check if endless unlock should show
+                if (gameData.hasCompletedCampaign() && !gameData.hasSeenEndlessUnlock() && !endlessUnlockAnimation) {
+                    gameData.setEndlessUnlocked(true);
+                    soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                    endlessUnlockAnimation = true;
+                    endlessUnlockTimer = ENDLESS_UNLOCK_DURATION;
+                    gameData.setSeenEndlessUnlock(true);
+                }
+            }
+        }
+        
+        // Update endless unlock animation timer
+        if (endlessUnlockTimer > 0) {
+            endlessUnlockTimer -= deltaTime;
+        }
+        
+        // Update endless unlock dismiss animation
+        if (endlessUnlockDismissing) {
+            endlessUnlockDismissTimer -= deltaTime;
+            if (endlessUnlockDismissTimer <= 0) {
+                endlessUnlockAnimation = false;
+                endlessUnlockDismissing = false;
             }
         }
         
@@ -7202,6 +7438,15 @@ public class Game extends JPanel implements Runnable {
                 bossVulnerable = false;
                 invulnerabilityTimer = 300; // 5 seconds of invulnerability
                 
+                // Teleport player back to spawn so boss recovers (fires) before player is back
+                player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                player.resetVelocity();
+                playerInvincible = true;
+                respawnInvincibilityTimer = 120; // 2 seconds (shorter than death's 3s)
+                respawnBlinkTimer = 120;
+                spawnProtectionX = player.getX();
+                spawnProtectionY = player.getY();
+                
                 screenShakeIntensity = 20 + (bossHitCount * 8); // More shake with each hit
                 bossFlashTimer = 12; // Longer boss flash effect
                 
@@ -7655,7 +7900,67 @@ public class Game extends JPanel implements Runnable {
                 bossDeathAnimation = false;
                 hasSavedGame = false; // Clear saved game on win so purchases persist
                 
-                // Auto-save on level completion
+                // === Process campaign/endless progression NOW (before auto-save) ===
+                if (!gameData.isInEndlessMode()) {
+                    // Campaign mode: mark boss defeated, award money, unlock next level
+                    int bossReward = 50 + (currentLevel * 10);
+                    if (!gameData.getDefeatedBosses()[currentLevel - 1]) {
+                        gameData.setBossDefeated(currentLevel - 1, true);
+                        bossReward += 100;
+                    }
+                    
+                    System.out.println("DEBUG WIN: Level " + currentLevel + " completed, money before: " + gameData.getTotalMoney() + ", reward: " + bossReward);
+                    gameData.addRunMoney(bossReward);
+                    gameData.addTotalMoney(gameData.getRunMoney());
+                    gameData.setRunMoney(0);
+                    System.out.println("DEBUG WIN: Money after reward: " + gameData.getTotalMoney());
+                    
+                    int nextLevel = currentLevel + 1;
+                    if (DEMO_MODE) nextLevel = Math.min(nextLevel, DEMO_MAX_LEVEL);
+                    gameData.setMaxUnlockedLevel(Math.max(gameData.getMaxUnlockedLevel(), nextLevel));
+                    gameData.setCurrentLevel(nextLevel);
+                    
+                    // Backfill all boss defeats when beating the final campaign level
+                    if (currentLevel >= CAMPAIGN_LEVELS) {
+                        for (int i = 0; i < CAMPAIGN_LEVELS; i++) {
+                            if (!gameData.getDefeatedBosses()[i]) {
+                                gameData.setBossDefeated(i, true);
+                                System.out.println("DEBUG: Backfilled defeatedBosses[" + i + "]");
+                            }
+                        }
+                    }
+                    
+                    // Check if campaign is now complete (unlocks endless mode)
+                    if (gameData.hasCompletedCampaign() && !gameData.hasSeenEndlessUnlock()) {
+                        gameData.setEndlessUnlocked(true);
+                        System.out.println("DEBUG: Campaign complete! Endless mode unlocked!");
+                    }
+                } else {
+                    // Endless mode: track progression
+                    int endlessLevel = gameData.getEndlessCurrentLevel();
+                    int effectiveLevel = gameData.getEndlessEffectiveLevel();
+                    int bossReward = 50 + (effectiveLevel * 10);
+                    gameData.addRunMoney(bossReward);
+                    gameData.addTotalMoney(gameData.getRunMoney());
+                    gameData.setRunMoney(0);
+                    
+                    int totalBeaten = gameData.getTotalEndlessLevelsBeaten() + 1;
+                    if (totalBeaten > gameData.getEndlessHighestLevel()) {
+                        gameData.setEndlessHighestLevel(totalBeaten);
+                    }
+                    achievementManager.updateProgress(Achievement.AchievementType.ENDLESS_LEVELS, totalBeaten);
+                    
+                    if (endlessLevel >= CAMPAIGN_LEVELS) {
+                        gameData.incrementEndlessPrestige();
+                        gameData.setEndlessCurrentLevel(1);
+                        System.out.println("DEBUG ENDLESS: Prestige! Now prestige " + gameData.getEndlessPrestige());
+                    } else {
+                        gameData.setEndlessCurrentLevel(endlessLevel + 1);
+                    }
+                    System.out.println("DEBUG ENDLESS WIN: level " + endlessLevel + " beaten, next=" + gameData.getEndlessCurrentLevel());
+                }
+                
+                // Auto-save on level completion (after progression is recorded)
                 performAutoSave();
                 
                 // If level 7 was defeated and contracts were unlocked, trigger animation (only once)
@@ -7664,6 +7969,14 @@ public class Game extends JPanel implements Runnable {
                     contractUnlockAnimation = true;
                     contractUnlockTimer = CONTRACT_UNLOCK_DURATION;
                     gameData.setSeenContractUnlock(true);
+                }
+                
+                // If campaign just completed, trigger endless unlock popup
+                if (gameData.hasCompletedCampaign() && !gameData.hasSeenEndlessUnlock() && !itemUnlockAnimation && !contractUnlockAnimation) {
+                    soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                    endlessUnlockAnimation = true;
+                    endlessUnlockTimer = ENDLESS_UNLOCK_DURATION;
+                    gameData.setSeenEndlessUnlock(true);
                 }
                 
                 return;
@@ -7679,8 +7992,9 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Update boss with delta time (but not during death animation, intro, respawn delay, stun, or boss intro cinematic)
+        // During death sequence, boss fires at full speed so player respawns into active bullets
         // Apply TIME_SLOW factor to boss delta so boss also moves slower
-        double bossDt = dt;
+        double bossDt = deathSequenceActive ? deltaTime : dt;
         ActiveItem equippedForBoss = gameData.getEquippedItem();
         if (equippedForBoss != null && equippedForBoss.isActive() && equippedForBoss.getType() == ActiveItem.ItemType.TIME_SLOW) {
             bossDt *= 0.15; // 15% speed (85% slow) — same factor as bullets/beams
@@ -8762,7 +9076,7 @@ public class Game extends JPanel implements Runnable {
                 break;
             case STATS:
                 renderer.drawStats(g2d, WIDTH, HEIGHT, gradientTime, passiveUpgradeManager, hasSavedGame);
-                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated, hasSavedGame);
+                renderer.drawStatsUpgrades(g2d, WIDTH, selectedStatItem, passiveUpgradeManager, statsScrollAnimated, hasSavedGame, gameData.getBestRunLevel());
                 break;
             case SETTINGS:
                 renderer.drawSettings(g2d, WIDTH, HEIGHT, selectedSettingsItem, gradientTime, settingsScroll, selectedSettingsCategory, gameData);
@@ -8847,7 +9161,7 @@ public class Game extends JPanel implements Runnable {
                             tutorialStep < TUTORIAL_STEPS.length ? TUTORIAL_STEPS[tutorialStep][0] : "Complete",
                             tutorialTaskText, tutorialTaskProgress, tutorialTaskHasBar);
                         if (tutorialPopupActive) {
-                            renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime);
+                            renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime, tutorialPopupInputDelay);
                         }
                     }
                 }
@@ -8872,6 +9186,10 @@ public class Game extends JPanel implements Runnable {
                 if (contractUnlockAnimation) {
                     drawContractUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
+                // Draw endless unlock animation if active (after contract animation)
+                if (endlessUnlockAnimation) {
+                    drawEndlessUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
                 break;
             case SHOP:
                 renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
@@ -8881,17 +9199,20 @@ public class Game extends JPanel implements Runnable {
                 }
                 // Draw tutorial popup overlay on shop screen
                 if (tutorialMode && tutorialPopupActive) {
-                    renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime);
+                    renderer.drawTutorialPopup(g2d, WIDTH, HEIGHT, tutorialPopupTitle, tutorialPopupBody, gradientTime, tutorialPopupInputDelay);
                 }
                 break;
             case DEBUG:
                 renderer.drawDebug(g2d, WIDTH, HEIGHT, gradientTime, selectedDebugOption, debugSetLevelValue);
-                // Draw item/contract unlock animations if active (debug preview)
+                // Draw item/contract/endless unlock animations if active (debug preview)
                 if (itemUnlockAnimation) {
                     drawItemUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
                 if (contractUnlockAnimation) {
                     drawContractUnlockAnimation(g2d, WIDTH, HEIGHT);
+                }
+                if (endlessUnlockAnimation) {
+                    drawEndlessUnlockAnimation(g2d, WIDTH, HEIGHT);
                 }
                 break;
         }
@@ -9174,10 +9495,28 @@ public class Game extends JPanel implements Runnable {
                 keyBindManager.nextPreset(controllerManager != null && controllerManager.isConnected());
             } else if (settingIndex == 1) {
                 // Input Device - read only, no toggle
-            } else if (settingIndex >= 2 && settingIndex <= 10) {
-                // Action rebinding - enter rebind mode
+            } else if (settingIndex == 2) {
+                // Keyboard section header - toggle expand/collapse
+                controlsKeyboardExpanded = !controlsKeyboardExpanded;
+                if (!controlsKeyboardExpanded && selectedSettingsItem > 2 && selectedSettingsItem < 12) {
+                    selectedSettingsItem = 2;
+                }
+            } else if (settingIndex >= 3 && settingIndex <= 11) {
+                // Keyboard action rebinding
                 waitingForKeyBind = true;
-                rebindingActionIndex = settingIndex - 1; // Maps to Action ordinal + 1 offset
+                rebindingActionIndex = settingIndex - 2; // Maps to Action ordinal + 1 offset
+                rebindingController = false;
+            } else if (settingIndex == 12) {
+                // Controller section header - toggle expand/collapse
+                controlsControllerExpanded = !controlsControllerExpanded;
+                if (!controlsControllerExpanded && selectedSettingsItem > 12 && selectedSettingsItem < 22) {
+                    selectedSettingsItem = 12;
+                }
+            } else if (settingIndex >= 13 && settingIndex <= 21) {
+                // Controller action rebinding
+                waitingForKeyBind = true;
+                rebindingActionIndex = settingIndex - 12; // Maps to Action ordinal + 1 offset
+                rebindingController = true;
             }
         }
         markSettingsDirty();
@@ -9340,12 +9679,32 @@ public class Game extends JPanel implements Runnable {
                 return true;
             } else if (settingIndex == 1) { // Input Device (read only)
                 return false;
-            } else if (settingIndex >= 2 && settingIndex <= 10) {
-                // Action rebinding - enter rebind mode on left/right press too
+            } else if (settingIndex == 2) { // Keyboard section header
+                controlsKeyboardExpanded = !controlsKeyboardExpanded;
+                if (!controlsKeyboardExpanded && selectedSettingsItem > 2 && selectedSettingsItem < 12) {
+                    selectedSettingsItem = 2;
+                }
+                return true;
+            } else if (settingIndex >= 3 && settingIndex <= 11) {
+                // Keyboard action rebinding
                 waitingForKeyBind = true;
-                rebindingActionIndex = settingIndex - 1;
+                rebindingActionIndex = settingIndex - 2;
+                rebindingController = false;
+                return true;
+            } else if (settingIndex == 12) { // Controller section header
+                controlsControllerExpanded = !controlsControllerExpanded;
+                if (!controlsControllerExpanded && selectedSettingsItem > 12 && selectedSettingsItem < 22) {
+                    selectedSettingsItem = 12;
+                }
+                return true;
+            } else if (settingIndex >= 13 && settingIndex <= 21) {
+                // Controller action rebinding
+                waitingForKeyBind = true;
+                rebindingActionIndex = settingIndex - 12;
+                rebindingController = true;
                 return true;
             }
+            return false;
         }
         // Setting not adjustable with left/right
         return false;
@@ -9399,9 +9758,30 @@ public class Game extends JPanel implements Runnable {
         if (selectedSettingsCategory == 1) return 5; // Audio: 6 items (0-5)
         if (selectedSettingsCategory == 2) return 0; // Gameplay: 1 item (0)
         if (selectedSettingsCategory == 3) return 1; // Debug: 2 items (0-1)
-        if (selectedSettingsCategory == 4) return 10; // Controls: 11 items (0-10) - Preset, Input Device, 9 actions
+        if (selectedSettingsCategory == 4) {
+            // Controls: Preset(0), InputDevice(1), KeyboardHeader(2), 9 keyboard actions(3-11), ControllerHeader(12), 9 controller actions(13-21)
+            int max = 12; // Always include up to controller header
+            if (controlsControllerExpanded) max = 21;
+            return max;
+        }
         if (selectedSettingsCategory == 5) return -1; // HUD: no list items, editor handles interaction
         return 0;
+    }
+
+    /** Skip over collapsed section items in controls tab after navigation. */
+    private void skipCollapsedControlsItems(int direction) {
+        if (selectedSettingsCategory != 4) return;
+        // Skip collapsed keyboard items (3-11)
+        if (!controlsKeyboardExpanded && selectedSettingsItem >= 3 && selectedSettingsItem <= 11) {
+            selectedSettingsItem = direction > 0 ? 12 : 2;
+        }
+        // Skip collapsed controller items (13-21)
+        if (!controlsControllerExpanded && selectedSettingsItem >= 13 && selectedSettingsItem <= 21) {
+            selectedSettingsItem = direction > 0 ? 21 : 12;
+        }
+        // Clamp to max
+        int max = getMaxSettingsItems();
+        if (selectedSettingsItem > max) selectedSettingsItem = max;
     }
 
     /** Clamp selectedSettingsItem so it never exceeds the new tab's item count. */
@@ -11972,6 +12352,184 @@ public class Game extends JPanel implements Runnable {
         }
     }
     
+    private void drawEndlessUnlockAnimation(Graphics2D g, int width, int height) {
+        float progress = 1.0f - ((float) endlessUnlockTimer / ENDLESS_UNLOCK_DURATION);
+        
+        float dismissMultiplier = 1.0f;
+        if (endlessUnlockDismissing) {
+            dismissMultiplier = (float) endlessUnlockDismissTimer / ENDLESS_DISMISS_DURATION;
+        }
+        
+        // Dark overlay
+        int overlayAlpha = (int)(220 * Math.min(progress * 2, 1.0f) * dismissMultiplier);
+        g.setColor(new Color(0, 0, 0, Math.min(overlayAlpha, 220)));
+        Graphics2D g2d = (Graphics2D) g;
+        g2d.setTransform(IDENTITY_TX);
+        g.fillRect(0, 0, width, height);
+        
+        int centerX = width / 2;
+        int startY = height + 350;
+        int endY = height / 2;
+        int dismissOffset = (int)((1.0f - dismissMultiplier) * 400);
+        int currentY = (int)(startY + (endY - startY) * (1.0 - Math.pow(1.0 - progress, 2.5))) + dismissOffset;
+        
+        float scale;
+        if (progress < 0.4f) {
+            scale = (float)Math.pow(progress / 0.4f, 0.8);
+        } else {
+            scale = 1.0f;
+        }
+        scale *= dismissMultiplier;
+        
+        // Purple glow
+        long now = System.currentTimeMillis();
+        if (shadowQuality > 0) {
+            int glowSize = Math.max(1, (int)(420 * scale));
+            float pulse = (float)Math.abs(Math.sin(now / 500.0)) * 0.3f + 0.7f;
+            
+            RadialGradientPaint glowPaint = new RadialGradientPaint(
+                centerX, currentY,
+                glowSize,
+                new float[]{0.0f, 0.5f, 1.0f},
+                new Color[]{
+                    new Color(140, 80, 255, (int)(50 * scale * pulse * dismissMultiplier)),
+                    new Color(100, 50, 200, (int)(25 * scale * pulse * dismissMultiplier)),
+                    new Color(80, 40, 180, 0)
+                }
+            );
+            g.setPaint(glowPaint);
+            g.fillOval(centerX - glowSize, currentY - glowSize, glowSize * 2, glowSize * 2);
+        }
+        
+        // Orbiting particles
+        if (progress > 0.3f && enableParticles) {
+            int particleCount = 16;
+            double baseAngle = now / 100.0;
+            double timeSin = now / 200.0;
+            for (int i = 0; i < particleCount; i++) {
+                double angle = (baseAngle + i * (360.0 / particleCount)) * Math.PI / 180.0;
+                int radius = (int)(210 * scale);
+                int px = (int)(centerX + Math.cos(angle) * radius);
+                int py = (int)(currentY + Math.sin(angle) * radius * 0.7);
+                int size = (int)(5 * scale);
+                
+                int pAlpha = (int)(180 * (float)Math.abs(Math.sin(angle * 4 + timeSin)) * scale * dismissMultiplier);
+                g.setColor(new Color(180, 130, 255, Math.min(255, Math.max(0, pAlpha))));
+                g.fillOval(px - size/2, py - size/2, size, size);
+            }
+        }
+        
+        // Box
+        int boxWidth = (int)(UIScale.px(940) * scale);
+        int boxHeight = (int)(UIScale.px(475) * scale);
+        int boxX = centerX - boxWidth / 2;
+        int boxY = currentY - boxHeight / 2;
+        
+        float progAlpha = Math.min(progress * 2, 1.0f);
+        
+        // Box shadow
+        g.setColor(new Color(0, 0, 0, (int)(120 * progAlpha)));
+        g.fillRoundRect(boxX + 6, boxY + 6, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Box background with dark purple gradient
+        GradientPaint boxGradient = new GradientPaint(
+            boxX, boxY, new Color(40, 20, 60, (int)(245 * progAlpha)),
+            boxX, boxY + boxHeight, new Color(20, 10, 40, (int)(245 * progAlpha))
+        );
+        g.setPaint(boxGradient);
+        g.fillRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Pulsing purple border
+        float borderPulse = (float)Math.abs(Math.sin(now / 300.0));
+        int borderR = (int)(140 + 60 * borderPulse);
+        int borderG = (int)(80 + 50 * borderPulse);
+        int borderB = (int)(220 + 35 * borderPulse);
+        g.setColor(new Color(borderR, borderG, borderB, (int)(255 * progAlpha)));
+        g.setStroke(RenderCache.getStroke(3f));
+        g.drawRoundRect(boxX, boxY, boxWidth, boxHeight, UIScale.px(25), UIScale.px(25));
+        
+        // Decorative top stripes (purple theme)
+        if (progress > 0.2f) {
+            float stripeAlpha = Math.min((progress - 0.2f) / 0.2f, 1.0f) * dismissMultiplier;
+            g.setClip(boxX + 10, boxY + 10, boxWidth - 20, 25);
+            g.setColor(new Color(160, 100, 255, (int)(100 * stripeAlpha)));
+            for (int i = -10; i < boxWidth + 30; i += 20) {
+                g.fillPolygon(
+                    new int[]{boxX + i, boxX + i + 15, boxX + i + 25, boxX + i + 10},
+                    new int[]{boxY + 10, boxY + 10, boxY + 35, boxY + 35},
+                    4
+                );
+            }
+            g.setClip(null);
+        }
+        
+        // Title
+        if (progress > 0.25f) {
+            float textAlpha = Math.min((progress - 0.25f) / 0.3f, 1.0f) * dismissMultiplier;
+            
+            g.setFont(FontPalette.get(Font.BOLD, (int)(42 * scale)));
+            String titleText = "ENDLESS MODE UNLOCKED!";
+            FontMetrics titleFm = g.getFontMetrics();
+            int titleX = centerX - titleFm.stringWidth(titleText) / 2;
+            int titleY = currentY - (int)(150 * scale);
+            
+            g.setColor(new Color(0, 0, 0, (int)(180 * textAlpha)));
+            g.drawString(titleText, titleX + 3, titleY + 3);
+            
+            float titlePulse = (float)Math.abs(Math.sin(now / 400.0)) * 0.3f + 0.7f;
+            g.setColor(new Color(180, 130, 255, (int)(255 * textAlpha * titlePulse)));
+            g.drawString(titleText, titleX, titleY);
+        }
+        
+        // Infinity symbol and description
+        if (progress > 0.4f) {
+            float descAlpha = Math.min((progress - 0.4f) / 0.3f, 1.0f) * dismissMultiplier;
+            
+            g.setFont(FontPalette.get(Font.BOLD, (int)(75 * scale)));
+            String symbol = "\u221E"; // Infinity
+            FontMetrics symbolFm = g.getFontMetrics();
+            g.setColor(new Color(200, 160, 255, (int)(255 * descAlpha)));
+            g.drawString(symbol, centerX - symbolFm.stringWidth(symbol) / 2, currentY - (int)(62 * scale));
+            
+            String[] descLines = {
+                "You've conquered all 28 bosses!",
+                "A new challenge awaits...",
+                "",
+                "Face the bosses again with increasing",
+                "difficulty in an endless loop.",
+                "How far can you go?"
+            };
+            
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(25 * scale)));
+            int lineY = currentY + (int)(12 * scale);
+            for (String line : descLines) {
+                if (line.isEmpty()) {
+                    lineY += (int)(12 * scale);
+                    continue;
+                }
+                FontMetrics lineFm = g.getFontMetrics();
+                int lineX = centerX - lineFm.stringWidth(line) / 2;
+                g.setColor(new Color(200, 200, 220, (int)(220 * descAlpha)));
+                g.drawString(line, lineX, lineY);
+                lineY += (int)(32 * scale);
+            }
+        }
+        
+        // Press SPACE hint
+        if (progress > 0.7f) {
+            float hintAlpha = Math.min((progress - 0.7f) / 0.2f, 1.0f) * dismissMultiplier;
+            g.setFont(FontPalette.get(Font.PLAIN, (int)(22 * scale)));
+            String hintText = "Press " + keyText(KeyBindManager.Action.CONFIRM) + " to continue";
+            FontMetrics hintFm = g.getFontMetrics();
+            int hintX = centerX - hintFm.stringWidth(hintText) / 2;
+            int hintY = currentY + (int)(200 * scale);
+            
+            float hintPulse = (float)Math.abs(Math.sin(now / 500.0));
+            g.setColor(new Color(180, 180, 200, (int)(200 * hintPulse * hintAlpha)));
+            g.drawString(hintText, hintX, hintY);
+        }
+    }
+    
     /**
      * Start the next passive unlock animation from the pending queue.
      */
@@ -12268,6 +12826,18 @@ public class Game extends JPanel implements Runnable {
                 }
                 screenShakeIntensity = 5;
                 System.out.println("DEBUG: Set max unlocked level to " + debugSetLevelValue);
+                break;
+            case 12: // Unlock endless mode
+                gameData.unlockAllLevels();
+                gameData.setEndlessUnlocked(true);
+                gameData.setSeenEndlessUnlock(false); // Reset so popup shows
+                // Trigger the endless unlock popup
+                soundManager.playSound(SoundManager.Sound.CONTRACT_UNLOCK);
+                endlessUnlockAnimation = true;
+                endlessUnlockTimer = ENDLESS_UNLOCK_DURATION;
+                gameData.setSeenEndlessUnlock(true);
+                screenShakeIntensity = 5;
+                System.out.println("DEBUG: Endless mode unlocked!");
                 break;
         }
     }

@@ -40,12 +40,12 @@ public class PassiveUpgradeManager {
         addUpgrade("targeting", "Targeting", "Much stronger auto-aim + range per level", 
                    PassiveUpgrade.UpgradeType.TARGETING, 900, 5, 19);  // Unlocks after beating level 19
         
-        addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
-                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3, 0);
-        
         addUpgrade("flares", "Flares",
             "Deploys decoy flares that divert homing missiles. Upgrades increase frequency, count, and diversion chance.",
             PassiveUpgrade.UpgradeType.FLARES, 800, 5, 13);  // Unlocks after beating level 13
+        
+        addUpgrade("health", "Extra Missiles", "Purchase an extra missile (Max 3)", 
+                   PassiveUpgrade.UpgradeType.MAX_HEALTH, 5000, 3, 0);
     }
     
     // For exponential cost upgrades

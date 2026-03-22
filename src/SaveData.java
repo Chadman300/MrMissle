@@ -138,6 +138,14 @@ public class SaveData implements Serializable {
     // Tutorial completion tracking
     public boolean tutorialCompleted;
     
+    // Endless mode progression
+    public boolean inEndlessMode;
+    public int endlessPrestige;
+    public int endlessCurrentLevel;
+    public int endlessHighestLevel;
+    public boolean endlessUnlocked;
+    public boolean seenEndlessUnlock;
+    
     /**
      * Inner class to hold level stats data in a serializable format
      */
@@ -216,6 +224,13 @@ public class SaveData implements Serializable {
         this.bestRunLevel = 1;
         this.totalRunsCompleted = 0;
         this.totalBossesDefeated = 0;
+        
+        // Endless mode defaults
+        this.inEndlessMode = false;
+        this.endlessPrestige = 0;
+        this.endlessCurrentLevel = 1;
+        this.endlessHighestLevel = 0;
+        this.endlessUnlocked = false;
         
         // Missiles (lives) - default starting count
         this.missiles = 3;
@@ -317,6 +332,12 @@ public class SaveData implements Serializable {
         // Backwards compatibility: old saves without seenPassiveUnlocks
         if (seenPassiveUnlocks == null) {
             seenPassiveUnlocks = new ArrayList<>();
+        }
+        
+        // Backwards compatibility: old saves without endless mode fields
+        // endlessCurrentLevel defaults to 0 for old saves; fix to 1
+        if (endlessCurrentLevel <= 0) {
+            endlessCurrentLevel = 1;
         }
         
         // Backwards compatibility: old saves without uiScale default to Medium (1)
@@ -464,6 +485,14 @@ public class SaveData implements Serializable {
         
         // Tutorial completion
         data.tutorialCompleted = gameData.isTutorialCompleted();
+        
+        // Endless mode
+        data.inEndlessMode = gameData.isInEndlessMode();
+        data.endlessPrestige = gameData.getEndlessPrestige();
+        data.endlessCurrentLevel = gameData.getEndlessCurrentLevel();
+        data.endlessHighestLevel = gameData.getEndlessHighestLevel();
+        data.endlessUnlocked = gameData.isEndlessUnlocked();
+        data.seenEndlessUnlock = gameData.hasSeenEndlessUnlock();
         
         return data;
     }
@@ -669,6 +698,18 @@ public class SaveData implements Serializable {
         
         // Tutorial completion
         gameData.setTutorialCompleted(tutorialCompleted);
+        
+        // Endless mode
+        gameData.setInEndlessMode(inEndlessMode);
+        gameData.setEndlessPrestige(endlessPrestige);
+        gameData.setEndlessCurrentLevel(endlessCurrentLevel > 0 ? endlessCurrentLevel : 1);
+        gameData.setEndlessHighestLevel(endlessHighestLevel);
+        gameData.setEndlessUnlocked(endlessUnlocked);
+        gameData.setSeenEndlessUnlock(seenEndlessUnlock);
+        // Also check campaign completion to auto-unlock endless if deserved
+        if (!endlessUnlocked && gameData.hasCompletedCampaign()) {
+            gameData.setEndlessUnlocked(true);
+        }
     }
     
     /**
