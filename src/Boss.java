@@ -80,6 +80,10 @@ public class Boss {
     private double spinningBeamWidth = 0;          // Width of each arm
     private double savedVx = 0, savedVy = 0;       // Saved velocity while boss is frozen
     private double spinningBeamAttackCooldown = 0; // Cooldown timer between spinning beam attacks
+    private double spinningBeamHoldTimer = 0;      // Static hold before spinning starts
+    private double spinningBeamPauseTimer = 0;     // Pause timer for direction reversal (level 22+)
+    private double spinningBeamNextPauseIn = 0;    // Frames until the next pause
+    private int spinningBeamDirection = 1;          // 1 = clockwise, -1 = counter-clockwise
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
@@ -899,8 +903,10 @@ public class Boss {
         }
         
         // Shooting pattern (scaled by delta time) - faster in later phases
+        // Shoot much less during spinning beam attack
+        double spinningBeamShootScale = spinningBeamActive ? 0.3 : 1.0;
         double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
-        shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier;
+        shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier * spinningBeamShootScale;
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
             shoot(bullets, player);
@@ -911,7 +917,8 @@ public class Boss {
         
         // Beam attacks (at higher levels - starting at level 10, or forced for debug showcase)
         // Don't fire beams if a specific non-beam pattern is forced or if beams are disabled
-        boolean shouldFireBeams = !disableBeamAttacks && (forceBeamAttack || (level >= 10 && forcedPatternType < 0 && forcedMegaAttack < 0));
+        // Don't fire normal beams during spinning beam attack
+        boolean shouldFireBeams = !disableBeamAttacks && !spinningBeamActive && (forceBeamAttack || (level >= 10 && forcedPatternType < 0 && forcedMegaAttack < 0));
         if (shouldFireBeams) {
             beamAttackTimer += deltaTime;
             // Use faster interval when forced for debug showcase
@@ -935,8 +942,8 @@ public class Boss {
             if (forceSpinningBeam || Math.random() < 0.3) {
                 startSpinningBeamAttack(screenWidth, screenHeight);
             }
-            // Reset cooldown whether we fired or not
-            spinningBeamAttackCooldown = forceSpinningBeam ? 300 : Math.max(480, 720 - level * 10);
+            // Reset cooldown whether we fired or not (minimum 15 seconds between attempts)
+            spinningBeamAttackCooldown = forceSpinningBeam ? 300 : Math.max(900, 1080 - level * 10);
         }
         
         // Update spinning beam attack
@@ -946,9 +953,34 @@ public class Boss {
                 spinningBeamWarningTimer -= deltaTime;
                 vx = 0;
                 vy = 0;
+            } else if (spinningBeamHoldTimer > 0) {
+                // Hold phase: beams are active/damaging but not spinning yet
+                spinningBeamHoldTimer -= deltaTime;
+                vx = 0;
+                vy = 0;
             } else if (spinningBeamTimer > 0) {
                 // Active phase: rotate the beam arms
-                spinningBeamAngle += spinningBeamRotationSpeed * deltaTime;
+                if (spinningBeamPauseTimer > 0) {
+                    // Paused — beams hold still before reversing (level 22+)
+                    spinningBeamPauseTimer -= deltaTime;
+                    if (spinningBeamPauseTimer <= 0) {
+                        // Reverse direction after pause
+                        spinningBeamDirection *= -1;
+                        // Schedule next pause (random 120-240 frames from now)
+                        spinningBeamNextPauseIn = 120 + Math.random() * 120;
+                    }
+                } else {
+                    spinningBeamAngle += spinningBeamRotationSpeed * spinningBeamDirection * deltaTime;
+                    // Check if it's time for a pause-and-reverse (level 22+)
+                    if (level >= 22) {
+                        spinningBeamNextPauseIn -= deltaTime;
+                        if (spinningBeamNextPauseIn <= 0) {
+                            spinningBeamPauseTimer = 45; // 0.75 second pause
+                            // Schedule next pause
+                            spinningBeamNextPauseIn = 90 + Math.random() * 60;
+                        }
+                    }
+                }
                 spinningBeamTimer -= deltaTime;
                 vx = 0;
                 vy = 0;
@@ -1707,20 +1739,45 @@ public class Boss {
         boolean isVertical = Math.random() < 0.5;
         double playerSafePos = player != null ? (isVertical ? player.getX() : player.getY()) : -1;
         
-        // At higher levels (or forced for showcase), mix in diagonal beam patterns
+        // At higher levels (or forced for showcase), mix in advanced beam patterns
         if (forceBeamAttack || level >= 14) {
             double roll = Math.random();
-            if ((forceBeamAttack || level >= 18) && roll < 0.2) {
+            if ((forceBeamAttack || level >= 24) && roll < 0.12) {
+                // Diagonal grid (4 crossing diagonal beams forming diamond pattern)
+                spawnDiagonalGrid(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 22) && roll < 0.22) {
+                // Hexagon pattern (3 beams at 60° intervals)
+                spawnHexBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 20) && roll < 0.32) {
+                // Star pattern (X + axis-aligned through center)
+                spawnStarBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 20) && roll < 0.40) {
+                // Grid pattern (previously mega-boss only)
+                spawnGridBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 18) && roll < 0.48) {
+                // Cross pattern (previously mega-boss only)
+                spawnCrossBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 18) && roll < 0.56) {
                 // X-pattern (two crossing diagonals)
                 spawnXBeams(screenWidth, screenHeight, player);
                 mergeOverlappingBeams();
                 return;
-            } else if ((forceBeamAttack || level >= 16) && roll < 0.35) {
+            } else if ((forceBeamAttack || level >= 16) && roll < 0.68) {
                 // Diagonal + axis-aligned cross
                 spawnDiagonalCross(screenWidth, screenHeight, player);
                 mergeOverlappingBeams();
                 return;
-            } else if (roll < 0.5) {
+            } else if (roll < 0.80) {
                 // Simple diagonal beams
                 spawnDiagonalBeams(screenWidth, screenHeight, player);
                 mergeOverlappingBeams();
@@ -1915,6 +1972,61 @@ public class Boss {
     }
     
     /**
+     * Spawn a hexagon pattern: 3 diagonal beams at 60° intervals through a center point.
+     * Creates a triangular/hex grid that the player must weave through.
+     */
+    private void spawnHexBeams(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(35 + effectiveLevel * 3, MAX_BEAM_WIDTH_DIAGONAL));
+        double cx = screenWidth * (0.3 + Math.random() * 0.4);
+        double cy = screenHeight * (0.3 + Math.random() * 0.4);
+        
+        // 3 beams at 60° apart (0°, 60°, 120°) — forms a triangular star
+        double startAngle = Math.random() * Math.PI / 3; // Random rotation offset
+        for (int i = 0; i < 3; i++) {
+            double angle = startAngle + i * Math.PI / 3;
+            beamAttacks.add(new BeamAttack(cx, cy, width, angle));
+        }
+    }
+    
+    /**
+     * Spawn a star pattern: X-pattern + one axis-aligned beam through the center.
+     * 3 beams creating a 6-pointed star shape.
+     */
+    private void spawnStarBeams(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(35 + effectiveLevel * 3, MAX_BEAM_WIDTH_DIAGONAL));
+        double cx = screenWidth * (0.3 + Math.random() * 0.4);
+        double cy = screenHeight * (0.3 + Math.random() * 0.4);
+        
+        // 45° diagonal
+        beamAttacks.add(new BeamAttack(cx, cy, width, Math.PI / 4));
+        // 135° diagonal
+        beamAttacks.add(new BeamAttack(cx, cy, width, 3 * Math.PI / 4));
+        // Vertical or horizontal through the same center
+        if (Math.random() < 0.5) {
+            beamAttacks.add(new BeamAttack(cx, width, BeamAttack.BeamType.VERTICAL));
+        } else {
+            beamAttacks.add(new BeamAttack(cy, width, BeamAttack.BeamType.HORIZONTAL));
+        }
+    }
+    
+    /**
+     * Spawn a diagonal grid: 2 parallel diagonals at 45° + 2 at 135°, forming a diamond grid.
+     */
+    private void spawnDiagonalGrid(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(30 + effectiveLevel * 3, MAX_BEAM_WIDTH_GRID));
+        double spacing = Math.max(120, screenWidth * 0.2);
+        
+        // Two 45° beams offset from center
+        double cx = screenWidth * 0.5;
+        double cy = screenHeight * 0.5;
+        beamAttacks.add(new BeamAttack(cx - spacing * 0.3, cy - spacing * 0.3, width, Math.PI / 4));
+        beamAttacks.add(new BeamAttack(cx + spacing * 0.3, cy + spacing * 0.3, width, Math.PI / 4));
+        // Two 135° beams offset from center
+        beamAttacks.add(new BeamAttack(cx + spacing * 0.3, cy - spacing * 0.3, width, 3 * Math.PI / 4));
+        beamAttacks.add(new BeamAttack(cx - spacing * 0.3, cy + spacing * 0.3, width, 3 * Math.PI / 4));
+    }
+    
+    /**
      * Start a spinning beam attack. Boss stops moving and emits rotating sector beams.
      * Number of arms scales with level: 3 (level 18-21), 4 (level 22-25), 5 (level 26+).
      */
@@ -1935,10 +2047,14 @@ public class Boss {
         }
         
         spinningBeamAngle = Math.random() * Math.PI * 2; // Random starting angle
-        spinningBeamRotationSpeed = 0.01 + (level - 18) * 0.002; // Scales with level
+        spinningBeamRotationSpeed = Math.min(0.018, 0.008 + (level - 18) * 0.001); // Scales with level, capped
         spinningBeamWidth = scaleBeamWidth(Math.min(35 + effectiveLevel * 3, 90));
         spinningBeamWarningTimer = 180; // 3 second warning
+        spinningBeamHoldTimer = 90; // 1.5 second static hold before spinning
         spinningBeamTimer = Math.min(480, 300 + (level - 18) * 20); // 5-8 seconds active
+        spinningBeamDirection = 1; // Start clockwise
+        spinningBeamPauseTimer = 0;
+        spinningBeamNextPauseIn = level >= 22 ? (90 + Math.random() * 60) : Double.MAX_VALUE; // First pause after 1.5-2.5s
         
         if (soundManager != null) {
             soundManager.playSoundSpatial(SoundManager.Sound.BEAM_WARNING, 0.7f, this.x, lastScreenWidth);
@@ -1956,6 +2072,8 @@ public class Boss {
     public double getSpinningBeamWidth() { return spinningBeamWidth; }
     public double getSpinningBeamWarningTimer() { return spinningBeamWarningTimer; }
     public double getSpinningBeamTimer() { return spinningBeamTimer; }
+    public double getSpinningBeamHoldTimer() { return spinningBeamHoldTimer; }
+    public boolean isSpinningBeamPaused() { return spinningBeamPauseTimer > 0; }
     
     /**
      * Merge overlapping or adjacent same-type beams that are still in warning phase

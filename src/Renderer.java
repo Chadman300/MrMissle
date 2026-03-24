@@ -5,6 +5,7 @@ import config.UIScale;
 import config.UITheme;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.List;
@@ -124,6 +125,16 @@ public class Renderer {
     // Pre-cached rotated+scaled plane sprites for level select (avoids per-frame AffineTransform rotation)
     // Key: (level << 16) | (spriteWidth & 0xFFFF), value: 180Â°-rotated & scaled BufferedImage
     private static final java.util.HashMap<Long, BufferedImage> planeSpriteCache = new java.util.HashMap<>();
+
+    // Pre-rendered scanline tile for spinning beam (matches BeamAttack's SCANLINE_TILE_H)
+    private static final BufferedImage SPIN_BEAM_SCANLINE_TILE;
+    static {
+        SPIN_BEAM_SCANLINE_TILE = new BufferedImage(8, 1, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D sg = SPIN_BEAM_SCANLINE_TILE.createGraphics();
+        sg.setColor(new Color(255, 200, 200, 100));
+        sg.fillRect(0, 0, 2, 1);
+        sg.dispose();
+    }
 
     /** Get a pre-rotated (180Â°) and scaled plane sprite for the level select screen. */
     private static BufferedImage getCachedPlaneSprite(BufferedImage source, int level, int targetW, int targetH) {
@@ -6621,12 +6632,76 @@ public class Renderer {
                     g.setColor(new Color(255, 150, 150));
                     g.fillRect(bx, by + (int)beamWidth / 4, beamLength, (int)beamWidth / 2);
                     
-                    // Reset composite for scanlines
+                    // Animated scanlines (horizontal stripe pattern scrolling along the beam)
+                    g.setComposite(savedComp);
+                    double spinTimer = boss.getSpinningBeamTimer();
+                    int scanOffset = (int)((spinTimer * 10) % 8);
+                    TexturePaint scanPaint = new TexturePaint(SPIN_BEAM_SCANLINE_TILE,
+                        new Rectangle2D.Float(scanOffset, 0, 8, 1));
+                    g.setPaint(scanPaint);
+                    g.fillRect(bx, by, beamLength, (int)beamWidth);
+                    
+                    // Edge borders
+                    g.setComposite(RenderCache.getAlpha(0.6f));
+                    g.setColor(new Color(255, 150, 150));
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawLine(bx, by, bx + beamLength, by);
+                    g.drawLine(bx, by + (int)beamWidth, bx + beamLength, by + (int)beamWidth);
+                    
                     g.setComposite(savedComp);
                 }
             }
             
             g.setTransform(savedTransform);
+            g.setComposite(savedComp);
+            
+            // Draw center orb at boss position (sized to fully cover beam seams)
+            int orbRadius;
+            int fullBeam = (int)(beamWidth);
+            if (warningTime > 0) {
+                // Warning phase: pulsing orb that grows to cover beam junction
+                double progress = 1.0 - (warningTime / 180.0);
+                orbRadius = (int)(fullBeam * 0.3 + progress * fullBeam * 0.7);
+                int r = (int)(100 + progress * 155);
+                int gn = (int)(200 - progress * 150);
+                double blinkSpeed = 0.1 + progress * 0.4;
+                float alphaF = (float)(Math.abs(Math.sin(warningTime * blinkSpeed)) * 150 + 50) / 255f;
+                
+                // Outer glow
+                int glowPad = orbRadius / 3;
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF * 0.4f)));
+                g.setColor(new Color(r, gn, 50));
+                g.fillOval((int)bossX - orbRadius - glowPad, (int)bossY - orbRadius - glowPad, (orbRadius + glowPad) * 2, (orbRadius + glowPad) * 2);
+                // Main orb
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF)));
+                g.fillOval((int)bossX - orbRadius, (int)bossY - orbRadius, orbRadius * 2, orbRadius * 2);
+                // Bright core
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 0.2f)));
+                g.setColor(new Color(255, 255, 200));
+                int coreR = orbRadius / 2;
+                g.fillOval((int)bossX - coreR, (int)bossY - coreR, coreR * 2, coreR * 2);
+            } else {
+                // Active phase: steady glowing orb covering beam junction
+                orbRadius = fullBeam;
+                int glowPad = orbRadius / 2;
+                // Outer glow
+                g.setComposite(RenderCache.getAlpha(0.3f));
+                g.setColor(new Color(191, 97, 106));
+                g.fillOval((int)bossX - orbRadius - glowPad, (int)bossY - orbRadius - glowPad, (orbRadius + glowPad) * 2, (orbRadius + glowPad) * 2);
+                // Main orb
+                g.setComposite(RenderCache.getAlpha(0.78f));
+                g.fillOval((int)bossX - orbRadius, (int)bossY - orbRadius, orbRadius * 2, orbRadius * 2);
+                // Inner core
+                g.setComposite(RenderCache.getAlpha(0.86f));
+                g.setColor(new Color(255, 150, 150));
+                int coreR = orbRadius / 2;
+                g.fillOval((int)bossX - coreR, (int)bossY - coreR, coreR * 2, coreR * 2);
+                // Bright center dot
+                g.setComposite(RenderCache.getAlpha(0.95f));
+                g.setColor(new Color(255, 220, 220));
+                int dotR = orbRadius / 4;
+                g.fillOval((int)bossX - dotR, (int)bossY - dotR, dotR * 2, dotR * 2);
+            }
             g.setComposite(savedComp);
         }
 
