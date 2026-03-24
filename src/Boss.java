@@ -66,8 +66,20 @@ public class Boss {
     private static final double MAX_BEAM_WIDTH_CROSS = 120;
     private static final double MAX_BEAM_WIDTH_GRID = 80;
     private static final double MAX_BEAM_WIDTH_ROTATING = 130;
+    private static final double MAX_BEAM_WIDTH_DIAGONAL = 110;
     private static final int MAX_GRID_BEAMS = 4; // Max beams per axis in grid pattern
     private static final double BEAM_PLAYER_SAFE_ZONE = 80; // Min distance from player for beam placement
+    
+    // Spinning beam attack (boss stops and emits rotating sector beams)
+    private boolean spinningBeamActive = false;
+    private double spinningBeamAngle = 0;          // Current rotation angle (radians)
+    private double spinningBeamRotationSpeed = 0;  // Radians per frame
+    private int spinningBeamSections = 3;          // Number of beam arms (3/4/5)
+    private double spinningBeamTimer = 0;          // Active duration remaining
+    private double spinningBeamWarningTimer = 0;   // Warning countdown before spinning starts
+    private double spinningBeamWidth = 0;          // Width of each arm
+    private double savedVx = 0, savedVy = 0;       // Saved velocity while boss is frozen
+    private double spinningBeamAttackCooldown = 0; // Cooldown timer between spinning beam attacks
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
@@ -101,6 +113,8 @@ public class Boss {
     private boolean disableBeamAttacks = false; // Disable beam attacks during showcase
     private boolean disableShockwave = false; // Disable shockwave during showcase
     private boolean disableTwirl = false; // Disable twirl during showcase
+    private boolean forceSpinningBeam = false; // Force spinning beam for showcase
+    private boolean disableSpinningBeam = false; // Disable spinning beam during showcase
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
     private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
@@ -298,6 +312,7 @@ public class Boss {
         this.beamAttacks = new ArrayList<>();
         this.beamAttackTimer = 180 + (int)(Math.random() * 60); // First beam after 3-4 seconds
         this.beamAttackInterval = Math.max(300, 480 - level * 10); // Less frequent, more manageable
+        this.spinningBeamAttackCooldown = 600; // First spinning beam delayed
         
         // Initialize health and phases
         // Mega: 5 HP, Normal: 3 HP at low levels, 4 HP at level 10+
@@ -343,6 +358,22 @@ public class Boss {
             this.shockwaveKnockback *= this.gameMode.getShockwaveScale();
             // Scale twirl attack: less speed boost makes it less frantic
             this.twirlAttackSpeedBoost *= this.gameMode.getShockwaveScale();
+        }
+        
+        // === FINAL BOSS (Level 28) overrides ===
+        if (level == 28) {
+            this.size = 250; // Much larger than any other boss
+            this.maxHealth = 10;
+            this.currentHealth = 10;
+            this.currentPhase = 0;
+            // Epic pacing: long assault, short recovery
+            this.assaultPhaseDuration = 720; // ~12 seconds
+            this.recoveryPhaseDuration = 120; // ~2 seconds
+            this.assaultSpeedMultiplier = 1.9;
+            // Slightly faster firing for final encounter
+            this.shootInterval = (int)(this.shootInterval * 0.80);
+            // Larger shockwave in phase 2 (set during phase transition)
+            this.shockwaveMaxRadius = 300;
         }
         
         loadSprites();
@@ -460,9 +491,9 @@ public class Boss {
             loadBossSpriteWithPath("sprites\\Missle Man Assets\\Helecopters\\Helecopter 4 Wings.png", helicopterBlades, 2);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
-            // Load final boss
+            // Load final boss (larger prescale for 250px size)
             finalBossSprite = AssetLoader.prescaleImage(
-                rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png")), SPRITE_PRESCALE_SIZE);
+                rotateImage180(AssetLoader.loadImage("sprites\\Missle Man Assets\\Boss Planes\\Final Boss.png")), FINAL_BOSS_PRESCALE_SIZE);
             loaded[0]++; if (progressCallback != null) progressCallback.accept((int)(loaded[0] * 100.0 / totalAssets));
             
             spritesLoaded = true;
@@ -474,6 +505,8 @@ public class Boss {
     
     // Maximum rendered size for any boss sprite (mega boss: BASE_SIZE*1.5*2 = 300)
     private static final int SPRITE_PRESCALE_SIZE = (int)(BASE_SIZE * 1.5 * 2);
+    // Final boss needs a larger prescale (250*2 = 500) to avoid upscale blur
+    private static final int FINAL_BOSS_PRESCALE_SIZE = 500;
 
     private static void loadBossSpriteWithPath(String path, BufferedImage[] array, int index) throws IOException {
         try {
@@ -753,7 +786,8 @@ public class Boss {
         // Update phase transition
         if (phaseTransitioning) {
             phaseTransitionTimer += deltaTime;
-            if (phaseTransitionTimer >= PHASE_TRANSITION_DURATION) {
+            int transitionDuration = (level == 28) ? 150 : PHASE_TRANSITION_DURATION; // 2.5s for final boss
+            if (phaseTransitionTimer >= transitionDuration) {
                 phaseTransitioning = false;
                 phaseTransitionTimer = 0;
             }
@@ -888,6 +922,44 @@ public class Boss {
             }
         }
         
+        // Spinning beam attack cooldown
+        if (spinningBeamAttackCooldown > 0) {
+            spinningBeamAttackCooldown -= deltaTime;
+        }
+        
+        // Spinning beam attack: try to trigger on its own cooldown (level 18+)
+        boolean shouldSpinBeam = !disableSpinningBeam && !spinningBeamActive && spinningBeamAttackCooldown <= 0 
+                                  && (forceSpinningBeam || (level >= 18 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
+        if (shouldSpinBeam) {
+            // Always fire when forced for showcase, otherwise 30% chance
+            if (forceSpinningBeam || Math.random() < 0.3) {
+                startSpinningBeamAttack(screenWidth, screenHeight);
+            }
+            // Reset cooldown whether we fired or not
+            spinningBeamAttackCooldown = forceSpinningBeam ? 300 : Math.max(480, 720 - level * 10);
+        }
+        
+        // Update spinning beam attack
+        if (spinningBeamActive) {
+            if (spinningBeamWarningTimer > 0) {
+                // Warning phase: boss is frozen, beams are static
+                spinningBeamWarningTimer -= deltaTime;
+                vx = 0;
+                vy = 0;
+            } else if (spinningBeamTimer > 0) {
+                // Active phase: rotate the beam arms
+                spinningBeamAngle += spinningBeamRotationSpeed * deltaTime;
+                spinningBeamTimer -= deltaTime;
+                vx = 0;
+                vy = 0;
+            } else {
+                // Spinning beam attack ended — restore movement
+                spinningBeamActive = false;
+                vx = savedVx;
+                vy = savedVy;
+            }
+        }
+        
         // Update beam attacks
         for (int i = beamAttacks.size() - 1; i >= 0; i--) {
             BeamAttack beam = beamAttacks.get(i);
@@ -924,6 +996,27 @@ public class Boss {
                     break;
             }
             // Play boss shoot sound
+            if (soundManager != null && bullets.size() > bulletCountBefore) {
+                soundManager.playSoundSpatial(SoundManager.Sound.BOSS_SHOOT, 0.25f, this.x, lastScreenWidth);
+            }
+            return;
+        }
+        
+        // Final boss Phase 2: 35% chance to use special final attacks
+        if (level == 28 && currentPhase >= 1 && forcedPatternType < 0 && Math.random() < 0.35) {
+            int finalAttack = (int)(Math.random() * 3);
+            switch (finalAttack) {
+                case 0:
+                    shootCarpetBomb(bullets, player);
+                    break;
+                case 1:
+                    shootArenaShockwaveBullets(bullets);
+                    break;
+                case 2:
+                    // Multi-beam barrage is handled in beam timer; use dense aimed volley instead
+                    shootFinalVolley(bullets, player);
+                    break;
+            }
             if (soundManager != null && bullets.size() > bulletCountBefore) {
                 soundManager.playSoundSpatial(SoundManager.Sound.BOSS_SHOOT, 0.25f, this.x, lastScreenWidth);
             }
@@ -1474,16 +1567,18 @@ public class Boss {
      * @return true if the beam would overlap with an existing beam
      */
     private boolean wouldBeamOverlap(double position, double width, BeamAttack.BeamType type) {
+        // Diagonal beams don't use position-based overlap checking
+        if (type == BeamAttack.BeamType.DIAGONAL) return false;
         for (BeamAttack existingBeam : beamAttacks) {
-            if (existingBeam.getType() == type) {
-                double existingPos = existingBeam.getPosition();
-                double existingWidth = existingBeam.getWidth();
-                
-                // Check if the beams overlap (with a small buffer for safety)
-                double minDistance = (width / 2) + (existingWidth / 2) + 10; // 10px buffer
-                if (Math.abs(position - existingPos) < minDistance) {
-                    return true;
-                }
+            if (existingBeam.getType() != type) continue;
+            if (existingBeam.getType() == BeamAttack.BeamType.DIAGONAL) continue;
+            double existingPos = existingBeam.getPosition();
+            double existingWidth = existingBeam.getWidth();
+            
+            // Check if the beams overlap (with a small buffer for safety)
+            double minDistance = (width / 2) + (existingWidth / 2) + 10; // 10px buffer
+            if (Math.abs(position - existingPos) < minDistance) {
+                return true;
             }
         }
         return false;
@@ -1523,7 +1618,71 @@ public class Boss {
         return -1; // No valid position found
     }
     
+    // === Final Boss Phase 2 Attack Methods ===
+    
+    /**
+     * Carpet Bomb: Boss fires dense columns of bullets downward across a wide horizontal sweep.
+     * Creates a wall of projectiles the player must weave through.
+     */
+    private void shootCarpetBomb(List<Bullet> bullets, Player player) {
+        double speedMult = getScaledSpeedMultiplier();
+        int columns = scaleBulletCount(12 + effectiveLevel / 2);
+        double spread = size * 3.0; // Wide spread from boss position
+        for (int i = 0; i < columns; i++) {
+            double offsetX = (i - columns / 2.0) * (spread / columns);
+            double bx = x + offsetX;
+            double by = y + size * 0.5;
+            // Slight horizontal scatter, strong downward velocity
+            double bvx = (Math.random() - 0.5) * 0.4;
+            double bvy = (1.8 + Math.random() * 0.6) * speedMult;
+            bullets.add(createBullet(bx, by, bvx, bvy, Bullet.BulletType.NORMAL));
+        }
+    }
+    
+    /**
+     * Arena Shockwave Bullets: Full 360-degree expanding ring of bullets.
+     * Fires outward in all directions, forcing the player to find a gap.
+     */
+    private void shootArenaShockwaveBullets(List<Bullet> bullets) {
+        double speedMult = getScaledSpeedMultiplier();
+        int bulletCount = scaleBulletCount(24 + effectiveLevel);
+        double angleStep = (Math.PI * 2) / bulletCount;
+        double baseSpeed = 1.5 * speedMult;
+        for (int i = 0; i < bulletCount; i++) {
+            double angle = i * angleStep + spiralRotation;
+            double bvx = Math.cos(angle) * baseSpeed;
+            double bvy = Math.sin(angle) * baseSpeed;
+            bullets.add(createBullet(x, y, bvx, bvy, Bullet.BulletType.LARGE));
+        }
+        spiralRotation += 0.15; // Offset each volley for variety
+    }
+    
+    /**
+     * Final Volley: Dense aimed burst at the player with a spread.
+     * A barrage of fast bullets fanning toward the player's position.
+     */
+    private void shootFinalVolley(List<Bullet> bullets, Player player) {
+        if (player == null) return;
+        double speedMult = getScaledSpeedMultiplier();
+        double angleToPlayer = Math.atan2(player.getY() - y, player.getX() - x);
+        int bulletCount = scaleBulletCount(16 + effectiveLevel / 2);
+        double fanAngle = Math.PI / 3; // 60 degree fan
+        for (int i = 0; i < bulletCount; i++) {
+            double angle = angleToPlayer - fanAngle / 2 + (fanAngle * i / (bulletCount - 1));
+            double speed = (2.0 + Math.random() * 0.5) * speedMult;
+            double bvx = Math.cos(angle) * speed;
+            double bvy = Math.sin(angle) * speed;
+            bullets.add(createBullet(x, y, bvx, bvy, Bullet.BulletType.FAST));
+        }
+    }
+    
     private void spawnBeamAttack(int screenWidth, int screenHeight, Player player) {
+        // Final boss Phase 2: Multi-beam barrage (4-6 simultaneous beams)
+        if (level == 28 && currentPhase >= 1 && Math.random() < 0.4) {
+            spawnFinalBossBeamBarrage(screenWidth, screenHeight, player);
+            mergeOverlappingBeams();
+            return;
+        }
         // Mega bosses have more intense beam patterns
         if (isMegaBoss && Math.random() < 0.35) {
             // 35% chance for mega boss special beam patterns (reduced from 50%)
@@ -1547,6 +1706,27 @@ public class Boss {
         // Randomly choose between vertical and horizontal beams
         boolean isVertical = Math.random() < 0.5;
         double playerSafePos = player != null ? (isVertical ? player.getX() : player.getY()) : -1;
+        
+        // At higher levels (or forced for showcase), mix in diagonal beam patterns
+        if (forceBeamAttack || level >= 14) {
+            double roll = Math.random();
+            if ((forceBeamAttack || level >= 18) && roll < 0.2) {
+                // X-pattern (two crossing diagonals)
+                spawnXBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if ((forceBeamAttack || level >= 16) && roll < 0.35) {
+                // Diagonal + axis-aligned cross
+                spawnDiagonalCross(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            } else if (roll < 0.5) {
+                // Simple diagonal beams
+                spawnDiagonalBeams(screenWidth, screenHeight, player);
+                mergeOverlappingBeams();
+                return;
+            }
+        }
         
         if (isVertical) {
             // Spawn 1-3 vertical beams depending on level
@@ -1621,6 +1801,30 @@ public class Boss {
         }
     }
     
+    /**
+     * Final Boss Phase 2: Multi-beam barrage — 4-6 beams simultaneously.
+     * Mix of vertical and horizontal beams creating a dense danger grid.
+     */
+    private void spawnFinalBossBeamBarrage(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(45 + effectiveLevel * 4, MAX_BEAM_WIDTH_GRID));
+        double playerX = player != null ? player.getX() : -1;
+        double playerY = player != null ? player.getY() : -1;
+        int numVertical = 2 + (int)(Math.random() * 2); // 2-3
+        int numHorizontal = 2 + (int)(Math.random() * 2); // 2-3
+        for (int i = 0; i < numVertical; i++) {
+            double position = findNonOverlappingPosition(screenWidth * 0.15, screenWidth * 0.85, width, BeamAttack.BeamType.VERTICAL, 10, playerX);
+            if (position >= 0) {
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.VERTICAL));
+            }
+        }
+        for (int i = 0; i < numHorizontal; i++) {
+            double position = findNonOverlappingPosition(screenHeight * 0.2, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10, playerY);
+            if (position >= 0) {
+                beamAttacks.add(new BeamAttack(position, width, BeamAttack.BeamType.HORIZONTAL));
+            }
+        }
+    }
+    
     private void spawnRotatingBeams(int screenWidth, int screenHeight, Player player) {
         // Diagonal beams that create rotating pattern
         double width = scaleBeamWidth(Math.min(55 + effectiveLevel * 7, MAX_BEAM_WIDTH_ROTATING)); // Capped & scaled width
@@ -1641,9 +1845,117 @@ public class Boss {
         }
     }
     
+    /**
+     * Spawn 1-2 diagonal beams at 45° or 135° angles through points biased toward screen center.
+     */
+    private void spawnDiagonalBeams(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(40 + effectiveLevel * 5, MAX_BEAM_WIDTH_DIAGONAL));
+        int numBeams = 1 + (level >= 18 ? 1 : 0);
+        double playerX = player != null ? player.getX() : -1;
+        double playerY = player != null ? player.getY() : -1;
+        
+        for (int i = 0; i < numBeams; i++) {
+            // Pick angle: 45° or 135°
+            double angle = (Math.random() < 0.5) ? Math.PI / 4 : 3 * Math.PI / 4;
+            // Center point biased toward screen center with some randomness
+            double cx = screenWidth * (0.3 + Math.random() * 0.4);
+            double cy = screenHeight * (0.3 + Math.random() * 0.4);
+            
+            // Check player safe zone in diagonal space
+            if (playerX >= 0 && playerY >= 0) {
+                double dx = playerX - cx;
+                double dy = playerY - cy;
+                double cosA = Math.cos(-angle);
+                double sinA = Math.sin(-angle);
+                double perpDist = Math.abs(dx * sinA + dy * cosA);
+                if (perpDist < width / 2.0 + BEAM_PLAYER_SAFE_ZONE) {
+                    // Shift center to avoid player
+                    cx += (Math.random() < 0.5 ? 1 : -1) * BEAM_PLAYER_SAFE_ZONE;
+                }
+            }
+            beamAttacks.add(new BeamAttack(cx, cy, width, angle));
+        }
+    }
+    
+    /**
+     * Spawn an X-pattern: two diagonal beams at 45° and 135° through the same center point.
+     */
+    private void spawnXBeams(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(45 + effectiveLevel * 5, MAX_BEAM_WIDTH_DIAGONAL));
+        // Center point near screen center
+        double cx = screenWidth * (0.35 + Math.random() * 0.3);
+        double cy = screenHeight * (0.35 + Math.random() * 0.3);
+        
+        beamAttacks.add(new BeamAttack(cx, cy, width, Math.PI / 4));       // 45° (top-left to bottom-right)
+        beamAttacks.add(new BeamAttack(cx, cy, width, 3 * Math.PI / 4));   // 135° (top-right to bottom-left)
+    }
+    
+    /**
+     * Spawn a diagonal cross: one diagonal beam + one axis-aligned beam.
+     */
+    private void spawnDiagonalCross(int screenWidth, int screenHeight, Player player) {
+        double width = scaleBeamWidth(Math.min(45 + effectiveLevel * 5, MAX_BEAM_WIDTH_CROSS));
+        double playerX = player != null ? player.getX() : -1;
+        double playerY = player != null ? player.getY() : -1;
+        
+        // One diagonal
+        double cx = screenWidth * (0.35 + Math.random() * 0.3);
+        double cy = screenHeight * (0.35 + Math.random() * 0.3);
+        double diagAngle = (Math.random() < 0.5) ? Math.PI / 4 : 3 * Math.PI / 4;
+        beamAttacks.add(new BeamAttack(cx, cy, width, diagAngle));
+        
+        // One axis-aligned
+        if (Math.random() < 0.5) {
+            double vx = findNonOverlappingPosition(screenWidth * 0.2, screenWidth * 0.8, width, BeamAttack.BeamType.VERTICAL, 10, playerX);
+            if (vx >= 0) beamAttacks.add(new BeamAttack(vx, width, BeamAttack.BeamType.VERTICAL));
+        } else {
+            double hy = findNonOverlappingPosition(screenHeight * 0.3, screenHeight * 0.8, width, BeamAttack.BeamType.HORIZONTAL, 10, playerY);
+            if (hy >= 0) beamAttacks.add(new BeamAttack(hy, width, BeamAttack.BeamType.HORIZONTAL));
+        }
+    }
+    
+    /**
+     * Start a spinning beam attack. Boss stops moving and emits rotating sector beams.
+     * Number of arms scales with level: 3 (level 18-21), 4 (level 22-25), 5 (level 26+).
+     */
+    private void startSpinningBeamAttack(int screenWidth, int screenHeight) {
+        spinningBeamActive = true;
+        savedVx = vx;
+        savedVy = vy;
+        vx = 0;
+        vy = 0;
+        
+        // Determine number of sections based on level
+        if (level >= 26) {
+            spinningBeamSections = 5;
+        } else if (level >= 22) {
+            spinningBeamSections = 4;
+        } else {
+            spinningBeamSections = 3;
+        }
+        
+        spinningBeamAngle = Math.random() * Math.PI * 2; // Random starting angle
+        spinningBeamRotationSpeed = 0.01 + (level - 18) * 0.002; // Scales with level
+        spinningBeamWidth = scaleBeamWidth(Math.min(35 + effectiveLevel * 3, 90));
+        spinningBeamWarningTimer = 180; // 3 second warning
+        spinningBeamTimer = Math.min(480, 300 + (level - 18) * 20); // 5-8 seconds active
+        
+        if (soundManager != null) {
+            soundManager.playSoundSpatial(SoundManager.Sound.BEAM_WARNING, 0.7f, this.x, lastScreenWidth);
+        }
+    }
+    
     public List<BeamAttack> getBeamAttacks() {
         return beamAttacks;
     }
+    
+    // Spinning beam getters
+    public boolean isSpinningBeamActive() { return spinningBeamActive; }
+    public double getSpinningBeamAngle() { return spinningBeamAngle; }
+    public int getSpinningBeamSections() { return spinningBeamSections; }
+    public double getSpinningBeamWidth() { return spinningBeamWidth; }
+    public double getSpinningBeamWarningTimer() { return spinningBeamWarningTimer; }
+    public double getSpinningBeamTimer() { return spinningBeamTimer; }
     
     /**
      * Merge overlapping or adjacent same-type beams that are still in warning phase
@@ -1990,13 +2302,28 @@ public class Boss {
             
             // Wobble is now triggered externally during hit animation, not here
             
-            // Calculate new phase based on health lost (every 2 HP lost = 1 phase, capped at 3)
-            int newPhase = Math.min((maxHealth - currentHealth) / 2, 3);
+            int newPhase;
+            if (level == 28) {
+                // Final boss: 2-phase system — phase 0 = HP 10-5, phase 1 = HP 4-1
+                newPhase = (currentHealth <= 4) ? 1 : 0;
+            } else {
+                // Standard: every 2 HP lost = 1 phase, capped at 3
+                newPhase = Math.min((maxHealth - currentHealth) / 2, 3);
+            }
             if (newPhase > currentPhase && currentHealth > 0) {
                 // Enter phase transition
                 currentPhase = newPhase;
                 phaseTransitioning = true;
                 phaseTransitionTimer = 0;
+                
+                // Final boss phase 2: intensify attacks
+                if (level == 28 && currentPhase >= 1) {
+                    this.shootInterval = (int)(this.shootInterval * 0.75); // 25% faster firing
+                    this.shockwaveMaxRadius = 400; // Larger shockwave
+                    this.twirlAttackMaxCount = 3; // Extra twirl
+                    this.twirlAttackSpeedBoost = 3.0; // Faster twirls
+                    this.beamAttackInterval = (int)(this.beamAttackInterval * 0.70); // 30% faster beams
+                }
             }
         }
     }
@@ -2008,7 +2335,11 @@ public class Boss {
     public void setCurrentHealth(int health) {
         this.currentHealth = Math.max(0, Math.min(health, maxHealth));
         // Recalculate phase based on health (without triggering transition animation)
-        this.currentPhase = Math.min((maxHealth - currentHealth) / 2, 3);
+        if (level == 28) {
+            this.currentPhase = (currentHealth <= 4) ? 1 : 0;
+        } else {
+            this.currentPhase = Math.min((maxHealth - currentHealth) / 2, 3);
+        }
     }
     
     public int getMaxHealth() {
@@ -2034,7 +2365,29 @@ public class Boss {
     
     public float getPhaseTransitionProgress() {
         if (!phaseTransitioning) return 0f;
-        return (float)phaseTransitionTimer / PHASE_TRANSITION_DURATION;
+        int transitionDuration = (level == 28) ? 150 : PHASE_TRANSITION_DURATION;
+        return (float)phaseTransitionTimer / transitionDuration;
+    }
+    
+    /**
+     * Get visual damage state for the final boss (HP-threshold based).
+     * Returns 0-5 for increasing damage levels. Non-final bosses use the old HP percent system.
+     */
+    public int getDamageState() {
+        if (level != 28) {
+            // Legacy: map HP percent to 0-2
+            float pct = getHealthPercent();
+            if (pct >= 0.7f) return 0;
+            if (pct >= 0.5f) return 1;
+            return 2;
+        }
+        // Final boss damage states
+        if (currentHealth >= 9) return 0;  // Pristine
+        if (currentHealth >= 7) return 1;  // Light scratches
+        if (currentHealth >= 5) return 2;  // Smoke wisps
+        if (currentHealth >= 3) return 3;  // Thick smoke + small fires
+        if (currentHealth >= 2) return 4;  // Heavy fire, trailing smoke
+        return 5;                           // Near-death: engulfed
     }
     
     public boolean isDead() {
@@ -2065,6 +2418,7 @@ public class Boss {
         return count;
     }
     public boolean isMegaBoss() { return isMegaBoss; }
+    public boolean isFinalBoss() { return level == 28; }
     public String getVehicleName() { return getVehicleName(level); }
     
     // Attack phase getters
@@ -2144,6 +2498,23 @@ public class Boss {
      */
     public void setDisableTwirl(boolean disable) {
         this.disableTwirl = disable;
+    }
+
+    /**
+     * Force spinning beam attack mode for debug showcase
+     */
+    public void setForceSpinningBeam(boolean force) {
+        this.forceSpinningBeam = force;
+        if (force) {
+            this.spinningBeamAttackCooldown = 0;
+        }
+    }
+
+    /**
+     * Disable spinning beam during showcase
+     */
+    public void setDisableSpinningBeam(boolean disable) {
+        this.disableSpinningBeam = disable;
     }
     
     /**

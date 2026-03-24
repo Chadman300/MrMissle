@@ -253,6 +253,7 @@ public class Renderer {
     private static BufferedImage bakedEdgeTop, bakedEdgeBottom, bakedEdgeLeft, bakedEdgeRight;
     private static BufferedImage bakedCornerTL, bakedCornerTR, bakedCornerBL, bakedCornerBR;
     private static boolean levelBoundsBaked = false;
+    private static int bakedWorldW = -1, bakedWorldH = -1;
     // Baked background gradient image (refreshes every few frames instead of 3 GradientPaint fills/frame)
     private BufferedImage cachedBgGradient;
     private int cachedBgPaletteIdx = -1;
@@ -6322,7 +6323,7 @@ public class Renderer {
 
     
 
-    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, double invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, double bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, double achievementNotificationTimer, boolean deathSequenceActive, boolean playerHidden, int respawnBlinkTimer, int riskContractType, boolean riskContractActive, double stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles, double deathFlashTimer, List<Flare> flares) {
+    public void drawGame(Graphics2D g, int width, int height, Player player, Boss boss, List<Bullet> bullets, List<Particle> particles, List<BeamAttack> beamAttacks, int level, double time, boolean bossVulnerable, double invulnerabilityTimer, int dodgeCombo, boolean showCombo, boolean bossDeathAnimation, double bossDeathScale, double bossDeathRotation, double gameTime, int fps, boolean shieldActive, boolean playerInvincible, int bossHitCount, double cameraX, double cameraY, boolean introPanActive, double bossFlashTimer, double screenFlashTimer, ComboSystem comboSystem, List<DamageNumber> damageNumbers, boolean bossIntroActive, String bossIntroText, double bossIntroTimer, boolean isPaused, int selectedPauseItem, List<Achievement> pendingAchievements, double achievementNotificationTimer, boolean deathSequenceActive, boolean playerHidden, int respawnBlinkTimer, int riskContractType, boolean riskContractActive, double stoppedMovingTimer, boolean unpauseCountdownActive, double unpauseCountdownTimer, double itemReadyFlickerTimer, double itemCompleteFlashTimer, double achievementFlashTimer, double bossIntroFlashTimer, double countdownFlashTimer, double bossHitFlashTimer, double typePurgeFlashTimer, Color typePurgeFlashColor, java.util.List<double[]> moneyCircles, double moneyCircleRadius, double frostBeamAngle, double frostBeamProgress, double frostBeamStopDistance, boolean frostBeamRetracting, double frostBeamRetractPhase, int shieldHits, double shieldOrbitAngle, double bossIntroPlayerX, double bossIntroBossX, double bossIntroVsScale, double bossIntroFlash, int bossIntroPhase, List<Particle> introParticles, double deathFlashTimer, List<Flare> flares, int levelWorldW, int levelWorldH) {
 
         // Draw background based on mode setting
 
@@ -6553,6 +6554,81 @@ public class Renderer {
         }
 
         
+        // Draw spinning beam attack (rotating arms from boss center)
+        if (boss != null && boss.isSpinningBeamActive()) {
+            double bossX = boss.getX();
+            double bossY = boss.getY();
+            int sections = boss.getSpinningBeamSections();
+            double beamAngle = boss.getSpinningBeamAngle();
+            double beamWidth = boss.getSpinningBeamWidth();
+            double warningTime = boss.getSpinningBeamWarningTimer();
+            
+            // Beam length: diagonal of the screen so arms always reach edges
+            int beamLength = (int)(Math.sqrt(width * width + height * height) * 1.2);
+            
+            Composite savedComp = g.getComposite();
+            AffineTransform savedTransform = g.getTransform();
+            
+            for (int s = 0; s < sections; s++) {
+                double armAngle = beamAngle + (s * 2.0 * Math.PI / sections);
+                
+                g.setTransform(savedTransform);
+                g.rotate(armAngle, bossX, bossY);
+                
+                int bx = (int)bossX;
+                int by = (int)(bossY - beamWidth / 2);
+                
+                if (warningTime > 0) {
+                    // Warning phase: blinking translucent beams
+                    double progress = 1.0 - (warningTime / 180.0);
+                    int r = (int)(100 + progress * 155); // green-ish to red
+                    int gn = (int)(200 - progress * 150);
+                    double blinkSpeed = 0.1 + progress * 0.4;
+                    float alphaF = (float)(Math.abs(Math.sin(warningTime * blinkSpeed)) * 150 + 50) / 255f;
+                    
+                    g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF)));
+                    g.setColor(new Color(r, gn, 50));
+                    g.fillRect(bx, by, beamLength, (int)beamWidth);
+                    
+                    // Warning borders
+                    g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 0.3f)));
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawLine(bx, by, bx + beamLength, by);
+                    g.drawLine(bx, by + (int)beamWidth, bx + beamLength, by + (int)beamWidth);
+                    
+                    // Warning "!" symbols
+                    if (warningTime > 30) {
+                        g.setFont(new Font("SansSerif", Font.BOLD, 20));
+                        int textY = (int)(bossY + g.getFontMetrics().getHeight() / 3);
+                        for (int wx = bx + 60; wx < bx + beamLength; wx += 120) {
+                            g.drawString("!", wx, textY);
+                        }
+                    }
+                } else {
+                    // Active phase: full damage beam with glow
+                    // Outer glow
+                    g.setComposite(RenderCache.getAlpha(0.3f));
+                    g.setColor(new Color(191, 97, 106));
+                    g.fillRect(bx, by - 10, beamLength, (int)beamWidth + 20);
+                    
+                    // Main beam
+                    g.setComposite(RenderCache.getAlpha(0.78f));
+                    g.setColor(new Color(191, 97, 106));
+                    g.fillRect(bx, by, beamLength, (int)beamWidth);
+                    
+                    // Inner core
+                    g.setComposite(RenderCache.getAlpha(0.86f));
+                    g.setColor(new Color(255, 150, 150));
+                    g.fillRect(bx, by + (int)beamWidth / 4, beamLength, (int)beamWidth / 2);
+                    
+                    // Reset composite for scanlines
+                    g.setComposite(savedComp);
+                }
+            }
+            
+            g.setTransform(savedTransform);
+            g.setComposite(savedComp);
+        }
 
         // Draw frost beam from active item (two-phase animation: extend thin, then thicken)
 
@@ -7493,14 +7569,85 @@ public class Renderer {
             boss.draw(g);
 
             
-            // Boss accumulated damage overlay â€” smoke wisps & fire glow
+            // Boss accumulated damage overlay - smoke wisps & fire glow
             float bossHpPct = boss.getHealthPercent(); // 1.0 = full, 0.0 = dead
-            if (bossHpPct < 0.7f) {
+            if (boss.isFinalBoss()) {
+                // Final boss: 6-state progressive damage system based on getDamageState()
+                int damageState = boss.getDamageState();
+                if (damageState > 0) {
+                    Composite _damSave = g.getComposite();
+                    int bSize = boss.getSize();
+                    int bCx = (int) boss.getX();
+                    int bCy = (int) boss.getY();
+
+                    if (damageState >= 1) {
+                        // State 1: Light scratches - thin dark lines across body
+                        g.setComposite(RenderCache.getAlpha(0.15f));
+                        g.setColor(new Color(30, 30, 30));
+                        g.setStroke(RenderCache.getStroke(1.5f));
+                        int scratchSpread = bSize / 3;
+                        for (int i = 0; i < 4; i++) {
+                            int sx = bCx - scratchSpread + (int)(Math.sin(i * 2.7) * scratchSpread);
+                            int sy = bCy - scratchSpread / 2 + i * (scratchSpread / 2);
+                            g.drawLine(sx, sy, sx + 15 + i * 5, sy + 8 - i * 3);
+                        }
+                    }
+                    if (damageState >= 2) {
+                        // State 2: Smoke wisps - faint gray haze near wing tips
+                        g.setComposite(RenderCache.getAlpha(0.2f));
+                        g.setColor(new Color(60, 60, 60));
+                        int wispW = (int)(bSize * 0.3);
+                        int wispH = (int)(bSize * 0.2);
+                        g.fillOval(bCx - bSize / 2 - wispW / 4, bCy - wispH / 2, wispW, wispH);
+                        g.fillOval(bCx + bSize / 2 - wispW * 3 / 4, bCy - wispH / 2, wispW, wispH);
+                    }
+                    if (damageState >= 3) {
+                        // State 3: Thick smoke + small fires
+                        g.setComposite(RenderCache.getAlpha(0.35f));
+                        g.setColor(new Color(40, 40, 40));
+                        int smokeW = (int)(bSize * 1.0);
+                        int smokeH = (int)(bSize * 0.5);
+                        g.fillOval(bCx - smokeW / 2, bCy - smokeH / 2, smokeW, smokeH);
+                        g.setComposite(RenderCache.getAlpha(0.3f));
+                        g.setColor(new Color(255, 140, 30));
+                        int fireS = bSize / 5;
+                        g.fillOval(bCx - bSize / 4 - fireS / 2, bCy + bSize / 6, fireS, fireS);
+                        g.fillOval(bCx + bSize / 6 - fireS / 2, bCy - bSize / 6, fireS, fireS);
+                    }
+                    if (damageState >= 4) {
+                        // State 4: Heavy fire + thick black smoke trail
+                        g.setComposite(RenderCache.getAlpha(0.45f));
+                        g.setColor(new Color(20, 20, 20));
+                        int trailW = (int)(bSize * 0.6);
+                        int trailH = (int)(bSize * 1.2);
+                        g.fillOval(bCx - trailW / 2, bCy, trailW, trailH);
+                        g.setComposite(RenderCache.getAlpha(0.4f));
+                        g.setColor(new Color(255, 100, 10));
+                        int fireW = (int)(bSize * 0.7);
+                        int fireH = (int)(bSize * 0.4);
+                        g.fillOval(bCx - fireW / 2, bCy - fireH / 3, fireW, fireH);
+                    }
+                    if (damageState >= 5) {
+                        // State 5: Engulfed in flames + bright fire
+                        g.setComposite(RenderCache.getAlpha(0.5f));
+                        g.setColor(new Color(255, 80, 0));
+                        int engulfW = (int)(bSize * 1.3);
+                        int engulfH = (int)(bSize * 0.9);
+                        g.fillOval(bCx - engulfW / 2, bCy - engulfH / 2, engulfW, engulfH);
+                        g.setComposite(RenderCache.getAlpha(0.25f));
+                        g.setColor(new Color(255, 255, 200));
+                        int coreW = (int)(bSize * 0.5);
+                        int coreH = (int)(bSize * 0.3);
+                        g.fillOval(bCx - coreW / 2, bCy - coreH / 2, coreW, coreH);
+                    }
+                    g.setComposite(_damSave);
+                }
+            } else if (bossHpPct < 0.7f) {
                 Composite _damSave = g.getComposite();
                 int bSize = boss.getSize();
                 int bCx = (int) boss.getX();
                 int bCy = (int) boss.getY();
-                float dmgRatio = 1.0f - bossHpPct; // 0â†’1 as more damaged
+                float dmgRatio = 1.0f - bossHpPct;
                 float overlayAlpha = Math.min(dmgRatio * 0.7f, 0.55f);
 
                 // Dark smoke haze across body
@@ -7794,9 +7941,9 @@ public class Renderer {
             snapped.translate(Math.round(tx) - tx, Math.round(ty) - ty);
             g.setTransform(snapped);
 
-            int worldW = Game.WORLD_WIDTH;
+            int worldW = levelWorldW;
 
-            int worldH = Game.WORLD_HEIGHT;
+            int worldH = levelWorldH;
 
             int gradSize = 80; // Width of the gradient fade
 
@@ -7822,10 +7969,12 @@ public class Renderer {
 
             
 
-            // Bake level bounds gradient images once (world size never changes)
-            if (!levelBoundsBaked) {
+            // Bake level bounds gradient images (re-bake when arena size changes)
+            if (!levelBoundsBaked || bakedWorldW != worldW || bakedWorldH != worldH) {
                 bakeLevelBounds(worldW, worldH, gradSize, gradOffset);
                 levelBoundsBaked = true;
+                bakedWorldW = worldW;
+                bakedWorldH = worldH;
             }
 
             // Draw baked gradient edge strips
@@ -8443,8 +8592,10 @@ public class Renderer {
 
             // === Shake offset for the banner ===
             double shakeT = time * 60.0; // frame-ish counter from time
-            int shakeX = (int)((Math.random() - 0.5) * 6);
-            int shakeY = (int)((Math.random() - 0.5) * 5);
+            boolean isFinalBossIntro = boss != null && boss.isFinalBoss();
+            int shakeAmt = isFinalBossIntro ? 10 : 6;
+            int shakeX = (int)((Math.random() - 0.5) * shakeAmt);
+            int shakeY = (int)((Math.random() - 0.5) * (shakeAmt - 1));
 
             // === Horizontal red scan lines across background ===
             g.setComposite(RenderCache.getAlpha(0.08f));
@@ -8478,9 +8629,10 @@ public class Renderer {
             int panelX = (width - panelW) / 2 + shakeX;
             int panelY = height / 2 - panelH / 2 - 3 + shakeY;
 
-            // Outer glow
-            for (int gl = 3; gl >= 1; gl--) {
-                g.setComposite(RenderCache.getAlpha(0.12f * gl));
+            // Outer glow (bigger for final boss)
+            int glowLayers = isFinalBossIntro ? 5 : 3;
+            for (int gl = glowLayers; gl >= 1; gl--) {
+                g.setComposite(RenderCache.getAlpha((isFinalBossIntro ? 0.15f : 0.12f) * gl));
                 g.setColor(INTRO_GLOW_RED);
                 g.fillRoundRect(panelX - gl * 3, panelY - gl * 3,
                     panelW + gl * 6, panelH + gl * 6, 14, 14);
@@ -8507,7 +8659,8 @@ public class Renderer {
             g.setComposite(AlphaComposite.SrcOver);
             g.setFont(FontPalette.get(java.awt.Font.BOLD, 14));
             FontMetrics wfm = g.getFontMetrics();
-            String warningText = "\u26A0  W A R N I N G  \u26A0";
+            String warningText = isFinalBossIntro ?
+                "\u26A0  F I N A L   B O S S  \u26A0" : "\u26A0  W A R N I N G  \u26A0";
             int warnW = wfm.stringWidth(warningText);
             int warnX = panelX + panelW / 2 - warnW / 2;
             int warnY = panelY + 24;
@@ -9384,6 +9537,85 @@ public class Renderer {
         }
 
         
+
+        // Final boss phase transition overlay
+        if (boss != null && boss.isFinalBoss() && boss.isPhaseTransitioning()) {
+            Composite _ptc = g.getComposite();
+            float transProgress = boss.getPhaseTransitionProgress();
+            
+            // Red/orange tint that pulses
+            float tintAlpha = (float)(0.15 + 0.15 * Math.sin(transProgress * Math.PI * 6));
+            g.setComposite(RenderCache.getAlpha(tintAlpha));
+            g.setColor(new Color(255, 60, 20));
+            g.fillRect(0, 0, width, height);
+            
+            // Boss energy glow - expanding/contracting ring around boss
+            double bScreenX = boss.getX() - cameraX;
+            double bScreenY = boss.getY() - cameraY;
+            int bSize = boss.getSize();
+            float ringPulse = (float)(0.8 + 0.4 * Math.sin(transProgress * Math.PI * 8));
+            int ringRadius = (int)(bSize * ringPulse);
+            g.setStroke(RenderCache.getStroke(3.0f));
+            for (int r = 0; r < 4; r++) {
+                float rAlpha = (0.4f - r * 0.08f) * (float)Math.sin(transProgress * Math.PI);
+                g.setComposite(RenderCache.getAlpha(Math.max(0.01f, rAlpha)));
+                g.setColor(r < 2 ? new Color(255, 200, 100) : new Color(255, 100, 30));
+                int rr = ringRadius + r * 15;
+                g.drawOval((int)(bScreenX - rr), (int)(bScreenY - rr), rr * 2, rr * 2);
+            }
+            g.setStroke(RenderCache.getStroke(1.0f));
+            
+            // "PHASE 2" banner across screen at peak of transition (35%-75% progress)
+            if (transProgress > 0.35f && transProgress < 0.75f) {
+                float bannerAlpha;
+                if (transProgress < 0.45f) bannerAlpha = (transProgress - 0.35f) / 0.10f;
+                else if (transProgress > 0.65f) bannerAlpha = (0.75f - transProgress) / 0.10f;
+                else bannerAlpha = 1.0f;
+                
+                // Dark backdrop strip
+                g.setComposite(RenderCache.getAlpha(bannerAlpha * 0.6f));
+                g.setColor(new Color(20, 0, 0));
+                g.fillRect(0, height / 2 - 40, width, 80);
+                
+                g.setFont(FontPalette.get(java.awt.Font.BOLD, 52));
+                FontMetrics ptFm = g.getFontMetrics();
+                String phaseText = "P H A S E   2";
+                int ptW = ptFm.stringWidth(phaseText);
+                int ptX = width / 2 - ptW / 2;
+                int ptY = height / 2 + ptFm.getAscent() / 2 - 5;
+                
+                // Shake the text
+                int pShakeX = (int)((Math.random() - 0.5) * 4 * Math.sin(transProgress * Math.PI));
+                int pShakeY = (int)((Math.random() - 0.5) * 3 * Math.sin(transProgress * Math.PI));
+                
+                // Glow behind text
+                g.setComposite(RenderCache.getAlpha(bannerAlpha * 0.3f));
+                g.setColor(new Color(255, 100, 30));
+                for (int ox = -2; ox <= 2; ox++) {
+                    for (int oy = -2; oy <= 2; oy++) {
+                        if (ox != 0 || oy != 0) g.drawString(phaseText, ptX + ox + pShakeX, ptY + oy + pShakeY);
+                    }
+                }
+                
+                // Shadow
+                g.setComposite(RenderCache.getAlpha(bannerAlpha * 0.8f));
+                g.setColor(Color.BLACK);
+                g.drawString(phaseText, ptX + 3 + pShakeX, ptY + 3 + pShakeY);
+                
+                // Main text - hot white-orange
+                g.setComposite(RenderCache.getAlpha(bannerAlpha));
+                g.setColor(new Color(255, 220, 180));
+                g.drawString(phaseText, ptX + pShakeX, ptY + pShakeY);
+                
+                // Red stripes above/below banner
+                g.setComposite(RenderCache.getAlpha(bannerAlpha * 0.8f));
+                g.setColor(new Color(200, 40, 20));
+                g.fillRect(0, height / 2 - 42, width, 3);
+                g.fillRect(0, height / 2 + 39, width, 3);
+            }
+            
+            g.setComposite(_ptc);
+        }
 
         // Type Purge chromatic flash effect (flashes the color of the purged bullet type)
 

@@ -25,6 +25,9 @@ public class Game extends JPanel implements Runnable {
     // World bounds - larger than screen for expanded play area
     public static final int WORLD_WIDTH;
     public static final int WORLD_HEIGHT;
+    // Per-level world dimensions (2x for final boss arena)
+    private int levelWorldWidth = WORLD_WIDTH;
+    private int levelWorldHeight = WORLD_HEIGHT;
     private static final int FPS = 60;
     
     static {
@@ -471,7 +474,9 @@ public class Game extends JPanel implements Runnable {
         {"bombs", "15", "Bombs", "Large explosive projectiles!\nThey explode into smaller bullets on impact!", "Explosive"},
         {"mega_spiral", "15", "Mega Spiral", "Layered spirals at different speeds!\nNavigate the expanding rings!", "Mega"},
         // Level 18 - NUKE bullets + Sixth Mega
-        {"nuke_bombs", "18", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!", "Explosive"}
+        {"nuke_bombs", "18", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!", "Explosive"},
+        // Level 18 - Spinning Beam
+        {"spinning_beam", "18", "Spinning Beam", "The boss stops and emits rotating beams!\nFind the gaps between the spinning arms!", "Beam"}
     };
     
     // Map attack IDs to boss pattern types
@@ -724,6 +729,7 @@ public class Game extends JPanel implements Runnable {
     private boolean introPanActive = false;
     private double introPanTimer = 0;
     private static final int INTRO_PAN_DURATION = 240; // 4 seconds total (2s boss entrance, 2s pan back)
+    private static final int FINAL_BOSS_INTRO_PAN_DURATION = 360; // 6 seconds for final boss (3s entrance, 3s pan back)
     private double bossEntranceY = -200; // Boss starts above screen
     
     // Settings
@@ -2208,11 +2214,18 @@ public class Game extends JPanel implements Runnable {
                             currentBoss.forceShoot(bullets, player);
                             soundManager.playSound(SoundManager.Sound.BOSS_SHOOT, 0.25f);
                         }
+                    } else if (key == KeyEvent.VK_Y && currentBoss != null && !bossDeathAnimation) {
+                        // Debug: deal 1 damage to boss
+                        currentBoss.takeDamage(true);
+                        bossHitCount++;
+                        screenShakeIntensity = 10;
+                        soundManager.playSound(SoundManager.Sound.BOSS_HIT);
+                        System.out.println("DEBUG: Y pressed - Boss HP: " + currentBoss.getCurrentHealth() + "/" + currentBoss.getMaxHealth());
                     } else if ((keyBindManager != null ? keyBindManager.isAction(KeyBindManager.Action.CONFIRM, key) : key == KeyEvent.VK_SPACE) && introPanActive) {
                         // Skip intro animation
                         introPanActive = false;
-                        cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                        cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                        cameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                        cameraY = (levelWorldHeight - HEIGHT) / 2.0;
                         screenShakeIntensity = 8;
                         if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
                         if (demoIntroActive) {
@@ -4837,6 +4850,15 @@ public class Game extends JPanel implements Runnable {
         gameData.setMissiles(rs.missiles);
         gameData.setBaseMissiles(rs.baseMissiles);
         
+        // Set per-level world dimensions (2x arena for final boss)
+        if (rs.bossLevel == 28) {
+            levelWorldWidth = (int)(WIDTH * 2.0);
+            levelWorldHeight = (int)(HEIGHT * 2.0);
+        } else {
+            levelWorldWidth = WORLD_WIDTH;
+            levelWorldHeight = WORLD_HEIGHT;
+        }
+        
         // Create new player at saved position
         player = new Player(rs.playerX, rs.playerY, gameData.getActiveSpeedLevel(), keyBindManager, controllerManager);
         
@@ -5029,6 +5051,8 @@ public class Game extends JPanel implements Runnable {
         
         // Create temporary player and boss for the demo
         int speedLevel = getActiveSpeedLevel();
+        levelWorldWidth = WORLD_WIDTH; // Demo intro always uses normal arena
+        levelWorldHeight = WORLD_HEIGHT;
         player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
         currentBoss = new Boss(WORLD_WIDTH / 2, 100, 1, soundManager, gameData.getGameMode());
         setupBossFactory(currentBoss);
@@ -5564,7 +5588,7 @@ public class Game extends JPanel implements Runnable {
             if (currentBoss != null && currentAttackIntroId != null) {
                 configureBossForShowcase(currentAttackIntroId);
                 currentBoss.setDebugSlowMode(true);
-                currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
+                currentBoss.setPosition(levelWorldWidth / 2, levelWorldHeight / 2 - 50);
                 currentBoss.setStayStationary(true);
             }
             
@@ -5602,7 +5626,7 @@ public class Game extends JPanel implements Runnable {
             // Configure boss to shoot bullets for testing items
             if (currentBoss != null) {
                 currentBoss.setDebugSlowMode(true);
-                currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
+                currentBoss.setPosition(levelWorldWidth / 2, levelWorldHeight / 2 - 50);
                 currentBoss.setStayStationary(true);
             }
             
@@ -5625,7 +5649,7 @@ public class Game extends JPanel implements Runnable {
         
         // Reset boss position and state
         if (currentBoss != null) {
-            currentBoss.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT / 2 - 50);
+            currentBoss.setPosition(levelWorldWidth / 2, levelWorldHeight / 2 - 50);
             currentBoss.clearBeamAttacks();
             // Re-configure for the showcase attack
             if (currentAttackIntroId != null) {
@@ -5634,7 +5658,7 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Reset player position
-        player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 100);
+        player.setPosition(levelWorldWidth / 2, levelWorldHeight - 100);
         
         soundManager.playSound(SoundManager.Sound.UI_SELECT);
         screenShakeIntensity = 5;
@@ -5675,6 +5699,8 @@ public class Game extends JPanel implements Runnable {
         currentBoss.setDisableBeamAttacks(false); // Reset beam disable
         currentBoss.setDisableShockwave(false); // Reset shockwave disable
         currentBoss.setDisableTwirl(false); // Reset twirl disable
+        currentBoss.setForceSpinningBeam(false); // Reset spinning beam force
+        currentBoss.setDisableSpinningBeam(false); // Reset spinning beam disable
         
         // Map attack IDs to boss behavior
         // Pattern types: 0=Spiral, 1=Circle, 2=Aimed, 3=Wave, 4=Random, 5=Fast, 6=Large,
@@ -5714,6 +5740,7 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableBulletShooting(true); // Only show beam, no bullets
                 currentBoss.setDisableShockwave(true); // No shockwave during beam showcase
                 currentBoss.setDisableTwirl(true); // No twirl during beam showcase
+                currentBoss.setDisableSpinningBeam(true); // No spinning beam during beam showcase
                 break;
             case "spiral_bullets":
                 currentBoss.setForcedPatternType(8); // Spiral bullets
@@ -5723,12 +5750,21 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableBulletShooting(true); // Only show shockwave, no bullets
                 currentBoss.setDisableBeamAttacks(true); // No beams during shockwave showcase
                 currentBoss.setDisableTwirl(true); // No twirl during shockwave showcase
+                currentBoss.setDisableSpinningBeam(true); // No spinning beam during shockwave showcase
                 break;
             case "twirl_attack":
                 currentBoss.setForceTwirlAttack(true);
                 currentBoss.setDisableBulletShooting(true); // Only show twirl, no bullets
                 currentBoss.setDisableBeamAttacks(true); // No beams during twirl showcase
                 currentBoss.setDisableShockwave(true); // No shockwave during twirl showcase
+                currentBoss.setDisableSpinningBeam(true); // No spinning beam during twirl showcase
+                break;
+            case "spinning_beam":
+                currentBoss.setForceSpinningBeam(true);
+                currentBoss.setDisableBulletShooting(true); // Only show spinning beam
+                currentBoss.setDisableBeamAttacks(true); // No regular beams during spinning beam showcase
+                currentBoss.setDisableShockwave(true); // No shockwave during spinning beam showcase
+                currentBoss.setDisableTwirl(true); // No twirl during spinning beam showcase
                 break;
             case "accelerating_bullets":
                 currentBoss.setForcedPatternType(10); // Accelerating
@@ -5799,7 +5835,7 @@ public class Game extends JPanel implements Runnable {
         ShadowCache.clear();
         
         int speedLevel = getActiveSpeedLevel();
-        player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
+        player = new Player(levelWorldWidth / 2, levelWorldHeight - 200, speedLevel, keyBindManager, controllerManager);
         bullets.clear();
         particles.clear();
         damageNumbers.clear();
@@ -5820,7 +5856,16 @@ public class Game extends JPanel implements Runnable {
             bossLevel = gameData.getCurrentLevel();
         }
         
-        currentBoss = new Boss(WORLD_WIDTH / 2, 100, bossLevel, soundManager, gameData.getGameMode()); // Normal position, will move during intro
+        // Set per-level world dimensions (2x arena for final boss)
+        if (bossLevel == 28) {
+            levelWorldWidth = (int)(WIDTH * 2.0);
+            levelWorldHeight = (int)(HEIGHT * 2.0);
+        } else {
+            levelWorldWidth = WORLD_WIDTH;
+            levelWorldHeight = WORLD_HEIGHT;
+        }
+        
+        currentBoss = new Boss(levelWorldWidth / 2, 100, bossLevel, soundManager, gameData.getGameMode()); // Normal position, will move during intro
         
         // In endless mode, apply additional difficulty scaling
         if (gameData.isInEndlessMode()) {
@@ -5841,8 +5886,8 @@ public class Game extends JPanel implements Runnable {
         gameData.resetCurrentLevelStats();
         
         // Track spawn position for spawn protection radius
-        spawnProtectionX = WORLD_WIDTH / 2;
-        spawnProtectionY = WORLD_HEIGHT - 200;
+        spawnProtectionX = levelWorldWidth / 2;
+        spawnProtectionY = levelWorldHeight - 200;
         
         // Reset cumulative run stats if starting from level 1 (or endless level 1)
         if (gameData.getCurrentLevel() == 1 || (gameData.isInEndlessMode() && gameData.getEndlessCurrentLevel() == 1)) {
@@ -5902,8 +5947,8 @@ public class Game extends JPanel implements Runnable {
         introPanActive = true;
         introPanTimer = 0;
         bossEntranceY = -200; // Boss will start above screen
-        cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-        cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+        cameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+        cameraY = (levelWorldHeight - HEIGHT) / 2.0;
         
         screenShakeIntensity = 0;
         bossDeathAnimation = false;
@@ -6798,12 +6843,13 @@ public class Game extends JPanel implements Runnable {
                 // Phase 1: Hold camera at death position
                 deathCameraHoldTimer -= deltaTime;
                 // Lock camera on death position
-                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                double baseCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
-                double deathOffsetX = deathExplosionX - WORLD_WIDTH / 2.0;
-                double deathOffsetY = deathExplosionY - WORLD_HEIGHT / 2.0;
-                cameraX = baseCameraX + Math.max(-CAMERA_MAX_OFFSET, Math.min((WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_MAX_OFFSET, deathOffsetX));
-                cameraY = baseCameraY + Math.max(-CAMERA_MAX_OFFSET, Math.min((WORLD_HEIGHT - HEIGHT) / 2.0 + CAMERA_MAX_OFFSET, deathOffsetY));
+                double baseCameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                double baseCameraY = (levelWorldHeight - HEIGHT) / 2.0;
+                double deathOffsetX = deathExplosionX - levelWorldWidth / 2.0;
+                double deathOffsetY = deathExplosionY - levelWorldHeight / 2.0;
+                double deathCamMax = (levelWorldWidth > WORLD_WIDTH) ? (levelWorldWidth - WIDTH) / 2.0 : CAMERA_MAX_OFFSET;
+                cameraX = baseCameraX + Math.max(-deathCamMax, Math.min((levelWorldWidth - WIDTH) / 2.0 + deathCamMax, deathOffsetX));
+                cameraY = baseCameraY + Math.max(-deathCamMax, Math.min((levelWorldHeight - HEIGHT) / 2.0 + deathCamMax, deathOffsetY));
                 
                 if (deathCameraHoldTimer <= 0) {
                     // Start pan-back phase
@@ -6818,10 +6864,10 @@ public class Game extends JPanel implements Runnable {
                 progress = Math.max(0, Math.min(1, progress));
                 // Smooth easing
                 double ease = progress * progress * (3 - 2 * progress);
-                double spawnCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                double spawnCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                double spawnCameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                double spawnCameraY = (levelWorldHeight - HEIGHT) / 2.0;
                 // Offset for spawn point
-                double spawnOffsetY = (WORLD_HEIGHT - 200) - WORLD_HEIGHT / 2.0;
+                double spawnOffsetY = (levelWorldHeight - 200) - levelWorldHeight / 2.0;
                 if (Math.abs(spawnOffsetY) > CAMERA_DEADZONE) {
                     spawnCameraY += spawnOffsetY - Math.signum(spawnOffsetY) * CAMERA_DEADZONE;
                 }
@@ -6832,7 +6878,7 @@ public class Game extends JPanel implements Runnable {
                     // Phase 3: Respawn player
                     playerHidden = false;
                     deathSequenceActive = false;
-                    player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                    player.setPosition(levelWorldWidth / 2, levelWorldHeight - 200);
                     player.resetVelocity();
                     
                     // Reset Can't Stop contract so player must input movement before timer starts
@@ -7014,7 +7060,7 @@ public class Game extends JPanel implements Runnable {
         if (player != null) {
             // Only allow player control when intro pan and boss intro cinematic are complete
             if (!introPanActive && !bossIntroActive) {
-                player.update(keys, WORLD_WIDTH, WORLD_HEIGHT, dt); // Use world bounds for larger map
+                player.update(keys, levelWorldWidth, levelWorldHeight, dt); // Use world bounds for larger map
                 
                 // Targeting passive: auto-aim toward boss when nearby
                 int targetingLevel = getActiveTargetingLevel();
@@ -7117,8 +7163,9 @@ public class Game extends JPanel implements Runnable {
             // Handle intro sequence
             if (introPanActive) {
                 introPanTimer += dt;
-                
-                double halfDuration = INTRO_PAN_DURATION / 2.0;
+                boolean isFinalBossIntro = currentBoss != null && currentBoss.isFinalBoss();
+                int panDuration = isFinalBossIntro ? FINAL_BOSS_INTRO_PAN_DURATION : INTRO_PAN_DURATION;
+                double halfDuration = panDuration / 2.0;
                 if (introPanTimer < halfDuration) {
                     // Boss entrance animation - fly down from above
                     double progress = introPanTimer / halfDuration;
@@ -7139,7 +7186,7 @@ public class Game extends JPanel implements Runnable {
                         
                         // Add jet trail particles during descent - throttled for performance
                         if (progress > 0.1 && particles.size() < MAX_PARTICLES && Math.random() < 0.25) {
-                            double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5; // Point upward (thrusters push down)
+                            double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
                             double speed = 1 + Math.random() * 2;
                             addParticle(
                                 currentBoss.getX() + (Math.random() - 0.5) * 30,
@@ -7152,15 +7199,33 @@ public class Game extends JPanel implements Runnable {
                                 Particle.ParticleType.TRAIL
                             );
                         }
+                        // Final boss: extra fire/ember particles during entrance
+                        if (isFinalBossIntro && progress > 0.15 && particles.size() < MAX_PARTICLES) {
+                            if (Math.random() < 0.4) {
+                                double fAngle = Math.random() * Math.PI * 2;
+                                double fSpeed = 1.5 + Math.random() * 3;
+                                Color fColor = Math.random() < 0.5 ? FIRE_ORANGE : FIRE_RED;
+                                addParticle(
+                                    currentBoss.getX() + (Math.random() - 0.5) * currentBoss.getSize() * 0.8,
+                                    currentBoss.getY() + (Math.random() - 0.5) * currentBoss.getSize() * 0.5,
+                                    Math.cos(fAngle) * fSpeed, Math.sin(fAngle) * fSpeed,
+                                    fColor, 50 + (int)(Math.random() * 30), 6 + Math.random() * 6,
+                                    Particle.ParticleType.EXHAUST);
+                            }
+                            // Heavy shake for final boss entrance
+                            if (progress > 0.3) {
+                                screenShakeIntensity = Math.max(screenShakeIntensity, 12 + easeProgress * 8);
+                            }
+                        }
                     }
                     
                     // Camera follows boss down slightly
-                    double baseOffY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                    double baseOffY = (levelWorldHeight - HEIGHT) / 2.0;
                     double targetY = bossEntranceY * 0.3;
-                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                    cameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
                     cameraY = baseOffY + targetY;
                     
-                } else if (introPanTimer < INTRO_PAN_DURATION) {
+                } else if (introPanTimer < panDuration) {
                     // Pan back to player (second half)
                     double progress = (introPanTimer - halfDuration) / halfDuration;
                     double easeProgress = progress * progress * (3 - 2 * progress); // Smooth ease
@@ -7182,7 +7247,7 @@ public class Game extends JPanel implements Runnable {
                     
                     // Camera pans back to center
                     double startPanY = 30.0; // Camera's extra Y during boss viewing
-                    double baseOffsetY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                    double baseOffsetY = (levelWorldHeight - HEIGHT) / 2.0;
                     cameraY = baseOffsetY + startPanY * (1 - easeProgress);
                     
                     // Add engine glow particles as boss settles - throttled
@@ -7201,31 +7266,60 @@ public class Game extends JPanel implements Runnable {
                     
                 } else {
                     // Entrance complete - add final burst of particles
-                    if (introPanTimer - deltaTime < INTRO_PAN_DURATION) {
-                        // Just finished - add dramatic particle burst (reduced count)
-                        screenShakeIntensity = 15; // Massive shake at the end
+                    if (introPanTimer - deltaTime < panDuration) {
+                        // Just finished - add dramatic particle burst
+                        screenShakeIntensity = isFinalBossIntro ? 25 : 15;
                         if (currentBoss != null) {
-                            for (int i = 0; i < 12 && particles.size() < MAX_PARTICLES; i++) {
+                            int burstCount = isFinalBossIntro ? 30 : 12;
+                            for (int i = 0; i < burstCount && particles.size() < MAX_PARTICLES; i++) {
                                 double angle = Math.random() * Math.PI * 2;
-                                double speed = 1 + Math.random() * 3;
+                                double speed = 1 + Math.random() * (isFinalBossIntro ? 6 : 3);
+                                Color burstCol = isFinalBossIntro ?
+                                    (Math.random() < 0.4 ? FIRE_ORANGE : Math.random() < 0.5 ? FIRE_RED : EXPLOSION_WARM) :
+                                    EXPLOSION_WARM;
                                 addParticle(
                                     currentBoss.getX(),
                                     currentBoss.getY(),
                                     Math.cos(angle) * speed,
                                     Math.sin(angle) * speed,
-                                    EXPLOSION_WARM,
+                                    burstCol,
                                     30 + (int)(Math.random() * 30),
                                     10.0 + Math.random() * 10.0,
                                     Particle.ParticleType.EXPLOSION
                                 );
                             }
+                            // Final boss: extra shockwave rings on landing
+                            if (isFinalBossIntro) {
+                                for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
+                                    addParticle(currentBoss.getX(), currentBoss.getY(), 0, 0,
+                                        FIRE_ORANGE, 50 + i * 15, 50 + i * 30,
+                                        Particle.ParticleType.EXPLOSION);
+                                }
+                                screenFlashTimer = 15;
+                            }
                         }
                     }
                     
                     introPanActive = false;
-                    cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                    cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
                     if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
+                    // Snap camera to show the player (not world center) so they're immediately visible
+                    {
+                        double baseCamX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                        double baseCamY = (levelWorldHeight - HEIGHT) / 2.0;
+                        if (player != null) {
+                            double offX = player.getX() - levelWorldWidth / 2.0;
+                            double offY = player.getY() - levelWorldHeight / 2.0;
+                            if (Math.abs(offX) > CAMERA_DEADZONE) baseCamX += offX - Math.signum(offX) * CAMERA_DEADZONE;
+                            if (Math.abs(offY) > CAMERA_DEADZONE) baseCamY += offY - Math.signum(offY) * CAMERA_DEADZONE;
+                            double cmOff = (levelWorldWidth > WORLD_WIDTH) ? (levelWorldWidth - WIDTH) / 2.0 : CAMERA_MAX_OFFSET;
+                            double mxX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET + cmOff + 180;
+                            double mxY = (levelWorldHeight - HEIGHT) / 2.0 + cmOff;
+                            baseCamX = Math.max(-(cmOff + 160) + CAMERA_HORIZONTAL_OFFSET, Math.min(mxX, baseCamX));
+                            baseCamY = Math.max(-cmOff, Math.min(mxY, baseCamY));
+                        }
+                        cameraX = baseCamX;
+                        cameraY = baseCamY;
+                    }
                     if (demoIntroActive) {
                         demoIntroActive = false;
                         transitionToState(GameState.MENU);
@@ -7237,14 +7331,14 @@ public class Game extends JPanel implements Runnable {
             } else if (player != null && !deathSequenceActive) {
                 // Normal camera follow with slow smooth interpolation (only when intro is done and player exists)
                 // Base offset centers the world in the viewport
-                double baseCameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                double baseCameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                double baseCameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                double baseCameraY = (levelWorldHeight - HEIGHT) / 2.0;
                 double targetCameraX = baseCameraX;
                 double targetCameraY = baseCameraY;
                 
                 // Calculate offset from world center (camera follows player in expanded world)
-                double offsetX = player.getX() - WORLD_WIDTH / 2.0;
-                double offsetY = player.getY() - WORLD_HEIGHT / 2.0;
+                double offsetX = player.getX() - levelWorldWidth / 2.0;
+                double offsetY = player.getY() - levelWorldHeight / 2.0;
                 
                 // Only move camera if player is outside deadzone
                 if (Math.abs(offsetX) > CAMERA_DEADZONE) {
@@ -7255,10 +7349,12 @@ public class Game extends JPanel implements Runnable {
                 }
                 
                 // Clamp target to keep world edges visible (left offset by 160 so gradient edge is fully reachable, right offset by 180)
-                double maxOffsetX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET + CAMERA_MAX_OFFSET + 180;
-                double maxOffsetY = (WORLD_HEIGHT - HEIGHT) / 2.0 + CAMERA_MAX_OFFSET;
-                targetCameraX = Math.max(-(CAMERA_MAX_OFFSET + 160) + CAMERA_HORIZONTAL_OFFSET, Math.min(maxOffsetX, targetCameraX));
-                targetCameraY = Math.max(-CAMERA_MAX_OFFSET, Math.min(maxOffsetY, targetCameraY));
+                // Use larger camera range for expanded arenas (e.g. final boss 2x arena)
+                double camMaxOffset = (levelWorldWidth > WORLD_WIDTH) ? (levelWorldWidth - WIDTH) / 2.0 : CAMERA_MAX_OFFSET;
+                double maxOffsetX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET + camMaxOffset + 180;
+                double maxOffsetY = (levelWorldHeight - HEIGHT) / 2.0 + camMaxOffset;
+                targetCameraX = Math.max(-(camMaxOffset + 160) + CAMERA_HORIZONTAL_OFFSET, Math.min(maxOffsetX, targetCameraX));
+                targetCameraY = Math.max(-camMaxOffset, Math.min(maxOffsetY, targetCameraY));
                 
                 // Smoothly interpolate camera position
                 double zoomAdjustedSmoothing = CAMERA_SMOOTHING / cameraZoom * dt;
@@ -7471,7 +7567,7 @@ public class Game extends JPanel implements Runnable {
                             (double)(WIDTH / 2), (double)(HEIGHT / 2));
                     }
                     if (player != null) {
-                        player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                        player.setPosition(levelWorldWidth / 2, levelWorldHeight - 200);
                         player.resetVelocity();
                     }
                     bossVulnerable = false; // End vulnerability window
@@ -7499,6 +7595,40 @@ public class Game extends JPanel implements Runnable {
                 } else {
                     // Deal normal damage to boss using new health system
                     currentBoss.takeDamage(true); // Hit by player missile
+                }
+                
+                // Final boss Phase 2 transition VFX — dramatic screen effects when entering phase 1
+                if (currentBoss.isFinalBoss() && currentBoss.isPhaseTransitioning() && currentBoss.getCurrentPhase() == 1) {
+                    screenShakeIntensity = 30; // Heavy shake for phase transition
+                    screenFlashTimer = 25; // White flash
+                    double phBossX = currentBoss.getX();
+                    double phBossY = currentBoss.getY();
+                    // Spark shower radiating from boss
+                    if (enableParticles) {
+                        for (int i = 0; i < 40 && particles.size() < MAX_PARTICLES; i++) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 4 + Math.random() * 8;
+                            Color sparkCol;
+                            double r = Math.random();
+                            if (r < 0.3) sparkCol = new Color(255, 255, 220);
+                            else if (r < 0.6) sparkCol = FIRE_ORANGE;
+                            else sparkCol = FIRE_RED;
+                            addParticle(phBossX, phBossY,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                sparkCol, 30, 3 + Math.random() * 4,
+                                Particle.ParticleType.SPARK);
+                        }
+                        // Explosion shockwave rings
+                        for (int i = 0; i < 4 && particles.size() < MAX_PARTICLES; i++) {
+                            addParticle(phBossX, phBossY, 0, 0,
+                                FIRE_ORANGE, 40 + i * 10, 40 + i * 25,
+                                Particle.ParticleType.EXPLOSION);
+                        }
+                    }
+                    soundManager.playSound(SoundManager.Sound.BOSS_FINAL_HIT);
+                    if (comboSystem != null) {
+                        comboSystem.setAnnouncement("PHASE 2!", phBossX, phBossY - 60);
+                    }
                 }
                 
                 int remainingHealth = currentBoss.getCurrentHealth();
@@ -7723,7 +7853,7 @@ public class Game extends JPanel implements Runnable {
                 invulnerabilityTimer = 300; // 5 seconds of invulnerability
                 
                 // Teleport player back to spawn so boss recovers (fires) before player is back
-                player.setPosition(WORLD_WIDTH / 2, WORLD_HEIGHT - 200);
+                player.setPosition(levelWorldWidth / 2, levelWorldHeight - 200);
                 player.resetVelocity();
                 playerInvincible = true;
                 respawnInvincibilityTimer = 120; // 2 seconds (shorter than death's 3s)
@@ -8232,11 +8362,80 @@ public class Game extends JPanel implements Runnable {
         }
         if (currentBoss != null && !bossDeathAnimation && !introPanActive && !bossIntroActive && player != null && !bossStunned && bossHitCameraHoldTimer <= 0) {
             int bulletCountBefore = bullets.size();
-            currentBoss.update(bullets, player, WORLD_WIDTH, WORLD_HEIGHT, bossDt, particles);
+            currentBoss.update(bullets, player, levelWorldWidth, levelWorldHeight, bossDt, particles);
             beamAttacks = currentBoss.getBeamAttacks();
+            
+            // Phase transition continuous VFX — energy particles while boss is transitioning
+            if (currentBoss.isFinalBoss() && currentBoss.isPhaseTransitioning() && enableParticles) {
+                float transProgress = currentBoss.getPhaseTransitionProgress();
+                double bx = currentBoss.getX();
+                double by = currentBoss.getY();
+                double bSize = currentBoss.getSize();
+                // Pulsing screen shake during transition
+                screenShakeIntensity = Math.max(screenShakeIntensity, 8 + 15 * Math.sin(transProgress * Math.PI));
+                // Energy sparks swirling around boss
+                if (Math.random() < 0.6 && particles.size() < MAX_PARTICLES) {
+                    double swirlAngle = transProgress * Math.PI * 8 + Math.random() * Math.PI * 2;
+                    double swirlRadius = bSize * 0.6 * (0.5 + 0.5 * Math.sin(transProgress * Math.PI * 3));
+                    double px = bx + Math.cos(swirlAngle) * swirlRadius;
+                    double py = by + Math.sin(swirlAngle) * swirlRadius;
+                    double sv = 2 + Math.random() * 3;
+                    Color sCol = Math.random() < 0.3 ? new Color(255, 255, 200) :
+                                 Math.random() < 0.5 ? FIRE_ORANGE : FIRE_RED;
+                    addParticle(px, py,
+                        Math.cos(swirlAngle + Math.PI / 2) * sv, Math.sin(swirlAngle + Math.PI / 2) * sv,
+                        sCol, 25 + (int)(Math.random() * 15), 3 + Math.random() * 4,
+                        Particle.ParticleType.SPARK);
+                }
+                // Expanding shockwave pulses at key progress points
+                double tp = transProgress;
+                if ((tp > 0.25 && tp < 0.27) || (tp > 0.50 && tp < 0.52) || (tp > 0.75 && tp < 0.77)) {
+                    if (particles.size() < MAX_PARTICLES) {
+                        addParticle(bx, by, 0, 0, FIRE_ORANGE, 35, 60 + Math.random() * 40,
+                            Particle.ParticleType.EXPLOSION);
+                    }
+                }
+            }
             
             // Continuous smoke/fire particles on damaged boss
             if (enableParticles) {
+                if (currentBoss.isFinalBoss()) {
+                    // Final boss: damage-state driven continuous particles
+                    int damageState = currentBoss.getDamageState();
+                    if (damageState >= 2) {
+                        double bossSize = currentBoss.getSize();
+                        double bx = currentBoss.getX();
+                        double by = currentBoss.getY();
+                        // More particles at higher damage states
+                        double spawnRate = 0.15 + damageState * 0.15; // 0.45 at state 2, up to 0.9 at state 5
+                        if (Math.random() < spawnRate) {
+                            double px = bx + (Math.random() - 0.5) * bossSize * 0.9;
+                            double py = by + (Math.random() - 0.5) * bossSize * 0.6;
+                            if (damageState >= 4 && Math.random() < 0.5) {
+                                // Heavy fire at high damage
+                                addParticle(px, py, (Math.random()-0.5)*1.0, -0.5 - Math.random()*1.5,
+                                    FIRE_ORANGE, 40, 5 + Math.random()*4,
+                                    Particle.ParticleType.EXHAUST);
+                            } else {
+                                // Dark smoke
+                                int gray = 40 + (int)(Math.random() * 35);
+                                addParticle(px, py, (Math.random()-0.5)*0.8, -0.6 - Math.random()*1.2,
+                                    new Color(gray, gray, gray, 180), 55, 7 + Math.random()*5,
+                                    Particle.ParticleType.SMOKE);
+                            }
+                        }
+                        // Extra fire sparks at damage state 5
+                        if (damageState >= 5 && Math.random() < 0.4) {
+                            double angle = Math.random() * TWO_PI;
+                            double speed = 1 + Math.random() * 3;
+                            addParticle(bx + (Math.random()-0.5)*bossSize*0.5,
+                                by + (Math.random()-0.5)*bossSize*0.3,
+                                Math.cos(angle) * speed, Math.sin(angle) * speed,
+                                FIRE_RED, 20, 2 + Math.random()*2,
+                                Particle.ParticleType.SPARK);
+                        }
+                    }
+                } else {
                 float bossHpPct = currentBoss.getHealthPercent();
                 if (bossHpPct < 0.7f) {
                     float dmgRatio = 1.0f - bossHpPct;
@@ -8257,6 +8456,7 @@ public class Game extends JPanel implements Runnable {
                                 Particle.ParticleType.EXHAUST);
                         }
                     }
+                }
                 }
             }
             
@@ -8343,7 +8543,7 @@ public class Game extends JPanel implements Runnable {
                 // Respawn player at bottom with invincibility (not shield item)
                 soundManager.playSound(SoundManager.Sound.PLAYER_RESPAWN);
                 int speedLevel = getActiveSpeedLevel();
-                player = new Player(WORLD_WIDTH / 2, WORLD_HEIGHT - 200, speedLevel, keyBindManager, controllerManager);
+                player = new Player(levelWorldWidth / 2, levelWorldHeight - 200, speedLevel, keyBindManager, controllerManager);
                 // Don't activate shield here - use invincibility instead
                 // shieldActive is only for the Shield active item
                 playerInvincible = true;
@@ -8366,7 +8566,7 @@ public class Game extends JPanel implements Runnable {
                         double angle = Math.random() * TWO_PI;
                         double speed = 3 + Math.random() * 7;
                         addParticle(
-                            WORLD_WIDTH / 2, WORLD_HEIGHT - 200,
+                            levelWorldWidth / 2, levelWorldHeight - 200,
                             Math.cos(angle) * speed, Math.sin(angle) * speed,
                             SPAWN_CYAN, 35, 12,
                             Particle.ParticleType.SPARK
@@ -8375,7 +8575,7 @@ public class Game extends JPanel implements Runnable {
                     // Shield activation rings (reduced count)
                     for (int i = 0; i < 3 && particles.size() < MAX_PARTICLES; i++) {
                         addParticle(
-                            WORLD_WIDTH / 2, WORLD_HEIGHT - 200, 0, 0,
+                            levelWorldWidth / 2, levelWorldHeight - 200, 0, 0,
                             SHIELD_BLUE, 40 + i * 12, 35 + i * 20,
                             Particle.ParticleType.EXPLOSION
                         );
@@ -8418,6 +8618,36 @@ public class Game extends JPanel implements Runnable {
             }
         }
         
+        // Check spinning beam collision (rotating arms from boss)
+        if (currentBoss != null && currentBoss.isSpinningBeamActive() 
+                && currentBoss.getSpinningBeamWarningTimer() <= 0
+                && player != null && !deathSequenceActive && respawnInvincibilityTimer <= 0) {
+            double bossX = currentBoss.getX();
+            double bossY = currentBoss.getY();
+            int sections = currentBoss.getSpinningBeamSections();
+            double beamAngle = currentBoss.getSpinningBeamAngle();
+            double beamWidth = currentBoss.getSpinningBeamWidth();
+            double px = player.getX();
+            double py = player.getY();
+            
+            for (int s = 0; s < sections; s++) {
+                double armAngle = beamAngle + (s * 2.0 * Math.PI / sections);
+                // Rotate player position into beam-local space
+                double dx = px - bossX;
+                double dy = py - bossY;
+                double cosA = Math.cos(-armAngle);
+                double sinA = Math.sin(-armAngle);
+                double localX = dx * cosA - dy * sinA;
+                double localY = dx * sinA + dy * cosA;
+                
+                // Beam extends from boss center to the right in local space
+                if (localX > 0 && Math.abs(localY) < beamWidth / 2.0 + player.getSize() / 2.0) {
+                    handlePlayerDeath();
+                    return;
+                }
+            }
+        }
+        
         // ===== OPTIMIZED BULLET UPDATE =====
         // Phase 1: Parallel bullet position updates (bullets are independent during movement)
         {
@@ -8444,7 +8674,7 @@ public class Game extends JPanel implements Runnable {
                                 bullet.resetFrameSpeedMultiplier();
                                 if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
                                 if (timeSlowActive) bullet.applySlow(0.15);
-                                bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
+                                bullet.update(playerRef, levelWorldWidth, levelWorldHeight, bulletDt);
                             }
                         } finally {
                             latch.countDown();
@@ -8458,7 +8688,7 @@ public class Game extends JPanel implements Runnable {
                     bullet.resetFrameSpeedMultiplier();
                     if (bulletSlowLevel > 0) bullet.applySlow(bulletSlowMult);
                     if (timeSlowActive) bullet.applySlow(0.15);
-                    bullet.update(playerRef, WORLD_WIDTH, WORLD_HEIGHT, bulletDt);
+                    bullet.update(playerRef, levelWorldWidth, levelWorldHeight, bulletDt);
                 }
             }
         }
@@ -8522,7 +8752,7 @@ public class Game extends JPanel implements Runnable {
             }
             
             // Check if bullet is off-screen
-            if (bullet.isOffScreen(WORLD_WIDTH, WORLD_HEIGHT)) {
+            if (bullet.isOffScreen(levelWorldWidth, levelWorldHeight)) {
                 returnBulletToPool(bullet);
                 continue; // Don't keep this bullet
             }
@@ -9376,7 +9606,7 @@ public class Game extends JPanel implements Runnable {
                 
                 // Apply screen shake
                 g2d.translate(screenShakeX, screenShakeY);
-                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer, flares);
+                renderer.drawGame(g2d, WIDTH, HEIGHT, player, currentBoss, bullets, particles, beamAttacks, gameData.getCurrentLevel(), gradientTime, bossVulnerable, invulnerabilityTimer, dodgeCombo, comboTimer > 0, bossDeathAnimation, bossDeathScale, bossDeathRotation, gameTimeSeconds, currentFPS, shieldActive, playerInvincible, bossHitCount, cameraX, cameraY, introPanActive, bossFlashTimer, screenFlashTimer, comboSystem, damageNumbers, bossIntroActive, bossIntroText, bossIntroTimer, isPaused, selectedPauseItem, pendingAchievements, achievementNotificationTimer, deathSequenceActive, playerHidden, respawnBlinkTimer, riskContractType, riskContractActive, stoppedMovingTimer, unpauseCountdownActive, unpauseCountdownTimer, itemReadyFlickerTimer, itemCompleteFlashTimer, achievementFlashTimer, bossIntroFlashTimer, countdownFlashTimer, bossHitFlashTimer, typePurgeFlashTimer, typePurgeFlashColor, moneyCircles, MONEY_CIRCLE_RADIUS, frostBeamAngle, frostBeamProgress, frostBeamStopDistance, frostBeamRetracting, frostBeamRetractPhase, shieldHits, shieldOrbitAngle, bossIntroPlayerX, bossIntroBossX, bossIntroVsScale, bossIntroFlash, bossIntroPhase, introParticles, deathFlashTimer, flares, levelWorldWidth, levelWorldHeight);
                 
                 // Draw boss stun effect
                 if (bossStunned && currentBoss != null) {
@@ -10732,8 +10962,8 @@ public class Game extends JPanel implements Runnable {
                     if (controllerManager.isActionJustPressed(KeyBindManager.Action.CONFIRM)) {
                         if (introPanActive) {
                             introPanActive = false;
-                            cameraX = (WORLD_WIDTH - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
-                            cameraY = (WORLD_HEIGHT - HEIGHT) / 2.0;
+                            cameraX = (levelWorldWidth - WIDTH) / 2.0 + CAMERA_HORIZONTAL_OFFSET;
+                            cameraY = (levelWorldHeight - HEIGHT) / 2.0;
                             screenShakeIntensity = 8;
                             if (currentBoss != null) currentBoss.setPosition(currentBoss.getX(), 100);
                             if (demoIntroActive) {
@@ -11338,8 +11568,8 @@ public class Game extends JPanel implements Runnable {
                 int maxAttempts = 50;
                 for (int i = 0; i < numBombs && maxAttempts > 0; i++) {
                     // Random position within world bounds (with padding)
-                    double bombX = 80 + Math.random() * (WORLD_WIDTH - 160);
-                    double bombY = 80 + Math.random() * (WORLD_HEIGHT - 160);
+                    double bombX = 80 + Math.random() * (levelWorldWidth - 160);
+                    double bombY = 80 + Math.random() * (levelWorldHeight - 160);
                     
                     // Check minimum distance from other bombs
                     boolean validPosition = true;
@@ -11428,7 +11658,7 @@ public class Game extends JPanel implements Runnable {
                 
                 if (player != null && frostBeamProgress > 0.3) {
                     double angle = frostBeamAngle; // Use smooth beam angle instead of player angle
-                    double maxLaserLength = Math.sqrt(WORLD_WIDTH * WORLD_WIDTH + WORLD_HEIGHT * WORLD_HEIGHT);
+                    double maxLaserLength = Math.sqrt(levelWorldWidth * levelWorldWidth + levelWorldHeight * levelWorldHeight);
                     
                     // Beam width and length scale with animation progress
                     double easedProgress = 1.0 - Math.pow(1.0 - frostBeamProgress, 3);

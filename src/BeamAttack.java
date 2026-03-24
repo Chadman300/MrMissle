@@ -1,15 +1,20 @@
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 public class BeamAttack {
     public enum BeamType {
         VERTICAL,   // Top to bottom beam
-        HORIZONTAL  // Left to right beam
+        HORIZONTAL, // Left to right beam
+        DIAGONAL    // Angled beam through a center point
     }
     
     private double position; // X position for vertical, Y position for horizontal
     private double width;    // Width of the beam
     private BeamType type;
+    private double angle;    // Angle in radians for DIAGONAL beams (0 = horizontal, PI/4 = 45°)
+    private double centerX;  // Center X for DIAGONAL beams
+    private double centerY;  // Center Y for DIAGONAL beams
     private double warningTimer; // Countdown until beam appears
     private double beamTimer;    // How long beam stays active
     private boolean isActive; // Whether beam is dealing damage
@@ -81,6 +86,21 @@ public class BeamAttack {
         this.firePlayed = false;
     }
     
+    /** Constructor for DIAGONAL beams that pass through a center point at an angle. */
+    public BeamAttack(double centerX, double centerY, double width, double angle) {
+        this.centerX = centerX;
+        this.centerY = centerY;
+        this.width = width;
+        this.angle = angle;
+        this.type = BeamType.DIAGONAL;
+        this.position = 0; // Not used for diagonal
+        this.warningTimer = WARNING_DURATION;
+        this.beamTimer = BEAM_DURATION;
+        this.isActive = false;
+        this.warningPlayed = false;
+        this.firePlayed = false;
+    }
+    
     public void update(double deltaTime) {
         // Apply time slow multiplier to deltaTime
         double effectiveDeltaTime = deltaTime * timeSlowMultiplier;
@@ -144,9 +164,19 @@ public class BeamAttack {
         if (type == BeamType.VERTICAL) {
             // Check if player is within horizontal range of beam
             return Math.abs(px - position) < (width / 2 + playerRadius);
-        } else {
+        } else if (type == BeamType.HORIZONTAL) {
             // Check if player is within vertical range of beam
             return Math.abs(py - position) < (width / 2 + playerRadius);
+        } else {
+            // DIAGONAL: rotate player position into beam's local space
+            // Translate so beam center is origin, then rotate by -angle
+            double dx = px - centerX;
+            double dy = py - centerY;
+            double cosA = Math.cos(-angle);
+            double sinA = Math.sin(-angle);
+            // In rotated space, the beam runs along the X axis; check perpendicular (Y) distance
+            double localY = dx * sinA + dy * cosA;
+            return Math.abs(localY) < (width / 2 + playerRadius);
         }
     }
     
@@ -174,7 +204,36 @@ public class BeamAttack {
             g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF)));
             g.setColor(warningColor);
             
-            if (type == BeamType.VERTICAL) {
+            if (type == BeamType.DIAGONAL) {
+                // DIAGONAL warning: rotate graphics around center and draw as horizontal warning
+                AffineTransform savedTransform = g.getTransform();
+                g.rotate(angle, centerX, centerY);
+                int beamLength = (int)(Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight) * 1.5);
+                int halfLen = beamLength / 2;
+                int bx = (int)(centerX - halfLen);
+                int by = (int)(centerY - width / 2);
+                
+                g.fillRect(bx, by, beamLength, (int)width);
+                
+                // Warning borders
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 100f / 255f)));
+                g.setColor(warningColor);
+                g.setStroke(WARNING_STROKE);
+                g.drawLine(bx, by, bx + beamLength, by);
+                g.drawLine(bx, by + (int)width, bx + beamLength, by + (int)width);
+                
+                // Warning text along the beam
+                if (warningTimer > 30) {
+                    g.setFont(WARNING_FONT);
+                    String warning = "!";
+                    FontMetrics fm = g.getFontMetrics();
+                    int textY = (int)(centerY + fm.getHeight() / 3);
+                    for (int wx = bx + 50; wx < bx + beamLength; wx += 100) {
+                        g.drawString(warning, wx, textY);
+                    }
+                }
+                g.setTransform(savedTransform);
+            } else if (type == BeamType.VERTICAL) {
                 // Draw vertical warning line
                 int x = (int)(position - width / 2);
                 g.fillRect(x, minY, (int)width, maxY - minY);
@@ -197,7 +256,7 @@ public class BeamAttack {
                         g.drawString(warning, textX, y);
                     }
                 }
-            } else {
+            } else if (type == BeamType.HORIZONTAL) {
                 // Draw horizontal warning line
                 int y = (int)(position - width / 2);
                 g.fillRect(minX, y, maxX - minX, (int)width);
@@ -224,7 +283,33 @@ public class BeamAttack {
             g.setComposite(savedComp); // Restore composite after warning drawing
         } else if (isActive) {
             // Draw active damage beam with glow effect
-            if (type == BeamType.VERTICAL) {
+            if (type == BeamType.DIAGONAL) {
+                // DIAGONAL active beam: rotate graphics around center point and draw as horizontal
+                AffineTransform savedTransform = g.getTransform();
+                g.rotate(angle, centerX, centerY);
+                int beamLength = (int)(Math.sqrt(screenWidth * screenWidth + screenHeight * screenHeight) * 1.5);
+                int halfLen = beamLength / 2;
+                int bx = (int)(centerX - halfLen);
+                int by = (int)(centerY - width / 2);
+                
+                // Outer glow
+                g.setColor(BEAM_GLOW);
+                g.fillRect(bx, by - 10, beamLength, (int)width + 20);
+                // Main beam
+                g.setColor(BEAM_MAIN);
+                g.fillRect(bx, by, beamLength, (int)width);
+                // Inner core
+                g.setColor(BEAM_CORE);
+                g.fillRect(bx, by + (int)width / 4, beamLength, (int)width / 2);
+                // Animated scanlines
+                int offset = (int)((beamTimer * 10) % 8);
+                TexturePaint scanPaint = new TexturePaint(SCANLINE_TILE_H,
+                    new java.awt.geom.Rectangle2D.Float(offset, 0, 8, 1));
+                g.setPaint(scanPaint);
+                g.fillRect(bx, by, beamLength, (int)width);
+                
+                g.setTransform(savedTransform);
+            } else if (type == BeamType.VERTICAL) {
                 int x = (int)(position - width / 2);
                 
                 // Outer glow
@@ -279,6 +364,9 @@ public class BeamAttack {
     public double getPosition() { return position; }
     public double getWidth() { return width; }
     public double getWarningTimer() { return warningTimer; }
+    public double getAngle() { return angle; }
+    public double getCenterX() { return centerX; }
+    public double getCenterY() { return centerY; }
     
     /** Set position (used when merging overlapping beams). */
     public void setPosition(double position) { this.position = position; }

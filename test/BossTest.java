@@ -91,4 +91,88 @@ public class BossTest {
         assertNotNull(name);
         assertFalse(name.isEmpty());
     }
+    
+    // ====== Final Boss (Level 28) Tests ======
+    
+    @Test
+    public void testFinalBossStats() {
+        Boss finalBoss = new Boss(400, 100, 28);
+        assertTrue(finalBoss.isFinalBoss());
+        assertEquals(10, finalBoss.getMaxHealth());
+        assertEquals(10, finalBoss.getCurrentHealth());
+        assertEquals(250, finalBoss.getSize());
+        assertFalse(finalBoss.isMegaBoss()); // Level 28 is not a mega boss pattern
+    }
+    
+    @Test
+    public void testFinalBossPhaseTransition() {
+        Boss finalBoss = new Boss(400, 100, 28);
+        assertEquals(0, finalBoss.getCurrentPhase());
+        
+        // Damage to 5 HP — still phase 0
+        for (int i = 0; i < 5; i++) {
+            finalBoss.takeDamage();
+        }
+        assertEquals(5, finalBoss.getCurrentHealth());
+        assertEquals(0, finalBoss.getCurrentPhase());
+        
+        // Damage to 4 HP — enters phase 1
+        finalBoss.takeDamage();
+        assertEquals(4, finalBoss.getCurrentHealth());
+        assertEquals(1, finalBoss.getCurrentPhase());
+    }
+    
+    @Test
+    public void testFinalBossDamageState() {
+        Boss finalBoss = new Boss(400, 100, 28);
+        
+        // Full health: damage state 0
+        assertEquals(0, finalBoss.getDamageState());
+        
+        // 9 HP: state 1
+        finalBoss.takeDamage();
+        assertEquals(1, finalBoss.getDamageState());
+        
+        // 7 HP: state 2
+        finalBoss.takeDamage(); // 8 HP
+        finalBoss.takeDamage(); // 7 HP
+        assertEquals(2, finalBoss.getDamageState());
+        
+        // 5 HP: state 3
+        finalBoss.takeDamage(); // 6 HP
+        finalBoss.takeDamage(); // 5 HP
+        assertEquals(3, finalBoss.getDamageState());
+        
+        // 3 HP: state 4
+        finalBoss.takeDamage(); // 4 HP
+        finalBoss.takeDamage(); // 3 HP
+        assertEquals(4, finalBoss.getDamageState());
+        
+        // 2 HP: still state 4
+        finalBoss.takeDamage(); // 2 HP
+        assertEquals(4, finalBoss.getDamageState());
+        
+        // 1 HP: state 5
+        finalBoss.takeDamage(); // 1 HP
+        assertEquals(5, finalBoss.getDamageState());
+    }
+    
+    @Test
+    public void testFinalBossDeath() {
+        Boss finalBoss = new Boss(400, 100, 28);
+        
+        for (int i = 0; i < 10; i++) {
+            finalBoss.takeDamage();
+        }
+        
+        assertEquals(0, finalBoss.getCurrentHealth());
+        assertTrue(finalBoss.isDead());
+    }
+    
+    @Test
+    public void testNonFinalBossIsNotFinal() {
+        assertFalse(boss.isFinalBoss()); // Level 1
+        Boss midBoss = new Boss(400, 100, 14);
+        assertFalse(midBoss.isFinalBoss());
+    }
 }
