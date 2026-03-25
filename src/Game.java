@@ -476,7 +476,9 @@ public class Game extends JPanel implements Runnable {
         // Level 18 - NUKE bullets + Sixth Mega
         {"nuke_bombs", "18", "Nuke Bombs", "Massive explosions that fill the screen.\nFind the safe spots quickly!", "Explosive"},
         // Level 18 - Spinning Beam
-        {"spinning_beam", "18", "Spinning Beam", "The boss stops and emits rotating beams!\nFind the gaps between the spinning arms!", "Beam"}
+        {"spinning_beam", "18", "Spinning Beam", "The boss stops and emits rotating beams!\nFind the gaps between the spinning arms!", "Beam"},
+        // Level 22 - Hex Cage
+        {"hex_cage", "22", "Hex Cage", "Beam walls form a shrinking hexagon!\nStay inside and dodge the closing walls!", "Beam"}
     };
     
     // Map attack IDs to boss pattern types
@@ -5741,6 +5743,7 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableShockwave(true); // No shockwave during beam showcase
                 currentBoss.setDisableTwirl(true); // No twirl during beam showcase
                 currentBoss.setDisableSpinningBeam(true); // No spinning beam during beam showcase
+                currentBoss.setDisableHexCage(true); // No hex cage during beam showcase
                 break;
             case "spiral_bullets":
                 currentBoss.setForcedPatternType(8); // Spiral bullets
@@ -5751,6 +5754,7 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableBeamAttacks(true); // No beams during shockwave showcase
                 currentBoss.setDisableTwirl(true); // No twirl during shockwave showcase
                 currentBoss.setDisableSpinningBeam(true); // No spinning beam during shockwave showcase
+                currentBoss.setDisableHexCage(true); // No hex cage during shockwave showcase
                 break;
             case "twirl_attack":
                 currentBoss.setForceTwirlAttack(true);
@@ -5758,6 +5762,7 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableBeamAttacks(true); // No beams during twirl showcase
                 currentBoss.setDisableShockwave(true); // No shockwave during twirl showcase
                 currentBoss.setDisableSpinningBeam(true); // No spinning beam during twirl showcase
+                currentBoss.setDisableHexCage(true); // No hex cage during twirl showcase
                 break;
             case "spinning_beam":
                 currentBoss.setForceSpinningBeam(true);
@@ -5765,6 +5770,15 @@ public class Game extends JPanel implements Runnable {
                 currentBoss.setDisableBeamAttacks(true); // No regular beams during spinning beam showcase
                 currentBoss.setDisableShockwave(true); // No shockwave during spinning beam showcase
                 currentBoss.setDisableTwirl(true); // No twirl during spinning beam showcase
+                currentBoss.setDisableHexCage(true); // No hex cage during spinning beam showcase
+                break;
+            case "hex_cage":
+                currentBoss.setForceHexCage(true);
+                currentBoss.setDisableBulletShooting(true); // Only show hex cage
+                currentBoss.setDisableBeamAttacks(true); // No regular beams during hex cage showcase
+                currentBoss.setDisableShockwave(true); // No shockwave during hex cage showcase
+                currentBoss.setDisableTwirl(true); // No twirl during hex cage showcase
+                currentBoss.setDisableSpinningBeam(true); // No spinning beam during hex cage showcase
                 break;
             case "accelerating_bullets":
                 currentBoss.setForcedPatternType(10); // Accelerating
@@ -8616,6 +8630,22 @@ public class Game extends JPanel implements Runnable {
                 handlePlayerDeath();
                 return;
             }
+            
+            // When beam disappears, destroy bullets in a small region at the beam's midpoint
+            if (beam.justFinished()) {
+                double middleRadius = 40; // Small region around beam center
+                for (int bi = bullets.size() - 1; bi >= 0; bi--) {
+                    Bullet b = bullets.get(bi);
+                    if (b.isActive() && beam.collidesWithBulletMiddle(b.getX(), b.getY(), levelWorldWidth, levelWorldHeight, middleRadius)) {
+                        // Spawn small explosion particles at bullet position
+                        if (enableParticles && particles.size() < MAX_PARTICLES) {
+                            addParticle(b.getX(), b.getY(), 0, 0, new Color(191, 97, 106), 20, 4, Particle.ParticleType.EXPLOSION);
+                        }
+                        returnBulletToPool(b);
+                        bullets.remove(bi);
+                    }
+                }
+            }
         }
         
         // Check spinning beam collision (rotating arms from boss)
@@ -8642,6 +8672,52 @@ public class Game extends JPanel implements Runnable {
                 
                 // Beam extends from boss center to the right in local space
                 if (localX > 0 && Math.abs(localY) < beamWidth / 2.0 + player.getSize() / 2.0) {
+                    handlePlayerDeath();
+                    return;
+                }
+            }
+        }
+        
+        // Check hex cage collision (hexagonal beam walls around boss)
+        if (currentBoss != null && currentBoss.isHexCageActive() 
+                && currentBoss.getHexCageWarningTimer() <= 0
+                && player != null && !deathSequenceActive && respawnInvincibilityTimer <= 0) {
+            double bossX = currentBoss.getX();
+            double bossY = currentBoss.getY();
+            double hexRadius = currentBoss.getHexCageRadius();
+            double hexAngle = currentBoss.getHexCageAngle();
+            int hexWidth = currentBoss.getHexCageWidth();
+            double px = player.getX();
+            double py = player.getY();
+            double playerRadius = player.getSize() / 2.0;
+            
+            // Check each of the 6 hex sides
+            for (int i = 0; i < 6; i++) {
+                // Compute vertices of this side
+                double angle1 = hexAngle + i * Math.PI / 3.0;
+                double angle2 = hexAngle + (i + 1) * Math.PI / 3.0;
+                double v1x = bossX + hexRadius * Math.cos(angle1);
+                double v1y = bossY + hexRadius * Math.sin(angle1);
+                double v2x = bossX + hexRadius * Math.cos(angle2);
+                double v2y = bossY + hexRadius * Math.sin(angle2);
+                
+                // Side midpoint and angle
+                double midX = (v1x + v2x) / 2.0;
+                double midY = (v1y + v2y) / 2.0;
+                double sideAngle = Math.atan2(v2y - v1y, v2x - v1x);
+                double sideLength = hexRadius; // For a regular hexagon, side length == radius
+                
+                // Rotate player position into side-local space
+                double dx = px - midX;
+                double dy = py - midY;
+                double cosA = Math.cos(-sideAngle);
+                double sinA = Math.sin(-sideAngle);
+                double localX = dx * cosA - dy * sinA;
+                double localY = dx * sinA + dy * cosA;
+                
+                // Check if player overlaps this side (rotated rectangle)
+                if (Math.abs(localX) < sideLength / 2.0 + playerRadius 
+                        && Math.abs(localY) < hexWidth / 2.0 + playerRadius) {
                     handlePlayerDeath();
                     return;
                 }

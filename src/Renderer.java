@@ -6705,6 +6705,130 @@ public class Renderer {
             g.setComposite(savedComp);
         }
 
+        // Draw hex cage attack (6 beams forming a hexagon around boss)
+        if (boss != null && boss.isHexCageActive()) {
+            double bossX = boss.getX();
+            double bossY = boss.getY();
+            double hexRadius = boss.getHexCageRadius();
+            double hexAngle = boss.getHexCageAngle();
+            int hexWidth = boss.getHexCageWidth();
+            int warningTime = boss.getHexCageWarningTimer();
+            int hexPhase = boss.getHexCagePhase();
+            
+            Composite savedComp2 = g.getComposite();
+            AffineTransform savedTransform2 = g.getTransform();
+            Stroke savedStroke = g.getStroke();
+            
+            // Compute the 6 hex vertices
+            double[] vx = new double[6];
+            double[] vy = new double[6];
+            for (int i = 0; i < 6; i++) {
+                double a = hexAngle + i * Math.PI / 3.0;
+                vx[i] = bossX + hexRadius * Math.cos(a);
+                vy[i] = bossY + hexRadius * Math.sin(a);
+            }
+            
+            if (warningTime > 0) {
+                // Warning phase: blinking hex outline
+                double progress = 1.0 - (warningTime / 180.0);
+                double blinkSpeed = 0.1 + progress * 0.4;
+                float alphaF = (float)(Math.abs(Math.sin(warningTime * blinkSpeed)) * 150 + 50) / 255f;
+                
+                // Cyan/teal tint for hex cage
+                int r = (int)(50 + progress * 50);
+                int gn = (int)(180 + progress * 75);
+                int b = (int)(200 + progress * 55);
+                
+                g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF)));
+                g.setColor(new Color(r, gn, b));
+                g.setStroke(new BasicStroke(3f + (float)(progress * 3)));
+                
+                // Draw hex outline
+                int[] xPoints = new int[6];
+                int[] yPoints = new int[6];
+                for (int i = 0; i < 6; i++) {
+                    xPoints[i] = (int)vx[i];
+                    yPoints[i] = (int)vy[i];
+                }
+                g.drawPolygon(xPoints, yPoints, 6);
+                
+                // Warning "!" symbols at alternate vertices
+                if (warningTime > 30) {
+                    g.setFont(new Font("SansSerif", Font.BOLD, 20));
+                    g.setComposite(RenderCache.getAlpha(Math.min(1f, alphaF + 0.2f)));
+                    for (int i = 0; i < 6; i += 2) {
+                        g.drawString("!", (int)vx[i] - 5, (int)vy[i] + 7);
+                    }
+                }
+            } else {
+                // Active phase: draw 6 beam segments as rotated rectangles
+                for (int i = 0; i < 6; i++) {
+                    int next = (i + 1) % 6;
+                    double midX = (vx[i] + vx[next]) / 2.0;
+                    double midY = (vy[i] + vy[next]) / 2.0;
+                    double sideAngle = Math.atan2(vy[next] - vy[i], vx[next] - vx[i]);
+                    double sideLength = hexRadius; // side length == radius for regular hex
+                    
+                    g.setTransform(savedTransform2);
+                    g.rotate(sideAngle, midX, midY);
+                    
+                    int bx = (int)(midX - sideLength / 2.0);
+                    int by = (int)(midY - hexWidth / 2.0);
+                    int bw = (int)sideLength;
+                    
+                    // Outer glow (cyan/teal tint)
+                    g.setComposite(RenderCache.getAlpha(0.25f));
+                    g.setColor(new Color(80, 200, 220));
+                    g.fillRect(bx - 5, by - 8, bw + 10, hexWidth + 16);
+                    
+                    // Main beam body
+                    g.setComposite(RenderCache.getAlpha(0.75f));
+                    g.setColor(new Color(70, 190, 210));
+                    g.fillRect(bx, by, bw, hexWidth);
+                    
+                    // Inner core (brighter)
+                    g.setComposite(RenderCache.getAlpha(0.85f));
+                    g.setColor(new Color(140, 230, 245));
+                    g.fillRect(bx, by + hexWidth / 4, bw, hexWidth / 2);
+                    
+                    // Animated scanlines (reuse spinning beam scanline tile)
+                    g.setComposite(savedComp2);
+                    int scanOffset = (int)((hexRadius * 0.5) % 8);
+                    TexturePaint scanPaint = new TexturePaint(SPIN_BEAM_SCANLINE_TILE,
+                        new Rectangle2D.Float(scanOffset, 0, 8, 1));
+                    g.setPaint(scanPaint);
+                    g.fillRect(bx, by, bw, hexWidth);
+                    
+                    // Edge borders
+                    g.setComposite(RenderCache.getAlpha(0.5f));
+                    g.setColor(new Color(140, 230, 245));
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawLine(bx, by, bx + bw, by);
+                    g.drawLine(bx, by + hexWidth, bx + bw, by + hexWidth);
+                    
+                    g.setComposite(savedComp2);
+                }
+                
+                g.setTransform(savedTransform2);
+                
+                // Draw vertex glow points where beams meet
+                for (int i = 0; i < 6; i++) {
+                    int glowR = hexWidth / 2 + 4;
+                    g.setComposite(RenderCache.getAlpha(0.4f));
+                    g.setColor(new Color(80, 200, 220));
+                    g.fillOval((int)vx[i] - glowR, (int)vy[i] - glowR, glowR * 2, glowR * 2);
+                    int coreR = hexWidth / 4;
+                    g.setComposite(RenderCache.getAlpha(0.7f));
+                    g.setColor(new Color(180, 240, 255));
+                    g.fillOval((int)vx[i] - coreR, (int)vy[i] - coreR, coreR * 2, coreR * 2);
+                }
+            }
+            
+            g.setTransform(savedTransform2);
+            g.setComposite(savedComp2);
+            g.setStroke(savedStroke);
+        }
+
         // Draw frost beam from active item (two-phase animation: extend thin, then thicken)
 
         ActiveItem equippedItem = gameData.getEquippedItem();

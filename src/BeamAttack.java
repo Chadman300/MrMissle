@@ -21,6 +21,7 @@ public class BeamAttack {
     private boolean warningPlayed; // Whether warning sound was played
     private boolean firePlayed; // Whether fire sound was played
     private double timeSlowMultiplier = 1.0; // Multiplier for time slow effect (1.0 = normal, 0.3 = 70% slow)
+    private boolean justFinished; // True for one frame when beam transitions from active to done
     
     private static final int WARNING_DURATION = 210; // 3.5 seconds warning (increased from 150)
     private static final int BEAM_DURATION = 45;     // 0.75 seconds active beam (increased from 30)
@@ -108,6 +109,9 @@ public class BeamAttack {
         // Reset time slow multiplier each frame (must be reapplied if active)
         timeSlowMultiplier = 1.0;
         
+        // Clear one-frame flag from previous update
+        justFinished = false;
+        
         if (warningTimer > 0) {
             warningTimer -= effectiveDeltaTime;
             if (warningTimer <= 0) {
@@ -118,6 +122,7 @@ public class BeamAttack {
             beamTimer -= effectiveDeltaTime;
             if (beamTimer <= 0) {
                 isActive = false;
+                justFinished = true;
             }
         }
     }
@@ -376,4 +381,40 @@ public class BeamAttack {
     
     /** Whether this beam is still in the warning phase (hasn't fired yet). */
     public boolean isInWarningPhase() { return warningTimer > 0 && !isActive; }
+    
+    /** True for exactly one frame when the beam finishes its active phase. */
+    public boolean justFinished() { return justFinished; }
+    
+    /**
+     * Check if a bullet is within this beam AND within a small region around the beam's midpoint.
+     * Used to destroy bullets when the beam disappears.
+     * @param middleRadius how far along the beam axis from the center counts as "middle"
+     */
+    public boolean collidesWithBulletMiddle(double bx, double by, int worldWidth, int worldHeight, double middleRadius) {
+        if (type == BeamType.VERTICAL) {
+            // Beam runs along Y axis at x=position; check cross-axis (X) distance
+            if (Math.abs(bx - position) > width / 2) return false;
+            // Middle = center of the world height
+            double midY = worldHeight / 2.0;
+            return Math.abs(by - midY) <= middleRadius;
+        } else if (type == BeamType.HORIZONTAL) {
+            // Beam runs along X axis at y=position; check cross-axis (Y) distance
+            if (Math.abs(by - position) > width / 2) return false;
+            // Middle = center of the world width
+            double midX = worldWidth / 2.0;
+            return Math.abs(bx - midX) <= middleRadius;
+        } else {
+            // DIAGONAL: rotate bullet into beam-local space
+            double dx = bx - centerX;
+            double dy = by - centerY;
+            double cosA = Math.cos(-angle);
+            double sinA = Math.sin(-angle);
+            double localX = dx * cosA - dy * sinA;
+            double localY = dx * sinA + dy * cosA;
+            // Cross-axis check (perpendicular to beam)
+            if (Math.abs(localY) > width / 2) return false;
+            // Along-axis check (distance from center along beam)
+            return Math.abs(localX) <= middleRadius;
+        }
+    }
 }

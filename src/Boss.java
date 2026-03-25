@@ -84,6 +84,20 @@ public class Boss {
     private double spinningBeamPauseTimer = 0;     // Pause timer for direction reversal (level 22+)
     private double spinningBeamNextPauseIn = 0;    // Frames until the next pause
     private int spinningBeamDirection = 1;          // 1 = clockwise, -1 = counter-clockwise
+
+    // Hex cage attack (6 beams form a shrinking hexagon around boss)
+    private boolean hexCageActive = false;
+    private double hexCageRadius = 0;              // Current hexagon radius from boss center
+    private double hexCageMaxRadius = 500;         // Starting/max radius (fills visible area around boss)
+    private double hexCageMinRadius = 200;         // Smallest radius
+    private double hexCageMoveSpeed = 2.5;         // How fast the radius changes per frame
+    private int hexCageWarningTimer = 0;           // Frames of blink warning before activation
+    private int hexCageHoldTimer = 0;              // Frames to hold at min/max radius
+    private int hexCageWidth = 60;                 // Beam width (visual thickness of each side)
+    private double hexCageAngle = 0;               // Base rotation angle of the hexagon
+    private int hexCagePhase = 0;                  // 0=shrinking, 1=hold-min, 2=expanding, 3=hold-max
+    private double hexCageAttackCooldown = 0;      // Cooldown frames between hex cage attacks
+
     private static final double MAX_SPEED = 2.5; // Maximum movement speed
     private static final double ACCELERATION = 0.15; // How fast to speed up
     private static final double FRICTION = 0.92; // How fast to slow down (0.92 = 8% friction)
@@ -119,6 +133,8 @@ public class Boss {
     private boolean disableTwirl = false; // Disable twirl during showcase
     private boolean forceSpinningBeam = false; // Force spinning beam for showcase
     private boolean disableSpinningBeam = false; // Disable spinning beam during showcase
+    private boolean forceHexCage = false; // Force hex cage for showcase
+    private boolean disableHexCage = false; // Disable hex cage during showcase
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
     private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
@@ -903,10 +919,11 @@ public class Boss {
         }
         
         // Shooting pattern (scaled by delta time) - faster in later phases
-        // Shoot much less during spinning beam attack
+        // Shoot much less during spinning beam or hex cage attack
         double spinningBeamShootScale = spinningBeamActive ? 0.3 : 1.0;
+        double hexCageShootScale = hexCageActive ? 0.3 : 1.0;
         double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
-        shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier * spinningBeamShootScale;
+        shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier * spinningBeamShootScale * hexCageShootScale;
         if (shootTimer >= shootInterval) {
             shootTimer = 0;
             shoot(bullets, player);
@@ -917,8 +934,8 @@ public class Boss {
         
         // Beam attacks (at higher levels - starting at level 10, or forced for debug showcase)
         // Don't fire beams if a specific non-beam pattern is forced or if beams are disabled
-        // Don't fire normal beams during spinning beam attack
-        boolean shouldFireBeams = !disableBeamAttacks && !spinningBeamActive && (forceBeamAttack || (level >= 10 && forcedPatternType < 0 && forcedMegaAttack < 0));
+        // Don't fire normal beams during spinning beam or hex cage attack
+        boolean shouldFireBeams = !disableBeamAttacks && !spinningBeamActive && !hexCageActive && (forceBeamAttack || (level >= 10 && forcedPatternType < 0 && forcedMegaAttack < 0));
         if (shouldFireBeams) {
             beamAttackTimer += deltaTime;
             // Use faster interval when forced for debug showcase
@@ -935,7 +952,7 @@ public class Boss {
         }
         
         // Spinning beam attack: try to trigger on its own cooldown (level 18+)
-        boolean shouldSpinBeam = !disableSpinningBeam && !spinningBeamActive && spinningBeamAttackCooldown <= 0 
+        boolean shouldSpinBeam = !disableSpinningBeam && !spinningBeamActive && !hexCageActive && spinningBeamAttackCooldown <= 0 
                                   && (forceSpinningBeam || (level >= 18 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
         if (shouldSpinBeam) {
             // Always fire when forced for showcase, otherwise 30% chance
@@ -944,6 +961,23 @@ public class Boss {
             }
             // Reset cooldown whether we fired or not (minimum 15 seconds between attempts)
             spinningBeamAttackCooldown = forceSpinningBeam ? 300 : Math.max(900, 1080 - level * 10);
+        }
+        
+        // Hex cage attack cooldown
+        if (hexCageAttackCooldown > 0) {
+            hexCageAttackCooldown -= deltaTime;
+        }
+        
+        // Hex cage attack: try to trigger on its own cooldown (level 22+)
+        boolean shouldHexCage = !disableHexCage && !hexCageActive && !spinningBeamActive && hexCageAttackCooldown <= 0
+                                 && (forceHexCage || (level >= 22 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
+        if (shouldHexCage) {
+            // Always fire when forced for showcase, otherwise 25% chance
+            if (forceHexCage || Math.random() < 0.25) {
+                startHexCageAttack();
+            }
+            // Reset cooldown whether we fired or not (minimum 20 seconds between attempts)
+            hexCageAttackCooldown = forceHexCage ? 360 : 1200;
         }
         
         // Update spinning beam attack
@@ -989,6 +1023,54 @@ public class Boss {
                 spinningBeamActive = false;
                 vx = savedVx;
                 vy = savedVy;
+            }
+        }
+        
+        // Update hex cage attack
+        if (hexCageActive) {
+            if (hexCageWarningTimer > 0) {
+                // Warning phase: blinking hex outline, no collision
+                hexCageWarningTimer -= deltaTime;
+                vx = 0;
+                vy = 0;
+            } else if (hexCagePhase == 0) {
+                // Shrinking phase: decrease radius toward min
+                hexCageRadius -= hexCageMoveSpeed * deltaTime;
+                if (hexCageRadius <= hexCageMinRadius) {
+                    hexCageRadius = hexCageMinRadius;
+                    hexCagePhase = 1;
+                    hexCageHoldTimer = 120; // 2 sec hold at min
+                }
+                vx = 0;
+                vy = 0;
+            } else if (hexCagePhase == 1) {
+                // Hold at min phase
+                hexCageHoldTimer -= deltaTime;
+                if (hexCageHoldTimer <= 0) {
+                    hexCagePhase = 2;
+                }
+                vx = 0;
+                vy = 0;
+            } else if (hexCagePhase == 2) {
+                // Expanding phase: increase radius toward max
+                hexCageRadius += hexCageMoveSpeed * deltaTime;
+                if (hexCageRadius >= hexCageMaxRadius) {
+                    hexCageRadius = hexCageMaxRadius;
+                    hexCagePhase = 3;
+                    hexCageHoldTimer = 60; // 1 sec hold at max before ending
+                }
+                vx = 0;
+                vy = 0;
+            } else if (hexCagePhase == 3) {
+                // Hold at max phase, then end
+                hexCageHoldTimer -= deltaTime;
+                if (hexCageHoldTimer <= 0) {
+                    hexCageActive = false;
+                    vx = savedVx;
+                    vy = savedVy;
+                }
+                vx = 0;
+                vy = 0;
             }
         }
         
@@ -2061,6 +2143,27 @@ public class Boss {
         }
     }
     
+    public void startHexCageAttack() {
+        hexCageActive = true;
+        hexCagePhase = 0; // shrinking
+        hexCageMaxRadius = 500;
+        hexCageMinRadius = 200;
+        hexCageRadius = hexCageMaxRadius;
+        hexCageMoveSpeed = 2.5;
+        hexCageWarningTimer = 180; // 3 sec warning
+        hexCageHoldTimer = 120;    // 2 sec hold at min
+        hexCageWidth = 60;         // beam thickness
+        hexCageAngle = 0;          // upright hex
+        savedVx = vx;
+        savedVy = vy;
+        vx = 0;
+        vy = 0;
+        
+        if (soundManager != null) {
+            soundManager.playSoundSpatial(SoundManager.Sound.BEAM_WARNING, 0.7f, this.x, lastScreenWidth);
+        }
+    }
+    
     public List<BeamAttack> getBeamAttacks() {
         return beamAttacks;
     }
@@ -2074,6 +2177,14 @@ public class Boss {
     public double getSpinningBeamTimer() { return spinningBeamTimer; }
     public double getSpinningBeamHoldTimer() { return spinningBeamHoldTimer; }
     public boolean isSpinningBeamPaused() { return spinningBeamPauseTimer > 0; }
+    
+    // Hex cage getters
+    public boolean isHexCageActive() { return hexCageActive; }
+    public double getHexCageRadius() { return hexCageRadius; }
+    public int getHexCageWarningTimer() { return hexCageWarningTimer; }
+    public int getHexCageWidth() { return hexCageWidth; }
+    public double getHexCageAngle() { return hexCageAngle; }
+    public int getHexCagePhase() { return hexCagePhase; }
     
     /**
      * Merge overlapping or adjacent same-type beams that are still in warning phase
@@ -2633,6 +2744,23 @@ public class Boss {
      */
     public void setDisableSpinningBeam(boolean disable) {
         this.disableSpinningBeam = disable;
+    }
+    
+    /**
+     * Force hex cage attack mode for debug showcase
+     */
+    public void setForceHexCage(boolean force) {
+        this.forceHexCage = force;
+        if (force) {
+            this.hexCageAttackCooldown = 0;
+        }
+    }
+
+    /**
+     * Disable hex cage during showcase
+     */
+    public void setDisableHexCage(boolean disable) {
+        this.disableHexCage = disable;
     }
     
     /**
