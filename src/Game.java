@@ -4476,6 +4476,12 @@ public class Game extends JPanel implements Runnable {
         frostBeamRetractPhase = 0;
         frostBeamShakeTriggered = false;
         frostBeamStopDistance = -1;
+
+        // Cancel hex cage and spinning beam attacks on player death
+        if (currentBoss != null) {
+            currentBoss.cancelHexCageAttack();
+            currentBoss.cancelSpinningBeamAttack();
+        }
         
         // Reset boss stun (item-driven effect)
         bossStunned = false;

@@ -319,9 +319,9 @@ public class Boss {
         if (isMegaBoss) {
             this.shootInterval = (int)(this.shootInterval * 0.85); // 15% faster firing for mega bosses
         } else {
-            // Normal bosses progressively close the fire-rate gap at higher levels
-            // Level 1-3: 1.02x slower, Level 8: ~1.0x (same), Level 16+: ~0.95x (slightly faster)
-            double normalFireScale = Math.max(0.95, 1.02 - level * 0.003);
+            // Normal bosses fire close to base rate, getting faster at higher levels
+            // Level 1: 1.0x, Level 5: ~0.98x, Level 15+: ~0.94x
+            double normalFireScale = Math.max(0.94, 1.0 - level * 0.004);
             this.shootInterval = (int)(this.shootInterval * normalFireScale);
         }
         // Start with random pattern from available pool
@@ -336,8 +336,8 @@ public class Boss {
         this.spinningBeamAttackCooldown = 600; // First spinning beam delayed
         
         // Initialize health and phases
-        // Mega: 5 HP, Normal: 3 HP at low levels, 4 HP at level 10+
-        this.maxHealth = isMegaBoss ? 5 : (level >= 10 ? 4 : 3);
+        // Mega: 5 HP, Normal: 3 HP at low levels, 4 HP at level 7+
+        this.maxHealth = isMegaBoss ? 5 : (level >= 7 ? 4 : 3);
         this.currentHealth = maxHealth;
         this.currentPhase = 0;
         this.phaseTransitioning = false;
@@ -351,12 +351,12 @@ public class Boss {
         this.recoveryPhaseDuration = Math.max(150, 195 - level * 3); // 3.25-2.5 seconds
         // Normal bosses scale up aggression at higher levels
         if (!isMegaBoss) {
-            // Level 1: 1.6x, gradually up to 1.8x at level 15+
-            this.assaultSpeedMultiplier = Math.min(1.8, 1.6 + level * 0.015);
-            // At higher levels, normal bosses also get slightly longer assault phases
-            if (level >= 7) {
-                this.assaultPhaseDuration += (level - 7) * 5; // +5 frames per level past 7
-                this.recoveryPhaseDuration = Math.max(120, this.recoveryPhaseDuration - (level - 7) * 3);
+            // Level 1: 1.65x, gradually up to 1.85x at level 14+
+            this.assaultSpeedMultiplier = Math.min(1.85, 1.65 + level * 0.015);
+            // At higher levels, normal bosses get longer assault and shorter recovery
+            if (level >= 5) {
+                this.assaultPhaseDuration += (level - 5) * 5; // +5 frames per level past 5
+                this.recoveryPhaseDuration = Math.max(120, this.recoveryPhaseDuration - (level - 5) * 3);
             }
         }
         // Mega bosses are more aggressive
@@ -404,9 +404,9 @@ public class Boss {
      *  Normal bosses at higher levels also get bonus bullets to close the difficulty gap. */
     private int scaleBulletCount(int baseCount) {
         double scale = gameMode.getBulletCountScale();
-        // Normal bosses at level 8+ get up to 20% more bullets (caps at level 18)
-        if (!isMegaBoss && level >= 8) {
-            scale *= Math.min(1.2, 1.0 + (level - 8) * 0.02);
+        // Normal bosses at level 6+ get up to 25% more bullets (caps at level 16)
+        if (!isMegaBoss && level >= 6) {
+            scale *= Math.min(1.25, 1.0 + (level - 6) * 0.025);
         }
         return Math.max(1, (int)(baseCount * scale));
     }
@@ -953,8 +953,14 @@ public class Boss {
             spinningBeamAttackCooldown -= deltaTime;
         }
         
+        // Boss must be near center of map to trigger spinning beam or hex cage
+        double bossCenterDistX = Math.abs(x - screenWidth / 2.0) / (screenWidth / 2.0);
+        double bossCenterDistY = Math.abs(y - screenHeight / 2.0) / (screenHeight / 2.0);
+        boolean bossNearlyCentered = bossCenterDistX < 0.25 && bossCenterDistY < 0.25;
+        
         // Spinning beam attack: try to trigger on its own cooldown (level 18+)
         boolean shouldSpinBeam = !disableSpinningBeam && !spinningBeamActive && !hexCageActive && spinningBeamAttackCooldown <= 0 
+                                  && bossNearlyCentered
                                   && (forceSpinningBeam || (level >= 18 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
         if (shouldSpinBeam) {
             // Always fire when forced for showcase, otherwise 30% chance
@@ -975,7 +981,7 @@ public class Boss {
         double hexPlayerDist = player != null ? Math.sqrt(Math.pow(player.getX() - this.x, 2) + Math.pow(player.getY() - this.y, 2)) : Double.MAX_VALUE;
         boolean playerInHexRange = hexPlayerDist < 1100; // Must be inside max radius
         boolean shouldHexCage = !disableHexCage && !hexCageActive && !spinningBeamActive && hexCageAttackCooldown <= 0
-                                 && !hexCageJustUsed && playerInHexRange
+                                 && !hexCageJustUsed && playerInHexRange && bossNearlyCentered
                                  && (forceHexCage || (level >= 22 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
         if (shouldHexCage) {
             // Always fire when forced for showcase, otherwise 20% chance
@@ -2137,7 +2143,7 @@ public class Boss {
         }
         
         spinningBeamAngle = Math.random() * Math.PI * 2; // Random starting angle
-        spinningBeamRotationSpeed = Math.min(0.018, 0.008 + (level - 18) * 0.001); // Scales with level, capped
+        spinningBeamRotationSpeed = Math.min(0.013, 0.007 + (level - 18) * 0.0006); // Scales with level, capped
         spinningBeamWidth = scaleBeamWidth(Math.min(35 + effectiveLevel * 3, 90));
         spinningBeamWarningTimer = 180; // 3 second warning
         spinningBeamHoldTimer = 90; // 1.5 second static hold before spinning
@@ -2193,6 +2199,24 @@ public class Boss {
     public int getHexCageWidth() { return hexCageWidth; }
     public double getHexCageAngle() { return hexCageAngle; }
     public int getHexCagePhase() { return hexCagePhase; }
+    
+    public void cancelHexCageAttack() {
+        if (hexCageActive) {
+            hexCageActive = false;
+            vx = savedVx;
+            vy = savedVy;
+            hexCageAttackCooldown = 300;
+        }
+    }
+    
+    public void cancelSpinningBeamAttack() {
+        if (spinningBeamActive) {
+            spinningBeamActive = false;
+            vx = savedVx;
+            vy = savedVy;
+            spinningBeamAttackCooldown = 300;
+        }
+    }
     
     /**
      * Merge overlapping or adjacent same-type beams that are still in warning phase
@@ -2667,6 +2691,43 @@ public class Boss {
     }
     public int getPhaseFlashTimer() { return phaseFlashTimer; }
     public boolean justChangedPhase() { return justChangedPhase; }
+    
+    // Attack section indicator methods (for HUD display)
+    public String getSectionName() {
+        if (spinningBeamActive) return "SPIN BEAM";
+        if (hexCageActive) return "HEX CAGE";
+        if (twirlAttackActive) return "TWIRL";
+        if (isAssaultPhase) return "ASSAULT";
+        return "RECOVERY";
+    }
+    
+    public int getSectionType() {
+        if (spinningBeamActive) return 0; // Spiral - purple
+        if (hexCageActive) return 2;      // Chaos - yellow
+        if (twirlAttackActive) return 0;  // Spiral - purple
+        if (isAssaultPhase) return 1;     // Aimed - red
+        return 4;                         // Breather - green
+    }
+    
+    public float getSectionProgress() {
+        if (spinningBeamActive) {
+            double totalDuration = Math.min(480, 300 + (level - 18) * 20);
+            if (spinningBeamWarningTimer > 0) return 0.0f;
+            if (spinningBeamHoldTimer > 0) return 0.1f;
+            return (float)(1.0 - spinningBeamTimer / totalDuration);
+        }
+        if (hexCageActive) {
+            if (hexCageWarningTimer > 0) return 0.0f;
+            switch (hexCagePhase) {
+                case 0: return 0.25f * (1.0f - (float)((hexCageRadius - hexCageMinRadius) / Math.max(1, hexCageMaxRadius - hexCageMinRadius)));
+                case 1: return 0.25f + 0.25f * (1.0f - (float)(hexCageHoldTimer / 120.0));
+                case 2: return 0.50f + 0.25f * (float)((hexCageRadius - hexCageMinRadius) / Math.max(1, hexCageMaxRadius - hexCageMinRadius));
+                default: return 0.75f + 0.25f * (1.0f - (float)(hexCageHoldTimer / 60.0));
+            }
+        }
+        int duration = isAssaultPhase ? assaultPhaseDuration : recoveryPhaseDuration;
+        return duration > 0 ? (float)attackPhaseTimer / duration : 0f;
+    }
     
     // Shockwave getters
     public boolean isShockwaveActive() { return shockwaveActive; }

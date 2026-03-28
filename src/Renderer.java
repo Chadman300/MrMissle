@@ -8476,6 +8476,43 @@ public class Renderer {
 
             
 
+            // Attack Section indicator - shows current attack pattern section
+            String sectionName = boss.getSectionName();
+            if (sectionName != null && !sectionName.isEmpty()) {
+                int secBarWidth = 150;
+                int secBarHeight = 8;
+                int secBarX = barX + 15;
+                int secBarY = barY + 22;
+                
+                // Section label color based on section type
+                int secType = boss.getSectionType();
+                Color secColor;
+                Color secEndColor;
+                switch (secType) {
+                    case 0: secColor = new Color(180, 100, 255); secEndColor = new Color(220, 150, 255); break; // Spiral - purple
+                    case 1: secColor = new Color(255, 80, 80);   secEndColor = new Color(255, 150, 100); break; // Aimed - red
+                    case 2: secColor = new Color(255, 200, 50);  secEndColor = new Color(255, 255, 100); break; // Chaos - yellow
+                    case 3: secColor = new Color(255, 50, 150);  secEndColor = new Color(255, 120, 200); break; // Mega - pink
+                    case 4: secColor = new Color(80, 200, 120);  secEndColor = new Color(150, 255, 180); break; // Breather - green
+                    case 5: secColor = new Color(255, 100, 30);  secEndColor = new Color(255, 180, 50);  break; // Finale - orange
+                    default: secColor = Color.WHITE;             secEndColor = Color.GRAY; break;
+                }
+                
+                g.setFont(FONT_EXTRA_SMALL_11);
+                g.setColor(secColor);
+                g.drawString(sectionName, secBarX, secBarY - 2);
+                
+                // Section progress bar background
+                g.setColor(PHASE_BAR_BG);
+                g.fillRoundRect(secBarX, secBarY + 3, secBarWidth, secBarHeight, 4, 4);
+                
+                // Section progress bar fill
+                float secProgress = boss.getSectionProgress();
+                int secFillWidth = (int)(secBarWidth * secProgress);
+                g.setPaint(new GradientPaint(secBarX, 0, secColor, secBarX + secBarWidth, 0, secEndColor));
+                g.fillRoundRect(secBarX, secBarY + 3, secFillWidth, secBarHeight, 4, 4);
+            }
+
             // Health bar border
 
             g.setColor(RenderCache.GRAY_200);
