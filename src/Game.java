@@ -8359,7 +8359,12 @@ public class Game extends JPanel implements Runnable {
         }
         
         // Simple invulnerability system - boss is vulnerable after timer expires
-        if (invulnerabilityTimer > 0) {
+        // Boss is also invulnerable (shield up) during hex cage attack
+        boolean hexCageShieldActive = currentBoss != null && currentBoss.isHexCageActive();
+        if (hexCageShieldActive) {
+            invulnerabilityTimer = Math.max(invulnerabilityTimer, 300); // Keep shield up
+            bossVulnerable = false;
+        } else if (invulnerabilityTimer > 0) {
             invulnerabilityTimer -= deltaTime; // Countdown scaled by delta time
             bossVulnerable = false;
         } else {
@@ -8720,6 +8725,59 @@ public class Game extends JPanel implements Runnable {
                         && Math.abs(localY) < hexWidth / 2.0 + playerRadius) {
                     handlePlayerDeath();
                     return;
+                }
+            }
+        }
+        
+        // Hex cage destroys bullets that overlap with its beam walls
+        if (currentBoss != null && currentBoss.isHexCageActive() 
+                && currentBoss.getHexCageWarningTimer() <= 0) {
+            double bossX = currentBoss.getX();
+            double bossY = currentBoss.getY();
+            double hexRadius = currentBoss.getHexCageRadius();
+            double hexAngle = currentBoss.getHexCageAngle();
+            int hexWidth = currentBoss.getHexCageWidth();
+            
+            for (int bi = bullets.size() - 1; bi >= 0; bi--) {
+                Bullet b = bullets.get(bi);
+                double bx = b.getX();
+                double by = b.getY();
+                double bulletRadius = 12;
+                
+                for (int i = 0; i < 6; i++) {
+                    double angle1 = hexAngle + i * Math.PI / 3.0;
+                    double angle2 = hexAngle + (i + 1) * Math.PI / 3.0;
+                    double v1x = bossX + hexRadius * Math.cos(angle1);
+                    double v1y = bossY + hexRadius * Math.sin(angle1);
+                    double v2x = bossX + hexRadius * Math.cos(angle2);
+                    double v2y = bossY + hexRadius * Math.sin(angle2);
+                    
+                    double midX = (v1x + v2x) / 2.0;
+                    double midY = (v1y + v2y) / 2.0;
+                    double sideAngle = Math.atan2(v2y - v1y, v2x - v1x);
+                    double sideLength = hexRadius;
+                    
+                    double dx = bx - midX;
+                    double dy = by - midY;
+                    double cosA = Math.cos(-sideAngle);
+                    double sinA = Math.sin(-sideAngle);
+                    double localX = dx * cosA - dy * sinA;
+                    double localY = dx * sinA + dy * cosA;
+                    
+                    if (Math.abs(localX) < sideLength / 2.0 + bulletRadius 
+                            && Math.abs(localY) < hexWidth / 2.0 + bulletRadius) {
+                        // Spawn small particle effect at bullet position
+                        for (int p = 0; p < 3; p++) {
+                            double pAngle = Math.random() * Math.PI * 2;
+                            double pSpeed = 0.5 + Math.random() * 1.5;
+                            particles.add(new Particle(bx, by,
+                                Math.cos(pAngle) * pSpeed, Math.sin(pAngle) * pSpeed,
+                                new java.awt.Color(70, 190, 210, 200), 15 + Math.random() * 10,
+                                4, Particle.ParticleType.SPARK));
+                        }
+                        bullets.remove(bi);
+                        break;
+                    }
                 }
             }
         }

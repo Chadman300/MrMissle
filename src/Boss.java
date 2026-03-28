@@ -135,6 +135,7 @@ public class Boss {
     private boolean disableSpinningBeam = false; // Disable spinning beam during showcase
     private boolean forceHexCage = false; // Force hex cage for showcase
     private boolean disableHexCage = false; // Disable hex cage during showcase
+    private boolean hexCageJustUsed = false; // Prevents back-to-back hex cage attacks
     private boolean debugSlowMode = false; // Slow shooting for debug showcase screenshots
     private boolean stayStationary = false; // Stay in place for debug showcase
     private static final int DEBUG_SLOW_SHOOT_INTERVAL = 150; // 2.5 seconds between shots in debug mode
@@ -921,7 +922,7 @@ public class Boss {
         // Shooting pattern (scaled by delta time) - faster in later phases
         // Shoot much less during spinning beam or hex cage attack
         double spinningBeamShootScale = spinningBeamActive ? 0.3 : 1.0;
-        double hexCageShootScale = hexCageActive ? 0.3 : 1.0;
+        double hexCageShootScale = hexCageActive ? 0.7 : 1.0;
         double phaseSpeedMultiplier = 1.0 + (currentPhase * 0.15); // 15% faster per phase
         shootTimer += deltaTime * phaseSpeedMultiplier * attackPhaseMultiplier * spinningBeamShootScale * hexCageShootScale;
         if (shootTimer >= shootInterval) {
@@ -943,6 +944,7 @@ public class Boss {
             if (beamAttackTimer >= effectiveInterval) {
                 beamAttackTimer = 0;
                 spawnBeamAttack(screenWidth, screenHeight, player);
+                hexCageJustUsed = false; // Allow hex cage again after another attack fires
             }
         }
         
@@ -969,15 +971,20 @@ public class Boss {
         }
         
         // Hex cage attack: try to trigger on its own cooldown (level 22+)
+        // Only trigger if the player is within the hex cage's max radius of the boss
+        double hexPlayerDist = player != null ? Math.sqrt(Math.pow(player.getX() - this.x, 2) + Math.pow(player.getY() - this.y, 2)) : Double.MAX_VALUE;
+        boolean playerInHexRange = hexPlayerDist < 1100; // Must be inside max radius
         boolean shouldHexCage = !disableHexCage && !hexCageActive && !spinningBeamActive && hexCageAttackCooldown <= 0
+                                 && !hexCageJustUsed && playerInHexRange
                                  && (forceHexCage || (level >= 22 && forcedPatternType < 0 && forcedMegaAttack < 0 && !forceBeamAttack));
         if (shouldHexCage) {
-            // Always fire when forced for showcase, otherwise 25% chance
-            if (forceHexCage || Math.random() < 0.25) {
+            // Always fire when forced for showcase, otherwise 20% chance
+            if (forceHexCage || Math.random() < 0.20) {
                 startHexCageAttack();
+                hexCageJustUsed = true; // Prevent back-to-back
             }
-            // Reset cooldown whether we fired or not (minimum 20 seconds between attempts)
-            hexCageAttackCooldown = forceHexCage ? 360 : 1200;
+            // Reset cooldown whether we fired or not (minimum 25 seconds between attempts)
+            hexCageAttackCooldown = forceHexCage ? 360 : 1500;
         }
         
         // Update spinning beam attack
@@ -2114,6 +2121,7 @@ public class Boss {
      */
     private void startSpinningBeamAttack(int screenWidth, int screenHeight) {
         spinningBeamActive = true;
+        hexCageJustUsed = false; // Allow hex cage again after another attack
         savedVx = vx;
         savedVy = vy;
         vx = 0;
@@ -2146,8 +2154,8 @@ public class Boss {
     public void startHexCageAttack() {
         hexCageActive = true;
         hexCagePhase = 0; // shrinking
-        hexCageMaxRadius = 500;
-        hexCageMinRadius = 200;
+        hexCageMaxRadius = 1100;
+        hexCageMinRadius = 550;
         hexCageRadius = hexCageMaxRadius;
         hexCageMoveSpeed = 2.5;
         hexCageWarningTimer = 180; // 3 sec warning
