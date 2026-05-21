@@ -89,6 +89,16 @@ public class LeaderboardRecord implements Serializable {
         return String.format("%d:%02d.%02d", mins, secs, centis);
     }
 
+    /** Format a time value (in milliseconds) as M:SS.cc — used for Steam-sourced scores. */
+    public static String formatTimeMs(int ms) {
+        if (ms < 0) ms = 0;
+        double seconds = ms / 1000.0;
+        int mins = (int)(seconds / 60);
+        int secs = (int)(seconds % 60);
+        int centis = (int)((seconds % 1) * 100);
+        return String.format("%d:%02d.%02d", mins, secs, centis);
+    }
+
     /** Check if a given time (in frames) is within the valid range. */
     public static boolean isTimeInRange(int timeInFrames) {
         return timeInFrames >= MIN_VALID_FRAMES && timeInFrames <= MAX_VALID_FRAMES;

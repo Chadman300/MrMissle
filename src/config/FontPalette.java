@@ -146,6 +146,7 @@ public class FontPalette {
         bodyFontCache.clear();
         displayFontCache.clear();
         cinematicFontCache.clear();
+        symbolFontCache.clear();
         // Re-derive all static font references at the new scale
         float s = UIScale.getScale();
         TITLE_LARGE  = derive(Font.BOLD, 84 * s);
@@ -178,6 +179,7 @@ public class FontPalette {
     private static final ConcurrentHashMap<Long, Font> bodyFontCache = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, Font> displayFontCache = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, Font> cinematicFontCache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Long, Font> symbolFontCache = new ConcurrentHashMap<>();
 
     private static long fontCacheKey(int style, float size) {
         return ((long) style << 32) | Float.floatToIntBits(size);
@@ -221,6 +223,23 @@ public class FontPalette {
             k -> baseFont.deriveFont(style, scaledSize));
     }
 
+    /**
+     * Get a font suitable for drawing Unicode symbols (✓, ∞, ★, arrows, etc.)
+     * that may be missing from the custom display / Arial Black body fonts.
+     * Uses Java's logical "Dialog" font which is a composite font with broad
+     * Unicode glyph coverage on every platform.
+     * Results are cached in {@link #symbolFontCache}.
+     */
+    public static Font getSymbol(int style, float size) {
+        ensureInit();
+        float scaledSize = UIScale.fontSizef(size);
+        long key = fontCacheKey(style, scaledSize);
+        Font cached = symbolFontCache.get(key);
+        if (cached != null) return cached;
+        return symbolFontCache.computeIfAbsent(key,
+            k -> new Font("Dialog", style, Math.max(1, Math.round(scaledSize))));
+    }
+
     /** Same as {@link #get} but from the cinematic (Impact-like) base. Cached. */
     public static Font getCinematic(int style, float size) {
         ensureInit();
@@ -247,6 +266,7 @@ public class FontPalette {
         bodyFontCache.clear();
         displayFontCache.clear();
         cinematicFontCache.clear();
+        symbolFontCache.clear();
         init();
         return true;
     }

@@ -3,5 +3,21 @@
     "java.project.outputPath": "bin",
     "java.project.referencedLibraries": [
         "lib/**/*.jar"
+    ],
+    "java.jdt.ls.java.home": "C:/Users/Pain in the Arse/AppData/Roaming/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/21",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "C:/Users/Pain in the Arse/AppData/Roaming/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/21",
+            "default": true
+        },
+        {
+            "name": "JavaSE-25",
+            "path": "C:/Users/Pain in the Arse/AppData/Roaming/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/25"
+        },
+        {
+            "name": "JavaSE-17",
+            "path": "C:/Users/Pain in the Arse/AppData/Roaming/Code/User/globalStorage/pleiades.java-extension-pack-jdk/java/17"
+        }
     ]
 }

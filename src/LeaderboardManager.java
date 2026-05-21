@@ -210,6 +210,22 @@ public class LeaderboardManager implements LeaderboardProvider {
         this.externalProvider = provider;
     }
 
+    /**
+     * Submit the endless mode score (total levels beaten across all prestige cycles)
+     * to the external provider's single global "endless_total_levels" board.
+     * Local endless tracking still lives on GameData. No-op without an external provider.
+     */
+    public void submitEndlessTotalLevels(int totalLevelsBeaten) {
+        if (externalProvider != null && externalProvider.isAvailable() && totalLevelsBeaten > 0) {
+            externalProvider.submitScore("endless_total_levels", totalLevelsBeaten);
+        }
+    }
+
+    /** Expose the external provider for callers that need to query availability. */
+    public LeaderboardProvider getExternalProvider() {
+        return externalProvider;
+    }
+
     // --- LeaderboardProvider implementation (local) ---
 
     @Override

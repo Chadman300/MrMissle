@@ -75,6 +75,11 @@ public class Game extends JPanel implements Runnable {
     private double leaderboardViewScroll; // Target scroll position for leaderboard view
     private double leaderboardViewScrollAnimated; // Animated (smooth) scroll position
     private int selectedLeaderboardDifficulty; // 0=Easy, 1=Hard, 2=Master for leaderboard view tabs
+    // Leaderboard view Local/Global tab state
+    private int leaderboardViewTab = 0; // 0=Local, 1=Global (Steam)
+    private int leaderboardViewGlobalLevel = 1; // 1..28, level selector in Global mode (ignored when difficulty == ENDLESS pseudo-tab)
+    private final java.util.Map<String, interfaces.LeaderboardEntry[]> globalScoreCache = new java.util.HashMap<>();
+    private final java.util.Set<String> globalScorePending = new java.util.HashSet<>();
     private GameState shopEnteredFrom; // Track where player came from when entering shop
     private GameState settingsEnteredFrom; // Track where settings was accessed from (MENU or PLAYING when paused)
     
@@ -88,6 +93,12 @@ public class Game extends JPanel implements Runnable {
     private SaveManager saveManager;
     private GlobalSaveData globalSaveData;
     private LeaderboardManager leaderboardManager;
+
+    // Steam runtime (loaded reflectively so missing steamworks4j jar still allows compile/run)
+    private boolean steamInitialized = false;
+    private Class<?> steamAchClass = null; // steam.SteamAchievementProvider (for static runCallbacks/shutdown)
+    private interfaces.AchievementProvider steamAchProvider = null;
+    private interfaces.LeaderboardProvider steamLbProvider = null;
     
     // Keybind & controller systems
     public static KeyBindManager keyBindManager;
@@ -997,6 +1008,10 @@ public class Game extends JPanel implements Runnable {
         
         // Load leaderboard records from global save
         leaderboardManager.loadFromGlobal(globalSaveData);
+
+        // Optional Steam integration. Loaded via reflection so the game still runs
+        // when steamworks4j.jar / steam_api64.dll / steam_appid.txt are absent.
+        initSteamIfAvailable();
         
         pendingAchievements = new ArrayList<>(8);
         damageNumbers = new ArrayList<>(64);
@@ -1462,6 +1477,7 @@ public class Game extends JPanel implements Runnable {
                 }
                 else if (key == KeyEvent.VK_ESCAPE) {
                     if (escapeTimer > 0) {
+                        shutdownSteam();
                         System.exit(0);
                     } else {
                         escapeTimer = ESCAPE_TIMEOUT;
@@ -1597,6 +1613,7 @@ public class Game extends JPanel implements Runnable {
                     // Double-tap escape to quit
                     if (escapeTimer > 0) {
                         // Second press - quit
+                        shutdownSteam();
                         System.exit(0);
                     } else {
                         // First press - start timer
@@ -1915,16 +1932,42 @@ public class Game extends JPanel implements Runnable {
                 break;
                 
             case LEADERBOARD_VIEW:
-                if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
-                    leaderboardViewScroll = Math.max(0, leaderboardViewScroll - 100);
+                // TAB / Q toggles Local <-> Global; in Global mode the endless pseudo-tab is the last index
+                if (key == KeyEvent.VK_TAB || key == KeyEvent.VK_Q) {
+                    leaderboardViewTab = (leaderboardViewTab == 0) ? 1 : 0;
+                    // Clamp difficulty when leaving Global (endless pseudo-tab is only valid in Global)
+                    int maxDiffLocal = GameMode.values().length - 1;
+                    if (leaderboardViewTab == 0 && selectedLeaderboardDifficulty > maxDiffLocal) {
+                        selectedLeaderboardDifficulty = maxDiffLocal;
+                    }
+                    leaderboardViewScroll = 0;
+                    leaderboardViewScrollAnimated = 0;
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1;
+                    screenShakeIntensity = 2;
+                }
+                else if (key == KeyEvent.VK_UP || key == KeyEvent.VK_W) {
+                    if (leaderboardViewTab == 1 && selectedLeaderboardDifficulty < GameMode.values().length) {
+                        // Global per-level view: change selected level
+                        leaderboardViewGlobalLevel = Math.max(1, leaderboardViewGlobalLevel - 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else {
+                        leaderboardViewScroll = Math.max(0, leaderboardViewScroll - 100);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
                 }
                 else if (key == KeyEvent.VK_DOWN || key == KeyEvent.VK_S) {
-                    int maxScroll = Math.max(0, (28 * 50) - 500); // 50px per row, 500 visible area
-                    leaderboardViewScroll = Math.min(maxScroll, leaderboardViewScroll + 100);
-                    soundManager.playSound(SoundManager.Sound.UI_CURSOR);
-                    screenShakeIntensity = 1;
+                    if (leaderboardViewTab == 1 && selectedLeaderboardDifficulty < GameMode.values().length) {
+                        leaderboardViewGlobalLevel = Math.min(LeaderboardManager.LEVEL_COUNT, leaderboardViewGlobalLevel + 1);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    } else {
+                        int maxScroll = Math.max(0, (28 * 50) - 500); // 50px per row, 500 visible area
+                        leaderboardViewScroll = Math.min(maxScroll, leaderboardViewScroll + 100);
+                        soundManager.playSound(SoundManager.Sound.UI_CURSOR);
+                        screenShakeIntensity = 1;
+                    }
                 }
                 else if (key == KeyEvent.VK_LEFT || key == KeyEvent.VK_A) {
                     selectedLeaderboardDifficulty = Math.max(0, selectedLeaderboardDifficulty - 1);
@@ -1934,7 +1977,9 @@ public class Game extends JPanel implements Runnable {
                     screenShakeIntensity = 2;
                 }
                 else if (key == KeyEvent.VK_RIGHT || key == KeyEvent.VK_D) {
-                    selectedLeaderboardDifficulty = Math.min(GameMode.values().length - 1, selectedLeaderboardDifficulty + 1);
+                    // In Global mode allow one extra index for the ENDLESS pseudo-tab
+                    int maxDiff = (leaderboardViewTab == 1) ? GameMode.values().length : (GameMode.values().length - 1);
+                    selectedLeaderboardDifficulty = Math.min(maxDiff, selectedLeaderboardDifficulty + 1);
                     leaderboardViewScroll = 0;
                     leaderboardViewScrollAnimated = 0;
                     soundManager.playSound(SoundManager.Sound.UI_CURSOR);
@@ -2573,6 +2618,7 @@ public class Game extends JPanel implements Runnable {
                         transitionToState(GameState.MENU);
                     } else {
                         // Quit
+                        shutdownSteam();
                         System.exit(0);
                     }
                 }
@@ -6147,6 +6193,16 @@ public class Game extends JPanel implements Runnable {
     }
     
     private void update(double deltaTime) {
+        // Pump Steam callbacks once per frame (no-op if Steam not initialized).
+        if (steamInitialized && steamAchClass != null) {
+            try {
+                steamAchClass.getMethod("runCallbacks").invoke(null);
+            } catch (Throwable t) {
+                // Disable on persistent failure to avoid log spam.
+                steamInitialized = false;
+                System.err.println("[Steam] runCallbacks failed, disabling: " + t.getMessage());
+            }
+        }
         // Poll controller input
         if (controllerManager != null) {
             controllerManager.poll();
@@ -8330,6 +8386,8 @@ public class Game extends JPanel implements Runnable {
                         gameData.setEndlessHighestLevel(totalBeaten);
                     }
                     achievementManager.updateProgress(Achievement.AchievementType.ENDLESS_LEVELS, totalBeaten);
+                    // Submit to global Steam endless leaderboard (KeepBest server-side, no-op if Steam not available).
+                    leaderboardManager.submitEndlessTotalLevels(totalBeaten);
                     
                     if (endlessLevel >= CAMPAIGN_LEVELS) {
                         gameData.incrementEndlessPrestige();
@@ -9434,6 +9492,93 @@ public class Game extends JPanel implements Runnable {
         }
     }
 
+    // ----------------------------------------------------------------------
+    // Steam integration (reflectively loaded so missing jar still allows run)
+    // ----------------------------------------------------------------------
+
+    /**
+     * Try to initialize Steam (achievements + leaderboards).
+     * Silently no-ops if steamworks4j.jar / steam_api64.dll / steam_appid.txt
+     * are missing or SteamAPI.init() fails (e.g. Steam client not running).
+     *
+     * Also performs a one-time bulk push of previously-unlocked achievements
+     * to Steam, gated by GlobalSaveData.steamSynced so we never spam toasts.
+     */
+    private void initSteamIfAvailable() {
+        try {
+            steamAchClass = Class.forName("steam.SteamAchievementProvider");
+            Class<?> steamLbClass = Class.forName("steam.SteamLeaderboardProvider");
+
+            steamAchProvider = (interfaces.AchievementProvider)
+                    steamAchClass.getMethod("tryCreate").invoke(null);
+            steamLbProvider = (interfaces.LeaderboardProvider)
+                    steamLbClass.getMethod("tryCreate").invoke(null);
+
+            achievementManager.setProvider(steamAchProvider);
+            leaderboardManager.setProvider(steamLbProvider);
+            steamInitialized = true;
+            System.out.println("[Steam] Initialized successfully");
+
+            // One-time bulk resync of pre-existing unlocks.
+            if (!globalSaveData.steamSynced) {
+                int pushed = achievementManager.bulkSyncToProvider(globalSaveData);
+                globalSaveData.steamSynced = true;
+                saveManager.saveGlobal(globalSaveData);
+                System.out.println("[Steam] Bulk-synced " + pushed + " previously unlocked achievements");
+            }
+        } catch (ClassNotFoundException cnf) {
+            // Steam classes weren't compiled (no steamworks4j.jar at build time).
+            System.out.println("[Steam] steam.* classes not on classpath \u2014 running local-only");
+            steamInitialized = false;
+        } catch (Throwable t) {
+            // SteamAPI.init failed, native lib missing, etc.
+            Throwable cause = (t.getCause() != null) ? t.getCause() : t;
+            System.out.println("[Steam] Init failed, running local-only: " + cause.getClass().getSimpleName()
+                    + ": " + cause.getMessage());
+            steamInitialized = false;
+            steamAchProvider = null;
+            steamLbProvider = null;
+            achievementManager.setProvider(null);
+            leaderboardManager.setProvider(null);
+        }
+    }
+
+    /**
+     * Cleanly shut down Steam (flush stats, release native handles).
+     * Called immediately before every System.exit() in the class.
+     */
+    private void shutdownSteam() {
+        if (steamInitialized && steamAchClass != null) {
+            try {
+                steamAchClass.getMethod("shutdown").invoke(null);
+                System.out.println("[Steam] Shutdown");
+            } catch (Throwable t) {
+                System.err.println("[Steam] Shutdown failed: " + t.getMessage());
+            }
+            steamInitialized = false;
+        }
+    }
+
+    /**
+     * Return cached top-N global entries for a leaderboard name, or null if not yet loaded.
+     * If not cached and no fetch is in flight, fires an async request via the Steam provider.
+     */
+    private interfaces.LeaderboardEntry[] getGlobalScoresAsync(String boardName) {
+        if (boardName == null) return null;
+        interfaces.LeaderboardEntry[] cached = globalScoreCache.get(boardName);
+        if (cached != null) return cached;
+        if (globalScorePending.contains(boardName)) return null;
+        interfaces.LeaderboardProvider provider = leaderboardManager.getExternalProvider();
+        if (provider == null || !provider.isAvailable()) return null;
+        globalScorePending.add(boardName);
+        final String name = boardName;
+        provider.requestTopScores(boardName, 10, entries -> {
+            globalScorePending.remove(name);
+            globalScoreCache.put(name, entries != null ? entries : new interfaces.LeaderboardEntry[0]);
+        });
+        return null;
+    }
+
     /**
      * Pre-warm object pools by creating objects up front so the first
      * wave of bullets/particles doesn't trigger hundreds of allocations.
@@ -9801,10 +9946,26 @@ public class Game extends JPanel implements Runnable {
                     leaderboardReadyToExit, leaderboardCompletedLevel, leaderboardCompletedDifficulty,
                     bossKillTime);
                 break;
-            case LEADERBOARD_VIEW:
+            case LEADERBOARD_VIEW: {
+                // Resolve the currently-displayed global board (if any) and fetch async if needed.
+                String globalBoardName = null;
+                interfaces.LeaderboardEntry[] globalEntries = null;
+                interfaces.LeaderboardProvider extProv = leaderboardManager.getExternalProvider();
+                if (leaderboardViewTab == 1 && extProv != null) {
+                    GameMode[] modes = GameMode.values();
+                    if (selectedLeaderboardDifficulty >= modes.length) {
+                        globalBoardName = "endless_total_levels";
+                    } else {
+                        globalBoardName = interfaces.LeaderboardProvider.buildLeaderboardName(
+                            modes[selectedLeaderboardDifficulty].name(), leaderboardViewGlobalLevel);
+                    }
+                    globalEntries = getGlobalScoresAsync(globalBoardName);
+                }
                 renderer.drawLeaderboardView(g2d, WIDTH, HEIGHT, gradientTime,
-                    leaderboardManager, selectedLeaderboardDifficulty, leaderboardViewScrollAnimated);
+                    leaderboardManager, selectedLeaderboardDifficulty, leaderboardViewScrollAnimated,
+                    leaderboardViewTab, leaderboardViewGlobalLevel, globalEntries, extProv != null);
                 break;
+            }
             case SHOP:
                 renderer.drawShop(g2d, WIDTH, HEIGHT, gradientTime, shopScrollAnimated);
                 // Draw passive upgrade unlock animation if active (overlay on top of shop)
@@ -10593,6 +10754,7 @@ public class Game extends JPanel implements Runnable {
             });
             return;
         }
+        shutdownSteam();
         System.exit(0);
     }
     
@@ -10853,6 +11015,7 @@ public class Game extends JPanel implements Runnable {
                     activateMenuItem(selectedMenuItem);
                 } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
                     if (escapeTimer > 0) {
+                        shutdownSteam();
                         System.exit(0);
                     } else {
                         escapeTimer = ESCAPE_TIMEOUT;
@@ -10903,6 +11066,7 @@ public class Game extends JPanel implements Runnable {
                     handleKeyPress(new KeyEvent(this, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, ' '));
                 } else if (controllerManager.isActionJustPressed(KeyBindManager.Action.BACK)) {
                     if (escapeTimer > 0) {
+                        shutdownSteam();
                         System.exit(0);
                     } else {
                         escapeTimer = ESCAPE_TIMEOUT;

@@ -5159,7 +5159,7 @@ public class Renderer {
 
                 // Checkmark symbol
 
-                g.setFont(FontPalette.get(Font.BOLD, (int)(badgeSize * 0.8)));
+                g.setFont(FontPalette.getSymbol(Font.BOLD, (int)(badgeSize * 0.8)));
 
                 g.setColor(Color.WHITE);
 
@@ -5390,7 +5390,7 @@ public class Renderer {
         
         // "ENDLESS" text on the node instead of a number
         int fontSize = (int)(28 * scale);
-        g.setFont(FontPalette.get(Font.BOLD, fontSize));
+        g.setFont(FontPalette.getSymbol(Font.BOLD, fontSize));
         g.setColor(ENDLESS_QUESTION_MARK);
         String endlessText = "\u221E"; // Infinity symbol
         FontMetrics fm = g.getFontMetrics();
@@ -5564,6 +5564,9 @@ public class Renderer {
 
             g.setColor(NODE_CLEARED_LABEL);
 
+            // Use symbol-capable font so the checkmark glyph (U+2713) actually renders
+            // (Arial Black has no glyph for it and shows a tofu square).
+            g.setFont(FontPalette.getSymbol(Font.BOLD, 16));
             String status = "\u2713 DEFEATED";
 
             fm = g.getFontMetrics();
@@ -11526,73 +11529,159 @@ public class Renderer {
      * Shows best times for all 28 levels across difficulty tabs.
      */
     public void drawLeaderboardView(Graphics2D g, int width, int height, double time,
-            LeaderboardManager lbManager, int selectedDifficulty, double scrollOffset) {
+            LeaderboardManager lbManager, int selectedDifficulty, double scrollOffset,
+            int viewTab, int globalLevel, interfaces.LeaderboardEntry[] globalEntries, boolean steamAvailable) {
         
         // Military themed background
         UITheme.drawScreenBackground(g, width, height, time);
         
         // Title
-        UITheme.drawTitle(g, "LEADERBOARD", width, UIScale.px(55),
+        UITheme.drawTitle(g, "LEADERBOARD", width, UIScale.px(48),
             ColorPalette.ACCENT_CYAN, new Color(180, 200, 220), time, FONT_TITLE_MEDIUM);
         
-        // Difficulty tabs
         GameMode[] modes = GameMode.values();
-        int tabWidth = UIScale.px(180);
+        // Local mode shows only the 4 base game-mode tabs; Global mode appends a virtual ENDLESS tab.
+        int tabCount = (viewTab == 1) ? modes.length + 1 : modes.length;
+        boolean isEndlessTab = (viewTab == 1) && (selectedDifficulty >= modes.length);
+        // Clamp safety
+        if (selectedDifficulty < 0) selectedDifficulty = 0;
+        if (selectedDifficulty >= tabCount) selectedDifficulty = tabCount - 1;
+
+        // --- Local/Global source toggle row (segmented pill above the difficulty tabs) ---
+        int toggleY = UIScale.px(110);
+        int togglePillW = UIScale.px(140);
+        int togglePillH = UIScale.px(30);
+        int togglePillGap = UIScale.px(16);
+        int toggleTotalW = togglePillW * 2 + togglePillGap;
+        int toggleStartX = (width - toggleTotalW) / 2;
+        Font toggleFont = FontPalette.get(java.awt.Font.BOLD, 13);
+        g.setFont(toggleFont);
+        FontMetrics tgFm = g.getFontMetrics();
+        String[] toggleLabels = { "LOCAL", "GLOBAL" };
+        for (int i = 0; i < 2; i++) {
+            int px = toggleStartX + i * (togglePillW + togglePillGap);
+            boolean active = (i == viewTab);
+            boolean disabled = (i == 1 && !steamAvailable);
+            Color base = disabled ? new Color(80, 80, 90) : (i == 0 ? ColorPalette.ACCENT_CYAN : ColorPalette.TEXT_GOLD);
+            if (active) {
+                g.setColor(ColorPalette.withAlpha(base, 170));
+                g.fillRoundRect(px, toggleY, togglePillW, togglePillH, togglePillH, togglePillH);
+                g.setStroke(RenderCache.getStroke(2));
+                g.setColor(base);
+                g.drawRoundRect(px, toggleY, togglePillW, togglePillH, togglePillH, togglePillH);
+            } else {
+                g.setColor(new Color(20, 25, 38, 200));
+                g.fillRoundRect(px, toggleY, togglePillW, togglePillH, togglePillH, togglePillH);
+                g.setStroke(RenderCache.getStroke(1));
+                g.setColor(ColorPalette.withAlpha(base, disabled ? 50 : 100));
+                g.drawRoundRect(px, toggleY, togglePillW, togglePillH, togglePillH, togglePillH);
+            }
+            String label = toggleLabels[i];
+            int lw = tgFm.stringWidth(label);
+            g.setColor(active ? Color.WHITE : (disabled ? new Color(120, 120, 130) : ColorPalette.TEXT_DIM));
+            g.drawString(label, px + (togglePillW - lw) / 2, toggleY + togglePillH / 2 + tgFm.getAscent() / 2 - 1);
+        }
+        // Small "(Steam offline)" hint below the Global pill when applicable
+        if (!steamAvailable) {
+            g.setFont(FONT_SMALL);
+            FontMetrics offFm = g.getFontMetrics();
+            String off = "(Steam offline)";
+            int offX = toggleStartX + togglePillW + togglePillGap + (togglePillW - offFm.stringWidth(off)) / 2;
+            g.setColor(new Color(150, 110, 110));
+            g.drawString(off, offX, toggleY + togglePillH + UIScale.px(12));
+        }
+        // [TAB] hint to the right of the segmented pill, with breathing room
+        g.setFont(FONT_SMALL);
+        FontMetrics tabHintFm = g.getFontMetrics();
+        g.setColor(ColorPalette.TEXT_DIM);
+        g.drawString("[TAB]", toggleStartX + toggleTotalW + UIScale.px(20),
+                     toggleY + togglePillH / 2 + tabHintFm.getAscent() / 2 - 1);
+
+        // --- Difficulty tabs ---
+        // Shrink tabs slightly when the extra ENDLESS tab is shown so the row stays compact.
+        int tabWidth = (tabCount >= 5) ? UIScale.px(132) : UIScale.px(160);
         int tabHeight = UIScale.px(38);
         int tabGap = UIScale.px(12);
-        int totalTabsWidth = modes.length * tabWidth + (modes.length - 1) * tabGap;
+        int totalTabsWidth = tabCount * tabWidth + (tabCount - 1) * tabGap;
         int tabStartX = (width - totalTabsWidth) / 2;
-        int tabY = UIScale.px(100);
+        int tabY = toggleY + togglePillH + UIScale.px(28);
         
-        Font tabFont = FontPalette.get(java.awt.Font.BOLD, 16);
+        Font tabFont = FontPalette.get(java.awt.Font.BOLD, tabCount >= 5 ? 13 : 15);
         g.setFont(tabFont);
         
-        for (int i = 0; i < modes.length; i++) {
+        for (int i = 0; i < tabCount; i++) {
             int tx = tabStartX + i * (tabWidth + tabGap);
             boolean selected = (i == selectedDifficulty);
+            boolean isEndless = (i >= modes.length);
+            Color tabColor = isEndless ? ColorPalette.TEXT_GOLD : modes[i].getColor();
             
-            // Tab background
             if (selected) {
-                // Active tab — filled with mode color
-                g.setColor(ColorPalette.withAlpha(modes[i].getColor(), 180));
+                g.setColor(ColorPalette.withAlpha(tabColor, 180));
                 g.fillRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
-                // Glow border
                 g.setStroke(RenderCache.getStroke(2));
-                g.setColor(modes[i].getColor());
+                g.setColor(tabColor);
                 g.drawRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
             } else {
-                // Inactive tab — dark, dimmed
                 g.setColor(new Color(30, 35, 50, 200));
                 g.fillRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
                 g.setStroke(RenderCache.getStroke(1));
-                g.setColor(ColorPalette.withAlpha(modes[i].getColor(), 80));
+                g.setColor(ColorPalette.withAlpha(tabColor, 80));
                 g.drawRoundRect(tx, tabY, tabWidth, tabHeight, UIScale.px(8), UIScale.px(8));
             }
             
-            // Tab text
             FontMetrics tfm = g.getFontMetrics();
-            String tabLabel = modes[i].getDisplayName().replace(" Mode", "").toUpperCase();
+            String tabLabel = isEndless ? "ENDLESS" : modes[i].getDisplayName().replace(" Mode", "").toUpperCase();
             int textW = tfm.stringWidth(tabLabel);
             g.setColor(selected ? Color.WHITE : ColorPalette.TEXT_DIM);
             g.drawString(tabLabel, tx + (tabWidth - textW) / 2, tabY + tabHeight / 2 + tfm.getAscent() / 2 - 1);
         }
         
-        // Arrow hints on tabs — show key/controller icons
         int arrowIconY = tabY + tabHeight / 2;
         if (selectedDifficulty > 0) {
             drawSingleActionIcon(g, tabStartX - UIScale.px(18), arrowIconY, KeyBindManager.Action.MOVE_LEFT);
         }
-        if (selectedDifficulty < modes.length - 1) {
+        if (selectedDifficulty < tabCount - 1) {
             drawSingleActionIcon(g, tabStartX + totalTabsWidth + UIScale.px(22), arrowIconY, KeyBindManager.Action.MOVE_RIGHT);
         }
         
-        // Completion count — styled as a pill badge below the tabs
-        GameMode selectedMode = modes[selectedDifficulty];
+        // --- Branch on view source ---
+        if (viewTab == 0) {
+            // ===== LOCAL =====
+            drawLeaderboardLocalList(g, width, height, modes[selectedDifficulty], lbManager, scrollOffset, tabY + tabHeight);
+        } else {
+            // ===== GLOBAL =====
+            drawLeaderboardGlobalList(g, width, height, isEndlessTab, selectedDifficulty, modes,
+                globalLevel, globalEntries, steamAvailable, tabY + tabHeight);
+        }
+
+        // Footer hint with key/controller icons
+        g.setFont(FONT_SMALL);
+        g.setColor(ColorPalette.TEXT_DIM);
+        if (viewTab == 1 && !isEndlessTab) {
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(20),
+                "", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT,
+                " Difficulty   ",
+                KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN,
+                " Level   [TAB] Local/Global   ",
+                KeyBindManager.Action.BACK, " Back");
+        } else {
+            drawPromptWithIcons(g, width / 2, height - UIScale.px(20),
+                "", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT,
+                " Switch Tab   ",
+                KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN,
+                " Scroll   [TAB] Local/Global   ",
+                KeyBindManager.Action.BACK, " Back");
+        }
+    }
+
+    /** Local 28-level list (existing behavior). */
+    private void drawLeaderboardLocalList(Graphics2D g, int width, int height, GameMode selectedMode,
+            LeaderboardManager lbManager, double scrollOffset, int contentTopY) {
+        // Completion pill
         int completedCount = 0;
         for (int lvl = 1; lvl <= LeaderboardManager.LEVEL_COUNT; lvl++) {
             if (lbManager.hasRecord(selectedMode, lvl)) completedCount++;
         }
-        
         boolean allCompleted = (completedCount == LeaderboardManager.LEVEL_COUNT);
         Font countFont = FontPalette.get(java.awt.Font.BOLD, 13);
         g.setFont(countFont);
@@ -11601,113 +11690,84 @@ public class Renderer {
         int pillW = countFm.stringWidth(countText) + UIScale.px(24);
         int pillH = UIScale.px(24);
         int pillX = (width - pillW) / 2;
-        int pillY = tabY + tabHeight + UIScale.px(10);
-        
-        // Pill background
+        int pillY = contentTopY + UIScale.px(10);
         Color pillColor = allCompleted ? ColorPalette.TEXT_GOLD : selectedMode.getColor();
         g.setColor(ColorPalette.withAlpha(pillColor, 40));
         g.fillRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
         g.setStroke(RenderCache.getStroke(1));
         g.setColor(ColorPalette.withAlpha(pillColor, 100));
         g.drawRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
-        
-        // Pill text
         g.setColor(allCompleted ? ColorPalette.TEXT_GOLD : ColorPalette.TEXT_PRIMARY);
         g.drawString(countText, pillX + UIScale.px(12), pillY + pillH / 2 + countFm.getAscent() / 2 - 1);
-        
-        // Level records list — scrollable area
+
         int listTop = pillY + pillH + UIScale.px(12);
         int listBottom = height - UIScale.px(50);
         int rowHeight = UIScale.px(42);
         int rowGap = UIScale.px(6);
         int listWidth = UIScale.px(700);
         int listX = (width - listWidth) / 2;
-        
-        // Clipping region for scroll
+
         java.awt.Shape oldClip = g.getClip();
         g.setClip(0, listTop, width, listBottom - listTop);
-        
-        // Column widths
-        int colLevel = UIScale.px(70);     // "Level XX"
-        int colTime = UIScale.px(140);     // "M:SS.cc"
-        int colSave = UIScale.px(180);     // Save name
-        int colDate = UIScale.px(180);     // Date
-        
-        // Header row (fixed, drawn above clip for visual, but inside clip for simplicity)
+
+        int colLevel = UIScale.px(70);
+        int colTime = UIScale.px(140);
+        int colSave = UIScale.px(180);
+
         int headerY = listTop - (int)scrollOffset;
-        
-        // Draw header background
         g.setColor(new Color(25, 30, 45, 220));
         g.fillRoundRect(listX, headerY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
         g.setStroke(RenderCache.getStroke(1));
         g.setColor(ColorPalette.BORDER_STEEL);
         g.drawRoundRect(listX, headerY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
-        
+
         Font headerFont = FontPalette.get(java.awt.Font.BOLD, 14);
         g.setFont(headerFont);
         g.setColor(ColorPalette.TEXT_DIM);
         FontMetrics hfm = g.getFontMetrics();
         int hTextY = headerY + rowHeight / 2 + hfm.getAscent() / 2 - 1;
-        
         int cx = listX + UIScale.px(15);
-        g.drawString("LEVEL", cx, hTextY);
-        cx += colLevel;
-        g.drawString("BEST TIME", cx, hTextY);
-        cx += colTime;
-        g.drawString("SAVE", cx, hTextY);
-        cx += colSave;
+        g.drawString("LEVEL", cx, hTextY); cx += colLevel;
+        g.drawString("BEST TIME", cx, hTextY); cx += colTime;
+        g.drawString("SAVE", cx, hTextY); cx += colSave;
         g.drawString("DATE", cx, hTextY);
-        
-        // Data rows
+
         Font rowFont = FontPalette.get(java.awt.Font.PLAIN, 15);
         Font timeFont = FontPalette.get(java.awt.Font.BOLD, 16);
         java.text.SimpleDateFormat dateFmt = new java.text.SimpleDateFormat("MMM dd, yyyy");
-        
+
         for (int lvl = 1; lvl <= LeaderboardManager.LEVEL_COUNT; lvl++) {
             int rowY = headerY + (rowHeight + rowGap) * lvl;
-            
-            // Skip if not visible
             if (rowY + rowHeight < listTop || rowY > listBottom) continue;
-            
+
             LeaderboardRecord record = lbManager.getRecord(selectedMode, lvl);
             boolean hasRecord = (record != null);
-            
-            // Row background — alternating with subtle mode color tint
             if (hasRecord) {
                 g.setColor(ColorPalette.withAlpha(selectedMode.getColor(), lvl % 2 == 0 ? 20 : 30));
             } else {
                 g.setColor(new Color(20, 22, 32, lvl % 2 == 0 ? 160 : 180));
             }
             g.fillRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
-            
-            // Subtle border for records
             if (hasRecord) {
                 g.setStroke(RenderCache.getStroke(1));
                 g.setColor(ColorPalette.withAlpha(selectedMode.getColor(), 60));
                 g.drawRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
             }
-            
             int textY = rowY + rowHeight / 2;
             cx = listX + UIScale.px(15);
-            
-            // Level number
             g.setFont(rowFont);
             FontMetrics rfm = g.getFontMetrics();
             int rTextY = textY + rfm.getAscent() / 2 - 1;
             g.setColor(hasRecord ? ColorPalette.TEXT_PRIMARY : ColorPalette.TEXT_DIM);
             g.drawString("Level " + lvl, cx, rTextY);
             cx += colLevel;
-            
             if (hasRecord) {
-                // Best time
                 g.setFont(timeFont);
                 FontMetrics timeFm = g.getFontMetrics();
                 int tTextY = textY + timeFm.getAscent() / 2 - 1;
                 g.setColor(ColorPalette.TEXT_GOLD);
                 g.drawString(record.formatTime(), cx, tTextY);
                 cx += colTime;
-                
-                // Save name
                 g.setFont(rowFont);
                 rfm = g.getFontMetrics();
                 rTextY = textY + rfm.getAscent() / 2 - 1;
@@ -11716,28 +11776,21 @@ public class Renderer {
                 if (saveName != null && saveName.length() > 16) saveName = saveName.substring(0, 15) + "\u2026";
                 g.drawString(saveName != null ? saveName : "???", cx, rTextY);
                 cx += colSave;
-                
-                // Date
                 g.setColor(ColorPalette.TEXT_DIM);
                 String dateStr = dateFmt.format(new java.util.Date(record.getTimestamp()));
                 g.drawString(dateStr, cx, rTextY);
             } else {
-                // No record placeholders
                 g.setFont(rowFont);
                 FontMetrics rfm2 = g.getFontMetrics();
                 int rTextY2 = textY + rfm2.getAscent() / 2 - 1;
                 g.setColor(new Color(60, 65, 80));
-                g.drawString("--:--.--", cx, rTextY2);
-                cx += colTime;
-                g.drawString("-", cx, rTextY2);
-                cx += colSave;
+                g.drawString("--:--.--", cx, rTextY2); cx += colTime;
+                g.drawString("-", cx, rTextY2); cx += colSave;
                 g.drawString("-", cx, rTextY2);
             }
         }
-        
         g.setClip(oldClip);
-        
-        // Scroll indicators (fade edges)
+
         if (scrollOffset > 0) {
             java.awt.GradientPaint fadeTop = new java.awt.GradientPaint(
                 0, listTop, new Color(10, 10, 20, 200),
@@ -11753,16 +11806,155 @@ public class Renderer {
             g.setPaint(fadeBottom);
             g.fillRect(0, listBottom - UIScale.px(30), width, UIScale.px(30));
         }
-        
-        // Footer hint with key/controller icons
-        g.setFont(FONT_SMALL);
+    }
+
+    /** Global Steam top-10 list for the currently selected board. */
+    private void drawLeaderboardGlobalList(Graphics2D g, int width, int height, boolean isEndless,
+            int selectedDifficulty, GameMode[] modes, int globalLevel,
+            interfaces.LeaderboardEntry[] entries, boolean steamAvailable, int contentTopY) {
+
+        Color accent = isEndless ? ColorPalette.TEXT_GOLD : modes[selectedDifficulty].getColor();
+
+        // Board title pill (e.g. "Level 12" or "Endless")
+        Font headFont = FontPalette.get(java.awt.Font.BOLD, 15);
+        g.setFont(headFont);
+        FontMetrics hfm = g.getFontMetrics();
+        String title = isEndless ? "ENDLESS \u2014 Total Levels Cleared"
+                                 : ("LEVEL " + globalLevel);
+        int pillW = hfm.stringWidth(title) + UIScale.px(40);
+        int pillH = UIScale.px(28);
+        int pillX = (width - pillW) / 2;
+        int pillY = contentTopY + UIScale.px(12);
+        g.setColor(ColorPalette.withAlpha(accent, 60));
+        g.fillRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
+        g.setStroke(RenderCache.getStroke(1));
+        g.setColor(ColorPalette.withAlpha(accent, 140));
+        g.drawRoundRect(pillX, pillY, pillW, pillH, pillH, pillH);
+        g.setColor(Color.WHITE);
+        g.drawString(title, pillX + (pillW - hfm.stringWidth(title)) / 2,
+                     pillY + pillH / 2 + hfm.getAscent() / 2 - 1);
+
+        // Level selector hint arrows (only for per-level boards)
+        if (!isEndless) {
+            int aY = pillY + pillH / 2;
+            if (globalLevel > 1) {
+                drawSingleActionIcon(g, pillX - UIScale.px(22), aY, KeyBindManager.Action.MOVE_UP);
+            }
+            if (globalLevel < LeaderboardManager.LEVEL_COUNT) {
+                drawSingleActionIcon(g, pillX + pillW + UIScale.px(22), aY, KeyBindManager.Action.MOVE_DOWN);
+            }
+        }
+
+        // List area: top-10 entries
+        int listTop = pillY + pillH + UIScale.px(16);
+        int listBottom = height - UIScale.px(50);
+        int rowHeight = UIScale.px(36);
+        int rowGap = UIScale.px(5);
+        int listWidth = UIScale.px(620);
+        int listX = (width - listWidth) / 2;
+
+        int colRank = UIScale.px(70);
+        int colName = UIScale.px(340);
+
+        // Header
+        g.setColor(new Color(25, 30, 45, 220));
+        g.fillRoundRect(listX, listTop, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+        g.setStroke(RenderCache.getStroke(1));
+        g.setColor(ColorPalette.BORDER_STEEL);
+        g.drawRoundRect(listX, listTop, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+        g.setFont(FontPalette.get(java.awt.Font.BOLD, 14));
         g.setColor(ColorPalette.TEXT_DIM);
-        drawPromptWithIcons(g, width / 2, height - UIScale.px(20),
-            "", KeyBindManager.Action.MOVE_LEFT, "/", KeyBindManager.Action.MOVE_RIGHT,
-            " Switch Difficulty   ",
-            KeyBindManager.Action.MOVE_UP, "/", KeyBindManager.Action.MOVE_DOWN,
-            " Scroll   ",
-            KeyBindManager.Action.BACK, " Back");
+        FontMetrics chfm = g.getFontMetrics();
+        int hY = listTop + rowHeight / 2 + chfm.getAscent() / 2 - 1;
+        int cx = listX + UIScale.px(15);
+        g.drawString("RANK", cx, hY); cx += colRank;
+        g.drawString("PLAYER", cx, hY); cx += colName;
+        g.drawString(isEndless ? "LEVELS" : "TIME", cx, hY);
+
+        // Status messaging
+        if (!steamAvailable) {
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, 18));
+            g.setColor(ColorPalette.TEXT_DIM);
+            String msg = "Steam not available";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(msg, (width - fm.stringWidth(msg)) / 2, listTop + rowHeight + UIScale.px(60));
+            g.setFont(FONT_SMALL);
+            String msg2 = "Launch the game through Steam to view global leaderboards.";
+            FontMetrics fm2 = g.getFontMetrics();
+            g.drawString(msg2, (width - fm2.stringWidth(msg2)) / 2, listTop + rowHeight + UIScale.px(90));
+            return;
+        }
+        if (entries == null) {
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, 18));
+            g.setColor(ColorPalette.TEXT_DIM);
+            String msg = "Loading\u2026";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(msg, (width - fm.stringWidth(msg)) / 2, listTop + rowHeight + UIScale.px(60));
+            return;
+        }
+        if (entries.length == 0) {
+            g.setFont(FontPalette.get(java.awt.Font.BOLD, 16));
+            g.setColor(ColorPalette.TEXT_DIM);
+            String msg = "No entries yet \u2014 be the first!";
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(msg, (width - fm.stringWidth(msg)) / 2, listTop + rowHeight + UIScale.px(60));
+            return;
+        }
+
+        // Data rows
+        Font rowFont = FontPalette.get(java.awt.Font.PLAIN, 15);
+        Font scoreFont = FontPalette.get(java.awt.Font.BOLD, 16);
+        for (int i = 0; i < entries.length; i++) {
+            interfaces.LeaderboardEntry e = entries[i];
+            int rowY = listTop + (rowHeight + rowGap) * (i + 1);
+            if (rowY + rowHeight > listBottom) break;
+
+            // Row background — first three places get a subtle medal-tone glow
+            Color rowBg;
+            if (i == 0)      rowBg = new Color(180, 150, 40, 70);   // gold
+            else if (i == 1) rowBg = new Color(160, 160, 170, 50);  // silver
+            else if (i == 2) rowBg = new Color(170, 110, 60, 50);   // bronze
+            else             rowBg = ColorPalette.withAlpha(accent, i % 2 == 0 ? 18 : 28);
+            g.setColor(rowBg);
+            g.fillRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+            g.setStroke(RenderCache.getStroke(1));
+            g.setColor(ColorPalette.withAlpha(accent, 60));
+            g.drawRoundRect(listX, rowY, listWidth, rowHeight, UIScale.px(6), UIScale.px(6));
+
+            int textY = rowY + rowHeight / 2;
+            cx = listX + UIScale.px(15);
+
+            // Rank
+            g.setFont(scoreFont);
+            FontMetrics sfm = g.getFontMetrics();
+            int sTextY = textY + sfm.getAscent() / 2 - 1;
+            Color rankColor = (i == 0) ? new Color(255, 215, 80)
+                            : (i == 1) ? new Color(220, 220, 230)
+                            : (i == 2) ? new Color(220, 150, 90)
+                            : ColorPalette.TEXT_PRIMARY;
+            g.setColor(rankColor);
+            g.drawString("#" + (e.getRank() > 0 ? e.getRank() : (i + 1)), cx, sTextY);
+            cx += colRank;
+
+            // Player name
+            g.setFont(rowFont);
+            FontMetrics rfm = g.getFontMetrics();
+            int rTextY = textY + rfm.getAscent() / 2 - 1;
+            g.setColor(ColorPalette.TEXT_PRIMARY);
+            String name = e.getPlayerName();
+            if (name == null) name = "?";
+            if (name.length() > 28) name = name.substring(0, 27) + "\u2026";
+            g.drawString(name, cx, rTextY);
+            cx += colName;
+
+            // Score (time or level count)
+            g.setFont(scoreFont);
+            g.setColor(ColorPalette.TEXT_GOLD);
+            String scoreText = isEndless
+                ? String.valueOf(e.getScore())
+                : LeaderboardRecord.formatTimeMs(e.getScore());
+            g.drawString(scoreText, cx, sTextY);
+        }
     }
 
     public void drawSettings(Graphics2D g, int width, int height, int selectedItem, double time, double scrollOffset, int selectedCategory, GameData gameData) {

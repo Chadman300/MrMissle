@@ -1,3 +1,4 @@
+import interfaces.AchievementProvider;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -7,12 +8,25 @@ public class AchievementManager {
     private List<Achievement> achievements;
     private Map<String, Achievement> achievementMap;
     private List<Achievement> recentlyUnlocked;
-    
+
+    /** Optional external backend (e.g. Steam). Null = local only. */
+    private AchievementProvider provider;
+
     public AchievementManager() {
         achievements = new ArrayList<>();
         achievementMap = new HashMap<>();
         recentlyUnlocked = new ArrayList<>();
         initializeAchievements();
+    }
+
+    /** Set an external achievement provider (e.g. Steam). */
+    public void setProvider(AchievementProvider provider) {
+        this.provider = provider;
+    }
+
+    /** True if an external provider is wired up and ready. */
+    public boolean hasExternalProvider() {
+        return provider != null && provider.isReady();
     }
     
     private void initializeAchievements() {
@@ -146,6 +160,8 @@ public class AchievementManager {
     
     /**
      * Record any recently unlocked achievements into the global save data.
+     * Also notifies the external provider (e.g. Steam) on the FIRST global unlock,
+     * so replays on other saves never double-fire.
      * Returns true if the global data was modified (needs saving).
      */
     public boolean recordGlobalUnlocks(List<Achievement> newlyUnlocked, GlobalSaveData globalData) {
@@ -154,8 +170,30 @@ public class AchievementManager {
         for (Achievement achievement : newlyUnlocked) {
             if (globalData.recordAchievement(achievement.getId())) {
                 changed = true;
+                if (provider != null && provider.isReady()) {
+                    provider.unlock(achievement.getId());
+                }
             }
         }
         return changed;
+    }
+
+    /**
+     * One-time bulk push of every previously-unlocked global achievement to the
+     * external provider. Call exactly once per machine after Steam first connects
+     * (gated by GlobalSaveData.steamSynced).
+     * Returns the number of unlocks pushed.
+     */
+    public int bulkSyncToProvider(GlobalSaveData globalData) {
+        if (provider == null || !provider.isReady() || globalData == null
+                || globalData.globalUnlockedAchievements == null) return 0;
+        int pushed = 0;
+        for (String id : globalData.globalUnlockedAchievements) {
+            if (!provider.isUnlocked(id)) {
+                provider.unlock(id);
+                pushed++;
+            }
+        }
+        return pushed;
     }
 }

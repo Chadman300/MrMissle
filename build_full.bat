@@ -13,13 +13,22 @@ set BUILD_DIR=build\full
 set OUTPUT_DIR=build\output\MissileMan
 set CLASSPATH=%LIB_DIR%\flatlaf-3.2.5.jar;%LIB_DIR%\jinput.jar
 
+:: Optional Steam integration: only compiled when steamworks4j jar is present.
+:: Drop e.g. steamworks4j-1.9.0.jar into lib/ to enable.
+set STEAM_SOURCES=
+for %%F in ("%LIB_DIR%\steamworks4j*.jar") do (
+    set CLASSPATH=!CLASSPATH!;%%F
+    set STEAM_SOURCES=%SRC_DIR%\steam\*.java
+    echo Found steamworks4j: %%F
+)
+
 :: Clean previous build
 if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
 mkdir "%BUILD_DIR%\classes"
 
 :: Step 1: Compile
 echo [1/4] Compiling...
-javac -d "%BUILD_DIR%\classes" -cp "%CLASSPATH%" "%SRC_DIR%\*.java"
+javac -d "%BUILD_DIR%\classes" -cp "%CLASSPATH%" "%SRC_DIR%\*.java" %STEAM_SOURCES%
 if errorlevel 1 (
     echo ERROR: Compilation failed!
     pause

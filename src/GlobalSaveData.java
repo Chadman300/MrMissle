@@ -25,6 +25,10 @@ public class GlobalSaveData implements Serializable {
     // Persists across ALL save slots and survives save deletion — truly all-time records
     public LeaderboardRecord[][] leaderboardRecords;
 
+    // Set true once we've pushed pre-existing globalUnlockedAchievements to Steam.
+    // Prevents re-spamming Steam toasts on every launch after integration shipped.
+    public boolean steamSynced;
+
     public long saveTimestamp;
 
     public GlobalSaveData() {
